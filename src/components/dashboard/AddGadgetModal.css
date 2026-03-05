@@ -1,0 +1,147 @@
+/* Add Gadget Modal */
+
+.add-gadget-modal {
+  width: min(680px, 100%);
+}
+
+.add-gadget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.add-gadget-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.add-gadget-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 10px;
+  border: 1px solid var(--jira-border);
+  border-radius: 6px;
+  background: var(--jira-surface);
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  text-align: center;
+}
+
+.add-gadget-card:hover {
+  border-color: #4c9aff;
+  box-shadow: 0 2px 8px rgba(0, 82, 204, 0.12);
+}
+
+.add-gadget-card-info strong {
+  display: block;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text);
+  margin-bottom: 4px;
+}
+
+.add-gadget-card-info p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+/* Mini previews */
+.mini-preview {
+  width: 64px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-pie,
+.mini-donut {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  position: relative;
+}
+
+.mini-donut-hole {
+  position: absolute;
+  inset: 10px;
+  border-radius: 999px;
+  background: var(--jira-surface);
+}
+
+.mini-preview--bar {
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 4px;
+}
+
+.mini-bar {
+  height: 8px;
+  border-radius: 2px;
+  min-width: 10px;
+}
+
+.mini-preview--table {
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 4px 8px;
+}
+
+.mini-table-row {
+  height: 6px;
+  background: #dfe1e6;
+  border-radius: 2px;
+}
+
+.mini-table-head {
+  background: #8993a4;
+}
+
+.mini-preview--activity {
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+.mini-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.mini-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #deebff;
+  flex-shrink: 0;
+}
+
+.mini-line {
+  height: 5px;
+  flex: 1;
+  background: #dfe1e6;
+  border-radius: 2px;
+}
+
+.mini-burndown-svg {
+  width: 60px;
+  height: 40px;
+}
+
+@media (max-width: 600px) {
+  .add-gadget-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

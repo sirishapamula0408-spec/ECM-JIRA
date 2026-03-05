@@ -1,0 +1,572 @@
+/* WorkflowsPage (List view) styles */
+
+.jira-list-page {
+  --list-bg: #f4f5f7;
+  --list-surface: #ffffff;
+  --list-border: #dfe1e6;
+  --list-text: #172b4d;
+  --list-subtle: #6b778c;
+  --list-chip-bg: #dfe1e6;
+  --list-focus: #4c9aff;
+  --list-row-hover: #fafbfc;
+  --list-thumb: rgba(9, 30, 66, 0.45);
+  background: var(--list-bg);
+  padding: 12px 8px 16px;
+}
+
+.jira-list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.jira-list-toolbar-left,
+.jira-list-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jira-list-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.jira-list-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--list-subtle);
+  display: inline-flex;
+}
+
+.jira-list-search input {
+  width: 190px;
+  height: 32px;
+  border: 1px solid var(--list-border);
+  background: var(--list-surface);
+  border-radius: 4px;
+  padding: 0 10px 0 30px;
+  font-size: var(--font-size-base);
+  color: var(--list-text);
+}
+
+.jira-list-search input:focus,
+.jira-list-select:focus {
+  outline: none;
+  border-color: var(--list-focus);
+  box-shadow: 0 0 0 1px var(--list-focus);
+}
+
+.jira-list-presence {
+  display: inline-flex;
+  margin-left: 2px;
+}
+
+.jira-list-presence span {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  font-weight: var(--font-weight-bold);
+  border: 1px solid #ffffff;
+  margin-left: -6px;
+}
+
+.jira-list-presence span:first-child {
+  margin-left: 0;
+  background: #00875a;
+}
+
+.jira-list-presence span:last-child {
+  background: #0065ff;
+}
+
+.jira-list-select,
+.jira-list-icon-btn {
+  height: 32px;
+  border: 1px solid var(--list-border);
+  background: var(--list-surface);
+  border-radius: 4px;
+  color: var(--list-text);
+  font-size: var(--font-size-base);
+}
+
+.jira-list-select {
+  min-width: 102px;
+  padding: 0 10px;
+}
+
+.jira-list-icon-btn {
+  width: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--list-subtle);
+}
+
+.jira-list-icon-btn:hover,
+.jira-list-select:hover {
+  background: #f7f8f9;
+}
+
+.jira-list-table-shell {
+  border: 1px solid var(--list-border);
+  border-radius: 8px;
+  background: var(--list-surface);
+  overflow: hidden;
+}
+
+.jira-list-table-scroll {
+  overflow-x: auto;
+}
+
+.jira-list-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.jira-list-table th,
+.jira-list-table td {
+  border-right: 1px solid var(--list-border);
+  border-bottom: 1px solid var(--list-border);
+  height: 40px;
+  padding: 0 10px;
+  vertical-align: middle;
+  text-align: left;
+  color: var(--list-text);
+  font-size: var(--font-size-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jira-list-table th:last-child,
+.jira-list-table td:last-child {
+  border-right: none;
+}
+
+.jira-list-table thead th {
+  height: 42px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  background: #fafbfc;
+  position: relative;
+  user-select: none;
+}
+
+/* Column drag-and-drop */
+.jira-list-table thead th[draggable="true"] {
+  cursor: grab;
+}
+
+.jira-list-table thead th[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.col-header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.col-drag-handle {
+  opacity: 0;
+  color: var(--list-subtle);
+  flex-shrink: 0;
+  transition: opacity 140ms ease;
+}
+
+.jira-list-table thead th[draggable="true"]:hover .col-drag-handle {
+  opacity: 0.5;
+}
+
+.jira-list-table thead th.col-dragging {
+  opacity: 0.4;
+}
+
+.jira-list-table thead th.col-drag-over::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #0052cc;
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.jira-list-table td.col-dragging {
+  opacity: 0.4;
+  background: #f4f5f7;
+}
+
+/* Column resize */
+.col-resize-handle {
+  position: absolute;
+  right: -1px;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 3;
+}
+
+.col-resize-handle::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: transparent;
+  transition: background 140ms ease;
+}
+
+.col-resize-handle:hover::after {
+  background: #0052cc;
+}
+
+body.col-resizing,
+body.col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.jira-list-table .col-check { width: 46px; }
+.jira-list-table .col-type { width: 90px; }
+.jira-list-table .col-key { width: 110px; }
+.jira-list-table .col-status { width: 120px; }
+.jira-list-table .col-comments { width: 140px; }
+.jira-list-table .col-sprint { width: 110px; }
+
+.jira-list-table .col-plus {
+  width: 36px;
+  text-align: center;
+  font-size: var(--font-size-xxl);
+  color: var(--list-subtle);
+  position: relative;
+  overflow: visible;
+}
+
+/* Column add menu */
+.jira-list-col-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.jira-list-col-menu-trigger {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  color: var(--list-subtle);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+
+.jira-list-col-menu-trigger:hover {
+  background: #ebecf0;
+  color: var(--list-text);
+}
+
+.jira-list-col-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  background: var(--list-surface);
+  border: 1px solid var(--list-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
+  min-width: 180px;
+  padding: 6px 0;
+}
+
+.jira-list-col-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 7px 14px;
+  font-size: var(--font-size-base);
+  color: var(--list-text);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.jira-list-col-menu-item:hover {
+  background: #f4f5f7;
+}
+
+.jira-list-col-menu-item.active {
+  font-weight: var(--font-weight-semibold);
+}
+
+.jira-list-col-check {
+  width: 16px;
+  text-align: center;
+  color: #0052cc;
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+}
+
+.jira-list-extra-cell {
+  color: var(--list-subtle);
+  font-size: var(--font-size-base);
+}
+
+.jira-list-table tbody tr:hover {
+  background: var(--list-row-hover);
+}
+
+.jira-list-table tbody tr.row-selected {
+  background: #ebf2ff;
+}
+
+.jira-list-group-row td {
+  height: 32px;
+  background: #f7f8fa;
+  font-size: var(--font-size-sm);
+  color: var(--list-subtle);
+}
+
+.jira-list-group-row strong {
+  color: var(--list-text);
+}
+
+.jira-list-key,
+.jira-list-sprint {
+  color: var(--list-subtle);
+}
+
+.jira-list-key-link {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: #0052cc;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  text-align: left;
+}
+
+.jira-list-key-link:hover {
+  text-decoration: underline;
+  color: #0747a6;
+}
+
+.jira-list-summary-link {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--list-text);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  text-align: left;
+}
+
+.jira-list-summary-link:hover {
+  text-decoration: underline;
+  color: #0c66e4;
+}
+
+.list-type-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  display: inline-block;
+  position: relative;
+}
+
+.list-type-story {
+  border: 2px solid #5e9e31;
+}
+
+.list-type-bug::before {
+  content: '>';
+  color: #6b778c;
+  font-size: var(--font-size-base);
+  position: absolute;
+  left: 2px;
+  top: -2px;
+}
+
+.list-type-bug::after {
+  content: '';
+  width: 8px;
+  height: 10px;
+  border: 2px solid #5e9e31;
+  border-top: none;
+  border-radius: 0 0 2px 2px;
+  position: absolute;
+  right: -2px;
+  top: 2px;
+}
+
+.list-type-task {
+  border: 2px solid #0065ff;
+}
+
+.list-type-task::after {
+  content: '';
+  width: 6px;
+  height: 3px;
+  border-left: 2px solid #0065ff;
+  border-bottom: 2px solid #0065ff;
+  transform: rotate(-45deg);
+  position: absolute;
+  left: 3px;
+  top: 4px;
+}
+
+.jira-list-status-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--list-chip-bg);
+  padding: 0 6px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+}
+
+.jira-list-status-select {
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--list-chip-bg);
+  padding: 0 4px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  color: var(--list-text);
+  cursor: pointer;
+  appearance: auto;
+}
+
+.jira-list-status-select:hover {
+  border-color: var(--list-border);
+}
+
+.jira-list-status-select:focus {
+  outline: none;
+  border-color: var(--list-focus);
+  box-shadow: 0 0 0 1px var(--list-focus);
+}
+
+.jira-list-comment-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--list-subtle);
+}
+
+.jira-list-comment-count {
+  color: var(--list-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jira-list-comment-count i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #0c66e4;
+  display: inline-block;
+}
+
+.jira-list-scroll-track {
+  height: 18px;
+  padding: 3px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.jira-list-scroll-track span {
+  height: 10px;
+  width: 48%;
+  border-radius: 999px;
+  background: var(--list-thumb);
+  position: relative;
+}
+
+.jira-list-scroll-track span::before,
+.jira-list-scroll-track span::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transform: translateY(-50%);
+}
+
+.jira-list-scroll-track span::before {
+  left: -10px;
+  border-right: 6px solid var(--list-thumb);
+}
+
+.jira-list-scroll-track span::after {
+  right: -10px;
+  border-left: 6px solid var(--list-thumb);
+}
+
+/* Pagination */
+.jira-list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--list-border);
+}
+
+.jira-list-page-btn {
+  min-width: 72px;
+  font-size: var(--font-size-sm);
+}
+
+.jira-list-page-info {
+  font-size: var(--font-size-sm);
+  color: var(--list-subtle);
+  white-space: nowrap;
+}
+
+.jira-list-create {
+  height: 52px;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--list-border);
+  background: var(--list-surface);
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  color: #42526e;
+  cursor: pointer;
+}
+
+.jira-list-create:hover {
+  background: #fafbfc;
+}

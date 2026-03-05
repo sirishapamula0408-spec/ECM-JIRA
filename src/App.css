@@ -1,0 +1,26 @@
+/*
+ * DEPRECATED — This file is no longer imported.
+ *
+ * All styles have been split into modular CSS files:
+ *
+ *   src/styles/variables.css   – CSS custom properties (design tokens)
+ *   src/styles/theme.css       – Dark-theme overrides
+ *   src/styles/layout.css      – Workspace grid, .content, .page, responsive
+ *   src/styles/shared.css      – Buttons, pills, panels, tables, forms, modals, etc.
+ *
+ *   src/components/layout/Sidebar.css
+ *   src/components/layout/Topbar.css
+ *   src/components/layout/ProjectTopPanel.css
+ *
+ *   src/pages/LoginPage/LoginPage.css
+ *   src/pages/DashboardPage/DashboardPage.css
+ *   src/pages/BacklogPage/BacklogPage.css
+ *   src/pages/BoardPage/BoardPage.css
+ *   src/pages/ReportsPage/ReportsPage.css
+ *   src/pages/ProfilePage/ProfilePage.css
+ *   src/pages/IssueDetailPage/IssueDetailPage.css
+ *   src/pages/WorkflowsPage/WorkflowsPage.css
+ *
+ * Each component/page imports its own CSS file directly.
+ * Global styles (variables, theme, layout, shared) are imported in App.jsx.
+ */

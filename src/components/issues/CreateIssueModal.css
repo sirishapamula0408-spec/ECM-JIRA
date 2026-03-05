@@ -1,0 +1,280 @@
+/* CreateIssueModal — JIRA-style create dialog */
+
+.create-issue-modal {
+  width: min(680px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--jira-surface);
+  border: 1px solid var(--jira-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-issue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--jira-border);
+}
+
+.create-issue-header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--jira-text);
+}
+
+.create-issue-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: var(--jira-text-muted);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.create-issue-close:hover {
+  background: #ebecf0;
+  color: var(--jira-text);
+}
+
+.create-issue-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Issue type toggle buttons */
+.create-issue-type-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.create-issue-type-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 2px solid var(--jira-border);
+  border-radius: 6px;
+  background: var(--jira-surface);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--jira-text-muted);
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.create-issue-type-btn:hover {
+  background: #f4f5f7;
+}
+
+.create-issue-type-btn--active {
+  border-color: var(--jira-blue);
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
+  box-shadow: 0 0 0 1px var(--jira-blue);
+}
+
+.create-issue-type-btn--active:hover {
+  background: var(--jira-blue-soft);
+}
+
+.create-issue-type-icon {
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+/* Story = green, Bug = red, Task = blue */
+.create-issue-type-btn[data-type="Story"].create-issue-type-btn--active {
+  border-color: #36b37e;
+  background: #e3fcef;
+  color: #006644;
+  box-shadow: 0 0 0 1px #36b37e;
+}
+
+.create-issue-type-btn[data-type="Bug"].create-issue-type-btn--active {
+  border-color: #ff5630;
+  background: #ffebe6;
+  color: #bf2600;
+  box-shadow: 0 0 0 1px #ff5630;
+}
+
+.create-issue-type-btn[data-type="Task"].create-issue-type-btn--active {
+  border-color: #0065ff;
+  background: #deebff;
+  color: #0747a6;
+  box-shadow: 0 0 0 1px #0065ff;
+}
+
+/* Field wrapper */
+.create-issue-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.create-issue-field > label {
+  display: inline;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--jira-text-muted);
+}
+
+.create-issue-required {
+  color: #de350b;
+  margin-left: 2px;
+}
+
+/* Two-column row for paired fields */
+.create-issue-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .create-issue-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Reporter read-only display */
+.create-issue-reporter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  background: #f4f5f7;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text);
+}
+
+.create-issue-reporter-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--jira-blue);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+/* Priority dot indicator inside the select */
+.create-issue-priority-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.create-issue-priority-dot--high { background: var(--jira-danger); }
+.create-issue-priority-dot--medium { background: var(--jira-warning); }
+.create-issue-priority-dot--low { background: var(--jira-success); }
+
+/* Separator */
+.create-issue-separator {
+  border: none;
+  border-top: 1px solid var(--jira-border);
+  margin: 0;
+}
+
+/* Footer */
+.create-issue-footer {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--jira-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.create-issue-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.create-issue-footer-left input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--jira-blue);
+  cursor: pointer;
+}
+
+.create-issue-footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Success toast */
+.create-issue-success {
+  margin: 0 24px;
+  padding: 8px 12px;
+  border: 1px solid #abf5d1;
+  background: #e3fcef;
+  color: #006644;
+  border-radius: 4px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: create-issue-fade-in 200ms ease;
+}
+
+@keyframes create-issue-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Error inside modal */
+.create-issue-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #ffbdad;
+  background: #ffebe6;
+  color: #bf2600;
+  border-radius: 4px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+/* Disabled sprint field hint */
+.create-issue-field select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

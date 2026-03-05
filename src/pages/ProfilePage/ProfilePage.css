@@ -1,0 +1,117 @@
+/* ProfilePage styles */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.profile-page .subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+}
+
+.profile-header {
+  margin-bottom: 12px;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-top {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-avatar-panel p {
+  margin: 0 0 10px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+}
+
+.avatar-preview-wrap {
+  position: relative;
+  width: 112px;
+  margin-bottom: 8px;
+}
+
+.avatar-preview {
+  width: 112px;
+  height: 112px;
+  border-radius: 8px;
+  border: 1px solid var(--jira-border);
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #deebff;
+  color: #0052cc;
+  font-size: var(--font-size-xxl);
+  font-weight: var(--font-weight-bold);
+}
+
+.avatar-upload-btn {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  border-radius: 999px;
+  border: 1px solid var(--jira-border);
+  background: var(--jira-surface);
+  color: var(--jira-text);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.avatar-upload-btn input {
+  display: none;
+}
+
+.profile-avatar-panel small {
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+}
+
+.profile-form-panel {
+  display: flex;
+  align-items: center;
+}
+
+.profile-email-input {
+  background: var(--jira-bg-muted, #f4f5f7) !important;
+  color: var(--jira-text-muted) !important;
+  cursor: not-allowed;
+}
+
+.invite-btn {
+  border-color: #e9d8fd;
+  background: #f3e8ff;
+  color: #6d28d9;
+}
+
+.invite-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 180px auto;
+  gap: 8px;
+  margin: 10px 0;
+}

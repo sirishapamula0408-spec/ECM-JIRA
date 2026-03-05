@@ -1,0 +1,235 @@
+/* ProjectSettingsPage — Jira-style sidebar + content layout */
+
+.ps-layout {
+  display: flex;
+  min-height: calc(100vh - 56px);
+}
+
+/* ── Sidebar ── */
+.ps-sidebar {
+  width: 240px;
+  min-width: 240px;
+  border-right: 1px solid var(--jira-border);
+  background: var(--jira-surface);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ps-back-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.ps-back-link:hover {
+  background: #ebecf0;
+  color: var(--jira-text);
+}
+
+.ps-back-link svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Project identity block */
+.ps-project-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 6px;
+}
+
+.ps-project-avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.ps-project-meta {
+  min-width: 0;
+}
+
+.ps-project-meta strong {
+  display: block;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-project-meta span {
+  display: block;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+  color: var(--jira-text-muted);
+}
+
+.ps-sidebar-divider {
+  height: 1px;
+  background: var(--jira-border);
+  margin: 4px 0;
+}
+
+/* Nav section */
+.ps-sidebar-nav {
+  display: grid;
+  gap: 4px;
+}
+
+.ps-nav-link {
+  text-decoration: none;
+  color: var(--jira-text);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  transition: background 140ms ease, color 140ms ease;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.ps-nav-link:hover {
+  background: #ebecf0;
+}
+
+.ps-nav-link.active {
+  color: var(--jira-link);
+  background: var(--jira-blue-soft);
+}
+
+.ps-nav-link.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--jira-blue);
+}
+
+.ps-nav-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #42526e;
+  flex-shrink: 0;
+}
+
+.ps-nav-link.active .ps-nav-icon {
+  color: var(--jira-link);
+}
+
+/* ── Content area ── */
+.ps-content {
+  flex: 1;
+  padding: 24px 32px;
+  max-width: 720px;
+}
+
+.ps-content h1 {
+  margin: 0 0 20px;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ps-avatar-display {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.ps-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ps-form-grid label.ps-full-width {
+  grid-column: 1 / -1;
+}
+
+.ps-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ── Access tab ── */
+.ps-add-member-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.ps-add-member-row select:first-child {
+  flex: 1;
+}
+
+.ps-role-select {
+  width: 120px;
+}
+
+.ps-lead-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  background: var(--jira-blue-soft, #deebff);
+  color: var(--jira-blue, #0052cc);
+  padding: 1px 8px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.ps-remove-btn {
+  color: #de350b;
+  font-size: var(--font-size-sm, 12px);
+}
+
+.ps-remove-btn:hover {
+  background: #ffebe6;
+}

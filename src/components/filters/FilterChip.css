@@ -1,0 +1,163 @@
+/* ── FilterChip wrapper ─────────────────────────────────────────── */
+.filter-chip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ── Chip pill button ──────────────────────────────────────────── */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
+  background: #fff;
+  color: #42526e;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-base);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.filter-chip:hover {
+  background: #f4f5f7;
+}
+
+/* Active state (non-"All" value selected) */
+.filter-chip--active {
+  background: #deebff;
+  border-color: #4c9aff;
+  color: #0052cc;
+}
+
+.filter-chip--active:hover {
+  background: #cce0ff;
+}
+
+.filter-chip__label {
+  pointer-events: none;
+}
+
+/* ── Clear "x" button ──────────────────────────────────────────── */
+.filter-chip__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  margin-left: 2px;
+  color: #0052cc;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.filter-chip__clear:hover {
+  background: rgba(0, 82, 204, 0.15);
+}
+
+/* ── Chevron ───────────────────────────────────────────────────── */
+.filter-chip__chevron {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* ── Dropdown popover ──────────────────────────────────────────── */
+.filter-chip-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 200px;
+  max-width: 280px;
+  background: #fff;
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
+  box-shadow: 0 4px 8px -2px rgba(9, 30, 66, 0.25), 0 0 1px rgba(9, 30, 66, 0.31);
+  z-index: 100;
+}
+
+/* ── Search input ──────────────────────────────────────────────── */
+.filter-chip-dropdown__search {
+  position: relative;
+  padding: 8px;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.filter-chip-dropdown__search input {
+  width: 100%;
+  height: 32px;
+  border: 2px solid #4c9aff;
+  border-radius: 3px;
+  padding: 0 8px 0 30px;
+  font-size: var(--font-size-base);
+  color: #172b4d;
+  outline: none;
+}
+
+.filter-chip-dropdown__search input::placeholder {
+  color: #8993a4;
+}
+
+.filter-chip-dropdown__search-icon {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b778c;
+  pointer-events: none;
+}
+
+/* ── Option list ───────────────────────────────────────────────── */
+.filter-chip-dropdown__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.filter-chip-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: var(--font-size-base);
+  color: #172b4d;
+  cursor: pointer;
+}
+
+.filter-chip-dropdown__item:hover {
+  background: #f4f5f7;
+}
+
+.filter-chip-dropdown__item--selected {
+  background: #e9f2ff;
+}
+
+.filter-chip-dropdown__item--selected:hover {
+  background: #deebff;
+}
+
+.filter-chip-dropdown__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #0052cc;
+}
+
+.filter-chip-dropdown__empty {
+  padding: 12px;
+  font-size: var(--font-size-base);
+  color: #6b778c;
+  text-align: center;
+}

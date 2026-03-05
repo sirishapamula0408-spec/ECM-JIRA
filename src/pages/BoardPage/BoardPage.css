@@ -1,0 +1,204 @@
+/* BoardPage (Kanban) styles */
+
+.kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.board-jira-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.page .board-jira-title {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-xl) !important;
+  line-height: var(--line-height-xl) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  color: #172B4D !important;
+  letter-spacing: 0;
+  text-decoration: none;
+  opacity: 1;
+  user-select: none;
+}
+
+.board-jira-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-jira-action-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #5e6c84;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.board-jira-action-btn:hover {
+  background: #f4f5f7;
+  color: #172b4d;
+}
+
+.board-jira-action-btn-boxed {
+  border: 1px solid #dfe1e6;
+  background: #ffffff;
+}
+
+.board-menu-wrap {
+  position: relative;
+}
+
+.board-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 190px;
+  background: #ffffff;
+  border: 1px solid #dfe1e6;
+  border-radius: 6px;
+  box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
+  padding: 6px 0;
+}
+
+.board-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #172b4d;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  cursor: pointer;
+  position: relative;
+  padding-left: 34px;
+}
+
+.board-menu-item:hover {
+  background: #f4f5f7;
+}
+
+.board-menu-item-danger {
+  color: #de350b;
+}
+
+.board-menu-item-star::before,
+.board-menu-item-settings::before,
+.board-menu-item-delete::before {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: inherit;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.board-menu-item-star::before { content: "\2606"; }
+.board-menu-item-settings::before { content: "\2699"; }
+.board-menu-item-delete::before { content: "\1F5D1"; }
+
+.kanban-col {
+  background: #f1f2f4;
+  border: 1px solid var(--jira-border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.kanban-col-drop-active {
+  background: #e9f2ff;
+  border-color: #b3d4ff;
+}
+
+.kanban-col:hover {
+  background: #e6edf8;
+}
+
+.kanban-col header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.kanban-col header h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  text-transform: uppercase;
+  color: var(--jira-text-muted);
+  letter-spacing: 0.03em;
+}
+
+.kanban-col header span {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #dfe1e6;
+  color: var(--jira-text-muted);
+  display: grid;
+  place-items: center;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.card {
+  background: var(--jira-surface);
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 8px;
+  box-shadow: var(--jira-shadow);
+}
+
+.kanban-card-draggable {
+  cursor: grab;
+}
+
+.card:hover {
+  background: #f8fbff;
+  border-color: #c3d4f5;
+}
+
+.card h4 {
+  margin: 6px 0 4px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.card p {
+  margin: 0 0 8px;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.issue-link {
+  border: none;
+  background: transparent;
+  color: var(--jira-link);
+  padding: 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.issue-link:hover {
+  color: var(--jira-link-hover);
+  text-decoration: underline;
+}

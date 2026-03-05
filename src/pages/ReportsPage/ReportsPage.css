@@ -1,0 +1,102 @@
+/* ReportsPage styles */
+
+.chart-placeholder .fake-chart {
+  height: 220px;
+  border-radius: 4px;
+  border: 1px dashed var(--jira-border-strong);
+  color: var(--jira-text-muted);
+  display: grid;
+  place-items: center;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  background:
+    linear-gradient(to right, transparent 0 14%, #ebecf0 14% 14.4%, transparent 14.4% 100%),
+    linear-gradient(to top, #f4f5f7 0 18%, transparent 18% 100%);
+}
+
+.velocity-legend {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 10px;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.velocity-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.velocity-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.velocity-legend-dot.committed { background: #4c9aff; }
+.velocity-legend-dot.completed { background: #36b37e; }
+
+.velocity-chart {
+  height: 220px;
+  border: 1px dashed var(--jira-border-strong);
+  border-radius: 4px;
+  padding: 10px 12px 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 10px;
+  align-items: end;
+  background: linear-gradient(to top, #f4f5f7 0 18%, transparent 18% 100%);
+}
+
+.velocity-group {
+  min-width: 0;
+}
+
+.velocity-bars {
+  height: 170px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+
+.velocity-bar {
+  width: 18px;
+  border-radius: 5px 5px 0 0;
+  min-height: 6px;
+}
+
+.velocity-bar-committed { background: #4c9aff; }
+.velocity-bar-completed { background: #36b37e; }
+
+.velocity-group small {
+  margin-top: 6px;
+  display: block;
+  text-align: center;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.donut {
+  width: 160px;
+  height: 160px;
+  margin: 8px auto 12px;
+  border-radius: 999px;
+  background: conic-gradient(#de350b 0 15%, #ff991f 15% 40%, #0065ff 40% 80%, #dfe1e6 80% 100%);
+  position: relative;
+}
+
+.donut::after {
+  content: '';
+  position: absolute;
+  inset: 24px;
+  border-radius: 999px;
+  background: var(--jira-surface);
+}

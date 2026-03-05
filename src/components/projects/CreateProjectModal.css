@@ -1,0 +1,126 @@
+/* CreateProjectModal — JIRA-style create project dialog */
+
+.create-project-modal {
+  width: min(540px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--jira-surface);
+  border: 1px solid var(--jira-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-project-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--jira-border);
+}
+
+.create-project-header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--jira-text);
+}
+
+.create-project-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-md);
+  line-height: 1;
+  color: var(--jira-text-muted);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.create-project-close:hover {
+  background: #ebecf0;
+  color: var(--jira-text);
+}
+
+.create-project-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.create-project-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.create-project-field > label {
+  display: inline;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--jira-text-muted);
+}
+
+.create-project-required {
+  color: #de350b;
+  margin-left: 2px;
+}
+
+.create-project-hint {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+  color: var(--jira-text-muted);
+}
+
+.create-project-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .create-project-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.create-project-separator {
+  border: none;
+  border-top: 1px solid var(--jira-border);
+  margin: 0;
+}
+
+.create-project-footer {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--jira-border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.create-project-footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.create-project-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #ffbdad;
+  background: #ffebe6;
+  color: #bf2600;
+  border-radius: 4px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}

@@ -1,0 +1,389 @@
+/* ============================================================
+   Timeline Page — Atlassian JIRA-style Gantt Timeline
+   ============================================================ */
+
+.timeline-page {
+  padding: 0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 110px);
+}
+
+/* ---- Page header ---- */
+.tl-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--jira-border);
+  flex-shrink: 0;
+}
+
+.tl-page-header h1 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.tl-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tl-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tl-view-btn {
+  padding: 4px 12px;
+  border: none;
+  background: #ffffff;
+  color: #42526e;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.tl-view-btn:hover {
+  background: #f4f5f7;
+}
+
+.tl-view-btn.active {
+  background: #deebff;
+  color: #0052cc;
+  font-weight: var(--font-weight-semibold);
+}
+
+.tl-view-btn + .tl-view-btn {
+  border-left: 1px solid var(--jira-border);
+}
+
+/* ---- Main container ---- */
+.tl-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ---- Left panel (issue list) ---- */
+.tl-left {
+  width: 380px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--jira-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tl-left-header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 40px;
+  border-bottom: 1px solid var(--jira-border);
+  background: #fafbfc;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--jira-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.tl-left-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tl-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 44px;
+  border-bottom: 1px solid #f0f1f3;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.tl-row-left:hover {
+  background: #f4f5f7;
+}
+
+.tl-row-left--epic {
+  font-weight: var(--font-weight-semibold);
+  background: #fafbfc;
+}
+
+.tl-row-left--child {
+  padding-left: 32px;
+}
+
+.tl-expand-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #6b778c;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background 0.1s ease, transform 0.15s ease;
+}
+
+.tl-expand-btn:hover {
+  background: #ebecf0;
+}
+
+.tl-expand-btn--open {
+  transform: rotate(90deg);
+}
+
+.tl-type-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tl-type-epic { background: #5243aa; }
+.tl-type-story { border: 2px solid #5e9e31; background: transparent; }
+.tl-type-bug { background: #de350b; }
+.tl-type-task { border: 2px solid #0065ff; background: transparent; }
+
+.tl-row-key {
+  font-size: var(--font-size-sm);
+  color: var(--jira-text-muted);
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.tl-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-base);
+  color: var(--jira-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-row-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tl-status-planned    { background: #deebff; color: #0052cc; }
+.tl-status-inprogress { background: #fff0b3; color: #ff8b00; }
+.tl-status-done       { background: #e3fcef; color: #006644; }
+.tl-status-atrisk     { background: #ffebe6; color: #bf2600; }
+.tl-status-todo       { background: #dfe1e6; color: #42526e; }
+.tl-status-review     { background: #eae6ff; color: #5243aa; }
+.tl-status-backlog    { background: #f4f5f7; color: #6b778c; }
+
+/* ---- Right panel (Gantt chart) ---- */
+.tl-right {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.tl-chart {
+  position: relative;
+  min-height: 100%;
+}
+
+/* Month/week header */
+.tl-time-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  height: 40px;
+  background: #fafbfc;
+  border-bottom: 1px solid var(--jira-border);
+}
+
+.tl-month-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.tl-month-label {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+  border-right: 1px solid var(--jira-border);
+  border-bottom: 1px solid #eef0f3;
+}
+
+.tl-weeks-row {
+  display: flex;
+  height: 20px;
+}
+
+.tl-week-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--jira-text-muted);
+  border-right: 1px solid #eef0f3;
+  box-sizing: border-box;
+}
+
+/* Grid rows area */
+.tl-gantt-body {
+  position: relative;
+}
+
+.tl-gantt-row {
+  position: relative;
+  height: 44px;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+/* Grid columns (week lines) */
+.tl-grid-cols {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.tl-grid-col {
+  border-right: 1px solid #f4f5f7;
+  box-sizing: border-box;
+}
+
+.tl-grid-col--month {
+  border-right: 1px solid #eef0f3;
+}
+
+/* Gantt bars */
+.tl-bar {
+  position: absolute;
+  top: 10px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+  z-index: 2;
+}
+
+.tl-bar:hover {
+  opacity: 0.85;
+  box-shadow: 0 2px 6px rgba(9, 30, 66, 0.2);
+}
+
+.tl-bar--epic      { background: #c0b6f2; color: #403294; }
+.tl-bar--planned    { background: #b3d4ff; color: #0747a6; }
+.tl-bar--inprogress { background: #ffe380; color: #974f0c; }
+.tl-bar--done       { background: #79f2c0; color: #006644; }
+.tl-bar--atrisk     { background: #ffbdad; color: #bf2600; }
+.tl-bar--todo       { background: #dfe1e6; color: #42526e; }
+.tl-bar--review     { background: #c0b6f2; color: #403294; }
+.tl-bar--backlog    { background: #ebecf0; color: #6b778c; }
+
+/* Today marker */
+.tl-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #de350b;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tl-today-label {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  color: #de350b;
+  white-space: nowrap;
+  background: #ffffff;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* ---- Create child row ---- */
+.tl-create-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 40px;
+  height: 36px;
+  border-bottom: 1px solid #f0f1f3;
+  color: #6b778c;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.tl-create-child:hover {
+  background: #f4f5f7;
+  color: #0052cc;
+}
+
+/* ---- Empty state ---- */
+.tl-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-base);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 860px) {
+  .tl-left {
+    width: 260px;
+  }
+
+  .tl-row-left--child {
+    padding-left: 24px;
+  }
+}

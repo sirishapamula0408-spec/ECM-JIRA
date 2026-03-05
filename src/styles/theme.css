@@ -1,0 +1,314 @@
+.app-theme-dark body,
+.app-theme-dark .content,
+.app-theme-dark .page,
+.app-theme-dark .panel,
+.app-theme-dark .topbar,
+.app-theme-dark .sidebar,
+.app-theme-dark .app-project-top-panel {
+  background: #1d2125;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .panel,
+.app-theme-dark .topbar,
+.app-theme-dark .sidebar,
+.app-theme-dark .app-project-top-panel {
+  border-color: #2c333a;
+}
+
+.app-theme-dark .active-sprint-col {
+  background: #22272b;
+  border-color: #2c333a;
+}
+
+.app-theme-dark .active-sprint-col:hover {
+  background: #282e33;
+}
+
+.app-theme-dark .active-sprint-col-drop {
+  background: #1c2b41;
+  border-color: #0052cc;
+}
+
+.app-theme-dark .active-sprint-card {
+  background: #1d2125;
+  border-color: #2c333a;
+}
+
+.app-theme-dark .active-sprint-card:hover {
+  background: #22272b;
+  border-color: #3b444c;
+}
+
+.app-theme-dark .active-sprint-header__name {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .active-sprint-header__progress-bar {
+  background: #2c333a;
+}
+
+.app-theme-dark .active-sprint-col header span {
+  background: #2c333a;
+}
+
+.app-theme-dark .active-sprint-empty h2 {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .active-sprint-divider {
+  border-color: #2c333a;
+}
+
+/* Create Issue Modal — dark theme */
+.app-theme-dark .create-issue-modal {
+  background: #1d2125;
+  border-color: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .create-issue-header {
+  border-color: #2c333a;
+}
+
+.app-theme-dark .create-issue-header h2 {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .create-issue-close:hover {
+  background: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .create-issue-type-btn {
+  background: #22272b;
+  border-color: #2c333a;
+  color: #9fadbc;
+}
+
+.app-theme-dark .create-issue-type-btn:hover {
+  background: #282e33;
+}
+
+.app-theme-dark .create-issue-type-btn[data-type="Story"].create-issue-type-btn--active {
+  background: #1c3329;
+  border-color: #36b37e;
+  color: #57d9a3;
+}
+
+.app-theme-dark .create-issue-type-btn[data-type="Bug"].create-issue-type-btn--active {
+  background: #3d1f1f;
+  border-color: #ff5630;
+  color: #ff8f73;
+}
+
+.app-theme-dark .create-issue-type-btn[data-type="Task"].create-issue-type-btn--active {
+  background: #1c2b41;
+  border-color: #0065ff;
+  color: #4c9aff;
+}
+
+.app-theme-dark .create-issue-separator {
+  border-color: #2c333a;
+}
+
+.app-theme-dark .create-issue-reporter {
+  background: #22272b;
+  border-color: #2c333a;
+  color: #9fadbc;
+}
+
+.app-theme-dark .create-issue-footer {
+  border-color: #2c333a;
+}
+
+.app-theme-dark .create-issue-success {
+  background: #1c3329;
+  border-color: #36b37e;
+  color: #57d9a3;
+}
+
+.app-theme-dark .create-issue-error {
+  background: #3d1f1f;
+  border-color: #ff5630;
+  color: #ff8f73;
+}
+
+/* Dashboard — dark theme */
+.app-theme-dark .dashboard-page {
+  background: #1d2125;
+}
+
+.app-theme-dark .dashboard-title {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .dashboard-title-input {
+  background: #22272b;
+  color: #dfe1e6;
+  border-color: #4c9aff;
+}
+
+.app-theme-dark .dashboard-empty {
+  background: #22272b;
+  border-color: #2c333a;
+}
+
+/* Gadget wrapper — dark theme */
+.app-theme-dark .gadget {
+  background: #22272b;
+  border-color: #2c333a;
+  box-shadow: none;
+}
+
+.app-theme-dark .gadget:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.app-theme-dark .gadget--drag-over {
+  border-color: #4c9aff;
+}
+
+.app-theme-dark .gadget-header {
+  border-color: #2c333a;
+}
+
+.app-theme-dark .gadget-title {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .gadget-action-btn {
+  color: #8c9bab;
+}
+
+.app-theme-dark .gadget-action-btn:hover {
+  background: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .gadget-action-btn--danger:hover {
+  background: #3d1f1f;
+  color: #ff8f73;
+}
+
+.app-theme-dark .gadget-size-menu {
+  background: #1d2125;
+  border-color: #2c333a;
+}
+
+.app-theme-dark .gadget-size-option {
+  color: #9fadbc;
+}
+
+.app-theme-dark .gadget-size-option:hover {
+  background: #2c333a;
+}
+
+.app-theme-dark .gadget-size-option.active {
+  background: #1c2b41;
+  color: #4c9aff;
+}
+
+.app-theme-dark .gadget-maximize-panel {
+  background: #22272b;
+  border-color: #2c333a;
+}
+
+/* Chart gadgets — dark theme */
+.app-theme-dark .donut-hole {
+  background: #22272b;
+}
+
+.app-theme-dark .donut-hole strong {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .pie-gadget-legend li {
+  color: #9fadbc;
+}
+
+.app-theme-dark .bar-gadget-label,
+.app-theme-dark .bar-gadget-count {
+  color: #9fadbc;
+}
+
+.app-theme-dark .bar-gadget-track {
+  background: #2c333a;
+}
+
+.app-theme-dark .bar-gadget-v-label {
+  color: #8c9bab;
+}
+
+/* Filter results — dark theme */
+.app-theme-dark .filter-results-table th:hover {
+  color: #4c9aff;
+}
+
+.app-theme-dark .filter-results-key {
+  color: #4c9aff;
+}
+
+/* Sprint health — dark theme */
+.app-theme-dark .sprint-health-svg line {
+  stroke: #2c333a;
+}
+
+.app-theme-dark .sprint-health-svg text {
+  fill: #8c9bab;
+}
+
+/* Add gadget modal — dark theme */
+.app-theme-dark .add-gadget-modal {
+  background: #1d2125;
+  border-color: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .add-gadget-card {
+  background: #22272b;
+  border-color: #2c333a;
+}
+
+.app-theme-dark .add-gadget-card:hover {
+  border-color: #4c9aff;
+}
+
+.app-theme-dark .add-gadget-card-info strong {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .add-gadget-card-info p {
+  color: #8c9bab;
+}
+
+.app-theme-dark .mini-donut-hole {
+  background: #22272b;
+}
+
+.app-theme-dark .mini-table-row {
+  background: #2c333a;
+}
+
+.app-theme-dark .mini-table-head {
+  background: #5e6c84;
+}
+
+.app-theme-dark .mini-dot {
+  background: #1c2b41;
+}
+
+.app-theme-dark .mini-line {
+  background: #2c333a;
+}
+
+/* Gadget config modal — dark theme */
+.app-theme-dark .gadget-config-modal {
+  background: #1d2125;
+  border-color: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .gadget-config-check {
+  color: #9fadbc;
+}
