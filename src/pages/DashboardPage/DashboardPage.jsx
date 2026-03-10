@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useIssues } from '../../context/IssueContext'
 import { useAppData } from '../../context/AppDataContext'
 import { fetchProjects } from '../../api/projectApi'
+import { usePermissions } from '../../hooks/usePermissions'
 import { FilterChip } from '../../components/filters/FilterChip'
 import { GadgetWrapper } from '../../components/dashboard/GadgetWrapper'
 import { AddGadgetModal } from '../../components/dashboard/AddGadgetModal'
@@ -28,6 +29,7 @@ const GADGET_COMPONENTS = {
 export function DashboardPage() {
   const { issues } = useIssues()
   const { activity } = useAppData()
+  const { isAdmin } = usePermissions()
   const issueList = Array.isArray(issues) ? issues : []
   const activityList = Array.isArray(activity) ? activity : []
 
@@ -174,7 +176,7 @@ export function DashboardPage() {
       {/* Dashboard header */}
       <div className="dashboard-header">
         <div className="dashboard-title-area">
-          {isEditingTitle ? (
+          {isEditingTitle && isAdmin ? (
             <input
               className="dashboard-title-input"
               value={titleDraft}
@@ -184,21 +186,25 @@ export function DashboardPage() {
               autoFocus
             />
           ) : (
-            <h1 className="dashboard-title" onClick={() => { setTitleDraft(title); setIsEditingTitle(true) }}>
+            <h1 className="dashboard-title" onClick={isAdmin ? () => { setTitleDraft(title); setIsEditingTitle(true) } : undefined}>
               {title}
-              <svg className="dashboard-title-edit" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" />
-              </svg>
+              {isAdmin && (
+                <svg className="dashboard-title-edit" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" />
+                </svg>
+              )}
             </h1>
           )}
         </div>
-        <div className="dashboard-actions">
-          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-            <span className="plus-create-content">
-              <span className="plus-create-symbol">+</span> Add Gadget
-            </span>
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="dashboard-actions">
+            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+              <span className="plus-create-content">
+                <span className="plus-create-symbol">+</span> Add Gadget
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Global filter bar */}
@@ -266,7 +272,7 @@ export function DashboardPage() {
             <GadgetWrapper
               key={gadget.id}
               gadget={gadget}
-              onRemove={() => removeGadget(gadget.id)}
+              onRemove={isAdmin ? () => removeGadget(gadget.id) : undefined}
               onConfig={() => setConfigGadget(gadget)}
               onResize={(size) => updateGadgetSize(gadget.id, size)}
               onDragStart={handleDragStart(index)}

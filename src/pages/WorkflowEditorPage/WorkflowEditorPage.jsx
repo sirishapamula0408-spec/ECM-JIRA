@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { ISSUE_STATUSES } from '../../constants'
+import { usePermissions } from '../../hooks/usePermissions'
 import './WorkflowEditorPage.css'
 
 const NODE_WIDTH = 180
@@ -42,6 +43,7 @@ let nextNodeId = 100
 let nextTransId = 100
 
 export function WorkflowEditorPage() {
+  const { canEditWorkflows } = usePermissions()
   const [nodes, setNodes] = useState(() => buildDefaultNodes())
   const [transitions, setTransitions] = useState(() => buildDefaultTransitions(buildDefaultNodes()))
   const [selectedNodeId, setSelectedNodeId] = useState(null)
@@ -211,34 +213,40 @@ export function WorkflowEditorPage() {
           <h2>Workflow Editor</h2>
           <span className="wfe-workflow-name">Default Workflow</span>
         </div>
-        <div className="wfe-header-actions">
-          <button type="button" className="btn btn-ghost" onClick={handleDiscard}>
-            Discard changes
-          </button>
-          <button type="button" className="btn btn-primary">
-            Publish
-          </button>
-        </div>
+        {canEditWorkflows && (
+          <div className="wfe-header-actions">
+            <button type="button" className="btn btn-ghost" onClick={handleDiscard}>
+              Discard changes
+            </button>
+            <button type="button" className="btn btn-primary">
+              Publish
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Toolbar */}
       <div className="wfe-toolbar">
         <div className="wfe-toolbar-left">
-          <button type="button" className="wfe-toolbar-btn" onClick={() => { setNewStatusName(''); setNewStatusCategory('todo'); setShowAddStatus(true) }}>
-            <span aria-hidden="true">+</span> Add status
-          </button>
-          <button
-            type="button"
-            className="wfe-toolbar-btn"
-            onClick={() => {
-              setNewTransFrom('')
-              setNewTransTo('')
-              setNewTransLabel('')
-              setShowAddTransition(true)
-            }}
-          >
-            <span aria-hidden="true">→</span> Add transition
-          </button>
+          {canEditWorkflows && (
+            <>
+              <button type="button" className="wfe-toolbar-btn" onClick={() => { setNewStatusName(''); setNewStatusCategory('todo'); setShowAddStatus(true) }}>
+                <span aria-hidden="true">+</span> Add status
+              </button>
+              <button
+                type="button"
+                className="wfe-toolbar-btn"
+                onClick={() => {
+                  setNewTransFrom('')
+                  setNewTransTo('')
+                  setNewTransLabel('')
+                  setShowAddTransition(true)
+                }}
+              >
+                <span aria-hidden="true">→</span> Add transition
+              </button>
+            </>
+          )}
         </div>
         <div className="wfe-toolbar-right">
           <button type="button" className="wfe-zoom-btn" onClick={handleZoomIn} title="Zoom in">+</button>
@@ -406,9 +414,11 @@ export function WorkflowEditorPage() {
                   <span className="muted">None</span>
                 )}
               </div>
-              <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteNode(selectedNode.id)}>
-                ✕ Delete status
-              </button>
+              {canEditWorkflows && (
+                <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteNode(selectedNode.id)}>
+                  ✕ Delete status
+                </button>
+              )}
             </>
           ) : selectedTrans ? (
             <>
@@ -429,9 +439,11 @@ export function WorkflowEditorPage() {
                   {nodes.find((n) => n.id === selectedTrans.to)?.name || selectedTrans.to}
                 </span>
               </div>
-              <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteTransition(selectedTrans.id)}>
-                ✕ Delete transition
-              </button>
+              {canEditWorkflows && (
+                <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteTransition(selectedTrans.id)}>
+                  ✕ Delete transition
+                </button>
+              )}
             </>
           ) : (
             <div className="wfe-empty-props">

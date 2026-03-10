@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { fetchFilters, createFilter, updateFilter, deleteFilter, searchIssues, searchByJql, aiSearch } from '../../api/filterApi'
 import { fetchProjects } from '../../api/projectApi'
 import { FilterChip } from '../../components/filters/FilterChip'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './FiltersPage.css'
 
@@ -10,6 +11,7 @@ const EMPTY_CRITERIA = { status: 'All', priority: 'All', issueType: 'All', assig
 
 export function FiltersPage() {
   const navigate = useNavigate()
+  const { canCreateIssue: canManageFilters } = usePermissions() // Member+ can manage filters
   const [filters, setFilters] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilterId, setActiveFilterId] = useState(null)
@@ -253,12 +255,12 @@ export function FiltersPage() {
                 {hasCriteria && (
                   <button className="btn btn-ghost" type="button" onClick={handleClear}>Clear All</button>
                 )}
-                {hasCriteria && !activeFilterId && (
+                {canManageFilters && hasCriteria && !activeFilterId && (
                   <button className="btn btn-ghost filters-save-btn" type="button" onClick={() => setShowSave(true)}>
                     Save as Filter
                   </button>
                 )}
-                {activeFilterId && hasCriteria && (
+                {canManageFilters && activeFilterId && hasCriteria && (
                   <button className="btn btn-ghost" type="button" onClick={handleUpdateFilter}>
                     Update Filter
                   </button>
@@ -540,7 +542,7 @@ export function FiltersPage() {
                       <td>
                         <div className="filters-row-actions">
                           <button className="link-btn" type="button" onClick={() => handleLoadFilter(filter)}>Run</button>
-                          <button className="link-btn filters-delete-btn" type="button" onClick={() => handleDeleteFilter(filter)}>Delete</button>
+                          {canManageFilters && <button className="link-btn filters-delete-btn" type="button" onClick={() => handleDeleteFilter(filter)}>Delete</button>}
                         </div>
                       </td>
                     </tr>

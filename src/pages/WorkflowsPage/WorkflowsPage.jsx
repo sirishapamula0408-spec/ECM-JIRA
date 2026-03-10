@@ -5,6 +5,7 @@ import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
 import './WorkflowsPage.css'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ISSUE_STATUSES } from '../../constants'
 
 /* ── Column definitions ── */
@@ -44,6 +45,7 @@ export function WorkflowsPage() {
   const { authUser: currentUser } = useAuth()
   const { profile } = useMembers()
   const { projectId } = useParams()
+  const { canCreateIssue, canEditIssue } = usePermissions(projectId)
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
@@ -219,6 +221,7 @@ export function WorkflowsPage() {
             className="jira-list-status-select"
             value={issue.status}
             onChange={(e) => handleMove(issue.id, e.target.value, e.target.value === 'Backlog' ? null : issue.sprintId)}
+            disabled={!canEditIssue}
           >
             {ISSUE_STATUSES.map((s) => (
               <option key={s} value={s}>{statusChip(s)}</option>
@@ -442,7 +445,7 @@ export function WorkflowsPage() {
             </button>
           </div>
         )}
-        {isCreateOpen ? (
+        {canCreateIssue && (isCreateOpen ? (
           <div className="quick-create-row">
             <input className="quick-create-input" type="text" placeholder="What needs to be done?" value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submitInlineCreate(); if (event.key === 'Escape') { setIsCreateOpen(false); setCreateTitle(''); setCreateError('') } }} autoFocus />
             <button className="btn btn-primary quick-create-btn" type="button" onClick={submitInlineCreate} disabled={createBusy}>Create</button>
@@ -453,7 +456,7 @@ export function WorkflowsPage() {
           <button className="jira-list-create" type="button" onClick={() => { setIsCreateOpen(true); setCreateError('') }}>
             <span className="plus-create-content"><span className="plus-create-symbol">+</span><span>Create</span></span>
           </button>
-        )}
+        ))}
       </article>
     </section>
   )

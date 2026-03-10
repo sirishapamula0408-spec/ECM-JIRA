@@ -4,6 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import { fetchIssueById, fetchComments, createComment } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import './IssueDetailPage.css'
@@ -22,7 +23,8 @@ const PRIORITY_ICON = {
 }
 
 /* ---- Inline editable field (JIRA click-to-edit pattern) ---- */
-function InlineField({ editing, onOpen, onClose, display, children }) {
+function InlineField({ editing, onOpen, onClose, display, children, readOnly }) {
+  if (readOnly) return <div className="id-inline-display">{display}</div>
   if (editing) {
     return (
       <div className="id-inline-editor">
@@ -53,6 +55,8 @@ export function IssueDetailPage() {
   const { issueId } = useParams()
   const navigate = useNavigate()
   const id = Number(issueId)
+  const issue0 = issues.find((item) => item.id === id)
+  const { canEditIssue, canAddComment } = usePermissions(issue0?.projectId)
   const existing = issues.find((item) => item.id === id)
   const [fetchedIssue, setFetchedIssue] = useState(null)
   const [projectName, setProjectName] = useState('')
@@ -257,25 +261,27 @@ export function IssueDetailPage() {
 
           <h1 className="id-title">{issue.title}</h1>
 
-          <div className="id-quick-actions">
-            <button className="id-quick-btn" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Attach
-            </button>
-            <button className="id-quick-btn" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-              Create subtask
-            </button>
-            <button className="id-quick-btn" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              Link issue
-            </button>
-          </div>
+          {canEditIssue && (
+            <div className="id-quick-actions">
+              <button className="id-quick-btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Attach
+              </button>
+              <button className="id-quick-btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Create subtask
+              </button>
+              <button className="id-quick-btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Link issue
+              </button>
+            </div>
+          )}
 
           {/* Description */}
           <div className="id-section">
             <h3 className="id-section-title">Description</h3>
-            {isEditing ? (
+            {isEditing && canEditIssue ? (
               <div className="id-desc-edit">
                 <textarea className="id-desc-textarea" rows={5} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
                 <div className="id-desc-edit-actions">
@@ -284,8 +290,8 @@ export function IssueDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="id-description" onClick={startEditDesc} title="Click to edit">
-                {issue.description ? <p>{issue.description}</p> : <p className="id-placeholder">Add a description...</p>}
+              <div className="id-description" onClick={canEditIssue ? startEditDesc : undefined} title={canEditIssue ? 'Click to edit' : undefined}>
+                {issue.description ? <p>{issue.description}</p> : <p className="id-placeholder">{canEditIssue ? 'Add a description...' : 'No description.'}</p>}
               </div>
             )}
           </div>
@@ -319,7 +325,7 @@ export function IssueDetailPage() {
             </div>
 
             {/* Comment input — show on All or Comments tab */}
-            {(activityTab === 'All' || activityTab === 'Comments') && (
+            {canAddComment && (activityTab === 'All' || activityTab === 'Comments') && (
               <div className="id-comment-input">
                 <span className="id-comment-avatar id-comment-avatar--me">{currentUserInitials}</span>
                 <div className="id-comment-box">
@@ -336,7 +342,7 @@ export function IssueDetailPage() {
             )}
 
             {/* Work log input — show on Work log tab */}
-            {activityTab === 'Work log' && (
+            {canEditIssue && activityTab === 'Work log' && (
               <div className="id-worklog-area">
                 {!showWorkLogForm ? (
                   <button className="id-worklog-add-btn" type="button" onClick={() => setShowWorkLogForm(true)}>
@@ -409,6 +415,7 @@ export function IssueDetailPage() {
               className="id-status-select"
               value={issue.status}
               onChange={(e) => handleMove(issue.id, e.target.value)}
+              disabled={!canEditIssue}
               style={{
                 background: issue.status === 'Done' ? '#e3fcef' : issue.status === 'In Progress' ? '#deebff' : issue.status === 'Code Review' ? '#eae6ff' : '#dfe1e6',
                 color: issue.status === 'Done' ? '#006644' : issue.status === 'In Progress' ? '#0052cc' : issue.status === 'Code Review' ? '#5243aa' : '#42526e',
@@ -427,6 +434,7 @@ export function IssueDetailPage() {
                 <dt>Assignee</dt>
                 <dd>
                   <InlineField
+                    readOnly={!canEditIssue}
                     editing={editingField === 'assignee'}
                     onOpen={() => openField('assignee')}
                     onClose={closeField}
@@ -466,6 +474,7 @@ export function IssueDetailPage() {
                 <dt>Priority</dt>
                 <dd>
                   <InlineField
+                    readOnly={!canEditIssue}
                     editing={editingField === 'priority'}
                     onOpen={() => openField('priority')}
                     onClose={closeField}
@@ -491,6 +500,7 @@ export function IssueDetailPage() {
                 <dt>Type</dt>
                 <dd>
                   <InlineField
+                    readOnly={!canEditIssue}
                     editing={editingField === 'type'}
                     onOpen={() => openField('type')}
                     onClose={closeField}
@@ -516,6 +526,7 @@ export function IssueDetailPage() {
                 <dt>Labels</dt>
                 <dd>
                   <InlineField
+                    readOnly={!canEditIssue}
                     editing={editingField === 'labels'}
                     onOpen={() => openField('labels')}
                     onClose={closeField}
@@ -557,6 +568,7 @@ export function IssueDetailPage() {
                 <dt>Sprint</dt>
                 <dd>
                   <InlineField
+                    readOnly={!canEditIssue}
                     editing={editingField === 'sprint'}
                     onOpen={() => openField('sprint')}
                     onClose={closeField}
@@ -591,6 +603,7 @@ export function IssueDetailPage() {
                 <dt>Due date</dt>
                 <dd>
                   <InlineField
+                    readOnly={!canEditIssue}
                     editing={editingField === 'dueDate'}
                     onOpen={() => openField('dueDate')}
                     onClose={closeField}

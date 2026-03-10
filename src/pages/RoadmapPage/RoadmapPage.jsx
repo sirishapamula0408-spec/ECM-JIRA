@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAppData } from '../../context/AppDataContext'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import { ISSUE_STATUSES } from '../../constants'
 import './RoadmapPage.css'
 
@@ -89,6 +90,7 @@ export function RoadmapPage() {
   const { issues } = useIssues()
   const { sprints } = useSprints()
   const { projectId } = useParams()
+  const { canCreateIssue } = usePermissions(projectId)
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState({})
   const [viewMode, setViewMode] = useState('months')
@@ -294,11 +296,11 @@ export function RoadmapPage() {
                 )
               }
               if (row.type === 'create') {
-                return (
+                return canCreateIssue ? (
                   <button key={`create-${row.epic.id}`} type="button" className="tl-create-child">
                     + Create child issue
                   </button>
-                )
+                ) : null
               }
               return null
             })}

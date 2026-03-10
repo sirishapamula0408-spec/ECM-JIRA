@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchProjects, deleteProject } from '../../api/projectApi'
+import { usePermissions } from '../../hooks/usePermissions'
 import './ProjectsPage.css'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
@@ -9,6 +10,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [openMenuId, setOpenMenuId] = useState(null)
+  const { canCreateProject, canDeleteProject } = usePermissions()
 
   useEffect(() => {
     setLoading(true)
@@ -59,7 +61,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          {onCreateProject && (
+          {canCreateProject && onCreateProject && (
             <button className="btn btn-primary create-btn" type="button" onClick={onCreateProject}>
               <span className="plus-create-content">
                 <span className="plus-create-symbol">+</span>
@@ -82,7 +84,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
           <p className="projects-no-access-desc">
             Ask your team admin to add you to a project, or create a new one to get started.
           </p>
-          {onCreateProject && (
+          {canCreateProject && onCreateProject && (
             <button className="btn btn-primary" type="button" onClick={onCreateProject}>
               Create a project
             </button>
@@ -143,7 +145,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                         <div className="projects-action-menu" role="menu">
                           <button className="projects-action-item" type="button" onClick={() => { setOpenMenuId(null); navigate(`/projects/${project.id}/settings`) }}>Project settings</button>
                           <div className="projects-action-divider" />
-                          <button className="projects-action-item projects-action-danger" type="button" onClick={() => handleMoveToTrash(project)}>Move to trash</button>
+                          {canDeleteProject && <button className="projects-action-item projects-action-danger" type="button" onClick={() => handleMoveToTrash(project)}>Move to trash</button>}
                         </div>
                       )}
                     </div>
