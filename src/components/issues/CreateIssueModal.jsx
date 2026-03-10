@@ -6,6 +6,7 @@ import { useAppData } from '../../context/AppDataContext'
 import { useAuth } from '../../context/AuthContext'
 import { fetchProjects } from '../../api/projectApi'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
+import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
 
 const TYPE_META = {
@@ -210,12 +211,12 @@ export function CreateIssueModal({ onClose }) {
             <label>
               Description <span className="create-issue-required">*</span>
             </label>
-            <textarea
+            <RichTextEditor
               required
               rows={6}
               placeholder="Add a description..."
               value={form.description}
-              onChange={(e) => update('description', e.target.value)}
+              onChange={(val) => update('description', val)}
             />
           </div>
 
