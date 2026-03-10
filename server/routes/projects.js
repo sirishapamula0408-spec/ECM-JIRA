@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole, loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -41,7 +42,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const { name, key, type, lead } = req.body
   const trimmedName = String(name || '').trim()
   const trimmedKey = String(key || '').trim()
@@ -85,7 +86,7 @@ router.post('/', asyncHandler(async (req, res) => {
   })
 }))
 
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid project id' })
@@ -120,7 +121,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   res.json(updated)
 }))
 
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid project id' })
@@ -155,7 +156,7 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
-router.post('/:id/members', asyncHandler(async (req, res) => {
+router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const { memberId, role } = req.body
   const mid = Number(memberId)
@@ -183,7 +184,7 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
   res.status(201).json(row)
 }))
 
-router.delete('/:id/members/:memberId', asyncHandler(async (req, res) => {
+router.delete('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const memberId = Number(req.params.memberId)
   await run(
