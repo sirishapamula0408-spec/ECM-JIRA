@@ -153,6 +153,19 @@ async function ensureMembersColumns() {
   }
 }
 
+async function ensureMembersIsOwner() {
+  const columns = await all("PRAGMA table_info('members')")
+  const hasIsOwner = columns.some((column) => column.name === 'is_owner')
+  if (!hasIsOwner) {
+    await run('ALTER TABLE members ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0')
+    // Promote the first Admin member as the workspace owner
+    const firstAdmin = await get("SELECT id FROM members WHERE role = 'Admin' ORDER BY id ASC LIMIT 1")
+    if (firstAdmin) {
+      await run('UPDATE members SET is_owner = 1 WHERE id = ?', [firstAdmin.id])
+    }
+  }
+}
+
 async function ensureRoadmapProjectId() {
   const columns = await all("PRAGMA table_info('roadmap_epics')")
   const hasProjectId = columns.some((column) => column.name === 'project_id')
@@ -161,6 +174,25 @@ async function ensureRoadmapProjectId() {
     // Backfill existing epics: first 3 → project 1, rest → project 2
     await run('UPDATE roadmap_epics SET project_id = 1 WHERE id IN (SELECT id FROM roadmap_epics ORDER BY id ASC LIMIT 3)')
     await run('UPDATE roadmap_epics SET project_id = 2 WHERE project_id IS NULL')
+  }
+}
+
+async function ensureProjectsLeadMemberId() {
+  const columns = await all("PRAGMA table_info('projects')")
+  const hasLeadMemberId = columns.some((column) => column.name === 'lead_member_id')
+  if (!hasLeadMemberId) {
+    await run('ALTER TABLE projects ADD COLUMN lead_member_id INTEGER')
+    // Backfill: match lead name to member id
+    const projects = await all('SELECT id, lead FROM projects')
+    for (const project of projects) {
+      const member = await get(
+        'SELECT id FROM members WHERE LOWER(name) = LOWER(?)',
+        [project.lead],
+      )
+      if (member) {
+        await run('UPDATE projects SET lead_member_id = ? WHERE id = ?', [member.id, project.id])
+      }
+    }
   }
 }
 
@@ -231,10 +263,15 @@ export async function initializeDatabase() {
       role TEXT NOT NULL,
       status TEXT NOT NULL,
       task_count INTEGER NOT NULL DEFAULT 0,
-      invited_by TEXT
+      invited_by TEXT,
+      is_owner INTEGER NOT NULL DEFAULT 0
     );
   `)
   await ensureMembersColumns()
+  await ensureMembersIsOwner()
+
+  // Index for fast role lookups on every authenticated request
+  await run('CREATE INDEX IF NOT EXISTS idx_members_email ON members(email)')
 
   await run(`
     CREATE TABLE IF NOT EXISTS roadmap_epics (
@@ -255,10 +292,12 @@ export async function initializeDatabase() {
       key TEXT NOT NULL UNIQUE,
       type TEXT NOT NULL DEFAULT 'Scrum',
       lead TEXT NOT NULL,
+      lead_member_id INTEGER,
       avatar_color TEXT NOT NULL DEFAULT '#0052cc',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `)
+  await ensureProjectsLeadMemberId()
 
   await run(`
     CREATE TABLE IF NOT EXISTS project_members (

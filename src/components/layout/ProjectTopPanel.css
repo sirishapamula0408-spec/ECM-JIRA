@@ -132,3 +132,25 @@
 .board-view-icon-calendar::before { content: '\25F7'; }
 .board-view-icon-reports::before { content: '\2197'; }
 .board-view-icon-list::before { content: '\2637'; }
+
+@media (max-width: 860px) {
+  .app-project-top-panel {
+    padding: 6px 10px 8px;
+  }
+
+  .project-breadcrumbs {
+    padding: 8px 10px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .backlog-top-item {
+    font-size: var(--font-size-sm);
+    padding: 3px 5px;
+    gap: 4px;
+  }
+
+  .backlog-top-icon {
+    display: none;
+  }
+}
