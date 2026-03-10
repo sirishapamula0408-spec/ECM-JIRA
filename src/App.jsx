@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 
 import { fetchIssues } from './api/issueApi'
 import { fetchSprints } from './api/sprintApi'
@@ -59,6 +61,23 @@ function AppContent() {
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projectRefreshKey, setProjectRefreshKey] = useState(0)
   const [hasProjects, setHasProjects] = useState(true)
+  const [permissionSnackbar, setPermissionSnackbar] = useState({ open: false, message: '' })
+
+  // Listen for 403 permission denied events from the API client
+  useEffect(() => {
+    function handlePermissionDenied(event) {
+      setPermissionSnackbar({
+        open: true,
+        message: event.detail?.message || 'You do not have permission to perform this action',
+      })
+    }
+    window.addEventListener('permission-denied', handlePermissionDenied)
+    return () => window.removeEventListener('permission-denied', handlePermissionDenied)
+  }, [])
+
+  const handleCloseSnackbar = useCallback(() => {
+    setPermissionSnackbar((prev) => ({ ...prev, open: false }))
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -124,6 +143,16 @@ function AppContent() {
       </main>
       {showCreate && <CreateIssueModal onClose={() => setShowCreate(false)} />}
       {showCreateProject && <CreateProjectModal onClose={() => setShowCreateProject(false)} onProjectCreated={() => { setProjectRefreshKey((k) => k + 1); setHasProjects(true) }} />}
+      <Snackbar
+        open={permissionSnackbar.open}
+        autoHideDuration={5000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="warning" variant="filled" sx={{ width: '100%' }}>
+          {permissionSnackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   )
 }
