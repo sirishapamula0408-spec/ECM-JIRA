@@ -26,6 +26,53 @@ function saveLayout(layout) {
   } catch { /* ignore */ }
 }
 
+const COLS = 3
+const SIZE_SPAN = { small: 1, medium: 1, large: 2, full: 3 }
+
+// Auto-reflow: expand the last gadget in each row to fill any trailing gap
+function reflowGadgets(gadgets) {
+  const sorted = [...gadgets].sort((a, b) => a.order - b.order)
+  let col = 0
+  let rowStart = 0
+
+  for (let i = 0; i < sorted.length; i++) {
+    const span = SIZE_SPAN[sorted[i].size] || 1
+
+    // If this gadget doesn't fit on the current row, fill the gap first
+    if (col + span > COLS) {
+      // Expand the last gadget on the previous row to fill remaining columns
+      if (col < COLS && i > rowStart) {
+        const prev = sorted[i - 1]
+        const prevSpan = SIZE_SPAN[prev.size] || 1
+        const gap = COLS - col
+        const newSpan = prevSpan + gap
+        if (newSpan === 3) sorted[i - 1] = { ...prev, size: 'full' }
+        else if (newSpan === 2) sorted[i - 1] = { ...prev, size: 'large' }
+      }
+      col = 0
+      rowStart = i
+    }
+
+    col += span
+    if (col >= COLS) {
+      col = 0
+      rowStart = i + 1
+    }
+  }
+
+  // Handle trailing gap on the last row
+  if (col > 0 && col < COLS && sorted.length > 0) {
+    const last = sorted[sorted.length - 1]
+    const lastSpan = SIZE_SPAN[last.size] || 1
+    const gap = COLS - col
+    const newSpan = lastSpan + gap
+    if (newSpan === 3) sorted[sorted.length - 1] = { ...last, size: 'full' }
+    else if (newSpan === 2) sorted[sorted.length - 1] = { ...last, size: 'large' }
+  }
+
+  return sorted.map((g, i) => ({ ...g, order: i }))
+}
+
 let nextId = Date.now()
 
 export function useDashboardLayout() {
@@ -55,7 +102,7 @@ export function useDashboardLayout() {
   const removeGadget = useCallback((id) => {
     persist((prev) => ({
       ...prev,
-      gadgets: prev.gadgets.filter((g) => g.id !== id).map((g, i) => ({ ...g, order: i })),
+      gadgets: reflowGadgets(prev.gadgets.filter((g) => g.id !== id)),
     }))
   }, [persist])
 
@@ -69,7 +116,7 @@ export function useDashboardLayout() {
   const updateGadgetSize = useCallback((id, size) => {
     persist((prev) => ({
       ...prev,
-      gadgets: prev.gadgets.map((g) => (g.id === id ? { ...g, size } : g)),
+      gadgets: reflowGadgets(prev.gadgets.map((g) => (g.id === id ? { ...g, size } : g))),
     }))
   }, [persist])
 
@@ -85,7 +132,7 @@ export function useDashboardLayout() {
       const list = [...prev.gadgets].sort((a, b) => a.order - b.order)
       const [moved] = list.splice(fromIndex, 1)
       list.splice(toIndex, 0, moved)
-      return { ...prev, gadgets: list.map((g, i) => ({ ...g, order: i })) }
+      return { ...prev, gadgets: reflowGadgets(list) }
     })
   }, [persist])
 
