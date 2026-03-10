@@ -5,6 +5,32 @@ import sedinLogo from '../../assets/sedin-logo.svg'
 import sedinLogoFull from '../../assets/sedin-logo-full.svg'
 import './LoginPage.css'
 
+// MUI components
+import Box from '@mui/material/Box'
+import Stack from '@mui/material/Stack'
+import Card from '@mui/material/Card'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Checkbox from '@mui/material/Checkbox'
+import Alert from '@mui/material/Alert'
+import Link from '@mui/material/Link'
+import CircularProgress from '@mui/material/CircularProgress'
+import InputAdornment from '@mui/material/InputAdornment'
+import IconButton from '@mui/material/IconButton'
+
+// MUI icons
+import EmailIcon from '@mui/icons-material/Email'
+import LockIcon from '@mui/icons-material/Lock'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import PersonIcon from '@mui/icons-material/Person'
+import VpnKeyIcon from '@mui/icons-material/VpnKey'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+
 export function LoginPage() {
   const { handleAuth } = useAuth()
   const [mode, setMode] = useState('login')
@@ -105,6 +131,8 @@ export function LoginPage() {
       setAuthLoading(false)
     }
   }
+
+  const tabIndex = mode === 'login' ? 0 : 1
 
   return (
     <div className="login-page">
@@ -225,7 +253,7 @@ export function LoginPage() {
 
       {/* Right form panel */}
       <div className="login-form-panel">
-        <div className="login-form-wrapper">
+        <Box sx={{ width: '100%', maxWidth: 360 }}>
           {/* Mobile logo (hidden on desktop) */}
           <div className="login-mobile-logo">
             <img src={sedinLogo} alt="Sedin logo" />
@@ -234,279 +262,397 @@ export function LoginPage() {
 
           {mode !== 'forgot' ? (
             <>
-              <div className="login-form-header">
-                <h2>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
-                <p>{mode === 'login' ? 'Sign in to continue to your workspace.' : 'Get started with your free account today.'}</p>
-              </div>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: 600, color: '#172b4d', mb: 0.5, letterSpacing: '-0.01em' }}>
+                  {mode === 'login' ? 'Welcome back' : 'Create your account'}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#6b778c' }}>
+                  {mode === 'login' ? 'Sign in to continue to your workspace.' : 'Get started with your free account today.'}
+                </Typography>
+              </Box>
 
-              <div className="login-tabs">
-                <button
-                  type="button"
-                  className={`login-tab${mode === 'login' ? ' active' : ''}`}
-                  onClick={() => switchMode('login')}
-                >
-                  Log In
-                </button>
-                <button
-                  type="button"
-                  className={`login-tab${mode === 'signup' ? ' active' : ''}`}
-                  onClick={() => switchMode('signup')}
-                >
-                  Sign Up
-                </button>
-              </div>
+              <Tabs
+                value={tabIndex}
+                onChange={(_, newVal) => switchMode(newVal === 0 ? 'login' : 'signup')}
+                variant="fullWidth"
+                sx={{
+                  mb: 2.5,
+                  minHeight: 36,
+                  bgcolor: '#ebecf0',
+                  borderRadius: '8px',
+                  p: '3px',
+                  '& .MuiTabs-indicator': { display: 'none' },
+                  '& .MuiTab-root': {
+                    minHeight: 34,
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: '6px',
+                    color: '#5e6c84',
+                    py: 0,
+                    '&.Mui-selected': {
+                      bgcolor: '#ffffff',
+                      color: '#172b4d',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    },
+                  },
+                }}
+              >
+                <Tab label="Log In" />
+                <Tab label="Sign Up" />
+              </Tabs>
 
-              <form className="login-form" onSubmit={onSubmit}>
-                <div className="login-field">
-                  <label htmlFor="login-email">Email address</label>
-                  <div className="login-input-wrap">
-                    <span className="login-input-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                    </span>
-                    <input
-                      id="login-email"
-                      value={form.email}
-                      onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
-                      placeholder="name@company.com"
-                      type="email"
-                      autoComplete="email"
-                    />
-                  </div>
-                </div>
+              <form onSubmit={onSubmit}>
+                <Stack spacing={2}>
+                  <TextField
+                    id="login-email"
+                    label="Email address"
+                    value={form.email}
+                    onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
+                    placeholder="name@company.com"
+                    type="email"
+                    autoComplete="email"
+                    fullWidth
+                    size="small"
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon sx={{ fontSize: 18, color: '#98a2b3' }} />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
 
-                <div className="login-field">
-                  <div className="login-field-row">
-                    <label htmlFor="login-password">Password</label>
+                  <Box>
                     {mode === 'login' && (
-                      <button type="button" className="login-forgot-link" onClick={openForgotPassword}>Forgot password?</button>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+                        <Link
+                          component="button"
+                          type="button"
+                          variant="body2"
+                          underline="hover"
+                          onClick={openForgotPassword}
+                          sx={{ fontSize: '11px', color: '#0052cc' }}
+                        >
+                          Forgot password?
+                        </Link>
+                      </Box>
                     )}
-                  </div>
-                  <div className="login-input-wrap">
-                    <span className="login-input-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    </span>
-                    <input
+                    <TextField
                       id="login-password"
+                      label="Password"
                       value={form.password}
                       onChange={(e) => setForm((c) => ({ ...c, password: e.target.value }))}
                       placeholder={mode === 'signup' ? 'Min. 6 characters' : 'Enter your password'}
                       type={showPassword ? 'text' : 'password'}
                       autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      fullWidth
+                      size="small"
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <LockIcon sx={{ fontSize: 18, color: '#98a2b3' }} />
+                            </InputAdornment>
+                          ),
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                edge="end"
+                                size="small"
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                              >
+                                {showPassword ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
                     />
-                    <button
-                      type="button"
-                      className="login-password-toggle"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                      ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
+                  </Box>
 
-                {mode === 'login' && (
-                  <label className="login-remember">
-                    <input
-                      type="checkbox"
-                      checked={form.remember}
-                      onChange={(e) => setForm((c) => ({ ...c, remember: e.target.checked }))}
+                  {mode === 'login' && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={form.remember}
+                          onChange={(e) => setForm((c) => ({ ...c, remember: e.target.checked }))}
+                          size="small"
+                          sx={{ color: '#5e6c84', '&.Mui-checked': { color: '#0052cc' } }}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ fontSize: '10px', fontWeight: 600, color: '#5e6c84', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                          Keep me signed in
+                        </Typography>
+                      }
                     />
-                    <span>Keep me signed in</span>
-                  </label>
-                )}
+                  )}
 
-                {authError && (
-                  <div className="login-error">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    <span>{authError}</span>
-                  </div>
-                )}
+                  {authError && (
+                    <Alert severity="error" variant="filled" sx={{ fontSize: '11px' }}>
+                      {authError}
+                    </Alert>
+                  )}
 
-                <button
-                  className="login-submit-btn"
-                  type="submit"
-                  disabled={!canSubmit || authLoading}
-                >
-                  {authLoading ? (
-                    <span className="login-spinner" />
-                  ) : null}
-                  {authLoading ? 'Please wait...' : mode === 'login' ? 'Log In \u2192' : 'Create Account \u2192'}
-                </button>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    fullWidth
+                    disabled={!canSubmit || authLoading}
+                    sx={{
+                      height: 42,
+                      bgcolor: '#0052cc',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      textTransform: 'none',
+                      borderRadius: '6px',
+                      letterSpacing: '0.01em',
+                      '&:hover': { bgcolor: '#0747a6', boxShadow: '0 2px 8px rgba(0,82,204,0.25)' },
+                      '&.Mui-disabled': { opacity: 0.45, bgcolor: '#0052cc', color: '#fff' },
+                    }}
+                  >
+                    {authLoading && <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} />}
+                    {authLoading ? 'Please wait...' : mode === 'login' ? 'Log In \u2192' : 'Create Account \u2192'}
+                  </Button>
+                </Stack>
               </form>
 
-              <p className="login-toggle-link">
+              <Typography variant="body2" sx={{ mt: 2.5, textAlign: 'center', color: '#6b778c', fontSize: '11px' }}>
                 {mode === 'login' ? (
-                  <>Don't have an account? <button type="button" onClick={() => switchMode('signup')}>Sign up</button></>
+                  <>Don't have an account?{' '}
+                    <Link component="button" type="button" underline="hover" onClick={() => switchMode('signup')} sx={{ fontSize: '11px', fontWeight: 600, color: '#0052cc' }}>
+                      Sign up
+                    </Link>
+                  </>
                 ) : (
-                  <>Already have an account? <button type="button" onClick={() => switchMode('login')}>Log in</button></>
+                  <>Already have an account?{' '}
+                    <Link component="button" type="button" underline="hover" onClick={() => switchMode('login')} sx={{ fontSize: '11px', fontWeight: 600, color: '#0052cc' }}>
+                      Log in
+                    </Link>
+                  </>
                 )}
-              </p>
+              </Typography>
             </>
           ) : (
             <>
-              <div className="login-form-header">
-                <h2>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: 600, color: '#172b4d', mb: 0.5, letterSpacing: '-0.01em' }}>
                   {forgotStep === 'done' ? 'Password reset' : 'Reset your password'}
-                </h2>
-                <p>
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#6b778c' }}>
                   {forgotStep === 'email' && 'Enter your email address and we\'ll send you a reset token.'}
                   {forgotStep === 'token' && 'Enter the reset token and choose a new password.'}
                   {forgotStep === 'done' && 'Your password has been updated successfully.'}
-                </p>
-              </div>
+                </Typography>
+              </Box>
 
               {forgotStep === 'email' && (
-                <form className="login-form" onSubmit={handleForgotSubmit}>
-                  <div className="login-field">
-                    <label htmlFor="forgot-email">Email address</label>
-                    <div className="login-input-wrap">
-                      <span className="login-input-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                      </span>
-                      <input
-                        id="forgot-email"
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="name@company.com"
-                        type="email"
-                        autoComplete="email"
-                        required
-                      />
-                    </div>
-                  </div>
+                <form onSubmit={handleForgotSubmit}>
+                  <Stack spacing={2}>
+                    <TextField
+                      id="forgot-email"
+                      label="Email address"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      fullWidth
+                      size="small"
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <EmailIcon sx={{ fontSize: 18, color: '#98a2b3' }} />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
 
-                  {forgotError && (
-                    <div className="login-error">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                      <span>{forgotError}</span>
-                    </div>
-                  )}
+                    {forgotError && (
+                      <Alert severity="error" variant="filled" sx={{ fontSize: '11px' }}>
+                        {forgotError}
+                      </Alert>
+                    )}
 
-                  <button
-                    className="login-submit-btn"
-                    type="submit"
-                    disabled={!forgotEmail.trim() || forgotLoading}
-                  >
-                    {forgotLoading ? <span className="login-spinner" /> : null}
-                    {forgotLoading ? 'Sending...' : 'Send Reset Token'}
-                  </button>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      fullWidth
+                      disabled={!forgotEmail.trim() || forgotLoading}
+                      sx={{
+                        height: 42,
+                        bgcolor: '#0052cc',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        textTransform: 'none',
+                        borderRadius: '6px',
+                        '&:hover': { bgcolor: '#0747a6', boxShadow: '0 2px 8px rgba(0,82,204,0.25)' },
+                        '&.Mui-disabled': { opacity: 0.45, bgcolor: '#0052cc', color: '#fff' },
+                      }}
+                    >
+                      {forgotLoading && <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} />}
+                      {forgotLoading ? 'Sending...' : 'Send Reset Token'}
+                    </Button>
+                  </Stack>
                 </form>
               )}
 
               {forgotStep === 'token' && (
-                <form className="login-form" onSubmit={handleResetSubmit}>
-                  <div className="login-field">
-                    <label htmlFor="reset-token">Reset token</label>
-                    <div className="login-input-wrap">
-                      <span className="login-input-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                      </span>
-                      <input
-                        id="reset-token"
-                        value={resetToken}
-                        onChange={(e) => setResetToken(e.target.value)}
-                        placeholder="Paste reset token"
-                        type="text"
-                        autoComplete="off"
-                        required
-                      />
-                    </div>
-                  </div>
+                <form onSubmit={handleResetSubmit}>
+                  <Stack spacing={2}>
+                    <TextField
+                      id="reset-token"
+                      label="Reset token"
+                      value={resetToken}
+                      onChange={(e) => setResetToken(e.target.value)}
+                      placeholder="Paste reset token"
+                      type="text"
+                      autoComplete="off"
+                      required
+                      fullWidth
+                      size="small"
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <VpnKeyIcon sx={{ fontSize: 18, color: '#98a2b3' }} />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
 
-                  <div className="login-field">
-                    <label htmlFor="new-password">New password</label>
-                    <div className="login-input-wrap">
-                      <span className="login-input-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      </span>
-                      <input
-                        id="new-password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Min. 6 characters"
-                        type={showNewPassword ? 'text' : 'password'}
-                        autoComplete="new-password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="login-password-toggle"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showNewPassword ? (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        ) : (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                    <TextField
+                      id="new-password"
+                      label="New password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      type={showNewPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      fullWidth
+                      size="small"
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <LockIcon sx={{ fontSize: 18, color: '#98a2b3' }} />
+                            </InputAdornment>
+                          ),
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                edge="end"
+                                size="small"
+                                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                              >
+                                {showNewPassword ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
 
-                  <div className="login-field">
-                    <label htmlFor="confirm-password">Confirm password</label>
-                    <div className="login-input-wrap">
-                      <span className="login-input-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      </span>
-                      <input
-                        id="confirm-password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter new password"
-                        type={showNewPassword ? 'text' : 'password'}
-                        autoComplete="new-password"
-                        required
-                      />
-                    </div>
-                  </div>
+                    <TextField
+                      id="confirm-password"
+                      label="Confirm password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      fullWidth
+                      size="small"
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <LockIcon sx={{ fontSize: 18, color: '#98a2b3' }} />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
 
-                  {forgotError && (
-                    <div className="login-error">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                      <span>{forgotError}</span>
-                    </div>
-                  )}
+                    {forgotError && (
+                      <Alert severity="error" variant="filled" sx={{ fontSize: '11px' }}>
+                        {forgotError}
+                      </Alert>
+                    )}
 
-                  <button
-                    className="login-submit-btn"
-                    type="submit"
-                    disabled={!resetToken.trim() || !newPassword || !confirmPassword || forgotLoading}
-                  >
-                    {forgotLoading ? <span className="login-spinner" /> : null}
-                    {forgotLoading ? 'Resetting...' : 'Reset Password'}
-                  </button>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      fullWidth
+                      disabled={!resetToken.trim() || !newPassword || !confirmPassword || forgotLoading}
+                      sx={{
+                        height: 42,
+                        bgcolor: '#0052cc',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        textTransform: 'none',
+                        borderRadius: '6px',
+                        '&:hover': { bgcolor: '#0747a6', boxShadow: '0 2px 8px rgba(0,82,204,0.25)' },
+                        '&.Mui-disabled': { opacity: 0.45, bgcolor: '#0052cc', color: '#fff' },
+                      }}
+                    >
+                      {forgotLoading && <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} />}
+                      {forgotLoading ? 'Resetting...' : 'Reset Password'}
+                    </Button>
+                  </Stack>
                 </form>
               )}
 
               {forgotStep === 'done' && (
-                <div className="login-form">
-                  <div className="login-success">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                    <span>{resetSuccess}</span>
-                  </div>
-                  <button
-                    className="login-submit-btn"
-                    type="button"
+                <Stack spacing={2}>
+                  <Alert
+                    severity="success"
+                    icon={<CheckCircleOutlineIcon sx={{ fontSize: 20 }} />}
+                    sx={{ fontSize: '11px' }}
+                  >
+                    {resetSuccess}
+                  </Alert>
+                  <Button
+                    variant="contained"
+                    fullWidth
                     onClick={backToLogin}
+                    sx={{
+                      height: 42,
+                      bgcolor: '#0052cc',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      textTransform: 'none',
+                      borderRadius: '6px',
+                      '&:hover': { bgcolor: '#0747a6', boxShadow: '0 2px 8px rgba(0,82,204,0.25)' },
+                    }}
                   >
                     Back to Log In
-                  </button>
-                </div>
+                  </Button>
+                </Stack>
               )}
 
               {forgotStep !== 'done' && (
-                <p className="login-toggle-link">
-                  Remember your password? <button type="button" onClick={backToLogin}>Back to Log In</button>
-                </p>
+                <Typography variant="body2" sx={{ mt: 2.5, textAlign: 'center', color: '#6b778c', fontSize: '11px' }}>
+                  Remember your password?{' '}
+                  <Link component="button" type="button" underline="hover" onClick={backToLogin} sx={{ fontSize: '11px', fontWeight: 600, color: '#0052cc' }}>
+                    Back to Log In
+                  </Link>
+                </Typography>
               )}
             </>
           )}
-        </div>
+        </Box>
       </div>
     </div>
   )

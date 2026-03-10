@@ -1,5 +1,30 @@
 import { useState } from 'react'
 import { useMembers } from '../../context/MemberContext'
+import {
+  Typography,
+  TextField,
+  InputAdornment,
+  Button,
+  Card,
+  CardContent,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableContainer,
+  Avatar,
+  Chip,
+  Alert,
+  Stack,
+  Box,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from '@mui/material'
+import SearchIcon from '@mui/icons-material/Search'
+import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import './TeamsPage.css'
 
 export function TeamsPage() {
@@ -41,117 +66,187 @@ export function TeamsPage() {
 
   return (
     <section className="page teams-page">
-      <div className="teams-header">
-        <div>
-          <h1>Teams</h1>
-          <p className="teams-subtitle">Manage your team members and their roles within the workspace.</p>
-        </div>
-        <div className="teams-header-actions">
-          <label className="teams-search">
-            <span className="teams-search-icon" aria-hidden="true">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5L14 14" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              placeholder="Search members"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          <button className="btn btn-primary" type="button" onClick={() => setIsInviteOpen((c) => !c)}>
-            + Invite Member
-          </button>
-        </div>
-      </div>
+      <Box className="teams-header">
+        <Box>
+          <Typography variant="h4" component="h1" fontWeight="bold">
+            Teams
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Manage your team members and their roles within the workspace.
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            size="small"
+            placeholder="Search members"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            sx={{ width: 240 }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+            onClick={() => setIsInviteOpen((c) => !c)}
+          >
+            Invite Member
+          </Button>
+        </Stack>
+      </Box>
 
       {isInviteOpen && (
-        <article className="panel teams-invite-panel">
-          <h3>Invite a new member</h3>
-          <form className="teams-invite-form" onSubmit={handleInviteSubmit}>
-            <label>
-              Name
-              <input placeholder="Full name" value={inviteForm.name} onChange={(e) => setInviteForm((c) => ({ ...c, name: e.target.value }))} required />
-            </label>
-            <label>
-              Email
-              <input placeholder="Email address" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((c) => ({ ...c, email: e.target.value }))} required />
-            </label>
-            <label>
-              Role
-              <select value={inviteForm.role} onChange={(e) => setInviteForm((c) => ({ ...c, role: e.target.value }))}>
-                <option>Viewer</option>
-                <option>Member</option>
-                <option>Admin</option>
-              </select>
-            </label>
-            <div className="teams-invite-actions">
-              <button className="btn btn-primary" type="submit" disabled={inviteState.saving}>
-                {inviteState.saving ? 'Sending...' : 'Send Invite'}
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setIsInviteOpen(false)}>Cancel</button>
-            </div>
-          </form>
-          {inviteState.error && <p className="banner error">{inviteState.error}</p>}
-        </article>
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Invite a new member
+            </Typography>
+            <form onSubmit={handleInviteSubmit}>
+              <Stack direction="row" spacing={2} alignItems="flex-end" flexWrap="wrap">
+                <TextField
+                  label="Name"
+                  placeholder="Full name"
+                  size="small"
+                  value={inviteForm.name}
+                  onChange={(e) => setInviteForm((c) => ({ ...c, name: e.target.value }))}
+                  required
+                  sx={{ flex: 1, minWidth: 180 }}
+                />
+                <TextField
+                  label="Email"
+                  placeholder="Email address"
+                  type="email"
+                  size="small"
+                  value={inviteForm.email}
+                  onChange={(e) => setInviteForm((c) => ({ ...c, email: e.target.value }))}
+                  required
+                  sx={{ flex: 1, minWidth: 180 }}
+                />
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Role</InputLabel>
+                  <Select
+                    label="Role"
+                    value={inviteForm.role}
+                    onChange={(e) => setInviteForm((c) => ({ ...c, role: e.target.value }))}
+                  >
+                    <MenuItem value="Viewer">Viewer</MenuItem>
+                    <MenuItem value="Member">Member</MenuItem>
+                    <MenuItem value="Admin">Admin</MenuItem>
+                  </Select>
+                </FormControl>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="contained" type="submit" disabled={inviteState.saving}>
+                    {inviteState.saving ? 'Sending...' : 'Send Invite'}
+                  </Button>
+                  <Button variant="outlined" type="button" onClick={() => setIsInviteOpen(false)}>
+                    Cancel
+                  </Button>
+                </Stack>
+              </Stack>
+            </form>
+            {inviteState.error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {inviteState.error}
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      {inviteState.message && <p className="banner">{inviteState.message}</p>}
-      {resendState.message && <p className="banner">{resendState.message}</p>}
+      {inviteState.message && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {inviteState.message}
+        </Alert>
+      )}
+      {resendState.message && (
+        <Alert
+          severity={resendState.message.includes('Failed') ? 'error' : 'success'}
+          sx={{ mb: 2 }}
+        >
+          {resendState.message}
+        </Alert>
+      )}
 
-      <article className="panel teams-table-shell">
+      <TableContainer component={Card}>
         {filtered.length === 0 ? (
-          <div className="teams-empty">
-            {normalizedQuery ? 'No members match your search.' : 'No team members yet. Invite someone to get started.'}
-          </div>
+          <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
+            <Typography color="text.secondary">
+              {normalizedQuery ? 'No members match your search.' : 'No team members yet. Invite someone to get started.'}
+            </Typography>
+          </Box>
         ) : (
-          <table className="table teams-table">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Tasks</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Member</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Tasks</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {filtered.map((member) => (
-                <tr key={member.id}>
-                  <td>
-                    <div className="teams-member-cell">
-                      <span className="teams-member-avatar">{member.name.slice(0, 2).toUpperCase()}</span>
-                      <div>
-                        <strong>{member.name}</strong>
-                        <small>{member.email}</small>
-                        {member.invited_by && <small className="teams-invited-by">Invited by {member.invited_by}</small>}
-                      </div>
-                    </div>
-                  </td>
-                  <td><span className="pill">{member.role}</span></td>
-                  <td>
-                    <span className={`pill ${member.status === 'Active' ? 'pill-green' : 'pill-gray'}`}>
-                      {member.status}
-                    </span>
-                  </td>
-                  <td>{member.task_count || 0}</td>
-                  <td>
+                <TableRow key={member.id} hover>
+                  <TableCell>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', bgcolor: '#deebff', color: '#0052cc' }}>
+                        {member.name.slice(0, 2).toUpperCase()}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>
+                          {member.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {member.email}
+                        </Typography>
+                        {member.invited_by && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontStyle: 'italic' }}>
+                            Invited by {member.invited_by}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={member.role} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={member.status}
+                      size="small"
+                      color={member.status === 'Active' ? 'success' : 'default'}
+                    />
+                  </TableCell>
+                  <TableCell>{member.task_count || 0}</TableCell>
+                  <TableCell>
                     {member.status === 'Invited' ? (
-                      <button className="link-btn" type="button" onClick={() => handleResend(member.id)} disabled={resendState.id === member.id}>
+                      <Button
+                        size="small"
+                        onClick={() => handleResend(member.id)}
+                        disabled={resendState.id === member.id}
+                      >
                         {resendState.id === member.id ? 'Resending...' : 'Resend Invite'}
-                      </button>
+                      </Button>
                     ) : (
-                      <span className="teams-active-label">Active</span>
+                      <Typography variant="body2" color="text.secondary">
+                        Active
+                      </Typography>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </article>
+      </TableContainer>
     </section>
   )
 }

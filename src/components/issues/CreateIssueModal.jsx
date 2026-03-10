@@ -7,6 +7,30 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchProjects } from '../../api/projectApi'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { RichTextEditor } from './RichTextEditor'
+
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Checkbox from '@mui/material/Checkbox'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import ToggleButton from '@mui/material/ToggleButton'
+import Alert from '@mui/material/Alert'
+import Divider from '@mui/material/Divider'
+import Stack from '@mui/material/Stack'
+import Grid from '@mui/material/Grid'
+import Avatar from '@mui/material/Avatar'
+import Typography from '@mui/material/Typography'
+import CloseIcon from '@mui/icons-material/Close'
+
 import './CreateIssueModal.css'
 
 const TYPE_META = {
@@ -113,201 +137,208 @@ export function CreateIssueModal({ onClose }) {
   }
 
   return (
-    <div className="overlay" role="presentation" onClick={onClose}>
-      <form
-        className="create-issue-modal"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-      >
+    <Dialog open={true} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={submit}>
         {/* Header */}
-        <div className="create-issue-header">
-          <h2>Create issue</h2>
-          <button
-            type="button"
-            className="create-issue-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            &#x2715;
-          </button>
-        </div>
-
-        {/* Success toast */}
-        {successMessage && (
-          <div className="create-issue-success">{'\u2714'} {successMessage}</div>
-        )}
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Create issue
+          <IconButton onClick={onClose} aria-label="Close" size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
 
         {/* Body */}
-        <div className="create-issue-body">
-          {/* Error */}
-          {submitError && <p className="create-issue-error">{submitError}</p>}
+        <DialogContent dividers>
+          <Stack spacing={2.5}>
+            {/* Success toast */}
+            {successMessage && (
+              <Alert severity="success">{successMessage}</Alert>
+            )}
 
-          {/* Project */}
-          <div className="create-issue-field">
-            <label>Project <span className="create-issue-required">*</span></label>
-            <select
-              value={form.projectId}
-              onChange={(e) => update('projectId', Number(e.target.value))}
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.key})</option>
-              ))}
-            </select>
-          </div>
+            {/* Error */}
+            {submitError && (
+              <Alert severity="error">{submitError}</Alert>
+            )}
 
-          {/* Issue Type toggle */}
-          <div className="create-issue-field">
-            <label>Issue Type</label>
-            <div className="create-issue-type-selector">
-              {ISSUE_TYPES.map((type) => {
-                const meta = TYPE_META[type] || { icon: '\u{1F4CC}', label: type }
-                const isActive = form.issueType === type
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    data-type={type}
-                    className={`create-issue-type-btn${isActive ? ' create-issue-type-btn--active' : ''}`}
-                    onClick={() => update('issueType', type)}
-                  >
-                    <span className="create-issue-type-icon">{meta.icon}</span>
-                    {meta.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+            {/* Project */}
+            <FormControl fullWidth size="small" required>
+              <InputLabel>Project</InputLabel>
+              <Select
+                value={form.projectId}
+                label="Project"
+                onChange={(e) => update('projectId', Number(e.target.value))}
+              >
+                {projects.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>{p.name} ({p.key})</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          {/* Status */}
-          <div className="create-issue-field">
-            <label>Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => update('status', e.target.value)}
-            >
-              {ISSUE_STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+            {/* Issue Type toggle */}
+            <Stack spacing={0.5}>
+              <Typography variant="body2" fontWeight={500}>Issue Type</Typography>
+              <ToggleButtonGroup
+                value={form.issueType}
+                exclusive
+                onChange={(e, val) => { if (val !== null) update('issueType', val) }}
+                size="small"
+              >
+                {ISSUE_TYPES.map((type) => {
+                  const meta = TYPE_META[type] || { icon: '\u{1F4CC}', label: type }
+                  return (
+                    <ToggleButton key={type} value={type}>
+                      <span style={{ marginRight: 6 }}>{meta.icon}</span>
+                      {meta.label}
+                    </ToggleButton>
+                  )
+                })}
+              </ToggleButtonGroup>
+            </Stack>
 
-          <hr className="create-issue-separator" />
+            {/* Status */}
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={form.status}
+                label="Status"
+                onChange={(e) => update('status', e.target.value)}
+              >
+                {ISSUE_STATUSES.map((s) => (
+                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          {/* Summary */}
-          <div className="create-issue-field">
-            <label>
-              Summary <span className="create-issue-required">*</span>
-            </label>
-            <input
+            <Divider />
+
+            {/* Summary */}
+            <TextField
               required
+              fullWidth
+              size="small"
+              label="Summary"
               placeholder="What needs to be done?"
               value={form.title}
               onChange={(e) => update('title', e.target.value)}
             />
-          </div>
 
-          {/* Description */}
-          <div className="create-issue-field">
-            <label>
-              Description <span className="create-issue-required">*</span>
-            </label>
-            <RichTextEditor
-              required
-              rows={6}
-              placeholder="Add a description..."
-              value={form.description}
-              onChange={(val) => update('description', val)}
-            />
-          </div>
+            {/* Description */}
+            <Stack spacing={0.5}>
+              <Typography variant="body2" fontWeight={500}>
+                Description <span style={{ color: 'red' }}>*</span>
+              </Typography>
+              <RichTextEditor
+                required
+                rows={6}
+                placeholder="Add a description..."
+                value={form.description}
+                onChange={(val) => update('description', val)}
+              />
+            </Stack>
 
-          <hr className="create-issue-separator" />
+            <Divider />
 
-          {/* Assignee + Reporter */}
-          <div className="create-issue-row">
-            <div className="create-issue-field">
-              <label>Assignee</label>
-              <select
-                value={form.assignee}
-                onChange={(e) => update('assignee', e.target.value)}
-              >
-                {members.length === 0 && form.assignee && (
-                  <option value={form.assignee}>{form.assignee}</option>
-                )}
-                {members.map((m) => (
-                  <option key={m.id} value={m.name}>{m.name}</option>
-                ))}
-              </select>
-            </div>
+            {/* Assignee + Reporter */}
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Assignee</InputLabel>
+                  <Select
+                    value={form.assignee}
+                    label="Assignee"
+                    onChange={(e) => update('assignee', e.target.value)}
+                  >
+                    {members.length === 0 && form.assignee && (
+                      <MenuItem value={form.assignee}>{form.assignee}</MenuItem>
+                    )}
+                    {members.map((m) => (
+                      <MenuItem key={m.id} value={m.name}>{m.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
 
-            <div className="create-issue-field">
-              <label>Reporter</label>
-              <div className="create-issue-reporter">
-                <span className="create-issue-reporter-avatar">
-                  {reporterName.charAt(0).toUpperCase()}
-                </span>
-                <span>{reporterName}</span>
-              </div>
-            </div>
-          </div>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" fontWeight={500}>Reporter</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: 40 }}>
+                    <Avatar sx={{ width: 28, height: 28, fontSize: 14 }}>
+                      {reporterName.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Typography variant="body2">{reporterName}</Typography>
+                  </Stack>
+                </Stack>
+              </Grid>
+            </Grid>
 
-          {/* Priority + Sprint */}
-          <div className="create-issue-row">
-            <div className="create-issue-field">
-              <label>Priority</label>
-              <select
-                value={form.priority}
-                onChange={(e) => update('priority', e.target.value)}
-              >
-                {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
+            {/* Priority + Sprint */}
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Priority</InputLabel>
+                  <Select
+                    value={form.priority}
+                    label="Priority"
+                    onChange={(e) => update('priority', e.target.value)}
+                  >
+                    {PRIORITIES.map((p) => (
+                      <MenuItem key={p} value={p}>{p}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
 
-            <div className="create-issue-field">
-              <label>Sprint</label>
-              <select
-                value={form.sprintId ?? ''}
-                disabled={form.status === 'Backlog'}
-                onChange={(e) => {
-                  const val = e.target.value
-                  update('sprintId', val === '' ? null : Number(val))
-                }}
-              >
-                <option value="">{form.status === 'Backlog' ? 'N/A (Backlog)' : 'None'}</option>
-                {sprints.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small" disabled={form.status === 'Backlog'}>
+                  <InputLabel>Sprint</InputLabel>
+                  <Select
+                    value={form.sprintId ?? ''}
+                    label="Sprint"
+                    onChange={(e) => {
+                      const val = e.target.value
+                      update('sprintId', val === '' ? null : Number(val))
+                    }}
+                  >
+                    <MenuItem value="">
+                      {form.status === 'Backlog' ? 'N/A (Backlog)' : 'None'}
+                    </MenuItem>
+                    {sprints.map((s) => (
+                      <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Stack>
+        </DialogContent>
 
         {/* Footer */}
-        <div className="create-issue-footer">
-          <label className="create-issue-footer-left">
-            <input
-              type="checkbox"
-              checked={createAnother}
-              onChange={(e) => setCreateAnother(e.target.checked)}
-            />
-            Create another
-          </label>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 1.5 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={createAnother}
+                onChange={(e) => setCreateAnother(e.target.checked)}
+                size="small"
+              />
+            }
+            label="Create another"
+          />
 
-          <div className="create-issue-footer-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <Stack direction="row" spacing={1}>
+            <Button variant="text" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="btn btn-primary"
+              variant="contained"
               disabled={saving || !form.title.trim() || !form.description.trim()}
             >
               {saving ? 'Creating...' : 'Create'}
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Stack>
+        </DialogActions>
       </form>
-    </div>
+    </Dialog>
   )
 }
