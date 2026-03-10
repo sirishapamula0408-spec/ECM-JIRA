@@ -5,13 +5,9 @@ import './ProfilePage.css'
 
 export function ProfilePage() {
   const { authUser } = useAuth()
-  const { profile, members, handleSaveProfile: onSave, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
+  const { profile, handleSaveProfile: onSave } = useMembers()
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [isInviteOpen, setIsInviteOpen] = useState(false)
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
-  const [inviteState, setInviteState] = useState({ saving: false, error: '', message: '' })
-  const [resendState, setResendState] = useState({ id: null, message: '' })
 
   // Sync form when profile data loads or changes
   useEffect(() => {
@@ -38,23 +34,6 @@ export function ProfilePage() {
     const reader = new FileReader()
     reader.onload = () => { setForm((current) => ({ ...current, avatar_url: String(reader.result || '') })) }
     reader.readAsDataURL(file)
-  }
-
-  async function handleInviteSubmit(event) {
-    event.preventDefault()
-    setInviteState({ saving: true, error: '', message: '' })
-    try {
-      await onInvite({ ...inviteForm, invited_by: form.full_name })
-      setInviteForm({ name: '', email: '', role: 'Viewer' })
-      setInviteState({ saving: false, error: '', message: 'Invitation sent.' })
-      setIsInviteOpen(false)
-    } catch (inviteError) { setInviteState({ saving: false, error: inviteError.message, message: '' }) }
-  }
-
-  async function handleResend(memberId) {
-    setResendState({ id: memberId, message: '' })
-    try { await onResend(memberId); setResendState({ id: null, message: 'Invite resent successfully.' }) }
-    catch { setResendState({ id: null, message: 'Failed to resend invite.' }) }
   }
 
   const userEmail = form.email || authUser?.email || ''
@@ -108,56 +87,6 @@ export function ProfilePage() {
           </div>
         </article>
       </section>
-
-      <article className="panel">
-        <div className="split-header">
-          <div><h3>Team Members</h3><p className="subtitle">Manage your team's access and roles within the workspace.</p></div>
-          <button className="btn btn-ghost invite-btn" type="button" onClick={() => setIsInviteOpen((c) => !c)}>+ Invite Colleague</button>
-        </div>
-
-        {isInviteOpen && (
-          <form className="invite-form" onSubmit={handleInviteSubmit}>
-            <input placeholder="Name" value={inviteForm.name} onChange={(event) => setInviteForm((c) => ({ ...c, name: event.target.value }))} required />
-            <input placeholder="Email" type="email" value={inviteForm.email} onChange={(event) => setInviteForm((c) => ({ ...c, email: event.target.value }))} required />
-            <select value={inviteForm.role} onChange={(event) => setInviteForm((c) => ({ ...c, role: event.target.value }))}>
-              <option>Viewer</option><option>Member</option><option>Admin</option>
-            </select>
-            <button className="btn btn-primary" type="submit" disabled={inviteState.saving}>{inviteState.saving ? 'Sending...' : 'Send Invite'}</button>
-          </form>
-        )}
-        {inviteState.error && <p className="banner error">{inviteState.error}</p>}
-        {inviteState.message && <p className="banner">{inviteState.message}</p>}
-        {resendState.message && <p className="banner">{resendState.message}</p>}
-
-        <table className="table">
-          <thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {members.map((member) => (
-              <tr key={member.id}>
-                <td>
-                  <div className="member-cell">
-                    <span className="member-avatar">{member.name.slice(0, 2).toUpperCase()}</span>
-                    <div>
-                      <strong>{member.name}</strong>
-                      <small>{member.email}</small>
-                      {member.invited_by && <small>Invited by {member.invited_by}</small>}
-                    </div>
-                  </div>
-                </td>
-                <td><span className="pill">{member.role}</span></td>
-                <td><span className={`pill ${member.status === 'Active' ? 'pill-green' : 'pill-gray'}`}>{member.status}</span></td>
-                <td>
-                  {member.status === 'Invited' ? (
-                    <button className="link-btn" type="button" onClick={() => handleResend(member.id)} disabled={resendState.id === member.id}>{resendState.id === member.id ? 'Resending...' : 'Resend'}</button>
-                  ) : (
-                    <button className="icon-btn" type="button" aria-label="Member actions">&#8942;</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </article>
     </section>
   )
 }

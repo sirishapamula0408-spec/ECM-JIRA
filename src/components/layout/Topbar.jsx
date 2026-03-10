@@ -7,7 +7,7 @@ import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { displayNameFromEmail } from '../../utils/helpers'
 
-export function Topbar({ onCreate }) {
+export function Topbar({ onCreate, hasProjects }) {
   const { authUser: currentUser, handleLogout } = useAuth()
   const { theme, onThemeChange } = useTheme()
   const { profile } = useMembers()
@@ -33,7 +33,7 @@ export function Topbar({ onCreate }) {
       </div>
 
       <div className="top-actions top-actions-jira">
-        <button className="btn btn-primary create-btn" type="button" onClick={onCreate}>
+        <button className="btn btn-primary create-btn" type="button" onClick={onCreate} disabled={!hasProjects} title={!hasProjects ? 'No project access' : undefined}>
           <span className="plus-create-content">
             <span className="plus-create-symbol">+</span>
             <span>Create</span>

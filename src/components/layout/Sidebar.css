@@ -257,6 +257,21 @@
   min-width: 0;
 }
 
+.sidebar-caret-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.sidebar-caret-btn:hover {
+  background: #dfe1e6;
+}
+
 .sidebar-caret {
   display: inline-block;
   width: 16px;
@@ -373,6 +388,13 @@
   padding-top: 6px;
   padding-bottom: 6px;
   font-size: var(--font-size-base);
+}
+
+.nav-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
 }
 
 .nav-more {

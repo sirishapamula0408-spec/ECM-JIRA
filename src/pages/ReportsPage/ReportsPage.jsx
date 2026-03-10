@@ -13,7 +13,10 @@ export function ReportsPage() {
   const computed = useMemo(() => {
     const allIssues = Array.isArray(issues) ? issues : []
     const issueList = projectId ? allIssues.filter((issue) => issue.projectId === Number(projectId)) : allIssues
-    const sprintList = Array.isArray(sprints) ? sprints : []
+    const allSprints = Array.isArray(sprints) ? sprints : []
+    // Filter sprints to only those containing issues for the current project
+    const projectIssueSprintIds = projectId ? new Set(issueList.map((issue) => issue.sprintId).filter(Boolean)) : null
+    const sprintList = projectIssueSprintIds ? allSprints.filter((sprint) => projectIssueSprintIds.has(sprint.id)) : allSprints
     const pointsByType = { Story: 8, Bug: 5, Task: 3 }
     const toPoints = (issue) => pointsByType[issue.issueType] ?? 3
     const round = (value) => Math.round(value)
@@ -61,9 +64,19 @@ export function ReportsPage() {
   const neutral = Math.max(0, 100 - (critical + medium + low))
   const donutBackground = `conic-gradient(#de350b 0 ${critical}%, #ff991f ${critical}% ${critical + medium}%, #0065ff ${critical + medium}% ${critical + medium + low}%, #dfe1e6 ${critical + medium + low}% ${critical + medium + low + neutral}%)`
 
+  const allIssues = Array.isArray(issues) ? issues : []
+  const hasIssues = projectId
+    ? allIssues.some((issue) => issue.projectId === Number(projectId))
+    : allIssues.length > 0
+
   return (
     <section className="page">
       <h1>Reporting Dashboard</h1>
+      {!hasIssues && projectId && (
+        <p className="banner" style={{ textAlign: 'center', color: 'var(--jira-text-muted)', padding: '12px' }}>
+          No issues found for this project. Create issues to see report data.
+        </p>
+      )}
       <div className="stats-grid">
         <StatCard label="Total Points" value={reportData.totalPoints || 0} />
         <StatCard label="Velocity Avg" value={reportData.velocityAverage || 0} />

@@ -70,7 +70,27 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
         </div>
       </div>
 
-      <article className="projects-table-shell">
+      {!loading && projects.length === 0 && !query && (
+        <div className="projects-no-access">
+          <div className="projects-no-access-icon" aria-hidden="true">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#b3bac5" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              <line x1="9" y1="13" x2="15" y2="13" />
+            </svg>
+          </div>
+          <h3 className="projects-no-access-title">You're not assigned to any projects</h3>
+          <p className="projects-no-access-desc">
+            Ask your team admin to add you to a project, or create a new one to get started.
+          </p>
+          {onCreateProject && (
+            <button className="btn btn-primary" type="button" onClick={onCreateProject}>
+              Create a project
+            </button>
+          )}
+        </div>
+      )}
+
+      <article className="projects-table-shell" style={!loading && projects.length === 0 && !query ? { display: 'none' } : undefined}>
         {loading ? (
           <div className="projects-loading">Loading projects...</div>
         ) : filtered.length === 0 ? (

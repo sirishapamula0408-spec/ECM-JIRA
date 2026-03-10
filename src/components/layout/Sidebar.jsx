@@ -5,7 +5,7 @@ import { fetchProjects } from '../../api/projectApi'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
-export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey }) {
+export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isSpacesMenuOpen, setIsSpacesMenuOpen] = useState(false)
@@ -56,18 +56,17 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   }, [spacesHidden])
 
   const primaryItems = [
-    { label: 'For you', path: '/dashboard', icon: 'for-you' },
     { label: 'Recent', path: '/backlog', icon: 'recent' },
     { label: 'Projects', path: '/projects', icon: 'spaces', hasInlineActions: true },
   ]
 
   const productItems = [
-    { label: 'Teams', path: '/profile', icon: 'teams' },
+    { label: 'Teams', path: '/teams', icon: 'teams' },
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
   ]
 
   const utilityItems = [
-    { label: 'Filters', path: '/backlog', icon: 'filters' },
+    { label: 'Filters', path: '/filters', icon: 'filters' },
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
   ]
 
@@ -93,13 +92,22 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
             return (
               <div key={item.path} className="sidebar-projects-section">
                 <div className={`nav${location.pathname.startsWith('/projects') ? ' active' : ''}`}>
+                  <span
+                    className="sidebar-caret-btn"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setProjectsExpanded((c) => !c); loadProjects() }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProjectsExpanded((c) => !c); loadProjects() } }}
+                    aria-label={projectsExpanded ? 'Collapse projects' : 'Expand projects'}
+                  >
+                    <span className={`sidebar-caret${projectsExpanded ? ' sidebar-caret--open' : ''}`} aria-hidden="true" />
+                  </span>
                   <button
                     type="button"
                     className="sidebar-projects-toggle"
-                    onClick={() => { setProjectsExpanded((c) => !c); loadProjects() }}
+                    onClick={() => { navigate('/projects'); setProjectsExpanded(true); loadProjects() }}
                     title={collapsed ? item.label : undefined}
                   >
-                    <span className={`sidebar-caret${projectsExpanded ? ' sidebar-caret--open' : ''}`} aria-hidden="true" />
                     <span className="nav-icon" aria-hidden="true">
                       <SidebarNavIcon name={item.icon} />
                     </span>
@@ -200,7 +208,15 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
               </div>
             )
           }
-          return (
+          const isDisabled = !hasProjects && item.label !== 'Projects'
+          return isDisabled ? (
+            <span key={item.path} className="nav nav-disabled" title={collapsed ? item.label : 'No project access'}>
+              <span className="nav-icon" aria-hidden="true">
+                <SidebarNavIcon name={item.icon} />
+              </span>
+              {!collapsed && <span className="nav-label">{item.label}</span>}
+            </span>
+          ) : (
             <NavLink
               key={item.path}
               className={({ isActive }) => (isActive ? 'nav active' : 'nav')}
@@ -225,35 +241,9 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
       <div className="sidebar-divider" />
 
       <nav>
-        {productItems.map((item) => (
-          <NavLink
-            key={`${item.label}-${item.path}`}
-            className={({ isActive }) => (isActive ? 'nav active' : 'nav')}
-            to={item.path}
-            title={collapsed ? item.label : undefined}
-          >
-            <span className="nav-icon" aria-hidden="true">
-              <SidebarNavIcon name={item.icon} />
-            </span>
-            {!collapsed && <span className="nav-label">{item.label}</span>}
-          </NavLink>
-        ))}
-      </nav>
-
-      <NavLink
-        className={({ isActive }) => (isActive ? 'nav active nav-more' : 'nav nav-more')}
-        to="/profile"
-        title={collapsed ? 'More' : undefined}
-      >
-        <span className="nav-icon" aria-hidden="true">
-          <SidebarNavIcon name="more" />
-        </span>
-        {!collapsed && <span className="nav-label">More</span>}
-      </NavLink>
-
-      <div className="sidebar-box">
-        <nav>
-          {utilityItems.map((item) => (
+        {productItems.map((item) => {
+          const isAllowed = hasProjects || item.label === 'Teams'
+          return isAllowed ? (
             <NavLink
               key={`${item.label}-${item.path}`}
               className={({ isActive }) => (isActive ? 'nav active' : 'nav')}
@@ -265,6 +255,38 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
               </span>
               {!collapsed && <span className="nav-label">{item.label}</span>}
             </NavLink>
+          ) : (
+            <span key={`${item.label}-${item.path}`} className="nav nav-disabled" title="No project access">
+              <span className="nav-icon" aria-hidden="true">
+                <SidebarNavIcon name={item.icon} />
+              </span>
+              {!collapsed && <span className="nav-label">{item.label}</span>}
+            </span>
+          )
+        })}
+      </nav>
+
+      <div className="sidebar-box">
+        <nav>
+          {utilityItems.map((item) => hasProjects ? (
+            <NavLink
+              key={`${item.label}-${item.path}`}
+              className={({ isActive }) => (isActive ? 'nav active' : 'nav')}
+              to={item.path}
+              title={collapsed ? item.label : undefined}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                <SidebarNavIcon name={item.icon} />
+              </span>
+              {!collapsed && <span className="nav-label">{item.label}</span>}
+            </NavLink>
+          ) : (
+            <span key={`${item.label}-${item.path}`} className="nav nav-disabled" title="No project access">
+              <span className="nav-icon" aria-hidden="true">
+                <SidebarNavIcon name={item.icon} />
+              </span>
+              {!collapsed && <span className="nav-label">{item.label}</span>}
+            </span>
           ))}
         </nav>
       </div>

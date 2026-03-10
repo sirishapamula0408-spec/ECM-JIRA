@@ -153,6 +153,28 @@ async function seedWorkflows() {
   }
 }
 
+async function seedProjectMembers() {
+  const row = await get('SELECT COUNT(*) AS count FROM project_members')
+  if (row.count > 0) {
+    return
+  }
+
+  // Link seed members to seed projects
+  const members = await all('SELECT id, name FROM members')
+  const projects = await all('SELECT id, lead FROM projects')
+
+  for (const project of projects) {
+    // Add the project lead as Admin
+    const lead = members.find((m) => m.name === project.lead)
+    if (lead) {
+      await run(
+        'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+        [project.id, lead.id, 'Admin'],
+      )
+    }
+  }
+}
+
 export async function seedDatabase() {
   const defaultSprintId = await seedSprints()
   await seedIssues(defaultSprintId)
@@ -162,5 +184,6 @@ export async function seedDatabase() {
   await seedProfile()
   await seedWorkflows()
   await seedProjects()
+  await seedProjectMembers()
   return defaultSprintId
 }

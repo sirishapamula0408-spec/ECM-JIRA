@@ -13,7 +13,7 @@ const VIEW_LABELS = {
   list: 'List',
 }
 
-export function ProjectTopPanel() {
+export function ProjectTopPanel({ hasProjects }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [projectName, setProjectName] = useState('')
@@ -64,7 +64,7 @@ export function ProjectTopPanel() {
   const isDashboard = location.pathname === '/' || location.pathname === '/dashboard'
   const isProfile = location.pathname === '/profile'
   const isIssueDetail = location.pathname.startsWith('/issues/')
-  if (isDashboard || isProfile || isIssueDetail) return null
+  if (isDashboard || isProfile || isIssueDetail || !hasProjects) return null
 
   return (
     <div className="project-top-panel-wrapper">

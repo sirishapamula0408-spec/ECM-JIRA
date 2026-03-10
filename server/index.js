@@ -17,6 +17,7 @@ import memberRoutes from './routes/members.js'
 import activityRoutes from './routes/activity.js'
 import projectRoutes from './routes/projects.js'
 import commentRoutes from './routes/comments.js'
+import filterRoutes from './routes/filters.js'
 
 const app = express()
 
@@ -45,6 +46,7 @@ app.use('/api/members', authGuard, memberRoutes)
 app.use('/api/activity', authGuard, activityRoutes)
 app.use('/api/projects', authGuard, projectRoutes)
 app.use('/api/issues', authGuard, commentRoutes)
+app.use('/api/filters', authGuard, filterRoutes)
 
 app.use(errorHandler)
 

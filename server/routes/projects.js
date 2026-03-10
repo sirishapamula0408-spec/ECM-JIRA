@@ -4,8 +4,31 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 
 const router = Router()
 
-router.get('/', asyncHandler(async (_req, res) => {
-  const rows = await all('SELECT * FROM projects ORDER BY id ASC')
+router.get('/', asyncHandler(async (req, res) => {
+  const userEmail = req.user?.email
+  if (!userEmail) {
+    res.json([])
+    return
+  }
+
+  // Find the member record for the logged-in user
+  const member = await get('SELECT id, name FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
+
+  // Return projects where user is a member or the lead
+  let rows
+  if (member) {
+    rows = await all(
+      `SELECT DISTINCT p.* FROM projects p
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
+       WHERE pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?)
+       ORDER BY p.id ASC`,
+      [member.id, member.name],
+    )
+  } else {
+    // Fallback: no member record yet — show projects where user email matches lead
+    rows = await all('SELECT * FROM projects WHERE LOWER(lead) = LOWER(?) ORDER BY id ASC', [userEmail])
+  }
+
   res.json(rows)
 }))
 
@@ -34,8 +57,22 @@ router.post('/', asyncHandler(async (req, res) => {
     'INSERT INTO projects (name, key, type, lead) VALUES (?, ?, ?, ?)',
     [trimmedName, trimmedKey, trimmedType, trimmedLead],
   )
+  const projectId = result.lastID
+
+  // Auto-add the logged-in user as an Admin member of the new project
+  const userEmail = req.user?.email
+  if (userEmail) {
+    const member = await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
+    if (member) {
+      await run(
+        'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+        [projectId, member.id, 'Admin'],
+      )
+    }
+  }
+
   res.status(201).json({
-    id: result.lastID,
+    id: projectId,
     name: trimmedName,
     key: trimmedKey,
     type: trimmedType,
