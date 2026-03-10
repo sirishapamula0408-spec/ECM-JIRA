@@ -6,6 +6,7 @@ import { fetchSprints } from './api/sprintApi'
 import { fetchDashboard, fetchReports, fetchRoadmap, fetchWorkflows, fetchActivity } from './api/dashboardApi'
 import { fetchMembers, fetchProfile } from './api/memberApi'
 import { fetchProjects } from './api/projectApi'
+import { fetchCurrentUser } from './api/authApi'
 
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -52,7 +53,7 @@ function AppContent() {
   const { loadIssues } = useIssues()
   const { loadSprints } = useSprints()
   const { loadAppData, setAppLoading, setAppError, loading, error } = useAppData()
-  const { loadProfile, loadMembers } = useMembers()
+  const { loadProfile, loadMembers, loadCurrentMember } = useMembers()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
@@ -66,19 +67,20 @@ function AppContent() {
     Promise.all([
       fetchDashboard(), fetchIssues(), fetchReports(), fetchRoadmap(),
       fetchWorkflows(), fetchSprints(), fetchProfile(), fetchMembers(), fetchActivity(),
-      fetchProjects(),
+      fetchProjects(), fetchCurrentUser(),
     ])
-      .then(([dashboardData, issuesData, , roadmapData, , sprintsData, profileData, membersData, activityData, projectsData]) => {
+      .then(([dashboardData, issuesData, , roadmapData, , sprintsData, profileData, membersData, activityData, projectsData, currentUserData]) => {
         loadAppData({ dashboard: dashboardData, roadmap: roadmapData, activity: activityData })
         loadIssues(issuesData)
         loadSprints(sprintsData)
         loadProfile(profileData)
         loadMembers(membersData)
+        loadCurrentMember(currentUserData)
         setHasProjects(Array.isArray(projectsData) && projectsData.length > 0)
       })
       .catch((loadError) => setAppError(loadError.message))
       .finally(() => setAppLoading(false))
-  }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, setAppLoading, setAppError])
+  }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, loadCurrentMember, setAppLoading, setAppError])
 
   if (!isAuthenticated) return <LoginPage />
 
