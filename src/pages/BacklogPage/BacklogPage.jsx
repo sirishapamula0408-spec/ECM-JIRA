@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import './BacklogPage.css'
 import { ISSUE_STATUSES } from '../../constants'
 import { TopNavIcon } from '../../components/icons/TopNavIcon'
@@ -13,6 +14,7 @@ export function BacklogPage() {
   const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
   const { profile } = useMembers()
   const { projectId } = useParams()
+  const { canEditIssue, canCreateIssue, canManageSprints } = usePermissions(projectId)
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
@@ -207,10 +209,10 @@ export function BacklogPage() {
         <div className="backlog-toolbar-right">
           <div className="backlog-bulk">
             <span className="bulk-count">{selectedCount} selected</span>
-            <select className="bulk-status-select" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={selectedCount === 0}>
+            <select className="bulk-status-select" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={selectedCount === 0 || !canEditIssue}>
               {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{status.toUpperCase()}</option>))}
             </select>
-            <button className="btn btn-ghost" type="button" onClick={applyBulkStatus} disabled={selectedCount === 0}>Apply</button>
+            <button className="btn btn-ghost" type="button" onClick={applyBulkStatus} disabled={selectedCount === 0 || !canEditIssue}>Apply</button>
           </div>
           <button className="icon-btn" type="button" aria-label="Views">chart</button>
           <button className="icon-btn" type="button" aria-label="Display settings">settings</button>
@@ -244,20 +246,24 @@ export function BacklogPage() {
                   <span className="metric-pill">0</span>
                   <span className="metric-pill metric-pill-blue">0</span>
                   <span className="metric-pill metric-pill-green">0</span>
-                  <button className="btn btn-ghost sprint-action-btn" type="button" onClick={() => handleStartSprintAction(sprintPanel.id)} disabled={isStarted || sprintPanel.issues.length === 0}>
-                    {isStarted ? 'Sprint started' : 'Start sprint'}
-                  </button>
-                  <div className="sprint-menu-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpenSprintMenuId(null) }}>
-                    <button className="icon-btn sprint-menu-trigger" type="button" aria-label="Sprint actions" onClick={() => setOpenSprintMenuId((current) => (current === sprintPanel.id ? null : sprintPanel.id))}>...</button>
-                    {openSprintMenuId === sprintPanel.id && (
-                      <div className="sprint-menu" role="menu">
-                        <button className="sprint-menu-item" type="button" onClick={async () => { await handleStartSprintAction(sprintPanel.id); setOpenSprintMenuId(null) }} disabled={isStarted || sprintPanel.issues.length === 0}>Start sprint</button>
-                        <button className="sprint-menu-item" type="button" onClick={async () => { await handleRenameSprint(sprintPanel); setOpenSprintMenuId(null) }}>Rename sprint</button>
-                        <button className="sprint-menu-item" type="button" onClick={async () => { await handleMoveSprintIssuesToBacklog(sprintPanel); setOpenSprintMenuId(null) }} disabled={sprintPanel.issueIds.length === 0}>Move all to backlog</button>
-                        <button className="sprint-menu-item sprint-menu-danger" type="button" onClick={async () => { await handleDeleteSprintPanel(sprintPanel); setOpenSprintMenuId(null) }}>Delete sprint</button>
-                      </div>
-                    )}
-                  </div>
+                  {canManageSprints && (
+                    <button className="btn btn-ghost sprint-action-btn" type="button" onClick={() => handleStartSprintAction(sprintPanel.id)} disabled={isStarted || sprintPanel.issues.length === 0}>
+                      {isStarted ? 'Sprint started' : 'Start sprint'}
+                    </button>
+                  )}
+                  {canManageSprints && (
+                    <div className="sprint-menu-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpenSprintMenuId(null) }}>
+                      <button className="icon-btn sprint-menu-trigger" type="button" aria-label="Sprint actions" onClick={() => setOpenSprintMenuId((current) => (current === sprintPanel.id ? null : sprintPanel.id))}>...</button>
+                      {openSprintMenuId === sprintPanel.id && (
+                        <div className="sprint-menu" role="menu">
+                          <button className="sprint-menu-item" type="button" onClick={async () => { await handleStartSprintAction(sprintPanel.id); setOpenSprintMenuId(null) }} disabled={isStarted || sprintPanel.issues.length === 0}>Start sprint</button>
+                          <button className="sprint-menu-item" type="button" onClick={async () => { await handleRenameSprint(sprintPanel); setOpenSprintMenuId(null) }}>Rename sprint</button>
+                          <button className="sprint-menu-item" type="button" onClick={async () => { await handleMoveSprintIssuesToBacklog(sprintPanel); setOpenSprintMenuId(null) }} disabled={sprintPanel.issueIds.length === 0}>Move all to backlog</button>
+                          <button className="sprint-menu-item sprint-menu-danger" type="button" onClick={async () => { await handleDeleteSprintPanel(sprintPanel); setOpenSprintMenuId(null) }}>Delete sprint</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -269,7 +275,7 @@ export function BacklogPage() {
                 {isExpanded && (
                   <>
                     {sprintPanel.issues.map((issue) => (
-                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} onMove={canEditIssue ? (id, status) => handleBacklogMove(id, status, sprintPanel.id) : undefined} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={canEditIssue ? handleIssueDragStart : undefined} onDragEnd={canEditIssue ? handleIssueDragEnd : undefined} />
                     ))}
                     {quickCreateBySprint[sprintPanel.id] && (
                       <div className="quick-create-row">
@@ -279,11 +285,13 @@ export function BacklogPage() {
                         {quickCreateErrorBySprint[sprintPanel.id] && <p className="quick-create-error">{quickCreateErrorBySprint[sprintPanel.id]}</p>}
                       </div>
                     )}
-                    <div className="sprint-inline-create-wrap">
-                      <button className="sprint-inline-create" type="button" onClick={() => openQuickCreate(sprintPanel.id)}>
-                        <span className="plus-create-content"><span className="plus-create-symbol">+</span><span>Create</span></span>
-                      </button>
-                    </div>
+                    {canCreateIssue && (
+                      <div className="sprint-inline-create-wrap">
+                        <button className="sprint-inline-create" type="button" onClick={() => openQuickCreate(sprintPanel.id)}>
+                          <span className="plus-create-content"><span className="plus-create-symbol">+</span><span>Create</span></span>
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -303,13 +311,13 @@ export function BacklogPage() {
             <span className="metric-pill">0</span>
             <span className="metric-pill metric-pill-blue">0</span>
             <span className="metric-pill metric-pill-green">0</span>
-            <button className="btn btn-ghost sprint-action-btn" type="button" onClick={createSprintFromSelection}>Create sprint</button>
+            {canManageSprints && <button className="btn btn-ghost sprint-action-btn" type="button" onClick={createSprintFromSelection}>Create sprint</button>}
           </div>
         </div>
 
         <div className={`sprint-issues${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           {expandedPanels.backlog && backlogItems.map((issue) => (
-            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} onMove={canEditIssue ? handleBacklogMove : undefined} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={canEditIssue ? handleIssueDragStart : undefined} onDragEnd={canEditIssue ? handleIssueDragEnd : undefined} />
           ))}
         </div>
       </article>

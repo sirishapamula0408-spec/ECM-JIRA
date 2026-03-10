@@ -6,8 +6,8 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
   return (
     <div
       className={`backlog-issue-row${isSelected ? ' selected' : ''}`}
-      draggable
-      onDragStart={() => onDragStart(issue.id)}
+      draggable={Boolean(onDragStart)}
+      onDragStart={onDragStart ? () => onDragStart(issue.id) : undefined}
       onDragEnd={onDragEnd}
     >
       <input
@@ -26,7 +26,8 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         <select
           className="backlog-status-select"
           value={issue.status}
-          onChange={(event) => onMove(issue.id, event.target.value)}
+          onChange={onMove ? (event) => onMove(issue.id, event.target.value) : undefined}
+          disabled={!onMove}
           aria-label={`Status for ${issue.key}`}
         >
           {ISSUE_STATUSES.map((status) => (
@@ -38,10 +39,11 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         <button
           className="flag-btn"
           type="button"
-          onClick={(event) => {
+          disabled={!onMove}
+          onClick={onMove ? (event) => {
             event.stopPropagation()
             onMove(issue.id, nextStatus)
-          }}
+          } : undefined}
         >
           ⚑
         </button>
