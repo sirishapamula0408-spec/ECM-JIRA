@@ -80,4 +80,37 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
   res.json({ ok: true, member })
 }))
 
+router.put('/:id/role', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const { role } = req.body
+  const VALID_ROLES = ['Admin', 'Member', 'Viewer']
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'Invalid member id' })
+  }
+  if (!role || !VALID_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'role must be one of: Admin, Member, Viewer' })
+  }
+
+  const member = await get('SELECT id, role, is_owner FROM members WHERE id = ?', [id])
+  if (!member) {
+    return res.status(404).json({ error: 'Member not found' })
+  }
+  if (member.is_owner) {
+    return res.status(403).json({ error: 'Cannot change the Owner role' })
+  }
+
+  // Prevent demoting the last Admin
+  if (member.role === 'Admin' && role !== 'Admin') {
+    const adminCount = await get('SELECT COUNT(*) as cnt FROM members WHERE role = ? AND is_owner = 0', ['Admin'])
+    if (adminCount.cnt <= 1) {
+      return res.status(409).json({ error: 'Cannot demote the last Admin. Promote another member first.' })
+    }
+  }
+
+  await run('UPDATE members SET role = ? WHERE id = ?', [role, id])
+  const updated = await get('SELECT id, name, email, role, status, task_count, invited_by FROM members WHERE id = ?', [id])
+  res.json(updated)
+}))
+
 export default router

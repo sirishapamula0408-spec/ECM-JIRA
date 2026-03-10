@@ -22,3 +22,10 @@ export function resendMemberInvite(id) {
     method: 'POST',
   })
 }
+
+export function updateMemberRole(id, role) {
+  return api(`/api/members/${id}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  })
+}

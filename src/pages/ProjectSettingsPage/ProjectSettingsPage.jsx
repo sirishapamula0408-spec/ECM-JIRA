@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember } from '../../api/projectApi'
+import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember, updateProjectMemberRole } from '../../api/projectApi'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
 
@@ -93,6 +93,15 @@ export function ProjectSettingsPage() {
     try {
       await removeProjectMember(projectId, memberId)
       setProjectMembers((prev) => prev.filter((pm) => pm.id !== memberId))
+    } catch { /* ignore */ }
+    setAccessBusy(false)
+  }
+
+  async function handleChangeProjectRole(memberId, newRole) {
+    setAccessBusy(true)
+    try {
+      const updated = await updateProjectMemberRole(projectId, memberId, newRole)
+      setProjectMembers((prev) => prev.map((pm) => (pm.id === updated.id ? updated : pm)))
     } catch { /* ignore */ }
     setAccessBusy(false)
   }
@@ -301,7 +310,22 @@ export function ProjectSettingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td><span className="pill">{pm.project_role}</span></td>
+                      <td>
+                        {!isLead(pm.name) ? (
+                          <select
+                            className="ps-role-select"
+                            value={pm.project_role}
+                            onChange={(e) => handleChangeProjectRole(pm.id, e.target.value)}
+                            disabled={accessBusy}
+                          >
+                            <option>Admin</option>
+                            <option>Member</option>
+                            <option>Viewer</option>
+                          </select>
+                        ) : (
+                          <span className="pill">{pm.project_role}</span>
+                        )}
+                      </td>
                       <td>
                         {!isLead(pm.name) && (
                           <button

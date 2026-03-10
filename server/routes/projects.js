@@ -184,6 +184,52 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
   res.status(201).json(row)
 }))
 
+router.put('/:id/members/:memberId/role', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.id)
+  const memberId = Number(req.params.memberId)
+  const { role } = req.body
+  const VALID_ROLES = ['Admin', 'Member', 'Viewer']
+
+  if (!Number.isInteger(memberId)) {
+    return res.status(400).json({ error: 'Invalid member id' })
+  }
+  if (!role || !VALID_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'role must be one of: Admin, Member, Viewer' })
+  }
+
+  // Prevent changing the project lead's role
+  const project = await get('SELECT lead FROM projects WHERE id = ?', [projectId])
+  if (project) {
+    const member = await get('SELECT name FROM members WHERE id = ?', [memberId])
+    if (member && member.name === project.lead) {
+      return res.status(403).json({ error: 'Cannot change the Project Lead role' })
+    }
+  }
+
+  const existing = await get(
+    'SELECT id FROM project_members WHERE project_id = ? AND member_id = ?',
+    [projectId, memberId],
+  )
+  if (!existing) {
+    return res.status(404).json({ error: 'Member is not assigned to this project' })
+  }
+
+  await run(
+    'UPDATE project_members SET role = ? WHERE project_id = ? AND member_id = ?',
+    [role, projectId, memberId],
+  )
+
+  const row = await get(
+    `SELECT pm.id AS pm_id, pm.role AS project_role, pm.assigned_at,
+            m.id, m.name, m.email, m.role AS global_role, m.status
+     FROM project_members pm
+     JOIN members m ON m.id = pm.member_id
+     WHERE pm.project_id = ? AND pm.member_id = ?`,
+    [projectId, memberId],
+  )
+  res.json(row)
+}))
+
 router.delete('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const memberId = Number(req.params.memberId)

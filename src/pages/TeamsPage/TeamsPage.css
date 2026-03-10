@@ -159,3 +159,20 @@
   color: var(--jira-text-muted);
   font-size: var(--font-size-base);
 }
+
+.teams-role-select {
+  padding: 4px 8px;
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  font-size: var(--font-size-sm);
+  background: var(--jira-surface);
+  color: var(--jira-text);
+  cursor: pointer;
+}
+.teams-role-select:hover {
+  border-color: var(--jira-primary);
+}
+.teams-role-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

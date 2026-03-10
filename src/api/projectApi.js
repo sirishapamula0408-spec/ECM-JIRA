@@ -37,3 +37,10 @@ export function removeProjectMember(projectId, memberId) {
     method: 'DELETE',
   })
 }
+
+export function updateProjectMemberRole(projectId, memberId, role) {
+  return api(`/api/projects/${projectId}/members/${memberId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  })
+}

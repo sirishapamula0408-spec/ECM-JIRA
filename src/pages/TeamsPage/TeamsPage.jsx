@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import './TeamsPage.css'
 
+const WORKSPACE_ROLES = ['Admin', 'Member', 'Viewer']
+
 export function TeamsPage() {
-  const { profile, members, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
+  const { profile, members, handleInviteMember: onInvite, handleResendInvite: onResend, handleUpdateMemberRole: onUpdateRole } = useMembers()
+  const { canManageMembers } = usePermissions()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
   const [inviteState, setInviteState] = useState({ saving: false, error: '', message: '' })
   const [resendState, setResendState] = useState({ id: null, message: '' })
+  const [roleUpdating, setRoleUpdating] = useState(null)
   const [query, setQuery] = useState('')
 
   async function handleInviteSubmit(event) {
@@ -31,6 +36,16 @@ export function TeamsPage() {
     } catch {
       setResendState({ id: null, message: 'Failed to resend invite.' })
     }
+  }
+
+  async function handleRoleChange(memberId, newRole, currentRole) {
+    if (newRole === currentRole) return
+    if ((newRole === 'Admin' || currentRole === 'Admin') && !window.confirm(`Change this member's role from ${currentRole} to ${newRole}?`)) return
+    setRoleUpdating(memberId)
+    try {
+      await onUpdateRole(memberId, newRole)
+    } catch { /* handled by context */ }
+    setRoleUpdating(null)
   }
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -130,7 +145,20 @@ export function TeamsPage() {
                       </div>
                     </div>
                   </td>
-                  <td><span className="pill">{member.role}</span></td>
+                  <td>
+                    {canManageMembers && !member.is_owner ? (
+                      <select
+                        className="teams-role-select"
+                        value={member.role}
+                        onChange={(e) => handleRoleChange(member.id, e.target.value, member.role)}
+                        disabled={roleUpdating === member.id}
+                      >
+                        {WORKSPACE_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    ) : (
+                      <span className="pill">{member.role}{member.is_owner ? ' (Owner)' : ''}</span>
+                    )}
+                  </td>
                   <td>
                     <span className={`pill ${member.status === 'Active' ? 'pill-green' : 'pill-gray'}`}>
                       {member.status}

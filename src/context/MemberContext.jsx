@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react'
-import { inviteMember, resendMemberInvite, updateProfile } from '../api/memberApi'
+import { inviteMember, resendMemberInvite, updateProfile, updateMemberRole } from '../api/memberApi'
 
 const MemberContext = createContext(null)
 
@@ -35,6 +35,12 @@ export function MemberProvider({ children }) {
     await resendMemberInvite(memberId)
   }, [])
 
+  const handleUpdateMemberRole = useCallback(async (memberId, role) => {
+    const updated = await updateMemberRole(memberId, role)
+    setMembers((current) => current.map((m) => (m.id === updated.id ? updated : m)))
+    return updated
+  }, [])
+
   return (
     <MemberContext.Provider value={{
       profile,
@@ -46,6 +52,7 @@ export function MemberProvider({ children }) {
       handleSaveProfile,
       handleInviteMember,
       handleResendInvite,
+      handleUpdateMemberRole,
     }}>
       {children}
     </MemberContext.Provider>
