@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import {
   Typography,
   TextField,
@@ -29,6 +30,7 @@ import './TeamsPage.css'
 
 export function TeamsPage() {
   const { profile, members, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
+  const { canInviteMembers, canManageMembers } = usePermissions()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
   const [inviteState, setInviteState] = useState({ saving: false, error: '', message: '' })
@@ -92,17 +94,19 @@ export function TeamsPage() {
               },
             }}
           />
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-            onClick={() => setIsInviteOpen((c) => !c)}
-          >
-            Invite Member
-          </Button>
+          {canInviteMembers && (
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setIsInviteOpen((c) => !c)}
+            >
+              Invite Member
+            </Button>
+          )}
         </Stack>
       </Box>
 
-      {isInviteOpen && (
+      {isInviteOpen && canInviteMembers && (
         <Card sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -227,7 +231,7 @@ export function TeamsPage() {
                   </TableCell>
                   <TableCell>{member.task_count || 0}</TableCell>
                   <TableCell>
-                    {member.status === 'Invited' ? (
+                    {canManageMembers && member.status === 'Invited' ? (
                       <Button
                         size="small"
                         onClick={() => handleResend(member.id)}
@@ -237,7 +241,7 @@ export function TeamsPage() {
                       </Button>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
-                        Active
+                        {member.status === 'Active' ? 'Active' : '—'}
                       </Typography>
                     )}
                   </TableCell>
