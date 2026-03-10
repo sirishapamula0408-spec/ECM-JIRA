@@ -55,8 +55,18 @@ async function unwrap(response) {
   if (response.ok) {
     return response.json()
   }
+
   const payload = await response.json().catch(() => null)
-  throw new Error(payload?.error || 'Request failed')
+  const message = payload?.error || 'Request failed'
+
+  // Emit permission denied event for 403 responses
+  if (response.status === 403) {
+    window.dispatchEvent(
+      new CustomEvent('permission-denied', { detail: { message } }),
+    )
+  }
+
+  throw new Error(message)
 }
 
 export async function api(path, options = {}) {

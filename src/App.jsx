@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 
 import { fetchIssues } from './api/issueApi'
 import { fetchSprints } from './api/sprintApi'
 import { fetchDashboard, fetchReports, fetchRoadmap, fetchWorkflows, fetchActivity } from './api/dashboardApi'
 import { fetchMembers, fetchProfile } from './api/memberApi'
 import { fetchProjects } from './api/projectApi'
+import { fetchCurrentUser } from './api/authApi'
 
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -39,6 +42,7 @@ import { NotFoundPage } from './pages/NotFoundPage/NotFoundPage'
 import { WorkflowEditorPage } from './pages/WorkflowEditorPage/WorkflowEditorPage'
 import { TeamsPage } from './pages/TeamsPage/TeamsPage'
 import { FiltersPage } from './pages/FiltersPage/FiltersPage'
+import { ProjectSummaryPage } from './pages/ProjectSummaryPage/ProjectSummaryPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -51,12 +55,29 @@ function AppContent() {
   const { loadIssues } = useIssues()
   const { loadSprints } = useSprints()
   const { loadAppData, setAppLoading, setAppError, loading, error } = useAppData()
-  const { loadProfile, loadMembers } = useMembers()
+  const { loadProfile, loadMembers, loadCurrentMember } = useMembers()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projectRefreshKey, setProjectRefreshKey] = useState(0)
   const [hasProjects, setHasProjects] = useState(true)
+  const [permissionSnackbar, setPermissionSnackbar] = useState({ open: false, message: '' })
+
+  // Listen for 403 permission denied events from the API client
+  useEffect(() => {
+    function handlePermissionDenied(event) {
+      setPermissionSnackbar({
+        open: true,
+        message: event.detail?.message || 'You do not have permission to perform this action',
+      })
+    }
+    window.addEventListener('permission-denied', handlePermissionDenied)
+    return () => window.removeEventListener('permission-denied', handlePermissionDenied)
+  }, [])
+
+  const handleCloseSnackbar = useCallback(() => {
+    setPermissionSnackbar((prev) => ({ ...prev, open: false }))
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -65,19 +86,20 @@ function AppContent() {
     Promise.all([
       fetchDashboard(), fetchIssues(), fetchReports(), fetchRoadmap(),
       fetchWorkflows(), fetchSprints(), fetchProfile(), fetchMembers(), fetchActivity(),
-      fetchProjects(),
+      fetchProjects(), fetchCurrentUser(),
     ])
-      .then(([dashboardData, issuesData, , roadmapData, , sprintsData, profileData, membersData, activityData, projectsData]) => {
+      .then(([dashboardData, issuesData, , roadmapData, , sprintsData, profileData, membersData, activityData, projectsData, currentUserData]) => {
         loadAppData({ dashboard: dashboardData, roadmap: roadmapData, activity: activityData })
         loadIssues(issuesData)
         loadSprints(sprintsData)
         loadProfile(profileData)
         loadMembers(membersData)
+        loadCurrentMember(currentUserData)
         setHasProjects(Array.isArray(projectsData) && projectsData.length > 0)
       })
       .catch((loadError) => setAppError(loadError.message))
       .finally(() => setAppLoading(false))
-  }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, setAppLoading, setAppError])
+  }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, loadCurrentMember, setAppLoading, setAppError])
 
   if (!isAuthenticated) return <LoginPage />
 
@@ -100,7 +122,7 @@ function AppContent() {
               <Route path="/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
-              <Route path="/projects/:projectId" element={hasProjects ? <ProjectDetailPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/settings" element={hasProjects ? <ProjectSettingsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
@@ -121,6 +143,16 @@ function AppContent() {
       </main>
       {showCreate && <CreateIssueModal onClose={() => setShowCreate(false)} />}
       {showCreateProject && <CreateProjectModal onClose={() => setShowCreateProject(false)} onProjectCreated={() => { setProjectRefreshKey((k) => k + 1); setHasProjects(true) }} />}
+      <Snackbar
+        open={permissionSnackbar.open}
+        autoHideDuration={5000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="warning" variant="filled" sx={{ width: '100%' }}>
+          {permissionSnackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   )
 }

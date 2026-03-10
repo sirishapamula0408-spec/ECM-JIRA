@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole, loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -41,7 +42,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const { name, key, type, lead } = req.body
   const trimmedName = String(name || '').trim()
   const trimmedKey = String(key || '').trim()
@@ -53,22 +54,25 @@ router.post('/', asyncHandler(async (req, res) => {
     return
   }
 
+  // Resolve lead to member_id
+  const userEmail = req.user?.email
+  const member = userEmail
+    ? await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
+    : null
+  const leadMemberId = member?.id || null
+
   const result = await run(
-    'INSERT INTO projects (name, key, type, lead) VALUES (?, ?, ?, ?)',
-    [trimmedName, trimmedKey, trimmedType, trimmedLead],
+    'INSERT INTO projects (name, key, type, lead, lead_member_id) VALUES (?, ?, ?, ?, ?)',
+    [trimmedName, trimmedKey, trimmedType, trimmedLead, leadMemberId],
   )
   const projectId = result.lastID
 
   // Auto-add the logged-in user as an Admin member of the new project
-  const userEmail = req.user?.email
-  if (userEmail) {
-    const member = await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
-    if (member) {
-      await run(
-        'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
-        [projectId, member.id, 'Admin'],
-      )
-    }
+  if (member) {
+    await run(
+      'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+      [projectId, member.id, 'Admin'],
+    )
   }
 
   res.status(201).json({
@@ -77,11 +81,12 @@ router.post('/', asyncHandler(async (req, res) => {
     key: trimmedKey,
     type: trimmedType,
     lead: trimmedLead,
+    lead_member_id: leadMemberId,
     avatar_color: '#0052cc',
   })
 }))
 
-router.put('/:id', asyncHandler(async (req, res) => {
+router.put('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid project id' })
@@ -100,16 +105,23 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const updatedType = type !== undefined ? String(type).trim() : project.type
   const updatedLead = lead !== undefined ? String(lead).trim() : project.lead
 
+  // Resolve lead_member_id when lead changes
+  let updatedLeadMemberId = project.lead_member_id
+  if (lead !== undefined) {
+    const leadMember = await get('SELECT id FROM members WHERE LOWER(name) = LOWER(?)', [updatedLead])
+    updatedLeadMemberId = leadMember?.id || null
+  }
+
   await run(
-    'UPDATE projects SET name = ?, key = ?, type = ?, lead = ? WHERE id = ?',
-    [updatedName, updatedKey, updatedType, updatedLead, id],
+    'UPDATE projects SET name = ?, key = ?, type = ?, lead = ?, lead_member_id = ? WHERE id = ?',
+    [updatedName, updatedKey, updatedType, updatedLead, updatedLeadMemberId, id],
   )
 
   const updated = await get('SELECT * FROM projects WHERE id = ?', [id])
   res.json(updated)
 }))
 
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid project id' })
@@ -144,7 +156,7 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
-router.post('/:id/members', asyncHandler(async (req, res) => {
+router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const { memberId, role } = req.body
   const mid = Number(memberId)
@@ -172,7 +184,7 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
   res.status(201).json(row)
 }))
 
-router.delete('/:id/members/:memberId', asyncHandler(async (req, res) => {
+router.delete('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const memberId = Number(req.params.memberId)
   await run(

@@ -27,3 +27,7 @@ export function resetPassword(token, newPassword) {
     body: JSON.stringify({ token, newPassword }),
   })
 }
+
+export function fetchCurrentUser() {
+  return api('/api/auth/me')
+}
