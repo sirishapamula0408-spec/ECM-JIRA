@@ -39,6 +39,7 @@ import { NotFoundPage } from './pages/NotFoundPage/NotFoundPage'
 import { WorkflowEditorPage } from './pages/WorkflowEditorPage/WorkflowEditorPage'
 import { TeamsPage } from './pages/TeamsPage/TeamsPage'
 import { FiltersPage } from './pages/FiltersPage/FiltersPage'
+import { ProjectSummaryPage } from './pages/ProjectSummaryPage/ProjectSummaryPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -100,7 +101,7 @@ function AppContent() {
               <Route path="/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
-              <Route path="/projects/:projectId" element={hasProjects ? <ProjectDetailPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/settings" element={hasProjects ? <ProjectSettingsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
