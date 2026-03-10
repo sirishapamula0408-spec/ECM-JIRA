@@ -24,6 +24,7 @@ import { Topbar } from './components/layout/Topbar'
 import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
+import { ProtectedRoute } from './components/auth/ProtectedRoute'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
@@ -123,7 +124,7 @@ function AppContent() {
               <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
               <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/settings" element={hasProjects ? <ProjectSettingsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/settings" element={hasProjects ? <ProtectedRoute permission="canManageProjectSettings" redirectTo="/projects"><ProjectSettingsPage /></ProtectedRoute> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />

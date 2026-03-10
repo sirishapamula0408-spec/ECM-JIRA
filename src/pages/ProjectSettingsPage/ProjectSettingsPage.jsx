@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember } from '../../api/projectApi'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import './ProjectSettingsPage.css'
 
 const SECTIONS = { DETAILS: 'details', ACCESS: 'access' }
@@ -10,6 +11,8 @@ export function ProjectSettingsPage() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { members } = useMembers()
+  const { canManageProjectSettings } = usePermissions(projectId)
+  const isReadOnly = !canManageProjectSettings
 
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(null)
@@ -181,6 +184,7 @@ export function ProjectSettingsPage() {
                     value={form.name}
                     onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
                     required
+                    disabled={isReadOnly}
                   />
                 </label>
 
@@ -194,6 +198,7 @@ export function ProjectSettingsPage() {
                   <select
                     value={form.type}
                     onChange={(e) => setForm((c) => ({ ...c, type: e.target.value }))}
+                    disabled={isReadOnly}
                   >
                     <option>Scrum</option>
                     <option>Kanban</option>
@@ -206,6 +211,7 @@ export function ProjectSettingsPage() {
                   <select
                     value={form.lead}
                     onChange={(e) => setForm((c) => ({ ...c, lead: e.target.value }))}
+                    disabled={isReadOnly}
                   >
                     {members.length > 0 ? (
                       members.map((m) => (
@@ -218,24 +224,26 @@ export function ProjectSettingsPage() {
                 </label>
               </div>
 
-              <div className="ps-actions">
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!isDirty || saving}
-                >
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={handleDiscard}
-                  disabled={!isDirty || saving}
-                >
-                  Discard
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div className="ps-actions">
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={handleSave}
+                    disabled={!isDirty || saving}
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    onClick={handleDiscard}
+                    disabled={!isDirty || saving}
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
             </article>
           </>
         )}
@@ -243,40 +251,42 @@ export function ProjectSettingsPage() {
         {activeSection === SECTIONS.ACCESS && (
           <>
             <h1>Access</h1>
-            <article className="panel">
-              <h3>Add People</h3>
-              <p className="muted">Assign members to this project.</p>
-              <div className="ps-add-member-row">
-                <select
-                  value={addMemberId}
-                  onChange={(e) => setAddMemberId(e.target.value)}
-                  disabled={accessBusy}
-                >
-                  <option value="">Select a member...</option>
-                  {availableMembers.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
-                  ))}
-                </select>
-                <select
-                  value={addRole}
-                  onChange={(e) => setAddRole(e.target.value)}
-                  disabled={accessBusy}
-                  className="ps-role-select"
-                >
-                  <option>Admin</option>
-                  <option>Member</option>
-                  <option>Viewer</option>
-                </select>
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={handleAddMember}
-                  disabled={!addMemberId || accessBusy}
-                >
-                  Add
-                </button>
-              </div>
-            </article>
+            {!isReadOnly && (
+              <article className="panel">
+                <h3>Add People</h3>
+                <p className="muted">Assign members to this project.</p>
+                <div className="ps-add-member-row">
+                  <select
+                    value={addMemberId}
+                    onChange={(e) => setAddMemberId(e.target.value)}
+                    disabled={accessBusy}
+                  >
+                    <option value="">Select a member...</option>
+                    {availableMembers.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+                    ))}
+                  </select>
+                  <select
+                    value={addRole}
+                    onChange={(e) => setAddRole(e.target.value)}
+                    disabled={accessBusy}
+                    className="ps-role-select"
+                  >
+                    <option>Admin</option>
+                    <option>Member</option>
+                    <option>Viewer</option>
+                  </select>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={handleAddMember}
+                    disabled={!addMemberId || accessBusy}
+                  >
+                    Add
+                  </button>
+                </div>
+              </article>
+            )}
 
             <article className="panel" style={{ marginTop: 16 }}>
               <h3>Project Members</h3>
@@ -303,7 +313,7 @@ export function ProjectSettingsPage() {
                       </td>
                       <td><span className="pill">{pm.project_role}</span></td>
                       <td>
-                        {!isLead(pm.name) && (
+                        {!isReadOnly && !isLead(pm.name) && (
                           <button
                             className="btn btn-ghost btn-sm ps-remove-btn"
                             type="button"
