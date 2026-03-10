@@ -39,22 +39,7 @@
   }
 
   .sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--jira-border);
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-  }
-
-  .sidebar nav {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .create-side {
-    margin-top: 0;
-    margin-left: auto;
+    display: none;
   }
 
   .stats-grid {
@@ -136,5 +121,24 @@
     min-height: 220px;
     border-right: none;
     border-bottom: 1px solid #dfe1e6;
+  }
+
+  .top-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .topbar-live-clock {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px;
+  }
+
+  .page h1 {
+    font-size: var(--font-size-lg);
   }
 }

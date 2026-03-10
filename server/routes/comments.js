@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -15,7 +16,7 @@ router.get('/:issueId/comments', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/comments
-router.post('/:issueId/comments', asyncHandler(async (req, res) => {
+router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const { author, text } = req.body
   const normalizedAuthor = String(author || '').trim()
