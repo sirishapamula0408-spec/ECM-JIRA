@@ -53,22 +53,25 @@ router.post('/', asyncHandler(async (req, res) => {
     return
   }
 
+  // Resolve lead to member_id
+  const userEmail = req.user?.email
+  const member = userEmail
+    ? await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
+    : null
+  const leadMemberId = member?.id || null
+
   const result = await run(
-    'INSERT INTO projects (name, key, type, lead) VALUES (?, ?, ?, ?)',
-    [trimmedName, trimmedKey, trimmedType, trimmedLead],
+    'INSERT INTO projects (name, key, type, lead, lead_member_id) VALUES (?, ?, ?, ?, ?)',
+    [trimmedName, trimmedKey, trimmedType, trimmedLead, leadMemberId],
   )
   const projectId = result.lastID
 
   // Auto-add the logged-in user as an Admin member of the new project
-  const userEmail = req.user?.email
-  if (userEmail) {
-    const member = await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
-    if (member) {
-      await run(
-        'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
-        [projectId, member.id, 'Admin'],
-      )
-    }
+  if (member) {
+    await run(
+      'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+      [projectId, member.id, 'Admin'],
+    )
   }
 
   res.status(201).json({
@@ -77,6 +80,7 @@ router.post('/', asyncHandler(async (req, res) => {
     key: trimmedKey,
     type: trimmedType,
     lead: trimmedLead,
+    lead_member_id: leadMemberId,
     avatar_color: '#0052cc',
   })
 }))
@@ -100,9 +104,16 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const updatedType = type !== undefined ? String(type).trim() : project.type
   const updatedLead = lead !== undefined ? String(lead).trim() : project.lead
 
+  // Resolve lead_member_id when lead changes
+  let updatedLeadMemberId = project.lead_member_id
+  if (lead !== undefined) {
+    const leadMember = await get('SELECT id FROM members WHERE LOWER(name) = LOWER(?)', [updatedLead])
+    updatedLeadMemberId = leadMember?.id || null
+  }
+
   await run(
-    'UPDATE projects SET name = ?, key = ?, type = ?, lead = ? WHERE id = ?',
-    [updatedName, updatedKey, updatedType, updatedLead, id],
+    'UPDATE projects SET name = ?, key = ?, type = ?, lead = ?, lead_member_id = ? WHERE id = ?',
+    [updatedName, updatedKey, updatedType, updatedLead, updatedLeadMemberId, id],
   )
 
   const updated = await get('SELECT * FROM projects WHERE id = ?', [id])

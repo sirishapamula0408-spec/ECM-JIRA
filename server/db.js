@@ -177,6 +177,25 @@ async function ensureRoadmapProjectId() {
   }
 }
 
+async function ensureProjectsLeadMemberId() {
+  const columns = await all("PRAGMA table_info('projects')")
+  const hasLeadMemberId = columns.some((column) => column.name === 'lead_member_id')
+  if (!hasLeadMemberId) {
+    await run('ALTER TABLE projects ADD COLUMN lead_member_id INTEGER')
+    // Backfill: match lead name to member id
+    const projects = await all('SELECT id, lead FROM projects')
+    for (const project of projects) {
+      const member = await get(
+        'SELECT id FROM members WHERE LOWER(name) = LOWER(?)',
+        [project.lead],
+      )
+      if (member) {
+        await run('UPDATE projects SET lead_member_id = ? WHERE id = ?', [member.id, project.id])
+      }
+    }
+  }
+}
+
 async function ensureProfileColumns() {
   const columns = await all("PRAGMA table_info('profile')")
   const hasAvatarUrl = columns.some((column) => column.name === 'avatar_url')
@@ -273,10 +292,12 @@ export async function initializeDatabase() {
       key TEXT NOT NULL UNIQUE,
       type TEXT NOT NULL DEFAULT 'Scrum',
       lead TEXT NOT NULL,
+      lead_member_id INTEGER,
       avatar_color TEXT NOT NULL DEFAULT '#0052cc',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `)
+  await ensureProjectsLeadMemberId()
 
   await run(`
     CREATE TABLE IF NOT EXISTS project_members (
