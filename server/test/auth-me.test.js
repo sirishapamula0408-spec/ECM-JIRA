@@ -28,7 +28,7 @@ describe('GET /api/auth/me endpoint logic', () => {
     const userId = 1
 
     const member = await testDb.get(
-      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER(?)',
+      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER($1)',
       [email],
     )
     expect(member).toBeDefined()
@@ -36,17 +36,17 @@ describe('GET /api/auth/me endpoint logic', () => {
     expect(member.is_owner).toBe(true)
 
     const profile = await testDb.get(
-      'SELECT full_name, job_title, department, timezone, avatar_url FROM profile WHERE user_id = ?',
+      'SELECT full_name, job_title, department, timezone, avatar_url FROM profile WHERE user_id = $1',
       [userId],
     )
     expect(profile).toBeDefined()
     expect(profile.full_name).toBe('Owner User')
 
     const projectRoles = await testDb.all(
-      `SELECT pm.project_id AS projectId, p.key AS projectKey, p.name AS projectName, pm.role
+      `SELECT pm.project_id AS "projectId", p.key AS "projectKey", p.name AS "projectName", pm.role
        FROM project_members pm
        JOIN projects p ON p.id = pm.project_id
-       WHERE pm.member_id = ?
+       WHERE pm.member_id = $1
        ORDER BY p.name ASC`,
       [member.id],
     )
@@ -74,17 +74,17 @@ describe('GET /api/auth/me endpoint logic', () => {
     const email = 'viewer@test.com'
 
     const member = await testDb.get(
-      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER(?)',
+      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER($1)',
       [email],
     )
     expect(member.role).toBe('Viewer')
     expect(member.is_owner).toBe(false)
 
     const projectRoles = await testDb.all(
-      `SELECT pm.project_id AS projectId, p.key AS projectKey, pm.role
+      `SELECT pm.project_id AS "projectId", p.key AS "projectKey", pm.role
        FROM project_members pm
        JOIN projects p ON p.id = pm.project_id
-       WHERE pm.member_id = ?`,
+       WHERE pm.member_id = $1`,
       [member.id],
     )
     expect(projectRoles).toHaveLength(1)
@@ -95,14 +95,14 @@ describe('GET /api/auth/me endpoint logic', () => {
     const email = 'unknown@test.com'
 
     const member = await testDb.get(
-      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER(?)',
+      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER($1)',
       [email],
     )
     expect(member).toBeNull()
 
     // When no member, memberId is null, so projectRoles query would return empty
     const profile = await testDb.get(
-      'SELECT full_name FROM profile WHERE user_id = ?',
+      'SELECT full_name FROM profile WHERE user_id = $1',
       [999],
     )
     expect(profile).toBeNull()
@@ -112,14 +112,14 @@ describe('GET /api/auth/me endpoint logic', () => {
     const email = 'member@test.com'
 
     const member = await testDb.get(
-      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER(?)',
+      'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER($1)',
       [email],
     )
     expect(member.role).toBe('Member')
     expect(member.is_owner).toBe(false)
 
     const projectRoles = await testDb.all(
-      `SELECT pm.role FROM project_members pm WHERE pm.member_id = ?`,
+      `SELECT pm.role FROM project_members pm WHERE pm.member_id = $1`,
       [member.id],
     )
     expect(projectRoles).toHaveLength(1)

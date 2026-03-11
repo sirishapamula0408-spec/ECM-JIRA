@@ -55,7 +55,8 @@ describe('Schema: members email index', () => {
 
   it('should have idx_members_email index', async () => {
     const index = await testDb.get(
-      "SELECT indexname FROM pg_indexes WHERE tablename = 'members' AND indexname = 'idx_members_email'",
+      "SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = 'members' AND indexname = 'idx_members_email'",
+      [testDb.schemaName],
     )
     expect(index).toBeDefined()
     expect(index.indexname).toBe('idx_members_email')
@@ -89,7 +90,8 @@ describe('Schema: projects table', () => {
 
   it('should have lead_member_id column', async () => {
     const col = await testDb.get(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'lead_member_id'",
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'projects' AND column_name = 'lead_member_id'",
+      [testDb.schemaName],
     )
     expect(col).toBeDefined()
     expect(col.column_name).toBe('lead_member_id')

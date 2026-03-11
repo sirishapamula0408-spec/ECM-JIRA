@@ -177,13 +177,13 @@ async function seedProjectMembers() {
 
 export async function seedDatabase() {
   const defaultSprintId = await seedSprints()
+  await seedMembers()
+  await seedProjects()
   await seedIssues(defaultSprintId)
   await seedActivity()
-  await seedMembers()
   await seedRoadmap()
   await seedProfile()
   await seedWorkflows()
-  await seedProjects()
   await seedProjectMembers()
   return defaultSprintId
 }

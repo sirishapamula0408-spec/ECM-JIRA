@@ -1,12 +1,14 @@
 import pg from 'pg'
+import crypto from 'node:crypto'
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL || 'postgresql://jira_lite:jira_lite_dev@localhost:5432/jira_lite_test'
 
 /**
  * Creates a PostgreSQL test connection with promisified helpers.
- * Uses a test database to avoid polluting dev data.
+ * Each call creates a unique schema to avoid parallel test conflicts.
  */
 export function createTestDb() {
+  const schemaName = `test_${crypto.randomBytes(4).toString('hex')}`
   const pool = new pg.Pool({
     connectionString: TEST_DB_URL,
     max: 2,
@@ -31,13 +33,25 @@ export function createTestDb() {
     await pool.end()
   }
 
-  return { pool, run, get, all, close }
+  // Hook into pool to set search_path on every new connection
+  pool.on('connect', (client) => {
+    client.query(`SET search_path TO ${schemaName}`)
+  })
+
+  // Create isolated schema
+  const initSchema = async () => {
+    await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`)
+    await pool.query(`SET search_path TO ${schemaName}`)
+  }
+
+  return { pool, run, get, all, close, schemaName, initSchema }
 }
 
 /**
  * Initializes the core schema tables needed for RBAC tests.
  */
-export async function initTestSchema({ run }) {
+export async function initTestSchema({ run, initSchema }) {
+  await initSchema()
   await run(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -188,19 +202,8 @@ export async function seedTestProject({ run }) {
 }
 
 /**
- * Drops all test tables for clean state.
+ * Drops the test schema for clean state.
  */
-export async function cleanTestDb({ run }) {
-  await run('DROP TABLE IF EXISTS project_members CASCADE')
-  await run('DROP TABLE IF EXISTS comments CASCADE')
-  await run('DROP TABLE IF EXISTS issues CASCADE')
-  await run('DROP TABLE IF EXISTS sprints CASCADE')
-  await run('DROP TABLE IF EXISTS activity CASCADE')
-  await run('DROP TABLE IF EXISTS filters CASCADE')
-  await run('DROP TABLE IF EXISTS profile CASCADE')
-  await run('DROP TABLE IF EXISTS password_reset_tokens CASCADE')
-  await run('DROP TABLE IF EXISTS roadmap_epics CASCADE')
-  await run('DROP TABLE IF EXISTS projects CASCADE')
-  await run('DROP TABLE IF EXISTS members CASCADE')
-  await run('DROP TABLE IF EXISTS users CASCADE')
+export async function cleanTestDb({ pool, schemaName }) {
+  await pool.query(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE`)
 }
