@@ -30,7 +30,7 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   const created = await run('INSERT INTO sprints (name, date_range, is_started) VALUES (?, ?, ?)', [
     nextName,
     nextDateRange,
-    0,
+    false,
   ])
 
   const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [created.lastID])
@@ -44,7 +44,7 @@ router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) =
     return
   }
 
-  const update = await run('UPDATE sprints SET is_started = 1 WHERE id = ?', [id])
+  const update = await run('UPDATE sprints SET is_started = TRUE WHERE id = ?', [id])
   if (update.changes === 0) {
     res.status(404).json({ error: 'Sprint not found' })
     return
@@ -94,7 +94,7 @@ router.patch('/:id/complete', requireRole('Admin'), asyncHandler(async (req, res
   }
 
   await run("UPDATE issues SET status = 'Backlog', sprint_id = NULL WHERE sprint_id = ? AND status != 'Done'", [id])
-  await run('UPDATE sprints SET is_started = 0 WHERE id = ?', [id])
+  await run('UPDATE sprints SET is_started = FALSE WHERE id = ?', [id])
 
   const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
   res.json(mapSprint(row))

@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createTestDb, initTestSchema, seedTestMembers, seedTestProject } from './setup.js'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { createTestDb, initTestSchema, seedTestMembers, seedTestProject, cleanTestDb } from './setup.js'
 
 describe('GET /api/auth/me endpoint logic', () => {
   let testDb
 
   beforeEach(async () => {
     testDb = createTestDb()
+    await cleanTestDb(testDb)
     await initTestSchema(testDb)
     await seedTestMembers(testDb)
     await seedTestProject(testDb)
@@ -14,6 +15,11 @@ describe('GET /api/auth/me endpoint logic', () => {
     await testDb.run(
       "INSERT INTO profile (full_name, job_title, department, timezone, avatar_url, user_id) VALUES ('Owner User', 'CTO', 'Engineering', 'UTC', '', 1)",
     )
+  })
+
+  afterEach(async () => {
+    await cleanTestDb(testDb)
+    await testDb.close()
   })
 
   it('should return workspace role, owner flag, and project roles for an admin/owner', async () => {
@@ -27,7 +33,7 @@ describe('GET /api/auth/me endpoint logic', () => {
     )
     expect(member).toBeDefined()
     expect(member.role).toBe('Admin')
-    expect(member.is_owner).toBe(1)
+    expect(member.is_owner).toBe(true)
 
     const profile = await testDb.get(
       'SELECT full_name, job_title, department, timezone, avatar_url FROM profile WHERE user_id = ?',
@@ -72,7 +78,7 @@ describe('GET /api/auth/me endpoint logic', () => {
       [email],
     )
     expect(member.role).toBe('Viewer')
-    expect(member.is_owner).toBe(0)
+    expect(member.is_owner).toBe(false)
 
     const projectRoles = await testDb.all(
       `SELECT pm.project_id AS projectId, p.key AS projectKey, pm.role
@@ -92,14 +98,14 @@ describe('GET /api/auth/me endpoint logic', () => {
       'SELECT id, role, is_owner FROM members WHERE LOWER(email) = LOWER(?)',
       [email],
     )
-    expect(member).toBeUndefined()
+    expect(member).toBeNull()
 
     // When no member, memberId is null, so projectRoles query would return empty
     const profile = await testDb.get(
       'SELECT full_name FROM profile WHERE user_id = ?',
       [999],
     )
-    expect(profile).toBeUndefined()
+    expect(profile).toBeNull()
   })
 
   it('should return Member role with project Member role', async () => {
@@ -110,7 +116,7 @@ describe('GET /api/auth/me endpoint logic', () => {
       [email],
     )
     expect(member.role).toBe('Member')
-    expect(member.is_owner).toBe(0)
+    expect(member.is_owner).toBe(false)
 
     const projectRoles = await testDb.all(
       `SELECT pm.role FROM project_members pm WHERE pm.member_id = ?`,

@@ -115,7 +115,7 @@ function mapFilter(row) {
     name: row.name,
     description: row.description,
     ownerEmail: row.owner_email,
-    criteria: JSON.parse(row.criteria || '{}'),
+    criteria: typeof row.criteria === 'string' ? JSON.parse(row.criteria || '{}') : (row.criteria || {}),
     isStarred: Boolean(row.is_starred),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -146,7 +146,7 @@ router.post('/', asyncHandler(async (req, res) => {
   const criteriaJson = JSON.stringify(criteria || {})
 
   const result = await run(
-    'INSERT INTO filters (name, description, owner_email, criteria) VALUES (?, ?, ?, ?)',
+    'INSERT INTO filters (name, description, owner_email, criteria) VALUES (?, ?, ?, ?::jsonb)',
     [trimmedName, String(description || '').trim(), email, criteriaJson],
   )
 
@@ -168,11 +168,11 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { name, description, criteria, isStarred } = req.body
   const updatedName = name !== undefined ? String(name).trim() : existing.name
   const updatedDesc = description !== undefined ? String(description).trim() : existing.description
-  const updatedCriteria = criteria !== undefined ? JSON.stringify(criteria) : existing.criteria
-  const updatedStarred = isStarred !== undefined ? (isStarred ? 1 : 0) : existing.is_starred
+  const updatedCriteria = criteria !== undefined ? JSON.stringify(criteria) : (typeof existing.criteria === 'string' ? existing.criteria : JSON.stringify(existing.criteria))
+  const updatedStarred = isStarred !== undefined ? Boolean(isStarred) : existing.is_starred
 
   await run(
-    'UPDATE filters SET name = ?, description = ?, criteria = ?, is_starred = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    'UPDATE filters SET name = ?, description = ?, criteria = ?::jsonb, is_starred = ?, updated_at = NOW() WHERE id = ?',
     [updatedName, updatedDesc, updatedCriteria, updatedStarred, id],
   )
 

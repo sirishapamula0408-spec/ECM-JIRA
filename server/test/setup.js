@@ -1,45 +1,37 @@
-import sqlite3 from 'sqlite3'
+import pg from 'pg'
+
+const TEST_DB_URL = process.env.TEST_DATABASE_URL || 'postgresql://jira_lite:jira_lite_dev@localhost:5432/jira_lite_test'
 
 /**
- * Creates an in-memory SQLite database with the same schema as the app.
- * Returns promisified run/get/all helpers scoped to this DB instance.
+ * Creates a PostgreSQL test connection with promisified helpers.
+ * Uses a test database to avoid polluting dev data.
  */
 export function createTestDb() {
-  const db = new sqlite3.Database(':memory:')
+  const pool = new pg.Pool({
+    connectionString: TEST_DB_URL,
+    max: 2,
+  })
 
-  const run = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-      db.run(sql, params, function onRun(err) {
-        if (err) reject(err)
-        else resolve(this)
-      })
-    })
+  const run = async (sql, params = []) => {
+    const result = await pool.query(sql, params)
+    return { lastID: result.rows?.[0]?.id ?? null, changes: result.rowCount ?? 0 }
+  }
 
-  const get = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err)
-        else resolve(row)
-      })
-    })
+  const get = async (sql, params = []) => {
+    const result = await pool.query(sql, params)
+    return result.rows[0] || null
+  }
 
-  const all = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err)
-        else resolve(rows)
-      })
-    })
+  const all = async (sql, params = []) => {
+    const result = await pool.query(sql, params)
+    return result.rows
+  }
 
-  const close = () =>
-    new Promise((resolve, reject) => {
-      db.close((err) => {
-        if (err) reject(err)
-        else resolve()
-      })
-    })
+  const close = async () => {
+    await pool.end()
+  }
 
-  return { db, run, get, all, close }
+  return { pool, run, get, all, close }
 }
 
 /**
@@ -48,23 +40,23 @@ export function createTestDb() {
 export async function initTestSchema({ run }) {
   await run(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
 
   await run(`
     CREATE TABLE IF NOT EXISTS members (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT NOT NULL,
       role TEXT NOT NULL,
       status TEXT NOT NULL,
       task_count INTEGER NOT NULL DEFAULT 0,
       invited_by TEXT,
-      is_owner INTEGER NOT NULL DEFAULT 0
+      is_owner BOOLEAN NOT NULL DEFAULT FALSE
     )
   `)
 
@@ -72,31 +64,31 @@ export async function initTestSchema({ run }) {
 
   await run(`
     CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       key TEXT NOT NULL UNIQUE,
       type TEXT NOT NULL DEFAULT 'Scrum',
       lead TEXT NOT NULL,
       lead_member_id INTEGER,
       avatar_color TEXT NOT NULL DEFAULT '#0052cc',
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
 
   await run(`
     CREATE TABLE IF NOT EXISTS project_members (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       project_id INTEGER NOT NULL,
       member_id INTEGER NOT NULL,
       role TEXT NOT NULL DEFAULT 'Member',
-      assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(project_id, member_id)
     )
   `)
 
   await run(`
     CREATE TABLE IF NOT EXISTS issues (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       issue_key TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT NOT NULL,
@@ -106,22 +98,22 @@ export async function initTestSchema({ run }) {
       issue_type TEXT NOT NULL CHECK(issue_type IN ('Story', 'Bug', 'Task')),
       sprint_id INTEGER,
       project_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
 
   await run(`
     CREATE TABLE IF NOT EXISTS sprints (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       date_range TEXT NOT NULL,
-      is_started INTEGER NOT NULL DEFAULT 0
+      is_started BOOLEAN NOT NULL DEFAULT FALSE
     )
   `)
 
   await run(`
     CREATE TABLE IF NOT EXISTS activity (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       actor TEXT NOT NULL,
       action TEXT NOT NULL,
       happened_at TEXT NOT NULL
@@ -130,17 +122,17 @@ export async function initTestSchema({ run }) {
 
   await run(`
     CREATE TABLE IF NOT EXISTS comments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       issue_id INTEGER NOT NULL,
       author TEXT NOT NULL,
       text TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
 
   await run(`
     CREATE TABLE IF NOT EXISTS profile (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       full_name TEXT NOT NULL,
       job_title TEXT NOT NULL,
       department TEXT NOT NULL,
@@ -152,14 +144,14 @@ export async function initTestSchema({ run }) {
 
   await run(`
     CREATE TABLE IF NOT EXISTS filters (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       owner_email TEXT NOT NULL,
-      criteria TEXT NOT NULL DEFAULT '{}',
-      is_starred INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      criteria JSONB NOT NULL DEFAULT '{}',
+      is_starred BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
 }
@@ -169,7 +161,7 @@ export async function initTestSchema({ run }) {
  */
 export async function seedTestMembers({ run }) {
   await run(
-    "INSERT INTO members (name, email, role, status, is_owner) VALUES ('Owner User', 'owner@test.com', 'Admin', 'Active', 1)",
+    "INSERT INTO members (name, email, role, status, is_owner) VALUES ('Owner User', 'owner@test.com', 'Admin', 'Active', TRUE)",
   )
   await run(
     "INSERT INTO members (name, email, role, status) VALUES ('Admin User', 'admin@test.com', 'Admin', 'Active')",
@@ -189,12 +181,26 @@ export async function seedTestProject({ run }) {
   await run(
     "INSERT INTO projects (name, key, type, lead) VALUES ('Test Project', 'TP', 'Scrum', 'Owner User')",
   )
-  // Owner is project Admin
   await run("INSERT INTO project_members (project_id, member_id, role) VALUES (1, 1, 'Admin')")
-  // Admin is project Admin
   await run("INSERT INTO project_members (project_id, member_id, role) VALUES (1, 2, 'Admin')")
-  // Member is project Member
   await run("INSERT INTO project_members (project_id, member_id, role) VALUES (1, 3, 'Member')")
-  // Viewer is project Viewer
   await run("INSERT INTO project_members (project_id, member_id, role) VALUES (1, 4, 'Viewer')")
+}
+
+/**
+ * Drops all test tables for clean state.
+ */
+export async function cleanTestDb({ run }) {
+  await run('DROP TABLE IF EXISTS project_members CASCADE')
+  await run('DROP TABLE IF EXISTS comments CASCADE')
+  await run('DROP TABLE IF EXISTS issues CASCADE')
+  await run('DROP TABLE IF EXISTS sprints CASCADE')
+  await run('DROP TABLE IF EXISTS activity CASCADE')
+  await run('DROP TABLE IF EXISTS filters CASCADE')
+  await run('DROP TABLE IF EXISTS profile CASCADE')
+  await run('DROP TABLE IF EXISTS password_reset_tokens CASCADE')
+  await run('DROP TABLE IF EXISTS roadmap_epics CASCADE')
+  await run('DROP TABLE IF EXISTS projects CASCADE')
+  await run('DROP TABLE IF EXISTS members CASCADE')
+  await run('DROP TABLE IF EXISTS users CASCADE')
 }

@@ -70,7 +70,7 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   // Auto-add the logged-in user as an Admin member of the new project
   if (member) {
     await run(
-      'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+      'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?) ON CONFLICT (project_id, member_id) DO NOTHING',
       [projectId, member.id, 'Admin'],
     )
   }

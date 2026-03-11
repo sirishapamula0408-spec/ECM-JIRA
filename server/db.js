@@ -1,372 +1,284 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import sqlite3 from 'sqlite3'
-import { DB_PATH } from './config.js'
+import pg from 'pg'
+import { DATABASE_URL } from './config.js'
 
-const dbPath = DB_PATH
-const dataDir = path.dirname(dbPath)
+const pool = new pg.Pool({
+  connectionString: DATABASE_URL,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+})
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true })
-}
+pool.on('error', (err) => {
+  console.error('Unexpected PostgreSQL pool error:', err.message)
+})
 
-export const db = new sqlite3.Database(dbPath)
-
-export function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function onRun(err) {
-      if (err) {
-        reject(err)
-        return
-      }
-      resolve(this)
-    })
-  })
-}
-
-export function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err)
-        return
-      }
-      resolve(rows)
-    })
-  })
-}
-
-export function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) {
-        reject(err)
-        return
-      }
-      resolve(row)
-    })
-  })
-}
-
-function normalizeStatus(status) {
-  const raw = String(status || '').trim()
-  const mapped = {
-    'In Review': 'Code Review',
-    InReview: 'Code Review',
-    Todo: 'To Do',
-  }[raw] || raw
-
-  const allowed = new Set(['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'])
-  return allowed.has(mapped) ? mapped : 'Backlog'
-}
-
-function normalizePriority(priority) {
-  const raw = String(priority || '').trim()
-  return ['Low', 'Medium', 'High'].includes(raw) ? raw : 'Medium'
-}
-
-function normalizeIssueType(issueType) {
-  const raw = String(issueType || '').trim()
-  return ['Story', 'Bug', 'Task'].includes(raw) ? raw : 'Task'
-}
-
-async function migrateLegacyIssuesTable() {
-  const table = await get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'issues'")
-  const tableSql = table?.sql || ''
-  const isCurrentSchema =
-    tableSql.includes('issue_key') &&
-    tableSql.includes('issue_type') &&
-    tableSql.includes("'To Do'") &&
-    tableSql.includes("'Code Review'")
-
-  if (isCurrentSchema) {
-    return
-  }
-
-  await run('ALTER TABLE issues RENAME TO issues_legacy')
-  await run(`
-    CREATE TABLE issues (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      issue_key TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      priority TEXT NOT NULL CHECK(priority IN ('Low', 'Medium', 'High')),
-      assignee TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('Backlog', 'To Do', 'In Progress', 'Code Review', 'Done')),
-      issue_type TEXT NOT NULL CHECK(issue_type IN ('Story', 'Bug', 'Task')),
-      sprint_id INTEGER,
-      project_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `)
-
-  const rows = await all('SELECT * FROM issues_legacy ORDER BY id ASC')
-  for (const row of rows) {
-    const issueKey = row.issue_key || `PROJ-${100 + Number(row.id || 0)}`
-    const title = String(row.title || 'Untitled issue')
-    const description = String(row.description || 'No description provided.')
-    const priority = normalizePriority(row.priority)
-    const assignee = String(row.assignee || 'Unassigned')
-    const status = normalizeStatus(row.status)
-    const issueType = normalizeIssueType(row.issue_type)
-    const createdAt = row.created_at || new Date().toISOString()
-    const sprintId = row.sprint_id ?? null
-    const projectId = row.project_id ?? null
-
-    await run(
-      `INSERT INTO issues
-        (id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [row.id, issueKey, title, description, priority, assignee, status, issueType, sprintId, projectId, createdAt],
-    )
-  }
-
-  await run('DROP TABLE issues_legacy')
-}
-
-async function ensureIssuesColumns() {
-  const columns = await all("PRAGMA table_info('issues')")
-  const hasSprintId = columns.some((column) => column.name === 'sprint_id')
-  if (!hasSprintId) {
-    await run('ALTER TABLE issues ADD COLUMN sprint_id INTEGER')
-  }
-}
-
-async function ensureIssuesProjectId() {
-  const columns = await all("PRAGMA table_info('issues')")
-  const hasProjectId = columns.some((column) => column.name === 'project_id')
-  if (!hasProjectId) {
-    await run('ALTER TABLE issues ADD COLUMN project_id INTEGER')
-  }
-}
-
-async function backfillIssueSprintAssignments(defaultSprintId) {
-  await run("UPDATE issues SET sprint_id = NULL WHERE status = 'Backlog'")
-  await run("UPDATE issues SET sprint_id = ? WHERE status <> 'Backlog' AND sprint_id IS NULL", [defaultSprintId])
-}
-
-async function ensureMembersColumns() {
-  const columns = await all("PRAGMA table_info('members')")
-  const hasInvitedBy = columns.some((column) => column.name === 'invited_by')
-  if (!hasInvitedBy) {
-    await run('ALTER TABLE members ADD COLUMN invited_by TEXT')
-  }
-}
-
-async function ensureMembersIsOwner() {
-  const columns = await all("PRAGMA table_info('members')")
-  const hasIsOwner = columns.some((column) => column.name === 'is_owner')
-  if (!hasIsOwner) {
-    await run('ALTER TABLE members ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0')
-    // Promote the first Admin member as the workspace owner
-    const firstAdmin = await get("SELECT id FROM members WHERE role = 'Admin' ORDER BY id ASC LIMIT 1")
-    if (firstAdmin) {
-      await run('UPDATE members SET is_owner = 1 WHERE id = ?', [firstAdmin.id])
+/**
+ * Convert SQLite-style `?` placeholders to PostgreSQL `$1, $2, ...` style.
+ * Ignores `?` inside single-quoted strings.
+ */
+function convertPlaceholders(sql) {
+  let idx = 0
+  let inString = false
+  let result = ''
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i]
+    if (ch === "'" && sql[i - 1] !== '\\') {
+      inString = !inString
+      result += ch
+    } else if (ch === '?' && !inString) {
+      idx++
+      result += `$${idx}`
+    } else {
+      result += ch
     }
   }
+  return result
 }
 
-async function ensureRoadmapProjectId() {
-  const columns = await all("PRAGMA table_info('roadmap_epics')")
-  const hasProjectId = columns.some((column) => column.name === 'project_id')
-  if (!hasProjectId) {
-    await run('ALTER TABLE roadmap_epics ADD COLUMN project_id INTEGER')
-    // Backfill existing epics: first 3 → project 1, rest → project 2
-    await run('UPDATE roadmap_epics SET project_id = 1 WHERE id IN (SELECT id FROM roadmap_epics ORDER BY id ASC LIMIT 3)')
-    await run('UPDATE roadmap_epics SET project_id = 2 WHERE project_id IS NULL')
+/**
+ * Execute a SQL statement (INSERT, UPDATE, DELETE).
+ * Returns { lastID, changes } for compatibility with SQLite wrapper.
+ */
+export async function run(sql, params = []) {
+  const pgSql = convertPlaceholders(sql)
+  const isInsert = /^\s*INSERT\b/i.test(pgSql)
+
+  // Auto-append RETURNING id for INSERT statements that don't already have it
+  let finalSql = pgSql
+  if (isInsert && !/RETURNING\b/i.test(pgSql)) {
+    finalSql = pgSql.replace(/;?\s*$/, ' RETURNING id')
+  }
+
+  const result = await pool.query(finalSql, params)
+  return {
+    lastID: result.rows?.[0]?.id ?? null,
+    changes: result.rowCount ?? 0,
   }
 }
 
-async function ensureProjectsLeadMemberId() {
-  const columns = await all("PRAGMA table_info('projects')")
-  const hasLeadMemberId = columns.some((column) => column.name === 'lead_member_id')
-  if (!hasLeadMemberId) {
-    await run('ALTER TABLE projects ADD COLUMN lead_member_id INTEGER')
-    // Backfill: match lead name to member id
-    const projects = await all('SELECT id, lead FROM projects')
-    for (const project of projects) {
-      const member = await get(
-        'SELECT id FROM members WHERE LOWER(name) = LOWER(?)',
-        [project.lead],
-      )
-      if (member) {
-        await run('UPDATE projects SET lead_member_id = ? WHERE id = ?', [member.id, project.id])
-      }
-    }
-  }
+/**
+ * Query multiple rows.
+ */
+export async function all(sql, params = []) {
+  const pgSql = convertPlaceholders(sql)
+  const result = await pool.query(pgSql, params)
+  return result.rows
 }
 
-async function ensureProfileColumns() {
-  const columns = await all("PRAGMA table_info('profile')")
-  const hasAvatarUrl = columns.some((column) => column.name === 'avatar_url')
-  if (!hasAvatarUrl) {
-    await run('ALTER TABLE profile ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ""')
-  }
-  const hasUserId = columns.some((column) => column.name === 'user_id')
-  if (!hasUserId) {
-    await run('ALTER TABLE profile ADD COLUMN user_id INTEGER')
-  }
+/**
+ * Query a single row.
+ */
+export async function get(sql, params = []) {
+  const pgSql = convertPlaceholders(sql)
+  const result = await pool.query(pgSql, params)
+  return result.rows[0] || null
 }
 
+/**
+ * Check if a column exists in a table (replaces PRAGMA table_info).
+ */
+export async function columnExists(table, column) {
+  const result = await pool.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_name = $1 AND column_name = $2`,
+    [table, column],
+  )
+  return result.rows.length > 0
+}
+
+/**
+ * Check if a table exists.
+ */
+export async function tableExists(table) {
+  const result = await pool.query(
+    `SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = $1`,
+    [table],
+  )
+  return result.rows.length > 0
+}
+
+/**
+ * Initialize all database tables with PostgreSQL-native types.
+ */
 export async function initializeDatabase() {
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `)
 
-  await run(`
-    CREATE TABLE IF NOT EXISTS issues (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      issue_key TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      priority TEXT NOT NULL CHECK(priority IN ('Low', 'Medium', 'High')),
-      assignee TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('Backlog', 'To Do', 'In Progress', 'Code Review', 'Done')),
-      issue_type TEXT NOT NULL CHECK(issue_type IN ('Story', 'Bug', 'Task')),
-      sprint_id INTEGER,
-      project_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-  `)
-  await migrateLegacyIssuesTable()
-  await ensureIssuesColumns()
-  await ensureIssuesProjectId()
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS sprints (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      date_range TEXT NOT NULL,
-      is_started INTEGER NOT NULL DEFAULT 0
-    );
-  `)
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS activity (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      actor TEXT NOT NULL,
-      action TEXT NOT NULL,
-      happened_at TEXT NOT NULL
-    );
-  `)
-
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS members (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT NOT NULL,
       role TEXT NOT NULL,
       status TEXT NOT NULL,
       task_count INTEGER NOT NULL DEFAULT 0,
       invited_by TEXT,
-      is_owner INTEGER NOT NULL DEFAULT 0
-    );
+      is_owner BOOLEAN NOT NULL DEFAULT FALSE
+    )
   `)
-  await ensureMembersColumns()
-  await ensureMembersIsOwner()
 
-  // Index for fast role lookups on every authenticated request
-  await run('CREATE INDEX IF NOT EXISTS idx_members_email ON members(email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_members_email ON members(email)')
 
-  await run(`
-    CREATE TABLE IF NOT EXISTS roadmap_epics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      phase TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT NOT NULL,
-      project_id INTEGER
-    );
-  `)
-  await ensureRoadmapProjectId()
-
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       key TEXT NOT NULL UNIQUE,
       type TEXT NOT NULL DEFAULT 'Scrum',
       lead TEXT NOT NULL,
       lead_member_id INTEGER,
       avatar_color TEXT NOT NULL DEFAULT '#0052cc',
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `)
-  await ensureProjectsLeadMemberId()
 
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS project_members (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id INTEGER NOT NULL,
-      member_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
       role TEXT NOT NULL DEFAULT 'Member',
-      assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(project_id, member_id)
-    );
+    )
   `)
 
-  await run(`
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sprints (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      date_range TEXT NOT NULL,
+      is_started BOOLEAN NOT NULL DEFAULT FALSE
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issues (
+      id SERIAL PRIMARY KEY,
+      issue_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      priority TEXT NOT NULL CHECK(priority IN ('Low', 'Medium', 'High')),
+      assignee TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('Backlog', 'To Do', 'In Progress', 'Code Review', 'Done')),
+      issue_type TEXT NOT NULL CHECK(issue_type IN ('Story', 'Bug', 'Task')),
+      sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_sprint_id ON issues(sprint_id)')
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS activity (
+      id SERIAL PRIMARY KEY,
+      actor TEXT NOT NULL,
+      action TEXT NOT NULL,
+      happened_at TEXT NOT NULL
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS roadmap_epics (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      phase TEXT NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL
+    )
+  `)
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS workflows (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       issue_type TEXT NOT NULL,
       workflow_name TEXT NOT NULL,
       workflow_status TEXT NOT NULL
-    );
+    )
   `)
 
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS comments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      issue_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
       author TEXT NOT NULL,
       text TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `)
 
-  await run(`
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id)')
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       token TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      used INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `)
 
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS profile (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       full_name TEXT NOT NULL,
       job_title TEXT NOT NULL,
       department TEXT NOT NULL,
       timezone TEXT NOT NULL,
-      avatar_url TEXT NOT NULL DEFAULT "",
-      user_id INTEGER
-    );
+      avatar_url TEXT NOT NULL DEFAULT '',
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+    )
   `)
-  await ensureProfileColumns()
 
-  await run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS filters (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       owner_email TEXT NOT NULL,
-      criteria TEXT NOT NULL DEFAULT '{}',
-      is_starred INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+      criteria JSONB NOT NULL DEFAULT '{}',
+      is_starred BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `)
 
+  // Add FK from projects to members (can't add inline due to table creation order)
+  const fkExists = await get(
+    `SELECT 1 FROM information_schema.table_constraints
+     WHERE constraint_name = 'fk_projects_lead_member' AND table_name = 'projects'`,
+  )
+  if (!fkExists) {
+    await pool.query(`
+      ALTER TABLE projects
+      ADD CONSTRAINT fk_projects_lead_member
+      FOREIGN KEY (lead_member_id) REFERENCES members(id) ON DELETE SET NULL
+    `).catch(() => {}) // Ignore if already exists
+  }
+
   const { seedDatabase } = await import('./seed.js')
-  const defaultSprintId = await seedDatabase()
-  await backfillIssueSprintAssignments(defaultSprintId)
+  await seedDatabase()
 }
+
+/**
+ * Gracefully close the connection pool.
+ */
+export async function closePool() {
+  await pool.end()
+}
+
+// Graceful shutdown
+process.on('SIGINT', () => { pool.end(); process.exit(0) })
+process.on('SIGTERM', () => { pool.end(); process.exit(0) })

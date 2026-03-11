@@ -83,7 +83,7 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
   }
 
   // Invalidate any existing unused tokens for this user
-  await run('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0', [user.id])
+  await run('UPDATE password_reset_tokens SET used = TRUE WHERE user_id = ? AND used = FALSE', [user.id])
 
   // Generate a secure reset token (valid for 15 minutes)
   const resetToken = crypto.randomBytes(32).toString('hex')
@@ -139,7 +139,7 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
   await run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, resetRow.user_id])
 
   // Mark token as used
-  await run('UPDATE password_reset_tokens SET used = 1 WHERE id = ?', [resetRow.id])
+  await run('UPDATE password_reset_tokens SET used = TRUE WHERE id = ?', [resetRow.id])
 
   res.json({ message: 'Password has been reset successfully. You can now log in.' })
 }))
