@@ -1,10 +1,12 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
 import jwt from 'jsonwebtoken'
-import { get, run } from '../db.js'
+import { get, run, all } from '../db.js'
 import { JWT_SECRET } from '../config.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { isAllowedEmail, hashPassword, verifyPassword } from '../middleware/validate.js'
+import { authGuard } from '../middleware/authGuard.js'
+import { loadUserRoles } from '../middleware/authorize.js'
 
 function issueToken(user, expiresIn = '1d') {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn })
@@ -81,7 +83,7 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
   }
 
   // Invalidate any existing unused tokens for this user
-  await run('UPDATE password_reset_tokens SET used = 1 WHERE user_id = ? AND used = 0', [user.id])
+  await run('UPDATE password_reset_tokens SET used = TRUE WHERE user_id = ? AND used = FALSE', [user.id])
 
   // Generate a secure reset token (valid for 15 minutes)
   const resetToken = crypto.randomBytes(32).toString('hex')
@@ -137,9 +139,42 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
   await run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, resetRow.user_id])
 
   // Mark token as used
-  await run('UPDATE password_reset_tokens SET used = 1 WHERE id = ?', [resetRow.id])
+  await run('UPDATE password_reset_tokens SET used = TRUE WHERE id = ?', [resetRow.id])
 
   res.json({ message: 'Password has been reset successfully. You can now log in.' })
+}))
+
+// --- Get current user info with roles ---
+router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
+  const { id, email, memberId, workspaceRole, isOwner } = req.user
+
+  // Fetch profile if it exists
+  const profile = await get(
+    'SELECT full_name, job_title, department, timezone, avatar_url FROM profile WHERE user_id = ?',
+    [id],
+  )
+
+  // Fetch all project roles for this user
+  const projectRoles = memberId
+    ? await all(
+        `SELECT pm.project_id AS projectId, p.key AS projectKey, p.name AS projectName, pm.role
+         FROM project_members pm
+         JOIN projects p ON p.id = pm.project_id
+         WHERE pm.member_id = ?
+         ORDER BY p.name ASC`,
+        [memberId],
+      )
+    : []
+
+  res.json({
+    id,
+    email,
+    memberId,
+    workspaceRole,
+    isOwner,
+    profile: profile || null,
+    projectRoles,
+  })
 }))
 
 export default router

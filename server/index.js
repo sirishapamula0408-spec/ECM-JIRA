@@ -5,6 +5,7 @@ import { initializeDatabase } from './db.js'
 import { PORT } from './config.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
+import { loadUserRoles } from './middleware/authorize.js'
 import authRoutes from './routes/auth.js'
 import issueRoutes from './routes/issues.js'
 import sprintRoutes from './routes/sprints.js'
@@ -34,19 +35,23 @@ app.get('/api/health', (_req, res) => {
 // Public routes (no auth required)
 app.use('/api/auth', authRoutes)
 
-// Protected routes (JWT required)
-app.use('/api/issues', authGuard, issueRoutes)
-app.use('/api/sprints', authGuard, sprintRoutes)
-app.use('/api/dashboard', authGuard, dashboardRoutes)
-app.use('/api/reports', authGuard, reportRoutes)
-app.use('/api/roadmap', authGuard, roadmapRoutes)
-app.use('/api/workflows', authGuard, workflowRoutes)
-app.use('/api/profile', authGuard, profileRoutes)
-app.use('/api/members', authGuard, memberRoutes)
-app.use('/api/activity', authGuard, activityRoutes)
-app.use('/api/projects', authGuard, projectRoutes)
-app.use('/api/issues', authGuard, commentRoutes)
-app.use('/api/filters', authGuard, filterRoutes)
+// Protected routes (JWT + role loading)
+// authGuard verifies JWT and sets req.user = { id, email }
+// loadUserRoles queries members table and adds workspaceRole, memberId, isOwner
+const protect = [authGuard, loadUserRoles]
+
+app.use('/api/issues', ...protect, issueRoutes)
+app.use('/api/sprints', ...protect, sprintRoutes)
+app.use('/api/dashboard', ...protect, dashboardRoutes)
+app.use('/api/reports', ...protect, reportRoutes)
+app.use('/api/roadmap', ...protect, roadmapRoutes)
+app.use('/api/workflows', ...protect, workflowRoutes)
+app.use('/api/profile', ...protect, profileRoutes)
+app.use('/api/members', ...protect, memberRoutes)
+app.use('/api/activity', ...protect, activityRoutes)
+app.use('/api/projects', ...protect, projectRoutes)
+app.use('/api/issues', ...protect, commentRoutes)
+app.use('/api/filters', ...protect, filterRoutes)
 
 app.use(errorHandler)
 

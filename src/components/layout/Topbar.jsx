@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
+import Chip from '@mui/material/Chip'
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { displayNameFromEmail } from '../../utils/helpers'
@@ -10,7 +12,8 @@ import { displayNameFromEmail } from '../../utils/helpers'
 export function Topbar({ onCreate, hasProjects }) {
   const { authUser: currentUser, handleLogout } = useAuth()
   const { theme, onThemeChange } = useTheme()
-  const { profile } = useMembers()
+  const { profile, currentMember } = useMembers()
+  const { canCreateIssue, workspaceRole } = usePermissions()
   const navigate = useNavigate()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false)
@@ -33,12 +36,14 @@ export function Topbar({ onCreate, hasProjects }) {
       </div>
 
       <div className="top-actions top-actions-jira">
-        <button className="btn btn-primary create-btn" type="button" onClick={onCreate} disabled={!hasProjects} title={!hasProjects ? 'No project access' : undefined}>
-          <span className="plus-create-content">
-            <span className="plus-create-symbol">+</span>
-            <span>Create</span>
-          </span>
-        </button>
+        {canCreateIssue && (
+          <button className="btn btn-primary create-btn" type="button" onClick={onCreate} disabled={!hasProjects} title={!hasProjects ? 'No project access' : undefined}>
+            <span className="plus-create-content">
+              <span className="plus-create-symbol">+</span>
+              <span>Create</span>
+            </span>
+          </button>
+        )}
         <button className="icon-btn icon-badge" type="button" aria-label="Notifications">
           <HeaderPanelIcon name="notifications" />
           <span className="dot" />
@@ -77,6 +82,14 @@ export function Topbar({ onCreate, hasProjects }) {
                 <div>
                   <strong>{fullName}</strong>
                   <small>{email || 'user@example.com'}</small>
+                  {workspaceRole && (
+                    <Chip
+                      label={currentMember?.isOwner ? 'Owner' : workspaceRole}
+                      size="small"
+                      color={workspaceRole === 'Admin' ? 'primary' : workspaceRole === 'Member' ? 'default' : 'warning'}
+                      sx={{ mt: 0.5, height: 20, fontSize: '0.7rem' }}
+                    />
+                  )}
                 </div>
               </div>
 

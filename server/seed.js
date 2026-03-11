@@ -34,7 +34,7 @@ async function seedSprints() {
 
   const created = await run(
     'INSERT INTO sprints (name, date_range, is_started) VALUES (?, ?, ?)',
-    ['SCRUM Sprint 1', '19 Jan - 2 Feb', 0],
+    ['SCRUM Sprint 1', '19 Jan - 2 Feb', false],
   )
   return created.lastID
 }
@@ -168,7 +168,7 @@ async function seedProjectMembers() {
     const lead = members.find((m) => m.name === project.lead)
     if (lead) {
       await run(
-        'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+        'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?) ON CONFLICT (project_id, member_id) DO NOTHING',
         [project.id, lead.id, 'Admin'],
       )
     }
@@ -177,13 +177,13 @@ async function seedProjectMembers() {
 
 export async function seedDatabase() {
   const defaultSprintId = await seedSprints()
+  await seedMembers()
+  await seedProjects()
   await seedIssues(defaultSprintId)
   await seedActivity()
-  await seedMembers()
   await seedRoadmap()
   await seedProfile()
   await seedWorkflows()
-  await seedProjects()
   await seedProjectMembers()
   return defaultSprintId
 }

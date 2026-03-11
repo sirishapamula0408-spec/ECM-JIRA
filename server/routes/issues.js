@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -62,7 +63,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(mapIssue(row))
 }))
 
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const { title, description, priority, assignee, status, issueType, sprintId, projectId } = req.body
   const normalizedTitle = String(title || '').trim()
   const normalizedDescription = String(description || '').trim()
@@ -144,7 +145,7 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json(mapIssue(row))
 }))
 
-router.patch('/:id', asyncHandler(async (req, res) => {
+router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -227,7 +228,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   res.json(mapIssue(row))
 }))
 
-router.patch('/:id/status', asyncHandler(async (req, res) => {
+router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const { status, sprintId } = req.body
 

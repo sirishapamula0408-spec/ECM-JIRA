@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { get, run, all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -18,7 +19,7 @@ router.get('/', asyncHandler(async (_req, res) => {
   res.json(rows.map(mapSprint))
 }))
 
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { name, dateRange } = req.body || {}
 
   const count = await get('SELECT COUNT(*) AS count FROM sprints')
@@ -29,21 +30,21 @@ router.post('/', asyncHandler(async (req, res) => {
   const created = await run('INSERT INTO sprints (name, date_range, is_started) VALUES (?, ?, ?)', [
     nextName,
     nextDateRange,
-    0,
+    false,
   ])
 
   const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [created.lastID])
   res.status(201).json(mapSprint(row))
 }))
 
-router.patch('/:id/start', asyncHandler(async (req, res) => {
+router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
     return
   }
 
-  const update = await run('UPDATE sprints SET is_started = 1 WHERE id = ?', [id])
+  const update = await run('UPDATE sprints SET is_started = TRUE WHERE id = ?', [id])
   if (update.changes === 0) {
     res.status(404).json({ error: 'Sprint not found' })
     return
@@ -53,7 +54,7 @@ router.patch('/:id/start', asyncHandler(async (req, res) => {
   res.json(mapSprint(row))
 }))
 
-router.patch('/:id', asyncHandler(async (req, res) => {
+router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const { name, dateRange } = req.body || {}
 
@@ -79,7 +80,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   res.json(mapSprint(row))
 }))
 
-router.patch('/:id/complete', asyncHandler(async (req, res) => {
+router.patch('/:id/complete', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
@@ -93,13 +94,13 @@ router.patch('/:id/complete', asyncHandler(async (req, res) => {
   }
 
   await run("UPDATE issues SET status = 'Backlog', sprint_id = NULL WHERE sprint_id = ? AND status != 'Done'", [id])
-  await run('UPDATE sprints SET is_started = 0 WHERE id = ?', [id])
+  await run('UPDATE sprints SET is_started = FALSE WHERE id = ?', [id])
 
   const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
   res.json(mapSprint(row))
 }))
 
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })

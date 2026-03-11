@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { sendMail, buildInviteEmail } from '../utils/mailer.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -12,7 +13,7 @@ router.get('/', asyncHandler(async (_req, res) => {
   res.json(rows)
 }))
 
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { name, email, role, invited_by } = req.body
   const normalizedName = String(name || '').trim()
   const normalizedEmail = String(email || '').trim()
@@ -48,7 +49,7 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json(row)
 }))
 
-router.post('/:id/resend', asyncHandler(async (req, res) => {
+router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid member id' })

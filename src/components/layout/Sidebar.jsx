@@ -2,10 +2,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation, matchPath } from 'react-router-dom'
 import { SidebarNavIcon } from '../icons/SidebarNavIcon'
 import { fetchProjects } from '../../api/projectApi'
+import { usePermissions } from '../../hooks/usePermissions'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
+  const { canCreateProject } = usePermissions()
   const navigate = useNavigate()
   const location = useLocation()
   const [isSpacesMenuOpen, setIsSpacesMenuOpen] = useState(false)
@@ -115,18 +117,20 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
                   </button>
                   {!collapsed && (
                     <span className="nav-trailing nav-trailing-actions" onClick={(event) => event.preventDefault()}>
-                      <button
-                        className="inline-action-btn"
-                        type="button"
-                        aria-label="Create project"
-                        onClick={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          if (onCreateProject) onCreateProject()
-                        }}
-                      >
-                        +
-                      </button>
+                      {canCreateProject && (
+                        <button
+                          className="inline-action-btn"
+                          type="button"
+                          aria-label="Create project"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            if (onCreateProject) onCreateProject()
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
                       <span
                         className="spaces-menu-wrap"
                         onBlur={(event) => {
