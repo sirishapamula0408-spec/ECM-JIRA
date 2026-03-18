@@ -7,8 +7,11 @@ const router = Router()
 // GET /api/issues/:issueId/watchers — list watchers for an issue
 router.get('/:issueId/watchers', asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
+  // Join with members table for name/avatar info
   const rows = await all(
-    'SELECT id, issue_id, user_email, created_at FROM watchers WHERE issue_id = ? ORDER BY created_at ASC',
+    `SELECT w.id, w.issue_id, w.user_email, w.created_at, m.name AS watcher_name
+     FROM watchers w LEFT JOIN members m ON m.email = w.user_email
+     WHERE w.issue_id = ? ORDER BY w.created_at ASC`,
     [issueId],
   )
   const isWatching = rows.some((r) => r.user_email === req.user.email)

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { fetchActivity } from '../../api/dashboardApi'
 import { fetchProjects } from '../../api/projectApi'
 import { fetchMembers } from '../../api/memberApi'
@@ -29,10 +29,13 @@ export function ActivityFeedPage() {
   const [activities, setActivities] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [projects, setProjects] = useState([])
   const [members, setMembers] = useState([])
-  const [filters, setFilters] = useState({ type: '', projectId: '', actor: '' })
-  const [page, setPage] = useState(0)
+  const [filters, setFilters] = useState({ type: '', projectId: '', actor: '', dateFrom: '', dateTo: '' })
+  const [hasMore, setHasMore] = useState(false)
+  const [cursor, setCursor] = useState(null)
+  const sentinelRef = useRef(null)
   const limit = 20
 
   useEffect(() => {
@@ -40,33 +43,69 @@ export function ActivityFeedPage() {
     fetchMembers().then((d) => setMembers(Array.isArray(d) ? d : [])).catch(() => {})
   }, [])
 
+  // Initial load
   const loadData = useCallback(async () => {
     setLoading(true)
+    setCursor(null)
     try {
       const data = await fetchActivity({
         type: filters.type || undefined,
         projectId: filters.projectId || undefined,
         actor: filters.actor || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
         limit,
-        offset: page * limit,
       })
       setActivities(data.activities || [])
       setTotal(data.total || 0)
+      setHasMore(data.hasMore || false)
+      setCursor(data.nextCursor || null)
     } catch {
       setActivities([])
     } finally {
       setLoading(false)
     }
-  }, [filters, page])
+  }, [filters])
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Infinite scroll: load more when sentinel is visible
+  const loadMore = useCallback(async () => {
+    if (!hasMore || !cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const data = await fetchActivity({
+        type: filters.type || undefined,
+        projectId: filters.projectId || undefined,
+        actor: filters.actor || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+        limit,
+        cursor,
+      })
+      setActivities((prev) => [...prev, ...(data.activities || [])])
+      setHasMore(data.hasMore || false)
+      setCursor(data.nextCursor || null)
+    } catch {
+      // ignore
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [hasMore, cursor, loadingMore, filters])
+
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore() },
+      { threshold: 0.1 },
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [loadMore])
+
   function handleFilterChange(key, value) {
     setFilters((prev) => ({ ...prev, [key]: value }))
-    setPage(0)
   }
-
-  const totalPages = Math.ceil(total / limit)
 
   return (
     <section className="page activity-feed-page">
@@ -87,6 +126,8 @@ export function ActivityFeedPage() {
           <option value="">All members</option>
           {members.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
         </select>
+        <input type="date" className="af-filter-select" value={filters.dateFrom} onChange={(e) => handleFilterChange('dateFrom', e.target.value)} title="From date" />
+        <input type="date" className="af-filter-select" value={filters.dateTo} onChange={(e) => handleFilterChange('dateTo', e.target.value)} title="To date" />
       </div>
 
       <div className="af-timeline">
@@ -94,7 +135,9 @@ export function ActivityFeedPage() {
         {!loading && activities.length === 0 && <p className="af-empty">No activity found.</p>}
         {activities.map((a) => (
           <div key={a.id} className="af-item">
-            <div className="af-item-dot" />
+            <div className="af-item-avatar">
+              {(a.actor || 'U').slice(0, 2).toUpperCase()}
+            </div>
             <div className="af-item-content">
               <div className="af-item-header">
                 <span className="af-actor">{a.actor}</span>
@@ -107,15 +150,9 @@ export function ActivityFeedPage() {
             </div>
           </div>
         ))}
+        {/* Infinite scroll sentinel */}
+        {hasMore && <div ref={sentinelRef} className="af-sentinel">{loadingMore ? 'Loading more...' : ''}</div>}
       </div>
-
-      {totalPages > 1 && (
-        <div className="af-pagination">
-          <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="btn btn-ghost btn-sm">Previous</button>
-          <span className="af-page-info">Page {page + 1} of {totalPages}</span>
-          <button type="button" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="btn btn-ghost btn-sm">Next</button>
-        </div>
-      )}
     </section>
   )
 }

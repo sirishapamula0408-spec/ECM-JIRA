@@ -12,6 +12,9 @@ export const fetchActivity = (params = {}) => {
   if (params.actor) query.set('actor', params.actor)
   if (params.limit) query.set('limit', params.limit)
   if (params.offset) query.set('offset', params.offset)
+  if (params.cursor) query.set('cursor', params.cursor)
+  if (params.dateFrom) query.set('dateFrom', params.dateFrom)
+  if (params.dateTo) query.set('dateTo', params.dateTo)
   const qs = query.toString()
   return api(`/api/activity${qs ? `?${qs}` : ''}`)
 }

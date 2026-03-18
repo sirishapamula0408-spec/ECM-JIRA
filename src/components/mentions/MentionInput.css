@@ -73,3 +73,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Clickable @mention chips in rendered text (JL-41) */
+.mention-chip {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary, #0052cc) 14%, transparent);
+  color: var(--primary, #0052cc);
+  font-size: inherit;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mention-chip:hover {
+  background: color-mix(in srgb, var(--primary, #0052cc) 24%, transparent);
+  text-decoration: underline;
+}

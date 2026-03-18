@@ -14,3 +14,12 @@ export const markNotificationRead = (id) =>
 
 export const markAllNotificationsRead = () =>
   api('/api/notifications/read-all', { method: 'PATCH' })
+
+export const deleteNotification = (id) =>
+  api(`/api/notifications/${id}`, { method: 'DELETE' })
+
+export const fetchNotificationPreferences = () =>
+  api('/api/notifications/preferences')
+
+export const updateNotificationPreferences = (prefs) =>
+  api('/api/notifications/preferences', { method: 'PUT', body: JSON.stringify(prefs) })

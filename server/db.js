@@ -398,6 +398,45 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_project ON wiki_pages(project_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_parent ON wiki_pages(parent_id)')
 
+  // --- JL-42: Notification Preferences ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL UNIQUE,
+      in_app BOOLEAN NOT NULL DEFAULT TRUE,
+      email_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      email_digest TEXT NOT NULL DEFAULT 'off',
+      muted_types JSONB NOT NULL DEFAULT '[]',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
+  // --- JL-48: Wiki Page Versions ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wiki_page_versions (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES wiki_pages(id) ON DELETE CASCADE,
+      version_number INTEGER NOT NULL DEFAULT 1,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      edited_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_versions_page ON wiki_page_versions(page_id)')
+
+  // --- JL-48: Issue-Wiki Page Links ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_wiki_links (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      wiki_page_id INTEGER NOT NULL REFERENCES wiki_pages(id) ON DELETE CASCADE,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(issue_id, wiki_page_id)
+    )
+  `)
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints

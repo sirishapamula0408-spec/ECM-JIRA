@@ -1,6 +1,38 @@
 import { useState, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMembers } from '../../context/MemberContext'
 import './MentionInput.css'
+
+/**
+ * Render text with @email mentions as clickable styled chips (JL-41).
+ */
+export function MentionText({ text }) {
+  const navigate = useNavigate()
+  if (!text) return null
+
+  const parts = text.split(/(@[\w.+-]+@[\w.-]+\.\w+)/g)
+  return (
+    <span>
+      {parts.map((part, i) => {
+        if (part.startsWith('@') && part.includes('.')) {
+          const email = part.slice(1)
+          return (
+            <button
+              key={i}
+              type="button"
+              className="mention-chip"
+              onClick={() => navigate('/teams')}
+              title={email}
+            >
+              @{email.split('@')[0]}
+            </button>
+          )
+        }
+        return <span key={i}>{part}</span>
+      })}
+    </span>
+  )
+}
 
 export function MentionInput({ value, onChange, placeholder = 'Add a comment...', rows = 2, className = '' }) {
   const { members } = useMembers()

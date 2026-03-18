@@ -8,7 +8,7 @@ import { fetchIssueById, fetchComments, createComment } from '../../api/issueApi
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
-import { MentionInput } from '../../components/mentions/MentionInput'
+import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -440,7 +440,7 @@ export function IssueDetailPage() {
                       <span className="id-comment-time">{entry.time}</span>
                     </div>
                     {entry.type === 'comment' && (
-                      <p className="id-comment-text">{entry.text}</p>
+                      <p className="id-comment-text"><MentionText text={entry.text} /></p>
                     )}
                     {entry.type === 'history' && (
                       <p className="id-history-text">{entry.text}</p>

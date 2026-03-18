@@ -1,7 +1,46 @@
 import { Router } from 'express'
+import crypto from 'node:crypto'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+
+/** Compute HMAC-SHA256 signature for webhook payload verification */
+function signPayload(payload, secret) {
+  if (!secret) return ''
+  return crypto.createHmac('sha256', secret).update(JSON.stringify(payload)).digest('hex')
+}
+
+/** Helper to log a webhook delivery */
+async function logDelivery(webhookId, event, payload, status, body, success) {
+  await run(
+    'INSERT INTO webhook_logs (webhook_id, event, payload, response_status, response_body, success) VALUES (?, ?, ?::jsonb, ?, ?, ?)',
+    [webhookId, event, JSON.stringify(payload), status, String(body).slice(0, 2000), success],
+  )
+}
+
+/** Pre-built Slack message template */
+function formatSlackPayload(event, data) {
+  return {
+    text: `*[JIRA Lite]* ${event}`,
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: `*${event}*\n${JSON.stringify(data).slice(0, 500)}` } },
+    ],
+  }
+}
+
+/** Pre-built Teams message template */
+function formatTeamsPayload(event, data) {
+  return {
+    '@type': 'MessageCard',
+    '@context': 'http://schema.org/extensions',
+    summary: `JIRA Lite: ${event}`,
+    themeColor: '0052CC',
+    title: `JIRA Lite: ${event}`,
+    text: JSON.stringify(data).slice(0, 500),
+  }
+}
+
+const MAX_RETRIES = 3
 
 const router = Router()
 
@@ -95,28 +134,26 @@ router.post('/:id/test', requireRole('Admin'), asyncHandler(async (req, res) => 
     data: { message: 'This is a test webhook delivery' },
   }
 
+  const signature = signPayload(testPayload, webhook.secret)
+
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
+    const headers = { 'Content-Type': 'application/json' }
+    if (signature) headers['X-Hub-Signature-256'] = `sha256=${signature}`
     const response = await fetch(webhook.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(testPayload),
       signal: controller.signal,
     })
     clearTimeout(timeout)
 
     const body = await response.text().catch(() => '')
-    await run(
-      'INSERT INTO webhook_logs (webhook_id, event, payload, response_status, response_body, success) VALUES (?, ?, ?::jsonb, ?, ?, ?)',
-      [webhook.id, 'test', JSON.stringify(testPayload), response.status, body.slice(0, 2000), response.ok],
-    )
+    await logDelivery(webhook.id, 'test', testPayload, response.status, body, response.ok)
     res.json({ success: response.ok, status: response.status })
   } catch (err) {
-    await run(
-      'INSERT INTO webhook_logs (webhook_id, event, payload, response_status, response_body, success) VALUES (?, ?, ?::jsonb, ?, ?, ?)',
-      [webhook.id, 'test', JSON.stringify(testPayload), 0, err.message, false],
-    )
+    await logDelivery(webhook.id, 'test', testPayload, 0, err.message, false)
     res.json({ success: false, error: err.message })
   }
 }))
@@ -133,11 +170,11 @@ router.get('/:id/logs', requireRole('Admin'), asyncHandler(async (req, res) => {
 export default router
 
 /**
- * Fire webhooks for a given event. Call from other routes.
+ * Fire webhooks for a given event with HMAC signing and retry logic.
  */
 export async function fireWebhooks(event, data, projectId = null) {
   try {
-    let sql = 'SELECT id, url, secret FROM webhooks WHERE is_active = TRUE'
+    let sql = 'SELECT id, url, secret, name FROM webhooks WHERE is_active = TRUE'
     const params = []
     if (projectId) {
       sql += ' AND (project_id = ? OR project_id IS NULL)'
@@ -149,27 +186,45 @@ export async function fireWebhooks(event, data, projectId = null) {
       const events = typeof hook.events === 'string' ? JSON.parse(hook.events) : (hook.events || [])
       if (events.length > 0 && !events.includes(event) && !events.includes('*')) continue
 
-      const payload = { event, timestamp: new Date().toISOString(), data }
-      try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 10000)
-        const response = await fetch(hook.url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        })
-        clearTimeout(timeout)
-        const body = await response.text().catch(() => '')
-        await run(
-          'INSERT INTO webhook_logs (webhook_id, event, payload, response_status, response_body, success) VALUES (?, ?, ?::jsonb, ?, ?, ?)',
-          [hook.id, event, JSON.stringify(payload), response.status, body.slice(0, 2000), response.ok],
-        )
-      } catch (err) {
-        await run(
-          'INSERT INTO webhook_logs (webhook_id, event, payload, response_status, response_body, success) VALUES (?, ?, ?::jsonb, ?, ?, ?)',
-          [hook.id, event, JSON.stringify(payload), 0, err.message, false],
-        )
+      // Use Slack/Teams templates based on webhook name
+      const hookName = (hook.name || '').toLowerCase()
+      let payload
+      if (hookName.includes('slack')) {
+        payload = formatSlackPayload(event, data)
+      } else if (hookName.includes('teams')) {
+        payload = formatTeamsPayload(event, data)
+      } else {
+        payload = { event, timestamp: new Date().toISOString(), data }
+      }
+
+      const signature = signPayload(payload, hook.secret)
+      const headers = { 'Content-Type': 'application/json' }
+      if (signature) headers['X-Hub-Signature-256'] = `sha256=${signature}`
+
+      // Retry with exponential backoff
+      let success = false
+      for (let attempt = 0; attempt < MAX_RETRIES && !success; attempt++) {
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt)))
+        }
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 10000)
+          const response = await fetch(hook.url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          })
+          clearTimeout(timeout)
+          const body = await response.text().catch(() => '')
+          await logDelivery(hook.id, event, payload, response.status, body, response.ok)
+          success = response.ok
+        } catch (err) {
+          if (attempt === MAX_RETRIES - 1) {
+            await logDelivery(hook.id, event, payload, 0, err.message, false)
+          }
+        }
       }
     }
   } catch {

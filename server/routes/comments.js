@@ -83,6 +83,12 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
     }
   }
 
+  // JL-43: Auto-watch on comment for the commenter
+  await run(
+    'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+    [issueId, req.user.email],
+  )
+
   res.status(201).json(row)
 }))
 

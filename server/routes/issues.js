@@ -142,6 +142,12 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     'Just now',
   ])
 
+  // JL-43: Auto-watch on issue create for the creator
+  await run(
+    'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+    [created.lastID, req.user.email],
+  )
+
   res.status(201).json(mapIssue(row))
 }))
 
