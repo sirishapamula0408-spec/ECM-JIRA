@@ -14,11 +14,15 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
-// GET /api/shared-dashboards/:id
+// GET /api/shared-dashboards/:id — only owner or public
 router.get('/:id', asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM shared_dashboards WHERE id = ?', [Number(req.params.id)])
   if (!row) {
     res.status(404).json({ error: 'Dashboard not found' })
+    return
+  }
+  if (row.owner_email !== req.user.email && row.visibility !== 'public') {
+    res.status(403).json({ error: 'Access denied' })
     return
   }
   res.json(row)
@@ -29,6 +33,10 @@ router.post('/', asyncHandler(async (req, res) => {
   const { name, description = '', projectId = null, visibility = 'private', layout = [] } = req.body
   if (!name?.trim()) {
     res.status(400).json({ error: 'name is required' })
+    return
+  }
+  if (visibility && !['private', 'public'].includes(visibility)) {
+    res.status(400).json({ error: 'visibility must be private or public' })
     return
   }
   const result = await run(
@@ -48,13 +56,24 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     return
   }
 
+  if (existing.owner_email !== req.user.email) {
+    res.status(403).json({ error: 'Only the owner can edit this dashboard' })
+    return
+  }
+
   const { name, description, visibility, layout } = req.body
   const sets = []
   const params = []
 
   if (name !== undefined) { sets.push('name = ?'); params.push(name.trim()) }
   if (description !== undefined) { sets.push('description = ?'); params.push(description) }
-  if (visibility !== undefined) { sets.push('visibility = ?'); params.push(visibility) }
+  if (visibility !== undefined) {
+    if (!['private', 'public'].includes(visibility)) {
+      res.status(400).json({ error: 'visibility must be private or public' })
+      return
+    }
+    sets.push('visibility = ?'); params.push(visibility)
+  }
   if (layout !== undefined) { sets.push('layout = ?::jsonb'); params.push(JSON.stringify(layout)) }
 
   if (sets.length === 0) {

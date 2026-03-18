@@ -2,7 +2,10 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { validStatuses } from '../middleware/validate.js'
 import { createNotification } from './notifications.js'
+
+const VALID_APPROVER_ROLES = ['Admin', 'Member', 'Lead']
 
 const router = Router()
 
@@ -25,6 +28,14 @@ router.post('/rules', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { projectId, fromStatus, toStatus, requiredApprovals = 1, approverRole = 'Admin' } = req.body
   if (!fromStatus || !toStatus) {
     res.status(400).json({ error: 'fromStatus and toStatus are required' })
+    return
+  }
+  if (!validStatuses.includes(fromStatus) || !validStatuses.includes(toStatus)) {
+    res.status(400).json({ error: 'fromStatus and toStatus must be valid issue statuses' })
+    return
+  }
+  if (!VALID_APPROVER_ROLES.includes(approverRole)) {
+    res.status(400).json({ error: 'approverRole must be Admin, Member, or Lead' })
     return
   }
   const result = await run(

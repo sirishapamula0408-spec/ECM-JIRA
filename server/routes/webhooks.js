@@ -5,8 +5,8 @@ import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
-// GET /api/webhooks — list webhooks
-router.get('/', asyncHandler(async (req, res) => {
+// GET /api/webhooks — list webhooks (Admin only, exclude secrets)
+router.get('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = req.query.projectId ? Number(req.query.projectId) : null
   let sql = 'SELECT id, name, url, events, project_id, is_active, created_by, created_at, updated_at FROM webhooks'
   const params = []
@@ -19,9 +19,9 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
-// GET /api/webhooks/:id
-router.get('/:id', asyncHandler(async (req, res) => {
-  const row = await get('SELECT * FROM webhooks WHERE id = ?', [Number(req.params.id)])
+// GET /api/webhooks/:id (Admin only, exclude secret)
+router.get('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const row = await get('SELECT id, name, url, events, project_id, is_active, created_by, created_at, updated_at FROM webhooks WHERE id = ?', [Number(req.params.id)])
   if (!row) {
     res.status(404).json({ error: 'Webhook not found' })
     return
@@ -121,8 +121,8 @@ router.post('/:id/test', requireRole('Admin'), asyncHandler(async (req, res) => 
   }
 }))
 
-// GET /api/webhooks/:id/logs — get webhook delivery logs
-router.get('/:id/logs', asyncHandler(async (req, res) => {
+// GET /api/webhooks/:id/logs — get webhook delivery logs (Admin only)
+router.get('/:id/logs', requireRole('Admin'), asyncHandler(async (req, res) => {
   const rows = await all(
     'SELECT id, event, payload, response_status, response_body, success, created_at FROM webhook_logs WHERE webhook_id = ? ORDER BY created_at DESC LIMIT 50',
     [Number(req.params.id)],
@@ -157,6 +157,7 @@ export async function fireWebhooks(event, data, projectId = null) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         })
         clearTimeout(timeout)
         const body = await response.text().catch(() => '')
