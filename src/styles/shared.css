@@ -34,12 +34,18 @@
   letter-spacing: 0.03em;
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
+  background: var(--jira-surface-subtle);
 }
 
 .table td {
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   color: var(--jira-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.table tbody tr {
+  transition: background 120ms ease;
 }
 
 .table tbody tr:hover {
@@ -75,6 +81,7 @@
   font-size: var(--font-size-xxl);
   line-height: var(--line-height-xxl);
   font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
 }
 
 .two-col {
@@ -126,12 +133,14 @@
   line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
 .btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-primary {
@@ -141,6 +150,13 @@
 
 .btn-primary:hover {
   background: #0065ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 82, 204, 0.2);
 }
 
 .btn-ghost {
@@ -152,11 +168,18 @@
 .btn-ghost:hover {
   background: #eaf2ff;
   border-color: #b3d4ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08);
+}
+
+.btn-ghost:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn.sprint-action-btn {
   font-weight: var(--font-weight-bold);
-  background: #ffffff;
+  background: var(--jira-surface);
 }
 
 .create-btn {
@@ -208,8 +231,8 @@
 }
 
 .icon-btn svg {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .collapse-btn {
@@ -305,20 +328,35 @@
   position: fixed;
   inset: 0;
   background: rgba(9, 30, 66, 0.54);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
   padding: 16px;
-  z-index: 100;
+  z-index: var(--z-overlay);
+  animation: overlay-fade-in 200ms ease;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal {
   width: min(760px, 100%);
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 16px;
   display: grid;
   gap: 10px;
+  box-shadow: var(--jira-shadow-modal);
+  animation: modal-slide-in 200ms ease;
+}
+
+@keyframes modal-slide-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .modal h2 {
@@ -648,4 +686,22 @@ textarea:focus {
 @keyframes skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .overlay,
+  .modal,
+  .skeleton-line {
+    animation: none;
+    transition: none;
+  }
+
+  .btn-primary:hover,
+  .btn-ghost:hover {
+    transform: none;
+  }
 }

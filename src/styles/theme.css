@@ -312,3 +312,34 @@
 .app-theme-dark .gadget-config-check {
   color: #9fadbc;
 }
+
+/* Sidebar — dark theme */
+.app-theme-dark .jira-brand h2 {
+  color: #4c9aff;
+}
+
+/* Tables — dark theme */
+.app-theme-dark .table th {
+  background: #22272b;
+}
+
+.app-theme-dark .table tbody tr:hover {
+  background: #22272b;
+}
+
+/* Modal — dark theme */
+.app-theme-dark .modal {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+/* Buttons — dark theme */
+.app-theme-dark .btn-ghost {
+  background: #22272b;
+  color: #9fadbc;
+  border-color: #2c333a;
+}
+
+.app-theme-dark .btn-ghost:hover {
+  background: #2c333a;
+  border-color: #3b444c;
+}

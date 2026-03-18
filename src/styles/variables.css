@@ -17,6 +17,28 @@
   --jira-danger: #de350b;
   --jira-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
   --jira-shadow-soft: 0 2px 10px rgba(9, 30, 66, 0.06);
+  --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
+  --jira-shadow-modal: 0 10px 40px rgba(9, 30, 66, 0.15), 0 0 1px rgba(9, 30, 66, 0.1);
+
+  /* ── Spacing tokens ── */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-xxl: 32px;
+
+  /* ── Z-index scale ── */
+  --z-dropdown: 40;
+  --z-sticky: 50;
+  --z-overlay: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+
+  /* ── Icon sizes ── */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
 
   /* ── Atlassian typography scale ── */
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;

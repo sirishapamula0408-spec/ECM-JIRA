@@ -55,10 +55,13 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, reloadI
     [issues, sprint.id],
   )
 
-  const grouped = useMemo(
-    () => STATUS_COLUMNS.reduce((acc, status) => { acc[status] = sprintIssues.filter((i) => i.status === status); return acc }, {}),
-    [sprintIssues],
-  )
+  const grouped = useMemo(() => {
+    const acc = Object.fromEntries(STATUS_COLUMNS.map((s) => [s, []]))
+    for (const issue of sprintIssues) {
+      if (acc[issue.status]) acc[issue.status].push(issue)
+    }
+    return acc
+  }, [sprintIssues])
 
   const totalCount = sprintIssues.length
   const doneCount = grouped['Done']?.length || 0
@@ -68,9 +71,14 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, reloadI
     if (!dragIssueId) return
     const issue = issues.find((i) => i.id === dragIssueId)
     if (!issue || issue.status === nextStatus) { setDragIssueId(null); setDropStatus(''); return }
-    await handleMove(issue.id, nextStatus, issue.sprintId ?? null)
-    setDragIssueId(null)
-    setDropStatus('')
+    try {
+      await handleMove(issue.id, nextStatus, issue.sprintId ?? null)
+    } catch {
+      // Move failed — state is reset in finally
+    } finally {
+      setDragIssueId(null)
+      setDropStatus('')
+    }
   }
 
   async function onComplete() {
@@ -112,7 +120,7 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, reloadI
             </header>
             {grouped[status]?.map((issue) => (
               <div
-                className="active-sprint-card"
+                className={`active-sprint-card${dragIssueId === issue.id ? ' dragging' : ''}`}
                 key={issue.id}
                 draggable
                 onDragStart={() => setDragIssueId(issue.id)}

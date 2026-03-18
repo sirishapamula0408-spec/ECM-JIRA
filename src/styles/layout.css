@@ -12,12 +12,18 @@
 
 .content {
   min-width: 0;
-  background: #ffffff;
+  background: var(--jira-surface);
 }
 
 .page {
   padding: 16px;
-  background: #ffffff;
+  background: var(--jira-surface);
+  animation: page-fade-in 250ms ease;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .page h1 {
@@ -130,6 +136,12 @@
 
   .topbar-live-clock {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    animation: none;
   }
 }
 

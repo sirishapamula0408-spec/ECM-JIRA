@@ -114,11 +114,13 @@
   border-radius: 6px;
   padding: 10px;
   min-height: 120px;
+  transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .active-sprint-col-drop {
   background: #e9f2ff;
   border-color: #b3d4ff;
+  box-shadow: inset 0 0 0 1px #b3d4ff;
 }
 
 .active-sprint-col:hover {
@@ -164,11 +166,25 @@
   margin-bottom: 8px;
   box-shadow: var(--jira-shadow);
   cursor: grab;
+  transition: background 140ms ease, border-color 140ms ease, transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
 }
 
 .active-sprint-card:hover {
   background: #f8fbff;
   border-color: #c3d4f5;
+  transform: translateY(-1px);
+  box-shadow: var(--jira-shadow-hover);
+}
+
+.active-sprint-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg) scale(0.95);
+  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.2);
+}
+
+.active-sprint-card.drag-over {
+  border-color: var(--jira-blue);
+  box-shadow: 0 0 0 2px var(--jira-blue-soft);
 }
 
 .active-sprint-card__top {
@@ -194,4 +210,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .active-sprint-card,
+  .active-sprint-col {
+    transition: none;
+  }
+
+  .active-sprint-card:hover,
+  .active-sprint-card.dragging {
+    transform: none;
+  }
 }

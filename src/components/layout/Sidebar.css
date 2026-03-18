@@ -26,7 +26,7 @@
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   white-space: nowrap;
-  color: #0052cc;
+  color: var(--jira-link);
 }
 
 .brand-logo {
@@ -179,7 +179,7 @@
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   padding: 6px 0;
-  z-index: 40;
+  z-index: var(--z-dropdown);
 }
 
 .spaces-menu-item {
@@ -223,7 +223,7 @@
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   padding: 6px 0;
-  z-index: 45;
+  z-index: calc(var(--z-dropdown) + 5);
 }
 
 .restore-spaces-btn {
@@ -301,6 +301,13 @@
   padding-left: 20px;
   margin-top: 2px;
   gap: 1px;
+  animation: sidebar-expand 200ms ease;
+  transform-origin: top;
+}
+
+@keyframes sidebar-expand {
+  from { opacity: 0; transform: scaleY(0.9); }
+  to { opacity: 1; transform: scaleY(1); }
 }
 
 .sidebar-project-list-all {
@@ -481,4 +488,13 @@
 .workspace.sidebar-collapsed .sidebar-footer {
   justify-content: center;
   padding-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-caret,
+  .sidebar-project-list {
+    animation: none;
+    transition: none;
+  }
 }
