@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useMembers } from '../../context/MemberContext'
+import { useNotifications } from '../../context/NotificationContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import Chip from '@mui/material/Chip'
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
+import { NotificationDropdown } from '../notifications/NotificationDropdown'
 import { displayNameFromEmail } from '../../utils/helpers'
 
 export function Topbar({ onCreate, hasProjects }) {
@@ -14,9 +16,12 @@ export function Topbar({ onCreate, hasProjects }) {
   const { theme, onThemeChange } = useTheme()
   const { profile, currentMember } = useMembers()
   const { canCreateIssue, workspaceRole } = usePermissions()
+  const { unreadCount } = useNotifications()
   const navigate = useNavigate()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false)
+  const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const handleCloseNotif = useCallback(() => setIsNotifOpen(false), [])
   const email = String(currentUser?.email || '').trim()
   const fullName = String(displayNameFromEmail(email) || profile?.full_name || 'User')
   const avatarText = (fullName || 'U').trim().charAt(0).toUpperCase() || 'U'
@@ -44,10 +49,14 @@ export function Topbar({ onCreate, hasProjects }) {
             </span>
           </button>
         )}
-        <button className="icon-btn icon-badge" type="button" aria-label="Notifications">
-          <HeaderPanelIcon name="notifications" />
-          <span className="dot" />
-        </button>
+        <div className="topbar-notif-wrap" style={{ position: 'relative' }}>
+          <button className="icon-btn icon-badge" type="button" aria-label="Notifications" onClick={() => setIsNotifOpen((c) => !c)}>
+            <HeaderPanelIcon name="notifications" />
+            {unreadCount > 0 && <span className="dot notif-count-dot">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            {unreadCount === 0 && <span className="dot" style={{ display: 'none' }} />}
+          </button>
+          <NotificationDropdown open={isNotifOpen} onClose={handleCloseNotif} />
+        </div>
         <button className="icon-btn" type="button" aria-label="Help">
           <HeaderPanelIcon name="help" />
         </button>

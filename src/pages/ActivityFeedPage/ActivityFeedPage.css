@@ -1,0 +1,135 @@
+.activity-feed-page {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.af-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.af-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.af-total {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.af-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.af-filter-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 140px;
+}
+
+.af-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.af-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+  border-radius: 1px;
+}
+
+.af-item {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.af-item-dot {
+  position: absolute;
+  left: -24px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--surface);
+  z-index: 1;
+}
+
+.af-item-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.af-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.af-actor {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.af-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.af-action {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.af-type-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.af-loading, .af-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 32px 0;
+  font-size: 14px;
+}
+
+.af-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 12px 0;
+}
+
+.af-page-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}

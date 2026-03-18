@@ -19,6 +19,12 @@ import activityRoutes from './routes/activity.js'
 import projectRoutes from './routes/projects.js'
 import commentRoutes from './routes/comments.js'
 import filterRoutes from './routes/filters.js'
+import notificationRoutes from './routes/notifications.js'
+import watcherRoutes from './routes/watchers.js'
+import approvalRoutes from './routes/approvals.js'
+import sharedDashboardRoutes from './routes/shared-dashboards.js'
+import webhookRoutes from './routes/webhooks.js'
+import wikiRoutes from './routes/wiki.js'
 
 const app = express()
 
@@ -52,6 +58,12 @@ app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)
 app.use('/api/filters', ...protect, filterRoutes)
+app.use('/api/notifications', ...protect, notificationRoutes)
+app.use('/api/issues', ...protect, watcherRoutes)
+app.use('/api/approvals', ...protect, approvalRoutes)
+app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
+app.use('/api/webhooks', ...protect, webhookRoutes)
+app.use('/api/wiki', ...protect, wikiRoutes)
 
 app.use(errorHandler)
 

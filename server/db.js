@@ -187,6 +187,15 @@ export async function initializeDatabase() {
     )
   `)
 
+  // Add optional columns to activity for filtering (Module 4)
+  const hasActivityType = await columnExists('activity', 'activity_type')
+  if (!hasActivityType) {
+    await pool.query("ALTER TABLE activity ADD COLUMN activity_type TEXT NOT NULL DEFAULT 'general'")
+    await pool.query('ALTER TABLE activity ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL')
+    await pool.query('ALTER TABLE activity ADD COLUMN issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL')
+    await pool.query("ALTER TABLE activity ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS roadmap_epics (
       id SERIAL PRIMARY KEY,
@@ -254,6 +263,140 @@ export async function initializeDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
+
+  // --- Module 1: @Mentions ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mentions (
+      id SERIAL PRIMARY KEY,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      mentioned_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_comment_id ON mentions(comment_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_email ON mentions(mentioned_email)')
+
+  // --- Module 2: Notifications ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      recipient_email TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL DEFAULT '',
+      issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      actor_email TEXT,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(recipient_email, is_read)')
+
+  // --- Module 3: Watch/Follow Issues ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS watchers (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(issue_id, user_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_watchers_issue ON watchers(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_watchers_email ON watchers(user_email)')
+
+  // --- Module 5: Approval Workflows ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS approval_rules (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      required_approvals INTEGER NOT NULL DEFAULT 1,
+      approver_role TEXT NOT NULL DEFAULT 'Admin',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(project_id, from_status, to_status)
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS approvals (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      approver_email TEXT NOT NULL,
+      decision TEXT NOT NULL CHECK(decision IN ('approved', 'rejected', 'pending')),
+      comment TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_approvals_issue ON approvals(issue_id)')
+
+  // --- Module 6: Shared Dashboards ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS shared_dashboards (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      owner_email TEXT NOT NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      layout JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_shared_dashboards_owner ON shared_dashboards(owner_email)')
+
+  // --- Module 7: Webhook Integrations ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT DEFAULT '',
+      events JSONB NOT NULL DEFAULT '[]',
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS webhook_logs (
+      id SERIAL PRIMARY KEY,
+      webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+      event TEXT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      response_status INTEGER,
+      response_body TEXT DEFAULT '',
+      success BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook ON webhook_logs(webhook_id)')
+
+  // --- Module 8: Project Wiki ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wiki_pages (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      parent_id INTEGER REFERENCES wiki_pages(id) ON DELETE SET NULL,
+      created_by TEXT NOT NULL,
+      updated_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_project ON wiki_pages(project_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_parent ON wiki_pages(parent_id)')
 
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(

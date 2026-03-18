@@ -16,6 +16,7 @@ import { IssueProvider, useIssues } from './context/IssueContext'
 import { SprintProvider, useSprints } from './context/SprintContext'
 import { AppDataProvider, useAppData } from './context/AppDataContext'
 import { MemberProvider, useMembers } from './context/MemberContext'
+import { NotificationProvider, useNotifications } from './context/NotificationContext'
 
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoadingSkeleton } from './components/LoadingSkeleton'
@@ -43,6 +44,10 @@ import { WorkflowEditorPage } from './pages/WorkflowEditorPage/WorkflowEditorPag
 import { TeamsPage } from './pages/TeamsPage/TeamsPage'
 import { FiltersPage } from './pages/FiltersPage/FiltersPage'
 import { ProjectSummaryPage } from './pages/ProjectSummaryPage/ProjectSummaryPage'
+import { ActivityFeedPage } from './pages/ActivityFeedPage/ActivityFeedPage'
+import { WikiPage } from './pages/WikiPage/WikiPage'
+import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
+import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -56,6 +61,7 @@ function AppContent() {
   const { loadSprints } = useSprints()
   const { loadAppData, setAppLoading, setAppError, loading, error } = useAppData()
   const { loadProfile, loadMembers, loadCurrentMember } = useMembers()
+  const { loadNotifications } = useNotifications()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
@@ -96,10 +102,11 @@ function AppContent() {
         loadMembers(membersData)
         loadCurrentMember(currentUserData)
         setHasProjects(Array.isArray(projectsData) && projectsData.length > 0)
+        loadNotifications()
       })
       .catch((loadError) => setAppError(loadError.message))
       .finally(() => setAppLoading(false))
-  }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, loadCurrentMember, setAppLoading, setAppError])
+  }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, loadCurrentMember, setAppLoading, setAppError, loadNotifications])
 
   if (!isAuthenticated) return <LoginPage />
 
@@ -136,6 +143,10 @@ function AppContent() {
               <Route path="/teams" element={<TeamsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
@@ -166,7 +177,9 @@ function App() {
             <SprintProvider>
               <AppDataProvider>
                 <MemberProvider>
-                  <AppContent />
+                  <NotificationProvider>
+                    <AppContent />
+                  </NotificationProvider>
                 </MemberProvider>
               </AppDataProvider>
             </SprintProvider>

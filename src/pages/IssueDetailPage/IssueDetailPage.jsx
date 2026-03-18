@@ -6,6 +6,9 @@ import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
 import { fetchIssueById, fetchComments, createComment } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
+import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
+import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
+import { MentionInput } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -58,7 +61,7 @@ export function IssueDetailPage() {
   const [projectName, setProjectName] = useState('')
   const [commentText, setCommentText] = useState('')
   const [comments, setComments] = useState([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [, setCommentsLoading] = useState(false)
   const [activityTab, setActivityTab] = useState('All')
   const [isEditing, setIsEditing] = useState(false)
   const [editDesc, setEditDesc] = useState('')
@@ -67,6 +70,9 @@ export function IssueDetailPage() {
   const [workLogDesc, setWorkLogDesc] = useState('')
   const [showWorkLogForm, setShowWorkLogForm] = useState(false)
   const [activityOpen, setActivityOpen] = useState(true)
+  const [isWatching, setIsWatching] = useState(false)
+  const [watcherCount, setWatcherCount] = useState(0)
+  const [approvals, setApprovals] = useState([])
 
   // Inline edit state — which field is open
   const [editingField, setEditingField] = useState(null)
@@ -105,6 +111,54 @@ export function IssueDetailPage() {
       .catch(() => setComments([]))
       .finally(() => setCommentsLoading(false))
   }, [issue?.id])
+
+  // Load watchers
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchWatchers(issue.id)
+      .then((data) => { setIsWatching(data.isWatching); setWatcherCount(data.count) })
+      .catch(() => {})
+  }, [issue?.id])
+
+  // Load approvals
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchIssueApprovals(issue.id)
+      .then((data) => setApprovals(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [issue?.id])
+
+  async function handleToggleWatch() {
+    if (!issue?.id) return
+    try {
+      if (isWatching) {
+        await unwatchIssue(issue.id)
+        setIsWatching(false)
+        setWatcherCount((c) => Math.max(0, c - 1))
+      } else {
+        await watchIssue(issue.id)
+        setIsWatching(true)
+        setWatcherCount((c) => c + 1)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleApprovalAction(decision) {
+    if (!issue?.id) return
+    try {
+      const result = await submitApproval(issue.id, {
+        fromStatus: issue.status,
+        toStatus: 'Done',
+        decision,
+        comment: '',
+      })
+      setApprovals((prev) => [result, ...prev])
+    } catch {
+      // ignore
+    }
+  }
 
   if (!issue) return <section className="page">Issue not found.</section>
 
@@ -270,6 +324,10 @@ export function IssueDetailPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
               Link issue
             </button>
+            <button className={`id-quick-btn${isWatching ? ' id-quick-btn--active' : ''}`} type="button" onClick={handleToggleWatch}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              {isWatching ? 'Watching' : 'Watch'} ({watcherCount})
+            </button>
           </div>
 
           {/* Description */}
@@ -324,7 +382,7 @@ export function IssueDetailPage() {
                 <span className="id-comment-avatar id-comment-avatar--me">{currentUserInitials}</span>
                 <div className="id-comment-box">
                   <span className="id-comment-user-name">{currentUserName}</span>
-                  <textarea rows={2} value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment..." className="id-comment-textarea" />
+                  <MentionInput rows={2} value={commentText} onChange={setCommentText} placeholder="Add a comment... Use @email to mention someone" className="id-comment-textarea" />
                   {commentText.trim() && (
                     <div className="id-comment-actions">
                       <button className="btn btn-primary btn-sm" type="button" onClick={handleAddComment}>Save</button>
@@ -614,6 +672,29 @@ export function IssueDetailPage() {
                 </dd>
               </div>
             </dl>
+          </div>
+
+          {/* Approvals */}
+          <div className="id-sidebar-section">
+            <div className="id-sidebar-section-header"><h4>Approvals</h4></div>
+            {approvals.length === 0 ? (
+              <p className="id-empty-text" style={{ fontSize: '12px', padding: '4px 0' }}>No approvals yet.</p>
+            ) : (
+              <div className="id-approval-list">
+                {approvals.slice(0, 5).map((a) => (
+                  <div key={a.id} className="id-approval-item">
+                    <span className={`id-approval-badge id-approval-badge--${a.decision}`}>
+                      {a.decision === 'approved' ? '\u2705' : a.decision === 'rejected' ? '\u274C' : '\u23F3'} {a.decision}
+                    </span>
+                    <span className="id-approval-by">{a.approver_email}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="id-approval-actions" style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApprovalAction('approved')}>Approve</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleApprovalAction('rejected')}>Reject</button>
+            </div>
           </div>
 
         </aside>

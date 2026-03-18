@@ -2,8 +2,23 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { createNotification } from './notifications.js'
 
 const router = Router()
+
+/**
+ * Extract @mentions from comment text.
+ * Matches @email or @"display name" patterns.
+ */
+function extractMentions(text) {
+  const mentions = []
+  const regex = /@([\w.+-]+@[\w.-]+\.\w+)/g
+  let match
+  while ((match = regex.exec(text)) !== null) {
+    mentions.push(match[1])
+  }
+  return [...new Set(mentions)]
+}
 
 // GET /api/issues/:issueId/comments
 router.get('/:issueId/comments', asyncHandler(async (req, res) => {
@@ -32,6 +47,42 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
     [issueId, normalizedAuthor || 'Unknown', normalizedText],
   )
   const row = await get('SELECT id, issue_id, author, text, created_at FROM comments WHERE id = ?', [created.lastID])
+
+  // Process @mentions
+  const mentionedEmails = extractMentions(normalizedText)
+  for (const email of mentionedEmails) {
+    await run('INSERT INTO mentions (comment_id, mentioned_email) VALUES (?, ?)', [created.lastID, email])
+
+    // Get issue info for notification
+    const issue = await get('SELECT issue_key, project_id FROM issues WHERE id = ?', [issueId])
+    await createNotification({
+      recipientEmail: email,
+      type: 'mention',
+      title: `Mentioned in ${issue?.issue_key || 'a comment'}`,
+      message: `${normalizedAuthor} mentioned you: "${normalizedText.slice(0, 100)}"`,
+      issueId,
+      projectId: issue?.project_id || null,
+      actorEmail: req.user.email,
+    })
+  }
+
+  // Notify issue watchers
+  const watchers = await all('SELECT user_email FROM watchers WHERE issue_id = ? AND user_email != ?', [issueId, req.user.email])
+  const issue = await get('SELECT issue_key, project_id FROM issues WHERE id = ?', [issueId])
+  for (const watcher of watchers) {
+    if (!mentionedEmails.includes(watcher.user_email)) {
+      await createNotification({
+        recipientEmail: watcher.user_email,
+        type: 'comment',
+        title: `New comment on ${issue?.issue_key || 'an issue'}`,
+        message: `${normalizedAuthor}: "${normalizedText.slice(0, 100)}"`,
+        issueId,
+        projectId: issue?.project_id || null,
+        actorEmail: req.user.email,
+      })
+    }
+  }
+
   res.status(201).json(row)
 }))
 

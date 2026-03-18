@@ -65,11 +65,14 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   const productItems = [
     { label: 'Teams', path: '/teams', icon: 'teams' },
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
+    { label: 'Activity', path: '/activity', icon: 'recent' },
+    { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
   ]
 
   const utilityItems = [
     { label: 'Filters', path: '/filters', icon: 'filters' },
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
+    { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
   ]
 
   return (

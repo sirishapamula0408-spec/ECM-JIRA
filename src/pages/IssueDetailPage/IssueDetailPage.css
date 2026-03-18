@@ -940,3 +940,55 @@
     gap: 6px;
   }
 }
+
+/* Watch button active state */
+.id-quick-btn--active {
+  background: color-mix(in srgb, var(--jira-blue, #0052cc) 12%, transparent);
+  color: var(--jira-blue, #0052cc);
+  border-color: var(--jira-blue, #0052cc);
+}
+
+/* Approval items */
+.id-approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.id-approval-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.id-approval-badge {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.id-approval-badge--approved {
+  color: #006644;
+}
+
+.id-approval-badge--rejected {
+  color: #bf2600;
+}
+
+.id-approval-badge--pending {
+  color: #ff991f;
+}
+
+.id-approval-by {
+  color: var(--jira-text-secondary, #6b778c);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.id-approval-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
