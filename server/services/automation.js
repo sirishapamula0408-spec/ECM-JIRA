@@ -1,4 +1,4 @@
-import { all, get, run } from '../db.js'
+import { all, run } from '../db.js'
 import { createNotification } from '../routes/notifications.js'
 
 export const TRIGGER_TYPES = ['status_changed', 'comment_added']
