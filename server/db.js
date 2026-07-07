@@ -447,6 +447,22 @@ export async function initializeDatabase() {
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_issue_type_check')
   await pool.query("ALTER TABLE issues ADD CONSTRAINT issues_issue_type_check CHECK (issue_type IN ('Story', 'Bug', 'Task', 'Sub-task'))")
 
+  // --- Theme-1 #5: Time Tracking ---
+  if (!(await columnExists('issues', 'original_estimate_minutes'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN original_estimate_minutes INTEGER')
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS worklogs (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      author TEXT NOT NULL,
+      time_spent_minutes INTEGER NOT NULL,
+      description TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_worklogs_issue ON worklogs(issue_id)')
+
   // --- Theme-1 #4: Issue Linking ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS issue_links (

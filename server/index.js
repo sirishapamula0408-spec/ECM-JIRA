@@ -29,6 +29,7 @@ import labelRoutes from './routes/labels.js'
 import importExportRoutes from './routes/importExport.js'
 import attachmentRoutes from './routes/attachments.js'
 import issueLinkRoutes from './routes/issueLinks.js'
+import worklogRoutes from './routes/worklogs.js'
 
 const app = express()
 
@@ -72,6 +73,7 @@ app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)
 app.use('/api', ...protect, attachmentRoutes)
 app.use('/api', ...protect, issueLinkRoutes)
+app.use('/api', ...protect, worklogRoutes)
 
 app.use(errorHandler)
 

@@ -11,6 +11,7 @@ import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
+import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -72,6 +73,8 @@ export function IssueDetailPage() {
   const [workLogTime, setWorkLogTime] = useState('')
   const [workLogDesc, setWorkLogDesc] = useState('')
   const [showWorkLogForm, setShowWorkLogForm] = useState(false)
+  const [timeSummary, setTimeSummary] = useState({ estimateText: null, spentText: null, remainingText: null, percent: null })
+  const [estimateInput, setEstimateInput] = useState('')
   const [activityOpen, setActivityOpen] = useState(true)
   const [isWatching, setIsWatching] = useState(false)
   const [watcherCount, setWatcherCount] = useState(0)
@@ -220,6 +223,40 @@ export function IssueDetailPage() {
     }
   }
 
+  // Time tracking — load worklogs + summary
+  function reloadWorklogs() {
+    if (!issue?.id) return
+    fetchWorklogs(issue.id)
+      .then((data) => {
+        const mapped = (data.worklogs || []).map((w) => ({
+          id: w.id,
+          author: w.author,
+          time: w.created_at ? new Date(w.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          logged: w.timeSpentText || `${w.time_spent_minutes}m`,
+          description: w.description || '',
+          sortKey: w.created_at ? new Date(w.created_at).getTime() : 0,
+        }))
+        setWorkLogs(mapped)
+        setTimeSummary(data.summary || { estimateText: null, spentText: null, remainingText: null, percent: null })
+      })
+      .catch(() => {})
+  }
+  useEffect(() => {
+    if (!issue?.id) return
+    reloadWorklogs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id])
+
+  async function handleSaveEstimate() {
+    try {
+      const summary = await setEstimate(issue.id, estimateInput.trim())
+      setTimeSummary(summary)
+      closeField()
+    } catch {
+      // ignore
+    }
+  }
+
   // Issue links
   function reloadLinks() {
     if (!issue?.id) return
@@ -339,19 +376,17 @@ export function IssueDetailPage() {
     }, ...prev])
   }
 
-  function handleAddWorkLog() {
+  async function handleAddWorkLog() {
     if (!workLogTime.trim()) return
-    setWorkLogs((prev) => [{
-      id: `wl-${Date.now()}`,
-      author: currentUserName,
-      time: 'Just now',
-      logged: workLogTime.trim(),
-      description: workLogDesc.trim(),
-      sortKey: Date.now(),
-    }, ...prev])
-    setWorkLogTime('')
-    setWorkLogDesc('')
-    setShowWorkLogForm(false)
+    try {
+      await logWork(issue.id, { timeSpent: workLogTime.trim(), description: workLogDesc.trim() })
+      setWorkLogTime('')
+      setWorkLogDesc('')
+      setShowWorkLogForm(false)
+      reloadWorklogs()
+    } catch {
+      // keep form open on failure (e.g. unparseable time)
+    }
   }
 
   function startEditDesc() {
@@ -646,6 +681,14 @@ export function IssueDetailPage() {
             {/* Work log input — show on Work log tab */}
             {activityTab === 'Work log' && (
               <div className="id-worklog-area">
+                <div className="id-time-summary">
+                  <div className="id-time-bar"><div className="id-time-bar-fill" style={{ width: `${timeSummary.percent ?? 0}%` }} /></div>
+                  <div className="id-time-stats">
+                    <span><strong>{timeSummary.spentText || '0m'}</strong> logged</span>
+                    <span>{timeSummary.remainingText != null ? `${timeSummary.remainingText} remaining` : 'No estimate'}</span>
+                    <span>{timeSummary.estimateText ? `${timeSummary.estimateText} estimated` : ''}</span>
+                  </div>
+                </div>
                 {!showWorkLogForm ? (
                   <button className="id-worklog-add-btn" type="button" onClick={() => setShowWorkLogForm(true)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -927,6 +970,33 @@ export function IssueDetailPage() {
                       type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
+                      autoFocus
+                    />
+                  </InlineField>
+                </dd>
+              </div>
+              <div className="id-detail-row">
+                <dt>Estimate</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'estimate'}
+                    onOpen={() => { setEstimateInput(timeSummary.estimateText || ''); openField('estimate') }}
+                    onClose={handleSaveEstimate}
+                    display={
+                      <span className="id-sprint-display">
+                        {timeSummary.estimateText ? timeSummary.estimateText : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </span>
+                    }
+                  >
+                    <input
+                      className="id-inline-input"
+                      value={estimateInput}
+                      onChange={(e) => setEstimateInput(e.target.value)}
+                      placeholder="e.g. 1d 4h"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveEstimate() } }}
                       autoFocus
                     />
                   </InlineField>
