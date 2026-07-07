@@ -18,6 +18,7 @@ function mapIssue(row) {
     issueType: row.issue_type,
     sprintId: row.sprint_id ?? null,
     projectId: row.project_id ?? null,
+    parentId: row.parent_id ?? null,
     createdAt: row.created_at,
   }
 }
@@ -31,7 +32,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const status = req.query.status
   const params = []
   let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues'
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues'
 
   if (status) {
     sql += ' WHERE status = ?'
@@ -51,7 +52,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -132,7 +133,7 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   )
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [created.lastID],
   )
 
@@ -159,7 +160,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const existing = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [id],
   )
   if (!existing) {
@@ -228,7 +229,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [id],
   )
   res.json(mapIssue(row))
@@ -254,6 +255,18 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     return
   }
 
+  // Theme-1 #1: block closing a parent that still has open sub-tasks
+  if (status === 'Done') {
+    const openSubtasks = await all(
+      "SELECT id, issue_key, title, status FROM issues WHERE parent_id = ? AND status <> 'Done'",
+      [id],
+    )
+    if (openSubtasks.length > 0) {
+      res.status(409).json({ error: 'Cannot close issue with open sub-tasks', openSubtasks })
+      return
+    }
+  }
+
   let nextSprintId = null
   if (status !== 'Backlog') {
     if (sprintId === undefined || sprintId === null || sprintId === '') {
@@ -276,7 +289,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   await run('UPDATE issues SET status = ?, sprint_id = ? WHERE id = ?', [status, nextSprintId, id])
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -287,6 +300,71 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   ])
 
   res.json(mapIssue(row))
+}))
+
+// GET /api/issues/:parentId/subtasks — list sub-tasks + progress summary
+router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
+  const parentId = Number(req.params.parentId)
+  if (!Number.isInteger(parentId)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+  const rows = await all(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
+    [parentId],
+  )
+  const total = rows.length
+  const done = rows.filter((r) => r.status === 'Done').length
+  res.json({
+    subtasks: rows.map(mapIssue),
+    progress: { total, done, percent: total ? Math.round((done / total) * 100) : 0 },
+  })
+}))
+
+// POST /api/issues/:parentId/subtasks — create a sub-task under a parent
+router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (req, res) => {
+  const parentId = Number(req.params.parentId)
+  const parent = await get(
+    'SELECT id, assignee, status, sprint_id, project_id, parent_id FROM issues WHERE id = ?',
+    [parentId],
+  )
+  if (!parent) {
+    res.status(404).json({ error: 'Parent issue not found' })
+    return
+  }
+  if (parent.parent_id) {
+    res.status(400).json({ error: 'Cannot create a sub-task under another sub-task.' })
+    return
+  }
+
+  const title = String(req.body?.title || '').trim()
+  if (!title) {
+    res.status(400).json({ error: 'title is required' })
+    return
+  }
+  const priority = validPriorities.includes(req.body?.priority) ? req.body.priority : 'Medium'
+  const status = validStatuses.includes(req.body?.status) ? req.body.status : 'To Do'
+  const assignee = String(req.body?.assignee || parent.assignee || 'Unassigned').trim()
+  const description = String(req.body?.description || '').trim()
+  const projectId = parent.project_id
+  const sprintId = status === 'Backlog' ? null : parent.sprint_id
+
+  const projectRow = projectId ? await get('SELECT key FROM projects WHERE id = ?', [projectId]) : null
+  const projectKey = projectRow?.key || 'PROJ'
+  const count = projectId
+    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [projectId])
+    : await get('SELECT COUNT(*) AS count FROM issues')
+  const issueKey = `${projectKey}-${Number(count.count) + 1}`
+
+  const created = await run(
+    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [issueKey, title, description, priority, assignee, status, 'Sub-task', sprintId, projectId, parentId],
+  )
+  const row = await get(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    [created.lastID],
+  )
+  res.status(201).json(mapIssue(row))
 }))
 
 // DELETE /api/issues/:id — delete an issue (dependent rows cascade via FKs)

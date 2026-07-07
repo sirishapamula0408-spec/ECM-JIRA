@@ -24,6 +24,14 @@ export function deleteIssue(id) {
   return api(`/api/issues/${id}`, { method: 'DELETE' })
 }
 
+export function fetchSubtasks(parentId) {
+  return api(`/api/issues/${parentId}/subtasks`)
+}
+
+export function createSubtask(parentId, payload) {
+  return api(`/api/issues/${parentId}/subtasks`, { method: 'POST', body: JSON.stringify(payload) })
+}
+
 export function updateIssueStatus(id, status, sprintId) {
   return api(`/api/issues/${id}/status`, {
     method: 'PATCH',

@@ -1000,3 +1000,21 @@
   padding: 2px 8px; font-size: 12px; cursor: pointer; opacity: 0.85;
 }
 .id-label-suggestion:hover { opacity: 1; background: rgba(0,0,0,0.03); }
+
+/* Theme-1 #1: sub-tasks */
+.id-subtask-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.id-subtask-progress { display: flex; align-items: center; gap: 8px; }
+.id-subtask-bar { width: 120px; height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
+.id-subtask-bar-fill { height: 100%; background: #36b37e; transition: width 0.2s; }
+.id-subtask-progress-label { font-size: 12px; color: #5e6c84; white-space: nowrap; }
+.id-subtask-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.id-subtask-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid #dfe1e6; border-radius: 4px; cursor: pointer; }
+.id-subtask-row:hover { background: #f4f5f7; }
+.id-subtask-key { font-size: 12px; font-weight: 600; color: #0052cc; }
+.id-subtask-title { flex: 1; font-size: 13px; }
+.id-subtask-status { font-size: 11px; padding: 2px 8px; border-radius: 3px; background: #dfe1e6; color: #42526e; }
+.id-subtask-status--done { background: #e3fcef; color: #006644; }
+.id-subtask-status--in-progress { background: #deebff; color: #0052cc; }
+.id-subtask-status--code-review { background: #eae6ff; color: #5243aa; }
+.id-subtask-form { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: #0052cc; cursor: pointer; font-size: 13px; padding: 4px 0; }

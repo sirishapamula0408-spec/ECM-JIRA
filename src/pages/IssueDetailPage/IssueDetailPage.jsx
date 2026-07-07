@@ -4,7 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import { fetchIssueById, fetchComments, createComment } from '../../api/issueApi'
+import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
@@ -74,6 +74,10 @@ export function IssueDetailPage() {
   const [isWatching, setIsWatching] = useState(false)
   const [watcherCount, setWatcherCount] = useState(0)
   const [approvals, setApprovals] = useState([])
+  const [subtasks, setSubtasks] = useState([])
+  const [subtaskProgress, setSubtaskProgress] = useState({ total: 0, done: 0, percent: 0 })
+  const [showSubtaskForm, setShowSubtaskForm] = useState(false)
+  const [subtaskTitle, setSubtaskTitle] = useState('')
 
   // Inline edit state — which field is open
   const [editingField, setEditingField] = useState(null)
@@ -145,6 +149,32 @@ export function IssueDetailPage() {
       .then((data) => setProjectLabels(Array.isArray(data) ? data : []))
       .catch(() => setProjectLabels([]))
   }, [issue?.projectId])
+
+  // Load sub-tasks (only for non-subtask issues)
+  function reloadSubtasks() {
+    if (!issue?.id) return
+    fetchSubtasks(issue.id)
+      .then((data) => { setSubtasks(data.subtasks || []); setSubtaskProgress(data.progress || { total: 0, done: 0, percent: 0 }) })
+      .catch(() => { setSubtasks([]); setSubtaskProgress({ total: 0, done: 0, percent: 0 }) })
+  }
+  useEffect(() => {
+    if (!issue?.id || issue?.parentId) return
+    reloadSubtasks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id, issue?.parentId])
+
+  async function handleAddSubtask() {
+    const title = subtaskTitle.trim()
+    if (!title) return
+    try {
+      await createSubtask(issue.id, { title })
+      setSubtaskTitle('')
+      setShowSubtaskForm(false)
+      reloadSubtasks()
+    } catch {
+      // keep form open on failure
+    }
+  }
 
   async function handleToggleWatch() {
     if (!issue?.id) return
@@ -396,10 +426,43 @@ export function IssueDetailPage() {
             )}
           </div>
 
+          {!issue.parentId && (
           <div className="id-section">
-            <h3 className="id-section-title">Child issues</h3>
-            <p className="id-empty-text">No child issues.</p>
+            <div className="id-subtask-header">
+              <h3 className="id-section-title">Child issues</h3>
+              {subtaskProgress.total > 0 && (
+                <div className="id-subtask-progress">
+                  <div className="id-subtask-bar"><div className="id-subtask-bar-fill" style={{ width: `${subtaskProgress.percent}%` }} /></div>
+                  <span className="id-subtask-progress-label">{subtaskProgress.done} / {subtaskProgress.total} done</span>
+                </div>
+              )}
+            </div>
+            {subtasks.length === 0 ? (
+              <p className="id-empty-text">No child issues.</p>
+            ) : (
+              <ul className="id-subtask-list">
+                {subtasks.map((st) => (
+                  <li key={st.id} className="id-subtask-row" onClick={() => navigate(`/issues/${st.id}`)}>
+                    <span className="id-subtask-key">{st.key}</span>
+                    <span className="id-subtask-title">{st.title}</span>
+                    <span className={`id-subtask-status id-subtask-status--${String(st.status).toLowerCase().replace(/\s+/g, '-')}`}>{st.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {showSubtaskForm ? (
+              <div className="id-subtask-form">
+                <input className="id-inline-input" value={subtaskTitle} autoFocus placeholder="Sub-task summary"
+                  onChange={(e) => setSubtaskTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubtask() } else if (e.key === 'Escape') { setShowSubtaskForm(false); setSubtaskTitle('') } }} />
+                <button className="btn btn-primary btn-sm" type="button" onClick={handleAddSubtask}>Add</button>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowSubtaskForm(false); setSubtaskTitle('') }}>Cancel</button>
+              </div>
+            ) : (
+              <button className="id-subtask-add-btn" type="button" onClick={() => setShowSubtaskForm(true)}>+ Add sub-task</button>
+            )}
           </div>
+          )}
 
           <div className="id-section">
             <h3 className="id-section-title">Linked issues</h3>

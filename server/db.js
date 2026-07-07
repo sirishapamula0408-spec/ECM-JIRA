@@ -437,6 +437,16 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- Theme-1 #1: Sub-tasks ---
+  // Nullable self-referencing parent; deleting a parent cascades to its sub-tasks.
+  if (!(await columnExists('issues', 'parent_id'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN parent_id INTEGER REFERENCES issues(id) ON DELETE CASCADE')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id)')
+  }
+  // Widen the issue_type CHECK to allow 'Sub-task'
+  await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_issue_type_check')
+  await pool.query("ALTER TABLE issues ADD CONSTRAINT issues_issue_type_check CHECK (issue_type IN ('Story', 'Bug', 'Task', 'Sub-task'))")
+
   // --- Theme-1 #2: Labels / Tags ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS labels (
