@@ -992,3 +992,11 @@
   gap: 6px;
   margin-top: 8px;
 }
+
+/* Theme-1 #2: label picker suggestions */
+.id-label-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.id-label-suggestion {
+  border: 1px dashed currentColor; background: transparent; border-radius: 12px;
+  padding: 2px 8px; font-size: 12px; cursor: pointer; opacity: 0.85;
+}
+.id-label-suggestion:hover { opacity: 1; background: rgba(0,0,0,0.03); }

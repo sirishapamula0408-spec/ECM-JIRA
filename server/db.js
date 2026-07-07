@@ -437,6 +437,26 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- Theme-1 #2: Labels / Tags ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS labels (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#42526E',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(project_id, name)
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_labels (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+      PRIMARY KEY (issue_id, label_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label_id)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints

@@ -8,6 +8,7 @@ import { fetchIssueById, fetchComments, createComment } from '../../api/issueApi
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
+import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -76,8 +77,9 @@ export function IssueDetailPage() {
 
   // Inline edit state — which field is open
   const [editingField, setEditingField] = useState(null)
-  // Local label state (no backend support)
-  const [labels, setLabels] = useState(['AfterFeb10th', 'Compliance'])
+  // Labels — persisted per-issue assignments + project label catalog
+  const [labels, setLabels] = useState([]) // [{id,name,color}] assigned to this issue
+  const [projectLabels, setProjectLabels] = useState([]) // catalog for the issue's project
   const [labelInput, setLabelInput] = useState('')
   // Due date local state
   const [dueDate, setDueDate] = useState('')
@@ -127,6 +129,22 @@ export function IssueDetailPage() {
       .then((data) => setApprovals(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [issue?.id])
+
+  // Load labels assigned to this issue
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchIssueLabels(issue.id)
+      .then((data) => setLabels(Array.isArray(data) ? data : []))
+      .catch(() => setLabels([]))
+  }, [issue?.id])
+
+  // Load the project's label catalog (for the picker)
+  useEffect(() => {
+    if (!issue?.projectId) { setProjectLabels([]); return }
+    fetchProjectLabels(issue.projectId)
+      .then((data) => setProjectLabels(Array.isArray(data) ? data : []))
+      .catch(() => setProjectLabels([]))
+  }, [issue?.projectId])
 
   async function handleToggleWatch() {
     if (!issue?.id) return
@@ -274,16 +292,46 @@ export function IssueDetailPage() {
     closeField()
   }
 
-  function addLabel() {
-    const trimmed = labelInput.trim()
-    if (trimmed && !labels.includes(trimmed)) {
-      setLabels((prev) => [...prev, trimmed])
+  async function persistLabels(nextLabels) {
+    const prev = labels
+    setLabels(nextLabels) // optimistic
+    try {
+      const saved = await setIssueLabels(issue.id, nextLabels.map((l) => l.id))
+      setLabels(Array.isArray(saved) ? saved : nextLabels)
+    } catch {
+      setLabels(prev) // rollback
     }
+  }
+
+  async function addLabel() {
+    const trimmed = labelInput.trim()
+    if (!trimmed) return
     setLabelInput('')
+    // Find an existing catalog label (case-insensitive) or create one inline
+    let label = projectLabels.find((l) => l.name.toLowerCase() === trimmed.toLowerCase())
+    if (!label) {
+      try {
+        label = await createLabel(issue.projectId, { name: trimmed, color: '#42526E' })
+        setProjectLabels((prev) => [...prev, label].sort((a, b) => a.name.localeCompare(b.name)))
+      } catch {
+        return
+      }
+    }
+    if (!labels.some((l) => l.id === label.id)) {
+      persistLabels([...labels, label])
+    }
+  }
+
+  function toggleLabel(label) {
+    if (labels.some((l) => l.id === label.id)) {
+      persistLabels(labels.filter((l) => l.id !== label.id))
+    } else {
+      persistLabels([...labels, label])
+    }
   }
 
   function removeLabel(label) {
-    setLabels((prev) => prev.filter((l) => l !== label))
+    persistLabels(labels.filter((l) => l.id !== label.id))
   }
 
   return (
@@ -579,7 +627,9 @@ export function IssueDetailPage() {
                     onClose={closeField}
                     display={
                       <div className="id-labels-wrap">
-                        {labels.length > 0 ? labels.map((l) => <span key={l} className="pill">{l}</span>) : <span className="id-empty-value">None</span>}
+                        {labels.length > 0 ? labels.map((l) => (
+                          <span key={l.id} className="pill" style={{ background: `${l.color}22`, color: l.color, borderColor: `${l.color}55` }}>{l.name}</span>
+                        )) : <span className="id-empty-value">None</span>}
                         <span className="id-edit-pencil">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </span>
@@ -589,18 +639,27 @@ export function IssueDetailPage() {
                     <div className="id-labels-editor">
                       <div className="id-labels-list">
                         {labels.map((l) => (
-                          <span key={l} className="id-label-chip">
-                            {l}
+                          <span key={l.id} className="id-label-chip" style={{ background: `${l.color}22`, color: l.color }}>
+                            {l.name}
                             <button type="button" className="id-label-remove" onClick={() => removeLabel(l)}>&times;</button>
                           </span>
                         ))}
                       </div>
+                      {projectLabels.filter((pl) => !labels.some((l) => l.id === pl.id)).length > 0 && (
+                        <div className="id-label-suggestions">
+                          {projectLabels.filter((pl) => !labels.some((l) => l.id === pl.id)).map((pl) => (
+                            <button key={pl.id} type="button" className="id-label-suggestion" style={{ color: pl.color }} onClick={() => toggleLabel(pl)}>
+                              + {pl.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <div className="id-label-add-row">
                         <input
                           className="id-inline-input"
                           value={labelInput}
                           onChange={(e) => setLabelInput(e.target.value)}
-                          placeholder="Add label..."
+                          placeholder="Add or create label..."
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLabel() } }}
                         />
                         <button className="id-label-add-btn" type="button" onClick={addLabel}>Add</button>
