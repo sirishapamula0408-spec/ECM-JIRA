@@ -27,6 +27,7 @@ import webhookRoutes from './routes/webhooks.js'
 import wikiRoutes from './routes/wiki.js'
 import labelRoutes from './routes/labels.js'
 import importExportRoutes from './routes/importExport.js'
+import attachmentRoutes from './routes/attachments.js'
 
 const app = express()
 
@@ -34,7 +35,7 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
   credentials: true,
 }))
-app.use(express.json())
+app.use(express.json({ limit: '25mb' })) // 25mb accommodates base64 file uploads (Theme-1 #3 Attachments)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
@@ -68,6 +69,7 @@ app.use('/api/webhooks', ...protect, webhookRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)
+app.use('/api', ...protect, attachmentRoutes)
 
 app.use(errorHandler)
 

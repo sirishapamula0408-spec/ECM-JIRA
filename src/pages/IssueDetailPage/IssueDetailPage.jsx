@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
@@ -9,6 +9,7 @@ import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
+import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -78,6 +79,9 @@ export function IssueDetailPage() {
   const [subtaskProgress, setSubtaskProgress] = useState({ total: 0, done: 0, percent: 0 })
   const [showSubtaskForm, setShowSubtaskForm] = useState(false)
   const [subtaskTitle, setSubtaskTitle] = useState('')
+  const [attachments, setAttachments] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
 
   // Inline edit state — which field is open
   const [editingField, setEditingField] = useState(null)
@@ -173,6 +177,40 @@ export function IssueDetailPage() {
       reloadSubtasks()
     } catch {
       // keep form open on failure
+    }
+  }
+
+  // Attachments
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchAttachments(issue.id)
+      .then((data) => setAttachments(Array.isArray(data) ? data : []))
+      .catch(() => setAttachments([]))
+  }, [issue?.id])
+
+  async function handleFilesSelected(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    try {
+      for (const file of files) {
+        const saved = await uploadAttachment(issue.id, file)
+        setAttachments((prev) => [saved, ...prev])
+      }
+    } catch {
+      // ignore individual failures
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleDeleteAttachment(id) {
+    try {
+      await deleteAttachment(id)
+      setAttachments((prev) => prev.filter((a) => a.id !== id))
+    } catch {
+      // ignore
     }
   }
 
@@ -390,10 +428,11 @@ export function IssueDetailPage() {
           <h1 className="id-title">{issue.title}</h1>
 
           <div className="id-quick-actions">
-            <button className="id-quick-btn" type="button">
+            <button className="id-quick-btn" type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Attach
+              {uploading ? 'Uploading…' : 'Attach'}
             </button>
+            <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFilesSelected} />
             <button className="id-quick-btn" type="button">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
               Create subtask
@@ -425,6 +464,24 @@ export function IssueDetailPage() {
               </div>
             )}
           </div>
+
+          {attachments.length > 0 && (
+            <div className="id-section">
+              <h3 className="id-section-title">Attachments ({attachments.length})</h3>
+              <div className="id-attach-grid">
+                {attachments.map((a) => (
+                  <div key={a.id} className="id-attach-card">
+                    <button type="button" className="id-attach-open" onClick={() => downloadAttachment(a)} title={`Download ${a.filename}`}>
+                      <span className="id-attach-icon">{a.isImage ? '🖼️' : '📄'}</span>
+                      <span className="id-attach-name">{a.filename}</span>
+                      <span className="id-attach-size">{a.size != null ? `${Math.max(1, Math.round(a.size / 1024))} KB` : ''}</span>
+                    </button>
+                    <button type="button" className="id-attach-delete" onClick={() => handleDeleteAttachment(a.id)} aria-label="Delete attachment">&times;</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!issue.parentId && (
           <div className="id-section">
