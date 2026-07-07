@@ -1,0 +1,25 @@
+.automation-page { padding: 24px; max-width: 900px; }
+.au-header { display: flex; align-items: center; gap: 16px; }
+.au-header h1 { margin: 0; }
+.au-sub { color: #5e6c84; font-size: 14px; margin: 4px 0 20px; }
+.au-input { padding: 6px 10px; border: 1px solid #dfe1e6; border-radius: 4px; font-size: 14px; }
+.au-builder { display: flex; flex-direction: column; gap: 12px; background: #f4f5f7; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+.au-name { max-width: 280px; }
+.au-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.au-when, .au-then { font-weight: 700; font-size: 12px; color: #5e6c84; width: 44px; }
+.au-error { color: #bf2600; font-size: 13px; margin: 0; }
+.au-section-title { margin: 20px 0 8px; font-size: 15px; }
+.au-empty { color: #97a0af; font-size: 14px; }
+.au-rules { display: flex; flex-direction: column; gap: 8px; }
+.au-rule { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #dfe1e6; border-radius: 6px; padding: 10px 14px; }
+.au-rule--off { opacity: 0.55; }
+.au-rule-main { display: flex; flex-direction: column; gap: 2px; }
+.au-rule-desc { font-size: 12px; color: #5e6c84; }
+.au-rule-actions { display: flex; gap: 6px; }
+.au-logs { display: flex; flex-direction: column; gap: 4px; }
+.au-log { display: flex; gap: 10px; align-items: center; font-size: 13px; padding: 4px 0; border-bottom: 1px solid #f4f5f7; }
+.au-log-status { font-size: 11px; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+.au-log-status--success { background: #e3fcef; color: #006644; }
+.au-log-status--failure { background: #ffebe6; color: #bf2600; }
+.au-log-rule { font-weight: 600; }
+.au-log-msg { color: #5e6c84; }

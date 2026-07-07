@@ -3,6 +3,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
+import { runStatusChangeAutomations } from '../services/automation.js'
 
 const router = Router()
 
@@ -299,7 +300,15 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     'Just now',
   ])
 
-  res.json(mapIssue(row))
+  // Theme-1 #8: fire status-change automation rules (non-fatal)
+  await runStatusChangeAutomations(row).catch(() => {})
+
+  // Re-read in case an automation action mutated the issue (e.g. transition/assign)
+  const finalRow = await get(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    [id],
+  )
+  res.json(mapIssue(finalRow))
 }))
 
 // GET /api/issues/:parentId/subtasks — list sub-tasks + progress summary

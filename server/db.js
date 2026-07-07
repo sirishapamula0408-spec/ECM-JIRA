@@ -463,6 +463,32 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_worklogs_issue ON worklogs(issue_id)')
 
+  // --- Theme-1 #8: Automation Rules ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS automation_rules (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      trigger_type TEXT NOT NULL,
+      condition_value TEXT DEFAULT '',
+      action_type TEXT NOT NULL,
+      action_value TEXT DEFAULT '',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS automation_logs (
+      id SERIAL PRIMARY KEY,
+      rule_id INTEGER REFERENCES automation_rules(id) ON DELETE CASCADE,
+      issue_id INTEGER,
+      status TEXT NOT NULL,
+      message TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_automation_rules_project ON automation_rules(project_id)')
+
   // --- Theme-1 #7: Custom Fields (EAV) ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS custom_fields (

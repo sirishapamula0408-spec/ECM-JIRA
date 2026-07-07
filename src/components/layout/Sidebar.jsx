@@ -67,6 +67,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
     { label: 'Activity', path: '/activity', icon: 'recent' },
     { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
+    { label: 'Automation', path: '/automation', icon: 'workflow' },
   ]
 
   const utilityItems = [

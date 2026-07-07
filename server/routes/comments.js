@@ -3,6 +3,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
+import { runCommentAutomations } from '../services/automation.js'
 
 const router = Router()
 
@@ -88,6 +89,10 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
     'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
     [issueId, req.user.email],
   )
+
+  // Theme-1 #8: fire comment-added automation rules (non-fatal)
+  const fullIssue = await get('SELECT id, issue_key, project_id, assignee FROM issues WHERE id = ?', [issueId])
+  await runCommentAutomations(fullIssue, normalizedText).catch(() => {})
 
   res.status(201).json(row)
 }))
