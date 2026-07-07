@@ -289,4 +289,20 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   res.json(mapIssue(row))
 }))
 
+// DELETE /api/issues/:id — delete an issue (dependent rows cascade via FKs)
+router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+  const existing = await get('SELECT id, issue_key FROM issues WHERE id = ?', [id])
+  if (!existing) {
+    res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+  await run('DELETE FROM issues WHERE id = ?', [id])
+  res.json({ success: true, id })
+}))
+
 export default router

@@ -4,22 +4,23 @@ import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
 import './BacklogPage.css'
-import { ISSUE_STATUSES } from '../../constants'
+import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { TopNavIcon } from '../../components/icons/TopNavIcon'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
 import { ImportExportModal } from '../../components/issues/ImportExportModal'
 
 export function BacklogPage() {
-  const { issues, handleMove, handleCreate: onCreateIssue, reloadIssues } = useIssues()
+  const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
   const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
-  const { profile } = useMembers()
+  const { profile, members } = useMembers()
   const { projectId } = useParams()
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
   const [expandedPanels, setExpandedPanels] = useState({ backlog: true })
   const [selectedIssueIds, setSelectedIssueIds] = useState([])
-  const [bulkStatus, setBulkStatus] = useState('To Do')
+  const [bulkAction, setBulkAction] = useState('status')
+  const [bulkValue, setBulkValue] = useState('To Do')
   const [searchTerm, setSearchTerm] = useState('')
   const [backlogMessage, setBacklogMessage] = useState('')
   const [dragIssueId, setDragIssueId] = useState(null)
@@ -121,12 +122,42 @@ export function BacklogPage() {
     else setPanelExpanded(targetSprintId || defaultSprintId, true)
   }
 
-  async function applyBulkStatus() {
+  async function applyBulkAction() {
     if (selectedIssueIds.length === 0) return
-    await Promise.all(selectedIssueIds.map((id) => handleMove(id, bulkStatus, bulkStatus === 'Backlog' ? null : defaultSprintId)))
-    if (bulkStatus === 'Backlog') setPanelExpanded('backlog', true)
-    else setPanelExpanded(defaultSprintId, true)
+    const ids = [...selectedIssueIds]
+
+    if (bulkAction === 'delete') {
+      if (!window.confirm(`Delete ${ids.length} issue(s)? This cannot be undone.`)) return
+      await Promise.all(ids.map((id) => handleDelete(id)))
+      setSelectedIssueIds([])
+      setBacklogMessage(`Deleted ${ids.length} issue(s).`)
+      return
+    }
+
+    if (bulkAction === 'status') {
+      await Promise.all(ids.map((id) => handleMove(id, bulkValue, bulkValue === 'Backlog' ? null : defaultSprintId)))
+      setPanelExpanded(bulkValue === 'Backlog' ? 'backlog' : defaultSprintId, true)
+    } else if (bulkAction === 'sprint') {
+      const targetSprintId = bulkValue === '' ? null : Number(bulkValue)
+      await Promise.all(ids.map((id) => handleMove(id, targetSprintId ? 'To Do' : 'Backlog', targetSprintId)))
+      setPanelExpanded(targetSprintId || 'backlog', true)
+    } else if (bulkAction === 'assignee') {
+      await Promise.all(ids.map((id) => handleUpdate(id, { assignee: bulkValue })))
+    } else if (bulkAction === 'priority') {
+      await Promise.all(ids.map((id) => handleUpdate(id, { priority: bulkValue })))
+    }
     setSelectedIssueIds([])
+    setBacklogMessage(`Updated ${ids.length} issue(s).`)
+  }
+
+  // Keep the value control in sync with a sensible default when action changes
+  function changeBulkAction(action) {
+    setBulkAction(action)
+    if (action === 'status') setBulkValue('To Do')
+    else if (action === 'priority') setBulkValue('Medium')
+    else if (action === 'assignee') setBulkValue(members[0]?.name || '')
+    else if (action === 'sprint') setBulkValue(String(defaultSprintId ?? ''))
+    else setBulkValue('')
   }
 
   async function createSprintFromSelection() {
@@ -212,10 +243,35 @@ export function BacklogPage() {
         <div className="backlog-toolbar-right">
           <div className="backlog-bulk">
             <span className="bulk-count">{selectedCount} selected</span>
-            <select className="bulk-status-select" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={selectedCount === 0}>
-              {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{status.toUpperCase()}</option>))}
+            <select className="bulk-status-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={selectedCount === 0} aria-label="Bulk action">
+              <option value="status">Status</option>
+              <option value="assignee">Assignee</option>
+              <option value="priority">Priority</option>
+              <option value="sprint">Sprint</option>
+              <option value="delete">Delete</option>
             </select>
-            <button className="btn btn-ghost" type="button" onClick={applyBulkStatus} disabled={selectedCount === 0}>Apply</button>
+            {bulkAction === 'status' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Status value">
+                {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{status.toUpperCase()}</option>))}
+              </select>
+            )}
+            {bulkAction === 'priority' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Priority value">
+                {PRIORITIES.map((p) => (<option key={p} value={p}>{p}</option>))}
+              </select>
+            )}
+            {bulkAction === 'assignee' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Assignee value">
+                {members.map((m) => (<option key={m.id} value={m.name}>{m.name}</option>))}
+              </select>
+            )}
+            {bulkAction === 'sprint' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Sprint value">
+                <option value="">Backlog</option>
+                {sprints.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+              </select>
+            )}
+            <button className="btn btn-ghost" type="button" onClick={applyBulkAction} disabled={selectedCount === 0}>Apply</button>
           </div>
           <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
             Import / Export

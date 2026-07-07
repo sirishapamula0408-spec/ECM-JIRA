@@ -20,6 +20,10 @@ export function updateIssue(id, fields) {
   })
 }
 
+export function deleteIssue(id) {
+  return api(`/api/issues/${id}`, { method: 'DELETE' })
+}
+
 export function updateIssueStatus(id, status, sprintId) {
   return api(`/api/issues/${id}/status`, {
     method: 'PATCH',
