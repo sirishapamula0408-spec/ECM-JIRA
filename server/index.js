@@ -26,6 +26,7 @@ import sharedDashboardRoutes from './routes/shared-dashboards.js'
 import webhookRoutes from './routes/webhooks.js'
 import wikiRoutes from './routes/wiki.js'
 import labelRoutes from './routes/labels.js'
+import importExportRoutes from './routes/importExport.js'
 
 const app = express()
 
@@ -66,6 +67,7 @@ app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, labelRoutes)
+app.use('/api', ...protect, importExportRoutes)
 
 app.use(errorHandler)
 

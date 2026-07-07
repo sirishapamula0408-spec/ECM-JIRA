@@ -1,0 +1,30 @@
+.ie-overlay {
+  position: fixed; inset: 0; background: rgba(9, 30, 66, 0.54);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.ie-modal {
+  background: var(--surface, #fff); color: var(--text, #172b4d);
+  width: min(560px, 92vw); border-radius: 8px; box-shadow: 0 8px 24px rgba(9,30,66,0.25);
+  padding: 20px; max-height: 88vh; overflow: auto;
+}
+.ie-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ie-header h3 { margin: 0; font-size: 18px; }
+.ie-close { border: none; background: none; font-size: 24px; line-height: 1; cursor: pointer; color: inherit; }
+.ie-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border, #dfe1e6); margin-bottom: 14px; }
+.ie-tab {
+  border: none; background: none; padding: 8px 14px; cursor: pointer; font-size: 14px;
+  color: var(--text-subtle, #5e6c84); border-bottom: 2px solid transparent; margin-bottom: -2px;
+}
+.ie-tab.active { color: #0052cc; border-bottom-color: #0052cc; font-weight: 600; }
+.ie-body { display: flex; flex-direction: column; gap: 12px; }
+.ie-hint { font-size: 13px; color: var(--text-subtle, #5e6c84); margin: 0; }
+.ie-hint code { background: rgba(9,30,66,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+.ie-textarea {
+  width: 100%; font-family: monospace; font-size: 13px; padding: 8px;
+  border: 1px solid var(--border, #dfe1e6); border-radius: 4px; resize: vertical; box-sizing: border-box;
+}
+.ie-actions { display: flex; gap: 8px; }
+.ie-preview { background: rgba(9,30,66,0.04); border-radius: 4px; padding: 8px 12px; font-size: 13px; }
+.ie-errors { margin: 6px 0 0; padding-left: 18px; color: #bf2600; font-size: 12px; }
+.ie-error { color: #bf2600; font-size: 13px; margin: 8px 0 0; }
+.ie-done { color: #006644; font-size: 13px; margin: 8px 0 0; }

@@ -7,9 +7,10 @@ import './BacklogPage.css'
 import { ISSUE_STATUSES } from '../../constants'
 import { TopNavIcon } from '../../components/icons/TopNavIcon'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
+import { ImportExportModal } from '../../components/issues/ImportExportModal'
 
 export function BacklogPage() {
-  const { issues, handleMove, handleCreate: onCreateIssue } = useIssues()
+  const { issues, handleMove, handleCreate: onCreateIssue, reloadIssues } = useIssues()
   const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
   const { profile } = useMembers()
   const { projectId } = useParams()
@@ -28,6 +29,10 @@ export function BacklogPage() {
   const [quickCreateBusyBySprint, setQuickCreateBusyBySprint] = useState({})
   const [quickCreateErrorBySprint, setQuickCreateErrorBySprint] = useState({})
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
+  const [showImportExport, setShowImportExport] = useState(false)
+
+  // Import/Export is project-scoped: use the route project, else the project of the visible issues
+  const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const allBacklogItems = scopedIssues.filter((issue) => issue.status === 'Backlog')
@@ -212,12 +217,23 @@ export function BacklogPage() {
             </select>
             <button className="btn btn-ghost" type="button" onClick={applyBulkStatus} disabled={selectedCount === 0}>Apply</button>
           </div>
+          <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
+            Import / Export
+          </button>
           <button className="icon-btn" type="button" aria-label="Views">chart</button>
           <button className="icon-btn" type="button" aria-label="Display settings">settings</button>
           <button className="icon-btn" type="button" aria-label="More">...</button>
         </div>
       </div>
       {backlogMessage && <p className="backlog-message">{backlogMessage}</p>}
+
+      {showImportExport && exportProjectId && (
+        <ImportExportModal
+          projectId={exportProjectId}
+          onClose={() => setShowImportExport(false)}
+          onImported={() => { reloadIssues(); setBacklogMessage('Issues imported.') }}
+        />
+      )}
 
       <article className="panel jira-backlog-panel">
         {sprintPanels.map((sprintPanel) => {
