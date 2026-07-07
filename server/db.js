@@ -463,6 +463,28 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_worklogs_issue ON worklogs(issue_id)')
 
+  // --- Theme-1 #7: Custom Fields (EAV) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS custom_fields (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      field_type TEXT NOT NULL CHECK(field_type IN ('text', 'number', 'date', 'dropdown')),
+      options JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_custom_field_values (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      field_id INTEGER NOT NULL REFERENCES custom_fields(id) ON DELETE CASCADE,
+      value TEXT,
+      UNIQUE(issue_id, field_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_cfv_issue ON issue_custom_field_values(issue_id)')
+
   // --- Theme-1 #4: Issue Linking ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS issue_links (

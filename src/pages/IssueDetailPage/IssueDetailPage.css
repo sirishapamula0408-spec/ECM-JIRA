@@ -1040,3 +1040,8 @@
 .id-time-bar { height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
 .id-time-bar-fill { height: 100%; background: #0052cc; transition: width 0.2s; }
 .id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #5e6c84; margin-top: 4px; }
+
+/* Theme-1 #7: custom fields */
+.id-cf-delete { border: none; background: none; color: #97a0af; cursor: pointer; font-size: 14px; margin-left: 4px; padding: 0 2px; }
+.id-cf-delete:hover { color: #bf2600; }
+.id-cf-add { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }

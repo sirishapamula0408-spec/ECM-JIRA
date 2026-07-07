@@ -12,6 +12,8 @@ import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } fro
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
+import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
+import { usePermissions } from '../../hooks/usePermissions'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -75,6 +77,9 @@ export function IssueDetailPage() {
   const [showWorkLogForm, setShowWorkLogForm] = useState(false)
   const [timeSummary, setTimeSummary] = useState({ estimateText: null, spentText: null, remainingText: null, percent: null })
   const [estimateInput, setEstimateInput] = useState('')
+  const [customFields, setCustomFields] = useState([])
+  const [showAddField, setShowAddField] = useState(false)
+  const [newField, setNewField] = useState({ name: '', fieldType: 'text', options: '' })
   const [activityOpen, setActivityOpen] = useState(true)
   const [isWatching, setIsWatching] = useState(false)
   const [watcherCount, setWatcherCount] = useState(0)
@@ -113,6 +118,7 @@ export function IssueDetailPage() {
   }, [id, existing])
 
   const issue = existing || fetchedIssue
+  const { isAdmin } = usePermissions(issue?.projectId)
 
   useEffect(() => {
     if (!issue?.projectId) { setProjectName(''); return }
@@ -252,6 +258,53 @@ export function IssueDetailPage() {
       const summary = await setEstimate(issue.id, estimateInput.trim())
       setTimeSummary(summary)
       closeField()
+    } catch {
+      // ignore
+    }
+  }
+
+  // Custom fields
+  function reloadCustomFields() {
+    if (!issue?.id) return
+    fetchIssueCustomFields(issue.id)
+      .then((data) => setCustomFields(Array.isArray(data) ? data : []))
+      .catch(() => setCustomFields([]))
+  }
+  useEffect(() => {
+    if (!issue?.id) return
+    reloadCustomFields()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id])
+
+  async function handleSaveCustomField(fieldId, value) {
+    setCustomFields((prev) => prev.map((f) => (f.id === fieldId ? { ...f, value } : f)))
+    try {
+      await setIssueCustomField(issue.id, fieldId, value)
+    } catch {
+      reloadCustomFields() // rollback to server truth
+    }
+  }
+
+  async function handleAddCustomField() {
+    const name = newField.name.trim()
+    if (!name) return
+    const options = newField.fieldType === 'dropdown'
+      ? newField.options.split(',').map((o) => o.trim()).filter(Boolean)
+      : []
+    try {
+      await createCustomField(issue.projectId, { name, fieldType: newField.fieldType, options })
+      setNewField({ name: '', fieldType: 'text', options: '' })
+      setShowAddField(false)
+      reloadCustomFields()
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleDeleteCustomField(fieldId) {
+    try {
+      await deleteCustomField(fieldId)
+      setCustomFields((prev) => prev.filter((f) => f.id !== fieldId))
     } catch {
       // ignore
     }
@@ -1004,6 +1057,60 @@ export function IssueDetailPage() {
               </div>
             </dl>
           </div>
+
+          {/* Custom fields */}
+          {(customFields.length > 0 || isAdmin) && (
+          <div className="id-sidebar-section">
+            <div className="id-sidebar-section-header"><h4>More fields</h4></div>
+            <dl className="id-detail-list">
+              {customFields.map((f) => (
+                <div className="id-detail-row" key={f.id}>
+                  <dt>
+                    {f.name}
+                    {isAdmin && <button type="button" className="id-cf-delete" title="Delete field" onClick={() => handleDeleteCustomField(f.id)}>&times;</button>}
+                  </dt>
+                  <dd>
+                    {f.fieldType === 'dropdown' ? (
+                      <select className="id-inline-select" value={f.value || ''} onChange={(e) => handleSaveCustomField(f.id, e.target.value)}>
+                        <option value="">—</option>
+                        {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        className="id-inline-input"
+                        type={f.fieldType === 'number' ? 'number' : f.fieldType === 'date' ? 'date' : 'text'}
+                        defaultValue={f.value || ''}
+                        onBlur={(e) => { if (e.target.value !== (f.value || '')) handleSaveCustomField(f.id, e.target.value) }}
+                      />
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {isAdmin && (
+              showAddField ? (
+                <div className="id-cf-add">
+                  <input className="id-inline-input" placeholder="Field name" value={newField.name} onChange={(e) => setNewField((n) => ({ ...n, name: e.target.value }))} />
+                  <select className="id-inline-select" value={newField.fieldType} onChange={(e) => setNewField((n) => ({ ...n, fieldType: e.target.value }))}>
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="dropdown">Dropdown</option>
+                  </select>
+                  {newField.fieldType === 'dropdown' && (
+                    <input className="id-inline-input" placeholder="Options, comma-separated" value={newField.options} onChange={(e) => setNewField((n) => ({ ...n, options: e.target.value }))} />
+                  )}
+                  <div className="id-link-dialog-actions">
+                    <button className="btn btn-primary btn-sm" type="button" onClick={handleAddCustomField}>Add field</button>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => setShowAddField(false)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="id-subtask-add-btn" type="button" onClick={() => setShowAddField(true)}>+ Add custom field</button>
+              )
+            )}
+          </div>
+          )}
 
           {/* Approvals */}
           <div className="id-sidebar-section">
