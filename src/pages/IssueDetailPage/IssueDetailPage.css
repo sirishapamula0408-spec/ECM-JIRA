@@ -1029,3 +1029,8 @@
 .id-attach-size { font-size: 11px; color: #5e6c84; }
 .id-attach-delete { border: none; background: #fafbfc; color: #5e6c84; cursor: pointer; font-size: 16px; padding: 0 8px; align-self: stretch; }
 .id-attach-delete:hover { background: #ffebe6; color: #bf2600; }
+
+/* Theme-1 #4: issue links */
+.id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: #f4f5f7; border-radius: 4px; }
+.id-link-dialog-actions { display: flex; gap: 6px; }
+.id-link-type { font-size: 11px; text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: 600; }

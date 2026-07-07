@@ -447,6 +447,20 @@ export async function initializeDatabase() {
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_issue_type_check')
   await pool.query("ALTER TABLE issues ADD CONSTRAINT issues_issue_type_check CHECK (issue_type IN ('Story', 'Bug', 'Task', 'Sub-task'))")
 
+  // --- Theme-1 #4: Issue Linking ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_links (
+      id SERIAL PRIMARY KEY,
+      source_issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      target_issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      link_type TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(source_issue_id, target_issue_id, link_type)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_links_source ON issue_links(source_issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_links_target ON issue_links(target_issue_id)')
+
   // --- Theme-1 #3: Attachments ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS attachments (

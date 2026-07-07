@@ -10,6 +10,7 @@ import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
+import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -82,6 +83,11 @@ export function IssueDetailPage() {
   const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
+  const [links, setLinks] = useState([])
+  const [showLinkDialog, setShowLinkDialog] = useState(false)
+  const [linkType, setLinkType] = useState(LINK_TYPES[0])
+  const [linkSearch, setLinkSearch] = useState('')
+  const [linkTargetId, setLinkTargetId] = useState('')
 
   // Inline edit state — which field is open
   const [editingField, setEditingField] = useState(null)
@@ -209,6 +215,41 @@ export function IssueDetailPage() {
     try {
       await deleteAttachment(id)
       setAttachments((prev) => prev.filter((a) => a.id !== id))
+    } catch {
+      // ignore
+    }
+  }
+
+  // Issue links
+  function reloadLinks() {
+    if (!issue?.id) return
+    fetchIssueLinks(issue.id)
+      .then((data) => setLinks(Array.isArray(data) ? data : []))
+      .catch(() => setLinks([]))
+  }
+  useEffect(() => {
+    if (!issue?.id) return
+    reloadLinks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id])
+
+  async function handleAddLink() {
+    if (!linkTargetId) return
+    try {
+      await createIssueLink(issue.id, { type: linkType, targetIssueId: Number(linkTargetId) })
+      setShowLinkDialog(false)
+      setLinkSearch('')
+      setLinkTargetId('')
+      reloadLinks()
+    } catch {
+      // keep dialog open on failure
+    }
+  }
+
+  async function handleRemoveLink(linkId) {
+    try {
+      await deleteIssueLink(linkId)
+      setLinks((prev) => prev.filter((l) => l.id !== linkId))
     } catch {
       // ignore
     }
@@ -437,7 +478,7 @@ export function IssueDetailPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
               Create subtask
             </button>
-            <button className="id-quick-btn" type="button">
+            <button className="id-quick-btn" type="button" onClick={() => setShowLinkDialog((v) => !v)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
               Link issue
             </button>
@@ -522,8 +563,49 @@ export function IssueDetailPage() {
           )}
 
           <div className="id-section">
-            <h3 className="id-section-title">Linked issues</h3>
-            <p className="id-empty-text">No linked issues.</p>
+            <div className="id-subtask-header">
+              <h3 className="id-section-title">Linked issues</h3>
+              <button className="id-subtask-add-btn" type="button" onClick={() => setShowLinkDialog(true)}>+ Add link</button>
+            </div>
+            {showLinkDialog && (
+              <div className="id-link-dialog">
+                <select className="id-inline-select" value={linkType} onChange={(e) => setLinkType(e.target.value)}>
+                  {LINK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input className="id-inline-input" placeholder="Search issue by key or title..." value={linkSearch} onChange={(e) => setLinkSearch(e.target.value)} />
+                <select className="id-inline-select" value={linkTargetId} onChange={(e) => setLinkTargetId(e.target.value)}>
+                  <option value="">Select issue…</option>
+                  {issues
+                    .filter((it) => it.id !== issue.id)
+                    .filter((it) => {
+                      const q = linkSearch.trim().toLowerCase()
+                      if (!q) return true
+                      return String(it.key || '').toLowerCase().includes(q) || String(it.title || '').toLowerCase().includes(q)
+                    })
+                    .slice(0, 50)
+                    .map((it) => <option key={it.id} value={it.id}>{it.key} — {it.title}</option>)}
+                </select>
+                <div className="id-link-dialog-actions">
+                  <button className="btn btn-primary btn-sm" type="button" onClick={handleAddLink} disabled={!linkTargetId}>Link</button>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowLinkDialog(false); setLinkSearch(''); setLinkTargetId('') }}>Cancel</button>
+                </div>
+              </div>
+            )}
+            {links.length === 0 ? (
+              <p className="id-empty-text">No linked issues.</p>
+            ) : (
+              <ul className="id-subtask-list">
+                {links.map((l) => (
+                  <li key={l.id} className="id-subtask-row">
+                    <span className="id-link-type">{l.type}</span>
+                    <span className="id-subtask-key" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.key}</span>
+                    <span className="id-subtask-title" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.title}</span>
+                    <span className={`id-subtask-status id-subtask-status--${String(l.issue.status).toLowerCase().replace(/\s+/g, '-')}`}>{l.issue.status}</span>
+                    <button type="button" className="id-attach-delete" onClick={() => handleRemoveLink(l.id)} aria-label="Remove link">&times;</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Activity */}
