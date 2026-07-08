@@ -36,6 +36,7 @@ import releaseRoutes from './routes/releases.js'
 import issueConfigRoutes from './routes/issueConfig.js'
 import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
+import docsRoutes from './routes/docs.js'
 
 const app = express()
 
@@ -54,6 +55,10 @@ app.use('/api/auth', authRoutes)
 
 // Public REST API (JL-84): authenticated by user-generated API tokens, not JWT sessions
 app.use('/api/public', publicApiRoutes)
+
+// API documentation (JL-58) — public, mounted before auth-protected routes
+// GET /api/openapi.json (raw OpenAPI 3.0 spec) and GET /api/docs (HTML viewer)
+app.use('/api', docsRoutes)
 
 // Protected routes (JWT + role loading)
 // authGuard verifies JWT and sets req.user = { id, email }
