@@ -1,0 +1,73 @@
+/* ─────────────────────────────────────────────────────────────
+   interactions.css — additive micro-interaction polish (JL-71)
+
+   Standardizes button hover/active transitions and focus-visible
+   outlines app-wide. This file is intentionally ADDITIVE: it layers
+   consistent motion + accessible focus rings on top of existing
+   button rules without overriding colors, sizing, or layout.
+   ───────────────────────────────────────────────────────────── */
+
+/* Consistent transition on all button variants. */
+.btn,
+.btn-primary,
+.btn-ghost,
+.btn-secondary,
+.btn-danger,
+.btn-sm {
+  transition:
+    background-color var(--transition-fast) var(--ease-standard),
+    border-color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard),
+    transform var(--transition-fast) var(--ease-standard);
+}
+
+/* Subtle hover elevation for interactive buttons (skips disabled). */
+.btn:hover:not(:disabled):not([aria-disabled='true']),
+.btn-primary:hover:not(:disabled):not([aria-disabled='true']),
+.btn-ghost:hover:not(:disabled):not([aria-disabled='true']),
+.btn-secondary:hover:not(:disabled):not([aria-disabled='true']),
+.btn-danger:hover:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: var(--jira-shadow-hover);
+}
+
+/* Pressed state — small tactile push-down. */
+.btn:active:not(:disabled):not([aria-disabled='true']),
+.btn-primary:active:not(:disabled):not([aria-disabled='true']),
+.btn-ghost:active:not(:disabled):not([aria-disabled='true']),
+.btn-secondary:active:not(:disabled):not([aria-disabled='true']),
+.btn-danger:active:not(:disabled):not([aria-disabled='true']) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* Accessible keyboard focus ring (keyboard users only, not mouse clicks). */
+.btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-ghost:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+.btn-sm:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--jira-blue);
+  outline-offset: 2px;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-secondary,
+  .btn-danger,
+  .btn-sm {
+    transition: none;
+  }
+
+  .btn:active:not(:disabled),
+  .btn-primary:active:not(:disabled),
+  .btn-ghost:active:not(:disabled),
+  .btn-secondary:active:not(:disabled),
+  .btn-danger:active:not(:disabled) {
+    transform: none;
+  }
+}
