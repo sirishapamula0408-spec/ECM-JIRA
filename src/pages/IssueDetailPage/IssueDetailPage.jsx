@@ -4,7 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory } from '../../api/issueApi'
+import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
@@ -19,9 +19,11 @@ import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
 const TYPE_ICON = {
-  Story: { icon: '\u{1F4D7}', color: '#36b37e' },
-  Bug:   { icon: '\u{1F41B}', color: '#ff5630' },
-  Task:  { icon: '\u2705',     color: '#0065ff' },
+  Epic:       { icon: '\u{1F3F0}', color: '#6554c0' },
+  Story:      { icon: '\u{1F4D7}', color: '#36b37e' },
+  Bug:        { icon: '\u{1F41B}', color: '#ff5630' },
+  Task:       { icon: '\u2705',     color: '#0065ff' },
+  'Sub-task': { icon: '\u{1F517}', color: '#5243aa' },
 }
 
 const PRIORITY_ICON = {
@@ -88,6 +90,10 @@ export function IssueDetailPage() {
   const [subtaskProgress, setSubtaskProgress] = useState({ total: 0, done: 0, percent: 0 })
   const [showSubtaskForm, setShowSubtaskForm] = useState(false)
   const [subtaskTitle, setSubtaskTitle] = useState('')
+  // JL-76: Epic hierarchy — children of this Epic, its rollup, and a picker catalog
+  const [epicChildren, setEpicChildren] = useState([])
+  const [epicRollup, setEpicRollup] = useState({ total: 0, done: 0, percent: 0 })
+  const [epicOptions, setEpicOptions] = useState([]) // available Epics in this project
   const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
@@ -238,6 +244,43 @@ export function IssueDetailPage() {
     } catch {
       // keep form open on failure
     }
+  }
+
+  // JL-76: load this Epic's child issues + rollup (only when the issue is an Epic)
+  function reloadEpicChildren() {
+    if (!issue?.id) return
+    fetchEpicChildren(issue.id)
+      .then((data) => { setEpicChildren(data.children || []); setEpicRollup(data.rollup || { total: 0, done: 0, percent: 0 }) })
+      .catch(() => { setEpicChildren([]); setEpicRollup({ total: 0, done: 0, percent: 0 }) })
+  }
+  useEffect(() => {
+    if (!issue?.id || issue?.issueType !== 'Epic') return
+    reloadEpicChildren()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id, issue?.issueType])
+
+  // JL-76: load the catalog of Epics (for the Epic picker on non-Epic issues)
+  useEffect(() => {
+    if (!issue?.id || issue?.issueType === 'Epic' || issue?.issueType === 'Sub-task') { setEpicOptions([]); return }
+    fetchIssues()
+      .then((rows) => {
+        const epics = (Array.isArray(rows) ? rows : []).filter(
+          (it) => it.issueType === 'Epic' && (!issue.projectId || it.projectId === issue.projectId),
+        )
+        setEpicOptions(epics)
+      })
+      .catch(() => setEpicOptions([]))
+  }, [issue?.id, issue?.issueType, issue?.projectId])
+
+  async function onChangeEpic(e) {
+    const val = e.target.value
+    const prev = issue.epicId ?? null
+    const next = val === '' ? null : Number(val)
+    if (prev !== next) {
+      await handleUpdate(issue.id, { epicId: next })
+      reloadHistory()
+    }
+    closeField()
   }
 
   // Attachments
@@ -731,6 +774,34 @@ export function IssueDetailPage() {
           </div>
           )}
 
+          {/* JL-76: Epic-progress panel — only when this issue is an Epic */}
+          {issue.issueType === 'Epic' && (
+          <div className="id-section">
+            <div className="id-subtask-header">
+              <h3 className="id-section-title">Epic progress</h3>
+              {epicRollup.total > 0 && (
+                <div className="id-subtask-progress">
+                  <div className="id-subtask-bar"><div className="id-subtask-bar-fill" style={{ width: `${epicRollup.percent}%` }} /></div>
+                  <span className="id-subtask-progress-label">{epicRollup.done} / {epicRollup.total} done ({epicRollup.percent}%)</span>
+                </div>
+              )}
+            </div>
+            {epicChildren.length === 0 ? (
+              <p className="id-empty-text">No issues in this epic yet. Assign issues to this epic from their Epic field.</p>
+            ) : (
+              <ul className="id-subtask-list">
+                {epicChildren.map((ch) => (
+                  <li key={ch.id} className="id-subtask-row" onClick={() => navigate(`/issues/${ch.id}`)}>
+                    <span className="id-subtask-key">{ch.key}</span>
+                    <span className="id-subtask-title">{ch.title}</span>
+                    <span className={`id-subtask-status id-subtask-status--${String(ch.status).toLowerCase().replace(/\s+/g, '-')}`}>{ch.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          )}
+
           <div className="id-section">
             <div className="id-subtask-header">
               <h3 className="id-section-title">Linked issues</h3>
@@ -995,6 +1066,38 @@ export function IssueDetailPage() {
                   </InlineField>
                 </dd>
               </div>
+
+              {/* Epic — editable (JL-76; hidden for Epics and Sub-tasks) */}
+              {issue.issueType !== 'Epic' && issue.issueType !== 'Sub-task' && (
+              <div className="id-detail-row">
+                <dt>Epic</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'epic'}
+                    onOpen={() => openField('epic')}
+                    onClose={closeField}
+                    display={
+                      <span className="id-sprint-display">
+                        {(() => {
+                          const ep = epicOptions.find((e) => e.id === issue.epicId)
+                          return issue.epicId
+                            ? (ep ? `${ep.key} — ${ep.title}` : `#${issue.epicId}`)
+                            : <span className="id-empty-value">None</span>
+                        })()}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </span>
+                    }
+                  >
+                    <select className="id-inline-select" value={issue.epicId || ''} onChange={onChangeEpic} autoFocus>
+                      <option value="">None</option>
+                      {epicOptions.map((e) => <option key={e.id} value={e.id}>{e.key} — {e.title}</option>)}
+                    </select>
+                  </InlineField>
+                </dd>
+              </div>
+              )}
 
               {/* Labels — editable (local only) */}
               <div className="id-detail-row">

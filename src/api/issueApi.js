@@ -42,6 +42,11 @@ export function fetchSubtasks(parentId) {
   return api(`/api/issues/${parentId}/subtasks`)
 }
 
+// JL-76: child issues (Story/Task/Bug) assigned to an Epic + rollup summary
+export function fetchEpicChildren(epicId) {
+  return api(`/api/issues/${epicId}/epic-children`)
+}
+
 export function createSubtask(parentId, payload) {
   return api(`/api/issues/${parentId}/subtasks`, { method: 'POST', body: JSON.stringify(payload) })
 }

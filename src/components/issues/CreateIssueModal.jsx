@@ -10,9 +10,11 @@ import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
 
 const TYPE_META = {
-  Story: { icon: '\u{1F4D7}', label: 'Story' },
-  Bug:   { icon: '\u{1F41B}', label: 'Bug' },
-  Task:  { icon: '\u2705',     label: 'Task' },
+  Epic:       { icon: '\u{1F3F0}', label: 'Epic' },
+  Story:      { icon: '\u{1F4D7}', label: 'Story' },
+  Bug:        { icon: '\u{1F41B}', label: 'Bug' },
+  Task:       { icon: '\u2705',     label: 'Task' },
+  'Sub-task': { icon: '\u{1F517}', label: 'Sub-task' },
 }
 
 const PRIORITY_COLORS = {

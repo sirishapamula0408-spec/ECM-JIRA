@@ -448,9 +448,17 @@ export async function initializeDatabase() {
     await pool.query('ALTER TABLE issues ADD COLUMN parent_id INTEGER REFERENCES issues(id) ON DELETE CASCADE')
     await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id)')
   }
-  // Widen the issue_type CHECK to allow 'Sub-task'
+  // Widen the issue_type CHECK to allow 'Sub-task' and 'Epic' (JL-76)
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_issue_type_check')
-  await pool.query("ALTER TABLE issues ADD CONSTRAINT issues_issue_type_check CHECK (issue_type IN ('Story', 'Bug', 'Task', 'Sub-task'))")
+  await pool.query("ALTER TABLE issues ADD CONSTRAINT issues_issue_type_check CHECK (issue_type IN ('Epic', 'Story', 'Bug', 'Task', 'Sub-task'))")
+
+  // --- JL-76: Epic issue type & Epic→Story→Sub-task hierarchy ---
+  // A Story/Task/Bug can belong to a parent Epic via epic_id; clearing the Epic
+  // detaches children (SET NULL) rather than deleting them.
+  if (!(await columnExists('issues', 'epic_id'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN epic_id INTEGER REFERENCES issues(id) ON DELETE SET NULL')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_epic_id ON issues(epic_id)')
+  }
 
   // --- JL-82: Per-issue change history / audit log ---
   await pool.query(`

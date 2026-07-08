@@ -30,6 +30,7 @@ function mapIssue(row) {
     sprintId: row.sprint_id ?? null,
     projectId: row.project_id ?? null,
     parentId: row.parent_id ?? null,
+    epicId: row.epic_id ?? null,
     storyPoints: row.story_points ?? null,
     createdAt: row.created_at,
     reporter: row.reporter ?? null,
@@ -52,6 +53,27 @@ function normalizeStoryPoints(value) {
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed < 0) return undefined
   return parsed
+}
+
+// JL-76: normalize an epic_id input. Returns null for empty, undefined for invalid,
+// or an integer id. Callers reject `undefined` as a 400.
+function normalizeEpicId(value) {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) return undefined
+  return parsed
+}
+
+// JL-76: validate that `epicId` references an existing Epic. Resolves to an
+// error string (for 400) or null when OK.
+async function validateEpicRef(epicId, issueType) {
+  if (epicId === null) return null
+  if (issueType === 'Epic') return 'An Epic cannot belong to another Epic'
+  if (issueType === 'Sub-task') return 'A Sub-task cannot belong to an Epic directly'
+  const epic = await get('SELECT id, issue_type FROM issues WHERE id = ?', [epicId])
+  if (!epic) return 'Epic not found'
+  if (epic.issue_type !== 'Epic') return 'Referenced issue is not an Epic'
+  return null
 }
 
 async function getDefaultSprintId() {
@@ -87,7 +109,7 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   const sql =
-    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, ' +
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, ' +
     '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
     (built.where ? ` ${built.where}` : '') +
     ` ORDER BY ${built.orderBy}`
@@ -104,7 +126,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -191,14 +213,26 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     return
   }
 
+  // JL-76: optional parent Epic assignment
+  const normalizedEpicId = normalizeEpicId(req.body.epicId)
+  if (normalizedEpicId === undefined) {
+    res.status(400).json({ error: 'epicId must be a positive integer' })
+    return
+  }
+  const epicError = await validateEpicRef(normalizedEpicId, issueType)
+  if (epicError) {
+    res.status(400).json({ error: epicError })
+    return
+  }
+
   const issueKey = `${projectKey}-${count.count + 1}`
   const created = await run(
-    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
+    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints, normalizedEpicId, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
   )
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [created.lastID],
   )
 
@@ -228,7 +262,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const existing = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
   if (!existing) {
@@ -334,6 +368,29 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     params.push(normalized)
   }
 
+  // JL-76: (re)assign parent Epic. Validated against the effective issue type
+  // (a type change in the same PATCH is respected).
+  if (fields.epicId !== undefined) {
+    const normalizedEpicId = normalizeEpicId(fields.epicId)
+    if (normalizedEpicId === undefined) {
+      res.status(400).json({ error: 'epicId must be a positive integer' })
+      return
+    }
+    const effectiveType = fields.issueType !== undefined ? fields.issueType : existing.issue_type
+    if (normalizedEpicId !== null && normalizedEpicId === id) {
+      res.status(400).json({ error: 'An issue cannot be its own Epic' })
+      return
+    }
+    const epicError = await validateEpicRef(normalizedEpicId, effectiveType)
+    if (epicError) {
+      res.status(400).json({ error: epicError })
+      return
+    }
+    sets.push('epic_id = ?')
+    params.push(normalizedEpicId)
+    changes.push({ field: 'epic', oldValue: existing.epic_id, newValue: normalizedEpicId })
+  }
+
   if (sets.length === 0) {
     res.json(mapIssue(existing))
     return
@@ -366,7 +423,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -433,7 +490,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   await recordHistory(id, 'status', existing.status, status, req.user?.email)
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -448,7 +505,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // Re-read in case an automation action mutated the issue (e.g. transition/assign)
   const finalRow = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -482,6 +539,30 @@ router.get('/:id/history', asyncHandler(async (req, res) => {
   )
 }))
 
+// JL-76: GET /api/issues/:id/epic-children — child issues of an Epic + rollup
+router.get('/:id/epic-children', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+  const epic = await get('SELECT id, issue_type FROM issues WHERE id = ?', [id])
+  if (!epic) {
+    res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+  const rows = await all(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE epic_id = ? ORDER BY id ASC',
+    [id],
+  )
+  const total = rows.length
+  const done = rows.filter((r) => r.status === 'Done').length
+  res.json({
+    children: rows.map(mapIssue),
+    rollup: { total, done, percent: total ? Math.round((done / total) * 100) : 0 },
+  })
+}))
+
 // GET /api/issues/:parentId/subtasks — list sub-tasks + progress summary
 router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
   const parentId = Number(req.params.parentId)
@@ -490,7 +571,7 @@ router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
     return
   }
   const rows = await all(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
     [parentId],
   )
   const total = rows.length
@@ -541,7 +622,7 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
     [issueKey, title, description, priority, assignee, status, 'Sub-task', sprintId, projectId, parentId],
   )
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [created.lastID],
   )
   res.status(201).json(mapIssue(row))
