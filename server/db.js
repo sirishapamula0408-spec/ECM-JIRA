@@ -693,6 +693,38 @@ export async function initializeDatabase() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_release_id ON issues(release_id)')
   }
 
+  // --- JL-54: OKR / Goal Tracking ---
+  // Objectives per project, each with measurable key results tracked to progress.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS goals (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      objective TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      owner TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'on_track' CHECK (status IN ('on_track', 'at_risk', 'off_track', 'done')),
+      due_date DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_goals_project ON goals(project_id)')
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS key_results (
+      id SERIAL PRIMARY KEY,
+      goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      target_value NUMERIC NOT NULL DEFAULT 100,
+      current_value NUMERIC NOT NULL DEFAULT 0,
+      unit TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_key_results_goal ON key_results(goal_id)')
+  // Optional link between a key result and an issue for issue-driven progress.
+  if (!(await columnExists('key_results', 'issue_id'))) {
+    await pool.query('ALTER TABLE key_results ADD COLUMN issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL')
+  }
+
   // --- JL-78: Configurable priorities & statuses per project ---
   // project_id NULL => global default. Non-null => project-level override.
   await pool.query(`
