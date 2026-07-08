@@ -8,6 +8,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import { searchIssues } from '../../api/issueApi'
+import { fetchWorkspaces, getActiveWorkspaceId, setActiveWorkspaceId } from '../../api/workspaceApi'
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { NotificationDropdown } from '../notifications/NotificationDropdown'
@@ -74,6 +75,34 @@ export function Topbar({ onCreate, hasProjects }) {
     [navigate],
   )
 
+  // JL-73 — workspace indicator / switcher
+  const [workspaces, setWorkspaces] = useState([])
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState(getActiveWorkspaceId() || '')
+  useEffect(() => {
+    let cancelled = false
+    fetchWorkspaces()
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return
+        setWorkspaces(rows)
+        // Default the selector to the stored id, else the first workspace.
+        const stored = getActiveWorkspaceId()
+        const valid = stored && rows.some((w) => String(w.id) === String(stored))
+        const nextId = valid ? stored : rows[0] ? String(rows[0].id) : ''
+        setActiveWorkspaceIdState(nextId)
+        if (nextId && nextId !== stored) setActiveWorkspaceId(nextId)
+      })
+      .catch(() => { /* workspaces are best-effort; ignore */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const handleWorkspaceChange = useCallback((e) => {
+    const id = e.target.value
+    setActiveWorkspaceIdState(id)
+    setActiveWorkspaceId(id)
+    // Re-fetch app data under the newly selected workspace context.
+    window.location.reload()
+  }, [])
+
   const [now, setNow] = useState(new Date())
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -85,6 +114,23 @@ export function Topbar({ onCreate, hasProjects }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
+        {workspaces.length > 0 && (
+          <label className="topbar-workspace" title="Switch workspace">
+            <span className="topbar-workspace-icon" aria-hidden="true">Workspace</span>
+            <select
+              className="topbar-workspace-select"
+              value={activeWorkspaceId}
+              onChange={handleWorkspaceChange}
+              aria-label="Active workspace"
+            >
+              {workspaces.map((w) => (
+                <option key={w.id} value={String(w.id)}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div
           className="topbar-search-wrap"
           ref={searchWrapRef}

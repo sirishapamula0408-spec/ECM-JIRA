@@ -45,6 +45,8 @@ import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
+import workspaceRoutes from './routes/workspaces.js'
+import { resolveWorkspace } from './middleware/workspace.js'
 
 const app = express()
 
@@ -71,8 +73,12 @@ app.use('/api', docsRoutes)
 // Protected routes (JWT + role loading)
 // authGuard verifies JWT and sets req.user = { id, email }
 // loadUserRoles queries members table and adds workspaceRole, memberId, isOwner
-const protect = [authGuard, loadUserRoles]
+// resolveWorkspace (JL-73) sets req.workspaceId from the X-Workspace-Id header
+// or the caller's default workspace. It is best-effort and non-blocking, so it
+// is safe to include on every protected route without changing existing behavior.
+const protect = [authGuard, loadUserRoles, resolveWorkspace]
 
+app.use('/api/workspaces', ...protect, workspaceRoutes)
 app.use('/api/issues', ...protect, issueRoutes)
 app.use('/api/sprints', ...protect, sprintRoutes)
 app.use('/api/dashboard', ...protect, dashboardRoutes)

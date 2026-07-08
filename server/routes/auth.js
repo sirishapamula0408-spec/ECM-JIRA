@@ -75,6 +75,28 @@ router.post('/signup', asyncHandler(async (req, res) => {
     console.error(`[auth] Failed to provision member for ${email}: ${err.message}`)
   }
 
+  // JL-73: workspace bootstrap. The FIRST user to sign up becomes Owner of the
+  // seeded 'default' workspace; subsequent users are added as Members. Best-effort
+  // and fully non-breaking — any failure here never blocks signup.
+  try {
+    const totalUsers = await get('SELECT COUNT(*) AS count FROM users')
+    const isFirstUser = Number(totalUsers?.count || 0) <= 1
+    const defaultWorkspace = await get("SELECT id, owner_email FROM workspaces WHERE slug = 'default'")
+    if (defaultWorkspace) {
+      if (isFirstUser && !defaultWorkspace.owner_email) {
+        await run('UPDATE workspaces SET owner_email = ? WHERE id = ?', [email, defaultWorkspace.id])
+      }
+      await run(
+        `INSERT INTO workspace_members (workspace_id, member_email, role)
+         VALUES (?, ?, ?)
+         ON CONFLICT (workspace_id, member_email) DO NOTHING`,
+        [defaultWorkspace.id, email, isFirstUser ? 'Owner' : 'Member'],
+      )
+    }
+  } catch (err) {
+    console.error(`[auth] workspace bootstrap skipped: ${err.message}`)
+  }
+
   const token = issueToken(user, '7d')
   res.status(201).json({ user, token })
 }))
