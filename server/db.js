@@ -761,6 +761,22 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_board_configs_project ON board_configs(project_id)')
 
+  // --- JL-55: Git Integration (branch / commit / PR linking) ---
+  // Records links between issues and git refs. No live provider — records + ingest only.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS git_links (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      link_type TEXT NOT NULL CHECK(link_type IN ('branch', 'commit', 'pull_request')),
+      ref TEXT NOT NULL,
+      url TEXT DEFAULT '',
+      title TEXT DEFAULT '',
+      author TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_git_links_issue ON git_links(issue_id)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
