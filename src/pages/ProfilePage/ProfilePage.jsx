@@ -2,7 +2,120 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../context/MemberContext'
 import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
+import { fetchMfaStatus, setupMfa, enableMfa, disableMfa } from '../../api/authApi'
 import './ProfilePage.css'
+
+function MfaSection() {
+  const [enabled, setEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [setup, setSetup] = useState(null) // { secret, otpauthUrl }
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  async function loadStatus() {
+    try {
+      const res = await fetchMfaStatus()
+      setEnabled(Boolean(res.enabled))
+    } catch { /* ignore */ } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => { loadStatus() }, [])
+
+  async function handleSetup() {
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const res = await setupMfa()
+      setSetup(res)
+    } catch (err) {
+      setError(err?.message || 'Failed to start MFA setup')
+    } finally { setBusy(false) }
+  }
+
+  async function handleEnable() {
+    if (code.length !== 6) return
+    setBusy(true); setError(''); setMessage('')
+    try {
+      await enableMfa(code)
+      setEnabled(true)
+      setSetup(null)
+      setCode('')
+      setMessage('Two-factor authentication is now enabled.')
+    } catch (err) {
+      setError(err?.message || 'Invalid code — try again')
+    } finally { setBusy(false) }
+  }
+
+  async function handleDisable() {
+    setBusy(true); setError(''); setMessage('')
+    try {
+      await disableMfa()
+      setEnabled(false)
+      setSetup(null)
+      setMessage('Two-factor authentication disabled.')
+    } catch (err) {
+      setError(err?.message || 'Failed to disable MFA')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <article className="panel profile-form-panel" style={{ marginTop: 24 }}>
+      <h3>Two-Factor Authentication (2FA)</h3>
+      <p>Add an extra layer of security by requiring a time-based code from an authenticator app (Google Authenticator, Authy, 1Password) at sign-in.</p>
+
+      {!loading && (
+        <p style={{ margin: '8px 0' }}>
+          Status:{' '}
+          <strong style={{ color: enabled ? 'var(--success, #00875a)' : 'var(--text-subtle, #6b778c)' }}>
+            {enabled ? 'Enabled' : 'Disabled'}
+          </strong>
+        </p>
+      )}
+
+      {message && <p style={{ color: 'var(--success, #00875a)' }}>{message}</p>}
+      {error && <p style={{ color: 'var(--danger, #de350b)' }}>{error}</p>}
+
+      {!enabled && !setup && (
+        <button className="btn btn-primary" type="button" onClick={handleSetup} disabled={busy}>
+          {busy ? 'Please wait...' : 'Set up 2FA'}
+        </button>
+      )}
+
+      {!enabled && setup && (
+        <div style={{ marginTop: 12 }}>
+          <p>1. Add this secret to your authenticator app (or scan the otpauth URL as a QR code):</p>
+          <div style={{ display: 'flex', gap: 8, margin: '8px 0', flexWrap: 'wrap' }}>
+            <input readOnly value={setup.secret} style={{ flex: 1, minWidth: 220, fontFamily: 'monospace' }} />
+            <button className="btn btn-ghost" type="button" onClick={() => navigator.clipboard?.writeText(setup.secret)}>Copy secret</button>
+          </div>
+          <input readOnly value={setup.otpauthUrl} style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, marginBottom: 12 }} />
+          <p>2. Enter the 6-digit code your app shows to confirm:</p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="6-digit code"
+              inputMode="numeric"
+              style={{ maxWidth: 160, fontFamily: 'monospace', letterSpacing: 2 }}
+            />
+            <button className="btn btn-primary" type="button" onClick={handleEnable} disabled={busy || code.length !== 6}>
+              {busy ? 'Verifying...' : 'Enable'}
+            </button>
+            <button className="btn btn-ghost" type="button" onClick={() => { setSetup(null); setCode('') }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {enabled && (
+        <button className="btn btn-ghost" type="button" onClick={handleDisable} disabled={busy} style={{ color: 'var(--danger, #de350b)' }}>
+          {busy ? 'Please wait...' : 'Disable 2FA'}
+        </button>
+      )}
+    </article>
+  )
+}
 
 function ApiTokensSection() {
   const [tokens, setTokens] = useState([])
@@ -181,6 +294,8 @@ export function ProfilePage() {
           </div>
         </article>
       </section>
+
+      <MfaSection />
 
       <ApiTokensSection />
     </section>
