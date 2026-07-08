@@ -17,6 +17,7 @@ function optText(v) {
 }
 
 function mapIssue(row) {
+  if (!row) return null
   return {
     id: row.id,
     key: row.issue_key,
@@ -370,7 +371,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   )
 
   // JL-59: emit issue.updated event to subscribed webhooks (fire-and-forget)
-  emitEvent('issue.updated', mapIssue(row), row.project_id ?? null).catch(() => {})
+  emitEvent('issue.updated', mapIssue(row), row?.project_id ?? null).catch(() => {})
 
   res.json(mapIssue(row))
 }))
