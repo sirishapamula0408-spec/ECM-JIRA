@@ -1,10 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember } from '../../api/projectApi'
+import {
+  fetchProjectPriorities, createPriority, deletePriority,
+  fetchProjectStatuses, createStatus, deleteStatus,
+} from '../../api/issueConfigApi'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
 
-const SECTIONS = { DETAILS: 'details', ACCESS: 'access' }
+const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields' }
+const STATUS_CATEGORIES = ['todo', 'inprogress', 'done']
 
 export function ProjectSettingsPage() {
   const { projectId } = useParams()
@@ -24,10 +29,23 @@ export function ProjectSettingsPage() {
   const [addRole, setAddRole] = useState('Member')
   const [accessBusy, setAccessBusy] = useState(false)
 
+  // Statuses & Priorities tab state
+  const [priorities, setPriorities] = useState([])
+  const [statuses, setStatuses] = useState([])
+  const [newPriority, setNewPriority] = useState({ name: '', color: '#42526E' })
+  const [newStatus, setNewStatus] = useState({ name: '', color: '#42526E', category: 'todo' })
+  const [fieldsBusy, setFieldsBusy] = useState(false)
+  const [fieldsError, setFieldsError] = useState('')
+
   const loadProjectMembers = useCallback(() => {
     fetchProjectMembers(projectId)
       .then(setProjectMembers)
       .catch(() => {})
+  }, [projectId])
+
+  const loadFieldConfig = useCallback(() => {
+    fetchProjectPriorities(projectId).then(setPriorities).catch(() => {})
+    fetchProjectStatuses(projectId).then(setStatuses).catch(() => {})
   }, [projectId])
 
   useEffect(() => {
@@ -39,7 +57,8 @@ export function ProjectSettingsPage() {
       .catch(() => setBanner({ type: 'error', message: 'Failed to load project.' }))
       .finally(() => setLoading(false))
     loadProjectMembers()
-  }, [projectId, loadProjectMembers])
+    loadFieldConfig()
+  }, [projectId, loadProjectMembers, loadFieldConfig])
 
   if (loading) return <div className="page ps-layout"><p style={{ padding: 24 }}>Loading...</p></div>
   if (!project || !form) return <div className="page ps-layout"><p style={{ padding: 24 }}>Project not found.</p></div>
@@ -99,6 +118,57 @@ export function ProjectSettingsPage() {
 
   const isLead = (memberName) => project && memberName === project.lead
 
+  async function handleAddPriority() {
+    const name = newPriority.name.trim()
+    if (!name) return
+    setFieldsBusy(true)
+    setFieldsError('')
+    try {
+      const row = await createPriority(projectId, { ...newPriority, name, position: priorities.length })
+      setPriorities((prev) => [...prev, row])
+      setNewPriority({ name: '', color: '#42526E' })
+    } catch (err) {
+      setFieldsError(err.message || 'Failed to add priority.')
+    }
+    setFieldsBusy(false)
+  }
+
+  async function handleDeletePriority(id) {
+    setFieldsBusy(true)
+    try {
+      await deletePriority(id)
+      setPriorities((prev) => prev.filter((p) => p.id !== id))
+    } catch { /* ignore */ }
+    setFieldsBusy(false)
+  }
+
+  async function handleAddStatus() {
+    const name = newStatus.name.trim()
+    if (!name) return
+    setFieldsBusy(true)
+    setFieldsError('')
+    try {
+      const row = await createStatus(projectId, { ...newStatus, name, position: statuses.length })
+      setStatuses((prev) => [...prev, row])
+      setNewStatus({ name: '', color: '#42526E', category: 'todo' })
+    } catch (err) {
+      setFieldsError(err.message || 'Failed to add status.')
+    }
+    setFieldsBusy(false)
+  }
+
+  async function handleDeleteStatus(id) {
+    setFieldsBusy(true)
+    try {
+      await deleteStatus(id)
+      setStatuses((prev) => prev.filter((s) => s.id !== id))
+    } catch { /* ignore */ }
+    setFieldsBusy(false)
+  }
+
+  // A row is a global default (not project-specific) when project_id is null.
+  const isGlobal = (row) => row.project_id === null || row.project_id === undefined
+
   return (
     <section className="page ps-layout">
       {/* ── Sidebar ── */}
@@ -152,6 +222,27 @@ export function ProjectSettingsPage() {
               </svg>
             </span>
             Access
+          </button>
+
+          <button
+            className={`ps-nav-link${activeSection === SECTIONS.FIELDS ? ' active' : ''}`}
+            type="button"
+            onClick={() => setActiveSection(SECTIONS.FIELDS)}
+          >
+            <span className="ps-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="21" x2="4" y2="14" />
+                <line x1="4" y1="10" x2="4" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12" y2="3" />
+                <line x1="20" y1="21" x2="20" y2="16" />
+                <line x1="20" y1="12" x2="20" y2="3" />
+                <line x1="1" y1="14" x2="7" y2="14" />
+                <line x1="9" y1="8" x2="15" y2="8" />
+                <line x1="17" y1="16" x2="23" y2="16" />
+              </svg>
+            </span>
+            Statuses &amp; Priorities
           </button>
         </div>
       </nav>
@@ -320,6 +411,150 @@ export function ProjectSettingsPage() {
                   )}
                 </tbody>
               </table>
+            </article>
+          </>
+        )}
+
+        {activeSection === SECTIONS.FIELDS && (
+          <>
+            <h1>Statuses &amp; Priorities</h1>
+            <p className="muted">
+              Customize the priorities and statuses used by this project. Global defaults apply
+              until you add project-specific values.
+            </p>
+
+            {fieldsError && <p className="banner error">{fieldsError}</p>}
+
+            <article className="panel">
+              <h3>Priorities</h3>
+              <table className="table" style={{ marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 60 }}>Color</th>
+                    <th>Name</th>
+                    <th>Scope</th>
+                    <th style={{ width: 80 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {priorities.length > 0 ? priorities.map((p) => (
+                    <tr key={p.id}>
+                      <td><span className="ps-color-swatch" style={{ background: p.color }} /></td>
+                      <td><strong>{p.name}</strong></td>
+                      <td><span className="pill">{isGlobal(p) ? 'Global default' : 'Project'}</span></td>
+                      <td>
+                        {!isGlobal(p) && (
+                          <button
+                            className="btn btn-ghost btn-sm ps-remove-btn"
+                            type="button"
+                            onClick={() => handleDeletePriority(p.id)}
+                            disabled={fieldsBusy}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="4" className="muted">No priorities configured.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              <div className="ps-add-member-row" style={{ marginTop: 12 }}>
+                <input
+                  type="color"
+                  value={newPriority.color}
+                  onChange={(e) => setNewPriority((c) => ({ ...c, color: e.target.value }))}
+                  disabled={fieldsBusy}
+                  style={{ width: 44, padding: 2 }}
+                />
+                <input
+                  placeholder="New priority name"
+                  value={newPriority.name}
+                  onChange={(e) => setNewPriority((c) => ({ ...c, name: e.target.value }))}
+                  disabled={fieldsBusy}
+                />
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleAddPriority}
+                  disabled={!newPriority.name.trim() || fieldsBusy}
+                >
+                  Add
+                </button>
+              </div>
+            </article>
+
+            <article className="panel" style={{ marginTop: 16 }}>
+              <h3>Statuses</h3>
+              <table className="table" style={{ marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 60 }}>Color</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Scope</th>
+                    <th style={{ width: 80 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {statuses.length > 0 ? statuses.map((s) => (
+                    <tr key={s.id}>
+                      <td><span className="ps-color-swatch" style={{ background: s.color }} /></td>
+                      <td><strong>{s.name}</strong></td>
+                      <td><span className="pill">{s.category}</span></td>
+                      <td><span className="pill">{isGlobal(s) ? 'Global default' : 'Project'}</span></td>
+                      <td>
+                        {!isGlobal(s) && (
+                          <button
+                            className="btn btn-ghost btn-sm ps-remove-btn"
+                            type="button"
+                            onClick={() => handleDeleteStatus(s.id)}
+                            disabled={fieldsBusy}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="5" className="muted">No statuses configured.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              <div className="ps-add-member-row" style={{ marginTop: 12 }}>
+                <input
+                  type="color"
+                  value={newStatus.color}
+                  onChange={(e) => setNewStatus((c) => ({ ...c, color: e.target.value }))}
+                  disabled={fieldsBusy}
+                  style={{ width: 44, padding: 2 }}
+                />
+                <input
+                  placeholder="New status name"
+                  value={newStatus.name}
+                  onChange={(e) => setNewStatus((c) => ({ ...c, name: e.target.value }))}
+                  disabled={fieldsBusy}
+                />
+                <select
+                  value={newStatus.category}
+                  onChange={(e) => setNewStatus((c) => ({ ...c, category: e.target.value }))}
+                  disabled={fieldsBusy}
+                  className="ps-role-select"
+                >
+                  {STATUS_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleAddStatus}
+                  disabled={!newStatus.name.trim() || fieldsBusy}
+                >
+                  Add
+                </button>
+              </div>
             </article>
           </>
         )}
