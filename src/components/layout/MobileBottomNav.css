@@ -1,0 +1,57 @@
+/* MobileBottomNav (JL-60) — visible only on small screens (< 768px) */
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1200;
+    height: 56px;
+    align-items: stretch;
+    justify-content: space-around;
+    background: var(--jira-surface, #ffffff);
+    border-top: 1px solid var(--jira-border, #dfe1e6);
+    box-shadow: 0 -1px 4px rgba(9, 30, 66, 0.13);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .mobile-bottom-nav-item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--jira-text-subtle, #6b778c);
+    text-decoration: none;
+    font-size: 11px;
+    padding: 6px 2px;
+    min-width: 0;
+  }
+
+  .mobile-bottom-nav-item.active {
+    color: var(--jira-primary, #0052cc);
+  }
+
+  .mobile-bottom-nav-label {
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .mobile-bottom-nav-create {
+    color: var(--jira-primary, #0052cc);
+  }
+
+  .mobile-bottom-nav-create svg {
+    font-size: 30px;
+  }
+}

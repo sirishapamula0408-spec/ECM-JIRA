@@ -22,6 +22,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
+import { MobileBottomNav } from './components/layout/MobileBottomNav'
 import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
@@ -158,6 +159,7 @@ function AppContent() {
           </ErrorBoundary>
         )}
       </main>
+      <MobileBottomNav onCreate={() => setShowCreate(true)} />
       {showCreate && <CreateIssueModal onClose={() => setShowCreate(false)} />}
       {showCreateProject && <CreateProjectModal onClose={() => setShowCreateProject(false)} onProjectCreated={() => { setProjectRefreshKey((k) => k + 1); setHasProjects(true) }} />}
       <Snackbar
