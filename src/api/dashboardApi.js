@@ -19,6 +19,17 @@ export const fetchCycleTime = (projectId, filters = {}) => {
   const qs = query.toString()
   return api(`/api/reports/cycle-time${qs ? `?${qs}` : ''}`)
 }
+
+// JL-87: Sprint Report + Created-vs-Resolved report
+export const fetchSprintReport = (sprintId) => api(`/api/reports/sprint/${sprintId}`)
+
+export const fetchCreatedResolved = ({ projectId, days = 30 } = {}) => {
+  const query = new URLSearchParams()
+  if (projectId) query.set('projectId', projectId)
+  if (days) query.set('days', days)
+  const qs = query.toString()
+  return api(`/api/reports/created-resolved${qs ? `?${qs}` : ''}`)
+}
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {

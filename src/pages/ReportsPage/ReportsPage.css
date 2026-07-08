@@ -12,6 +12,29 @@
   margin: 0;
 }
 
+/* JL-87: Sprint Report + Created-vs-Resolved panel headers */
+.reports-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.reports-panel-header h3 {
+  margin: 0;
+}
+
+.sprint-report-table {
+  margin-top: 12px;
+}
+
+.sprint-report-panel,
+.created-resolved-panel {
+  margin-top: 16px;
+}
+
 .print-only {
   display: none;
 }
