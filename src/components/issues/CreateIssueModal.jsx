@@ -40,6 +40,7 @@ export function CreateIssueModal({ onClose }) {
     status: 'Backlog',
     assignee: profile?.full_name || '',
     sprintId: null,
+    storyPoints: '',
   })
   const [createAnother, setCreateAnother] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,6 +94,7 @@ export function CreateIssueModal({ onClose }) {
         status: form.status,
         assignee: form.assignee,
         sprintId: form.status === 'Backlog' ? null : form.sprintId,
+        storyPoints: form.storyPoints === '' ? null : Number(form.storyPoints),
       }
       await handleCreate(payload)
 
@@ -279,6 +281,21 @@ export function CreateIssueModal({ onClose }) {
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Story Points (optional) */}
+          <div className="create-issue-row">
+            <div className="create-issue-field">
+              <label>Story Points</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 5"
+                value={form.storyPoints}
+                onChange={(e) => update('storyPoints', e.target.value)}
+              />
             </div>
           </div>
         </div>

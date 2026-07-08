@@ -11,11 +11,14 @@ function mapSprint(row) {
     name: row.name,
     dateRange: row.date_range,
     isStarted: Boolean(row.is_started),
+    startDate: row.start_date ?? null,
+    endDate: row.end_date ?? null,
+    completedAt: row.completed_at ?? null,
   }
 }
 
 router.get('/', asyncHandler(async (_req, res) => {
-  const rows = await all('SELECT id, name, date_range, is_started FROM sprints ORDER BY id ASC')
+  const rows = await all('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints ORDER BY id ASC')
   res.json(rows.map(mapSprint))
 }))
 
@@ -33,7 +36,7 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     false,
   ])
 
-  const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [created.lastID])
+  const row = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [created.lastID])
   res.status(201).json(mapSprint(row))
 }))
 
@@ -44,13 +47,24 @@ router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) =
     return
   }
 
-  const update = await run('UPDATE sprints SET is_started = TRUE WHERE id = ?', [id])
+  // JL-86: record the real start timestamp when the sprint begins
+  const update = await run('UPDATE sprints SET is_started = TRUE, start_date = NOW() WHERE id = ?', [id])
   if (update.changes === 0) {
     res.status(404).json({ error: 'Sprint not found' })
     return
   }
 
-  const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
+  // JL-86: snapshot the sprint's current issues (id + story points) into
+  // sprint_scope so burndown/burnup have a committed baseline to chart against.
+  const issues = await all('SELECT id, story_points FROM issues WHERE sprint_id = ?', [id])
+  for (const issue of issues) {
+    await run(
+      'INSERT INTO sprint_scope (sprint_id, issue_id, points) VALUES (?, ?, ?)',
+      [id, issue.id, issue.story_points ?? null],
+    )
+  }
+
+  const row = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
   res.json(mapSprint(row))
 }))
 
@@ -76,7 +90,7 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     return
   }
 
-  const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
+  const row = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
   res.json(mapSprint(row))
 }))
 
@@ -87,16 +101,17 @@ router.patch('/:id/complete', requireRole('Admin'), asyncHandler(async (req, res
     return
   }
 
-  const sprint = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
+  const sprint = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
   if (!sprint) {
     res.status(404).json({ error: 'Sprint not found' })
     return
   }
 
   await run("UPDATE issues SET status = 'Backlog', sprint_id = NULL WHERE sprint_id = ? AND status != 'Done'", [id])
-  await run('UPDATE sprints SET is_started = FALSE WHERE id = ?', [id])
+  // JL-86: record the real completion timestamp when the sprint is closed
+  await run('UPDATE sprints SET is_started = FALSE, completed_at = NOW() WHERE id = ?', [id])
 
-  const row = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
+  const row = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
   res.json(mapSprint(row))
 }))
 
@@ -107,7 +122,7 @@ router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     return
   }
 
-  const sprint = await get('SELECT id, name, date_range, is_started FROM sprints WHERE id = ?', [id])
+  const sprint = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
   if (!sprint) {
     res.status(404).json({ error: 'Sprint not found' })
     return

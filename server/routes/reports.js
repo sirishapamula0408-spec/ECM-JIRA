@@ -5,14 +5,22 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 const router = Router()
 
 const POINTS_BY_TYPE = { Story: 8, Bug: 5, Task: 3 }
-const toPoints = (row) => POINTS_BY_TYPE[row.issue_type] ?? 3
+// JL-86: prefer the real story_points when present; else fall back to the
+// legacy per-type heuristic so existing (un-pointed) issues still report.
+const toPoints = (row) => {
+  if (row.story_points !== null && row.story_points !== undefined && row.story_points !== '') {
+    const parsed = Number(row.story_points)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return POINTS_BY_TYPE[row.issue_type] ?? 3
+}
 
 router.get('/', asyncHandler(async (req, res) => {
   const rawProjectId = req.query.projectId
   const projectId = rawProjectId && Number.isFinite(Number(rawProjectId)) ? Number(rawProjectId) : null
   const baseQuery = projectId
-    ? 'SELECT priority, status, issue_type, sprint_id FROM issues WHERE project_id = ?'
-    : 'SELECT priority, status, issue_type, sprint_id FROM issues'
+    ? 'SELECT priority, status, issue_type, sprint_id, story_points FROM issues WHERE project_id = ?'
+    : 'SELECT priority, status, issue_type, sprint_id, story_points FROM issues'
   const params = projectId ? [projectId] : []
   const rows = await all(baseQuery, params)
 

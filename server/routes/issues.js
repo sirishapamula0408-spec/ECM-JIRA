@@ -20,8 +20,18 @@ function mapIssue(row) {
     sprintId: row.sprint_id ?? null,
     projectId: row.project_id ?? null,
     parentId: row.parent_id ?? null,
+    storyPoints: row.story_points ?? null,
     createdAt: row.created_at,
   }
+}
+
+// JL-86: normalize a story-points input to a non-negative integer or null.
+// Returns `undefined` when the value is invalid so callers can reject it.
+function normalizeStoryPoints(value) {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) return undefined
+  return parsed
 }
 
 async function getDefaultSprintId() {
@@ -33,7 +43,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const status = req.query.status
   const params = []
   let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues'
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues'
 
   if (status) {
     sql += ' WHERE status = ?'
@@ -53,7 +63,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -66,7 +76,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }))
 
 router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
-  const { title, description, priority, assignee, status, issueType, sprintId, projectId } = req.body
+  const { title, description, priority, assignee, status, issueType, sprintId, projectId, storyPoints } = req.body
   const normalizedTitle = String(title || '').trim()
   const normalizedDescription = String(description || '').trim()
   const normalizedAssignee = String(assignee || '').trim()
@@ -127,14 +137,20 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const count = resolvedProjectId
     ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [resolvedProjectId])
     : await get('SELECT COUNT(*) AS count FROM issues')
+  const normalizedStoryPoints = normalizeStoryPoints(storyPoints)
+  if (normalizedStoryPoints === undefined) {
+    res.status(400).json({ error: 'storyPoints must be a non-negative integer' })
+    return
+  }
+
   const issueKey = `${projectKey}-${count.count + 1}`
   const created = await run(
-    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId],
+    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints],
   )
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [created.lastID],
   )
 
@@ -161,7 +177,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const existing = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [id],
   )
   if (!existing) {
@@ -221,6 +237,16 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
   }
 
+  if (fields.storyPoints !== undefined) {
+    const normalized = normalizeStoryPoints(fields.storyPoints)
+    if (normalized === undefined) {
+      res.status(400).json({ error: 'storyPoints must be a non-negative integer' })
+      return
+    }
+    sets.push('story_points = ?')
+    params.push(normalized)
+  }
+
   if (sets.length === 0) {
     res.json(mapIssue(existing))
     return
@@ -230,7 +256,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [id],
   )
   res.json(mapIssue(row))
@@ -290,7 +316,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   await run('UPDATE issues SET status = ?, sprint_id = ? WHERE id = ?', [status, nextSprintId, id])
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -305,7 +331,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // Re-read in case an automation action mutated the issue (e.g. transition/assign)
   const finalRow = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [id],
   )
   res.json(mapIssue(finalRow))
@@ -319,7 +345,7 @@ router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
     return
   }
   const rows = await all(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
     [parentId],
   )
   const total = rows.length
@@ -370,7 +396,7 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
     [issueKey, title, description, priority, assignee, status, 'Sub-task', sprintId, projectId, parentId],
   )
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at FROM issues WHERE id = ?',
     [created.lastID],
   )
   res.status(201).json(mapIssue(row))
