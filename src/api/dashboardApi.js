@@ -3,6 +3,16 @@ import { api } from './client.js'
 export const fetchDashboard = () => api('/api/dashboard')
 export const fetchReports = (projectId) =>
   api(projectId ? `/api/reports?projectId=${projectId}` : '/api/reports')
+// JL-51: Cycle Time Analytics (per-issue cycle/lead days + percentile summary).
+export const fetchCycleTime = (projectId, filters = {}) => {
+  const query = new URLSearchParams()
+  if (projectId) query.set('projectId', projectId)
+  if (filters.issueType) query.set('issueType', filters.issueType)
+  if (filters.priority) query.set('priority', filters.priority)
+  if (filters.assignee) query.set('assignee', filters.assignee)
+  const qs = query.toString()
+  return api(`/api/reports/cycle-time${qs ? `?${qs}` : ''}`)
+}
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {
