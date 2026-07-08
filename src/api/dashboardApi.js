@@ -3,6 +3,12 @@ import { api } from './client.js'
 export const fetchDashboard = () => api('/api/dashboard')
 export const fetchReports = (projectId) =>
   api(projectId ? `/api/reports?projectId=${projectId}` : '/api/reports')
+// JL-49: Burndown / Burnup chart data for a sprint.
+export const fetchBurndown = (sprintId, unit = 'points') =>
+  api(`/api/reports/burndown?sprintId=${sprintId}&unit=${unit}`)
+export const fetchBurnup = (sprintId, unit = 'points') =>
+  api(`/api/reports/burnup?sprintId=${sprintId}&unit=${unit}`)
+
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {

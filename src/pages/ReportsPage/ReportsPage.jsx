@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Button, Stack } from '@mui/material'
+import { Button, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import PrintIcon from '@mui/icons-material/Print'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
+import { SvgLineChart } from '../../components/charts/SvgLineChart'
+import { fetchBurndown, fetchBurnup } from '../../api/dashboardApi'
 import { downloadCSV } from '../../utils/reportExport'
 import './ReportsPage.css'
 
@@ -82,6 +84,56 @@ export function ReportsPage() {
     { key: 'committed', name: 'Committed', color: '#4c9aff' },
     { key: 'completed', name: 'Completed', color: '#36b37e' },
   ]
+
+  // JL-49: Burndown / Burnup — sprint picker + live chart data from the API.
+  const sprintOptions = useMemo(() => {
+    const allSprints = Array.isArray(sprints) ? sprints : []
+    if (!projectId) return allSprints
+    const projectIssueSprintIds = new Set(
+      allIssues.filter((issue) => issue.projectId === Number(projectId)).map((issue) => issue.sprintId).filter(Boolean),
+    )
+    return allSprints.filter((sprint) => projectIssueSprintIds.has(sprint.id))
+  }, [sprints, allIssues, projectId])
+
+  const [selectedSprintId, setSelectedSprintId] = useState('')
+  const [unit, setUnit] = useState('points')
+  const [burndown, setBurndown] = useState(null)
+  const [burnup, setBurnup] = useState(null)
+  const [chartError, setChartError] = useState('')
+
+  // Default the picker to the started sprint (or first available) once loaded.
+  useEffect(() => {
+    if (selectedSprintId && sprintOptions.some((s) => s.id === selectedSprintId)) return
+    const preferred = sprintOptions.find((s) => s.isStarted) || sprintOptions[0]
+    setSelectedSprintId(preferred ? preferred.id : '')
+  }, [sprintOptions, selectedSprintId])
+
+  useEffect(() => {
+    if (!selectedSprintId) {
+      setBurndown(null)
+      setBurnup(null)
+      return
+    }
+    let cancelled = false
+    setChartError('')
+    Promise.all([fetchBurndown(selectedSprintId, unit), fetchBurnup(selectedSprintId, unit)])
+      .then(([bd, bu]) => {
+        if (cancelled) return
+        setBurndown(bd)
+        setBurnup(bu)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setChartError(err?.message || 'Failed to load chart data')
+        setBurndown(null)
+        setBurnup(null)
+      })
+    return () => { cancelled = true }
+  }, [selectedSprintId, unit])
+
+  const burndownData = (burndown?.days || []).map((d) => ({ label: d.date, ideal: d.ideal, remaining: d.remaining }))
+  const burnupData = (burnup?.days || []).map((d) => ({ label: d.date, scope: d.scope, completed: d.completed }))
+  const unitLabel = unit === 'count' ? 'issues' : 'points'
 
   const handleExportCsv = () => {
     const rows = [
@@ -160,6 +212,83 @@ export function ReportsPage() {
           <p>Critical: {critical}%</p>
           <p>Medium: {medium}%</p>
           <p>Low: {low}%</p>
+        </article>
+      </div>
+
+      {/* JL-49: Burndown / Burnup */}
+      <div className="reports-sprint-controls no-print">
+        <TextField
+          select
+          size="small"
+          label="Sprint"
+          value={sprintOptions.some((s) => s.id === selectedSprintId) ? selectedSprintId : ''}
+          onChange={(event) => setSelectedSprintId(event.target.value)}
+          sx={{ minWidth: 220 }}
+          disabled={sprintOptions.length === 0}
+        >
+          {sprintOptions.length === 0 && <MenuItem value="">No sprints available</MenuItem>}
+          {sprintOptions.map((sprint) => (
+            <MenuItem key={sprint.id} value={sprint.id}>
+              {sprint.name}{sprint.isStarted ? ' (active)' : ''}
+            </MenuItem>
+          ))}
+        </TextField>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={unit}
+          onChange={(_event, next) => { if (next) setUnit(next) }}
+          aria-label="Chart unit"
+        >
+          <ToggleButton value="points">Points</ToggleButton>
+          <ToggleButton value="count">Issues</ToggleButton>
+        </ToggleButtonGroup>
+      </div>
+
+      {chartError && (
+        <p className="banner" style={{ textAlign: 'center', color: 'var(--jira-danger, #de350b)', padding: '12px' }}>
+          {chartError}
+        </p>
+      )}
+
+      <div className="two-col">
+        <article className="panel chart-placeholder">
+          <h3>Burndown Chart</h3>
+          {burndownData.length > 0 ? (
+            <SvgLineChart
+              data={burndownData}
+              series={[
+                { key: 'ideal', name: 'Ideal', color: '#c1c7d0' },
+                { key: 'remaining', name: `Remaining ${unitLabel}`, color: '#4c9aff' },
+              ]}
+              width={480}
+              height={260}
+              ariaLabel={`Burndown chart: ideal vs remaining ${unitLabel}`}
+            />
+          ) : (
+            <div className="fake-chart">
+              {selectedSprintId ? 'No burndown data for this sprint' : 'Select a sprint to view its burndown'}
+            </div>
+          )}
+        </article>
+        <article className="panel chart-placeholder">
+          <h3>Burnup Chart</h3>
+          {burnupData.length > 0 ? (
+            <SvgLineChart
+              data={burnupData}
+              series={[
+                { key: 'scope', name: `Scope ${unitLabel}`, color: '#ff991f' },
+                { key: 'completed', name: `Completed ${unitLabel}`, color: '#36b37e' },
+              ]}
+              width={480}
+              height={260}
+              ariaLabel={`Burnup chart: scope vs completed ${unitLabel}`}
+            />
+          ) : (
+            <div className="fake-chart">
+              {selectedSprintId ? 'No burnup data for this sprint' : 'Select a sprint to view its burnup'}
+            </div>
+          )}
         </article>
       </div>
     </section>
