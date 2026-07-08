@@ -1035,6 +1035,12 @@
 .id-link-dialog-actions { display: flex; gap: 6px; }
 .id-link-type { font-size: 11px; text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: 600; }
 
+/* JL-55: Git integration (Development panel) */
+.id-git-group { margin-bottom: 10px; }
+.id-git-group-label { font-size: 11px; text-transform: uppercase; color: #5e6c84; font-weight: 600; margin: 6px 0 2px; }
+.id-git-icon { min-width: 16px; text-align: center; color: #5e6c84; }
+.id-git-author { font-size: 12px; color: #5e6c84; margin-left: auto; }
+
 /* Theme-1 #5: time tracking */
 .id-time-summary { margin-bottom: 10px; }
 .id-time-bar { height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }

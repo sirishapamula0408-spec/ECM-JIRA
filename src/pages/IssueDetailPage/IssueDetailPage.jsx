@@ -11,6 +11,7 @@ import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
+import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS } from '../../api/gitIntegrationApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { usePermissions } from '../../hooks/usePermissions'
@@ -99,6 +100,13 @@ export function IssueDetailPage() {
   const fileInputRef = useRef(null)
   const [links, setLinks] = useState([])
   const [showLinkDialog, setShowLinkDialog] = useState(false)
+  // JL-55: Git integration (branches / commits / PRs)
+  const [gitLinks, setGitLinks] = useState([])
+  const [showGitForm, setShowGitForm] = useState(false)
+  const [gitLinkType, setGitLinkType] = useState(GIT_LINK_TYPES[0])
+  const [gitRef, setGitRef] = useState('')
+  const [gitUrl, setGitUrl] = useState('')
+  const [gitTitle, setGitTitle] = useState('')
   const [linkType, setLinkType] = useState(LINK_TYPES[0])
   const [linkSearch, setLinkSearch] = useState('')
   const [linkTargetId, setLinkTargetId] = useState('')
@@ -428,6 +436,48 @@ export function IssueDetailPage() {
     try {
       await deleteIssueLink(linkId)
       setLinks((prev) => prev.filter((l) => l.id !== linkId))
+    } catch {
+      // ignore
+    }
+  }
+
+  // JL-55: Git links (branches / commits / PRs)
+  function reloadGitLinks() {
+    if (!issue?.id) return
+    fetchGitLinks(issue.id)
+      .then((data) => setGitLinks(Array.isArray(data) ? data : []))
+      .catch(() => setGitLinks([]))
+  }
+  useEffect(() => {
+    if (!issue?.id) return
+    reloadGitLinks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id])
+
+  async function handleAddGitLink() {
+    if (!gitRef.trim()) return
+    try {
+      await createGitLink(issue.id, {
+        linkType: gitLinkType,
+        ref: gitRef.trim(),
+        url: gitUrl.trim(),
+        title: gitTitle.trim(),
+      })
+      setShowGitForm(false)
+      setGitRef('')
+      setGitUrl('')
+      setGitTitle('')
+      setGitLinkType(GIT_LINK_TYPES[0])
+      reloadGitLinks()
+    } catch {
+      // keep form open on failure
+    }
+  }
+
+  async function handleRemoveGitLink(id) {
+    try {
+      await deleteGitLink(id)
+      setGitLinks((prev) => prev.filter((g) => g.id !== id))
     } catch {
       // ignore
     }
@@ -845,6 +895,54 @@ export function IssueDetailPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+
+          {/* JL-55: Development (git branches / commits / pull requests) */}
+          <div className="id-section">
+            <div className="id-subtask-header">
+              <h3 className="id-section-title">Development</h3>
+              <button className="id-subtask-add-btn" type="button" onClick={() => setShowGitForm((v) => !v)}>+ Link branch/commit/PR</button>
+            </div>
+            {showGitForm && (
+              <div className="id-link-dialog">
+                <select className="id-inline-select" value={gitLinkType} onChange={(e) => setGitLinkType(e.target.value)}>
+                  {GIT_LINK_TYPES.map((t) => <option key={t} value={t}>{GIT_LINK_TYPE_LABELS[t]}</option>)}
+                </select>
+                <input className="id-inline-input" placeholder="Ref (branch name, commit SHA, PR #)…" value={gitRef} onChange={(e) => setGitRef(e.target.value)} />
+                <input className="id-inline-input" placeholder="Title (optional)…" value={gitTitle} onChange={(e) => setGitTitle(e.target.value)} />
+                <input className="id-inline-input" placeholder="URL (optional)…" value={gitUrl} onChange={(e) => setGitUrl(e.target.value)} />
+                <div className="id-link-dialog-actions">
+                  <button className="btn btn-primary btn-sm" type="button" onClick={handleAddGitLink} disabled={!gitRef.trim()}>Link</button>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowGitForm(false); setGitRef(''); setGitUrl(''); setGitTitle('') }}>Cancel</button>
+                </div>
+              </div>
+            )}
+            {gitLinks.length === 0 ? (
+              <p className="id-empty-text">No linked branches, commits, or pull requests.</p>
+            ) : (
+              GIT_LINK_TYPES.filter((t) => gitLinks.some((g) => g.link_type === t)).map((t) => (
+                <div key={t} className="id-git-group">
+                  <div className="id-git-group-label">{GIT_LINK_TYPE_LABELS[t]}</div>
+                  <ul className="id-subtask-list">
+                    {gitLinks.filter((g) => g.link_type === t).map((g) => (
+                      <li key={g.id} className="id-subtask-row">
+                        <span className="id-git-icon" aria-hidden="true">
+                          {t === 'branch' ? '⎇' : t === 'commit' ? '●' : '⎇'}
+                        </span>
+                        {g.url ? (
+                          <a className="id-subtask-key" href={g.url} target="_blank" rel="noreferrer">{g.ref}</a>
+                        ) : (
+                          <span className="id-subtask-key">{g.ref}</span>
+                        )}
+                        <span className="id-subtask-title">{g.title || ''}</span>
+                        {g.author && <span className="id-git-author">{g.author}</span>}
+                        <button type="button" className="id-attach-delete" onClick={() => handleRemoveGitLink(g.id)} aria-label="Remove git link">&times;</button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
             )}
           </div>
 
