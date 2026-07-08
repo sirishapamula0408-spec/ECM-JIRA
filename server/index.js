@@ -43,6 +43,7 @@ import cicdRoutes from './routes/cicd.js'
 import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
+import schemeRoutes from './routes/schemes.js'
 
 const app = express()
 
@@ -105,6 +106,7 @@ app.use('/api', ...protect, boardConfigRoutes)
 app.use('/api', ...protect, slaRoutes)
 app.use('/api', ...protect, gitIntegrationRoutes)
 app.use('/api', ...protect, cicdRoutes)
+app.use('/api', ...protect, schemeRoutes)
 
 app.use(errorHandler)
 

@@ -873,6 +873,102 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ci_builds_issue ON ci_builds(issue_id, created_at DESC)')
 
+  // --- JL-80: Permission & Notification Schemes ---
+  // Assignable schemes that make the fixed role→capability map configurable.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS permission_schemes (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS permission_grants (
+      id SERIAL PRIMARY KEY,
+      scheme_id INTEGER NOT NULL REFERENCES permission_schemes(id) ON DELETE CASCADE,
+      permission_key TEXT NOT NULL,
+      role TEXT NOT NULL,
+      UNIQUE(scheme_id, permission_key, role)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_permission_grants_scheme ON permission_grants(scheme_id)')
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_schemes (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_rules (
+      id SERIAL PRIMARY KEY,
+      scheme_id INTEGER NOT NULL REFERENCES notification_schemes(id) ON DELETE CASCADE,
+      event_key TEXT NOT NULL,
+      notify_role TEXT NOT NULL,
+      UNIQUE(scheme_id, event_key, notify_role)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_notification_rules_scheme ON notification_rules(scheme_id)')
+
+  // Nullable FKs on projects: a project may reference a scheme, else the default applies.
+  if (!(await columnExists('projects', 'permission_scheme_id'))) {
+    await pool.query('ALTER TABLE projects ADD COLUMN permission_scheme_id INTEGER REFERENCES permission_schemes(id) ON DELETE SET NULL')
+  }
+  if (!(await columnExists('projects', 'notification_scheme_id'))) {
+    await pool.query('ALTER TABLE projects ADD COLUMN notification_scheme_id INTEGER REFERENCES notification_schemes(id) ON DELETE SET NULL')
+  }
+
+  // Seed the DEFAULT permission scheme (mirrors the fixed role→capability map in
+  // middleware/authorize.js + hooks/usePermissions.js). Grants store the MINIMUM
+  // role that holds each capability; higher roles inherit via rank in the resolver.
+  const permSchemeSeeded = await get('SELECT id FROM permission_schemes WHERE is_default = TRUE LIMIT 1')
+  if (!permSchemeSeeded) {
+    const permRes = await pool.query(
+      "INSERT INTO permission_schemes (name, description, is_default) VALUES ('Default Permission Scheme', 'Mirrors the built-in role hierarchy: Members can create/edit issues and comment; Admins manage issues, sprints, members and workflows.', TRUE) RETURNING id",
+    )
+    const permSchemeId = permRes.rows[0].id
+    const defaultGrants = [
+      ['issue.create', 'Member'],
+      ['issue.edit', 'Member'],
+      ['comment.add', 'Member'],
+      ['issue.delete', 'Admin'],
+      ['sprints.manage', 'Admin'],
+      ['project.settings', 'Admin'],
+      ['members.manage', 'Admin'],
+      ['workflows.edit', 'Admin'],
+    ]
+    for (const [permissionKey, role] of defaultGrants) {
+      await pool.query(
+        'INSERT INTO permission_grants (scheme_id, permission_key, role) VALUES ($1, $2, $3)',
+        [permSchemeId, permissionKey, role],
+      )
+    }
+  }
+
+  // Seed the DEFAULT notification scheme.
+  const notifSchemeSeeded = await get('SELECT id FROM notification_schemes WHERE is_default = TRUE LIMIT 1')
+  if (!notifSchemeSeeded) {
+    const notifRes = await pool.query(
+      "INSERT INTO notification_schemes (name, description, is_default) VALUES ('Default Notification Scheme', 'Notifies Members and above when issues are created or comments are added.', TRUE) RETURNING id",
+    )
+    const notifSchemeId = notifRes.rows[0].id
+    const defaultRules = [
+      ['issue.created', 'Member'],
+      ['comment.added', 'Member'],
+    ]
+    for (const [eventKey, notifyRole] of defaultRules) {
+      await pool.query(
+        'INSERT INTO notification_rules (scheme_id, event_key, notify_role) VALUES ($1, $2, $3)',
+        [notifSchemeId, eventKey, notifyRole],
+      )
+    }
+  }
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
