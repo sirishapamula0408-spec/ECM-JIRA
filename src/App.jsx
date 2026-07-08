@@ -51,6 +51,7 @@ import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
+import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -154,6 +155,8 @@ function AppContent() {
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
