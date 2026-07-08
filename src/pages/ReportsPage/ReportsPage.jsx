@@ -1,12 +1,26 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Button, Stack } from '@mui/material'
+import {
+  Button,
+  Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+} from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import PrintIcon from '@mui/icons-material/Print'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
+import { SvgLineChart } from '../../components/charts/SvgLineChart'
+import { fetchSprintReport, fetchCreatedResolved } from '../../api/dashboardApi'
 import { downloadCSV } from '../../utils/reportExport'
 import './ReportsPage.css'
 
@@ -14,6 +28,62 @@ export function ReportsPage() {
   const { issues } = useIssues()
   const { sprints } = useSprints()
   const { projectId } = useParams()
+
+  // JL-87: Sprint Report state
+  const sprintOptions = useMemo(() => {
+    const list = Array.isArray(sprints) ? sprints : []
+    if (!projectId) return list
+    const allIssues = Array.isArray(issues) ? issues : []
+    const idsForProject = new Set(
+      allIssues.filter((i) => i.projectId === Number(projectId)).map((i) => i.sprintId).filter(Boolean),
+    )
+    return list.filter((s) => idsForProject.has(s.id))
+  }, [sprints, issues, projectId])
+
+  const [selectedSprintId, setSelectedSprintId] = useState('')
+  const [sprintReport, setSprintReport] = useState(null)
+  const [sprintLoading, setSprintLoading] = useState(false)
+  const [sprintError, setSprintError] = useState(null)
+
+  // Default the picker to the active (or first) sprint once options load.
+  useEffect(() => {
+    if (!sprintOptions.length) {
+      setSelectedSprintId('')
+      return
+    }
+    setSelectedSprintId((prev) => {
+      if (prev && sprintOptions.some((s) => s.id === prev)) return prev
+      const active = sprintOptions.find((s) => s.isStarted) || sprintOptions[0]
+      return active ? active.id : ''
+    })
+  }, [sprintOptions])
+
+  useEffect(() => {
+    if (!selectedSprintId) {
+      setSprintReport(null)
+      return
+    }
+    let active = true
+    setSprintLoading(true)
+    setSprintError(null)
+    fetchSprintReport(selectedSprintId)
+      .then((data) => { if (active) setSprintReport(data) })
+      .catch((err) => { if (active) setSprintError(err.message || 'Failed to load sprint report') })
+      .finally(() => { if (active) setSprintLoading(false) })
+    return () => { active = false }
+  }, [selectedSprintId])
+
+  // JL-87: Created vs Resolved state
+  const [crDays, setCrDays] = useState(30)
+  const [createdResolved, setCreatedResolved] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    fetchCreatedResolved({ projectId: projectId ? Number(projectId) : undefined, days: crDays })
+      .then((data) => { if (active) setCreatedResolved(data) })
+      .catch(() => { if (active) setCreatedResolved(null) })
+    return () => { active = false }
+  }, [projectId, crDays])
 
   const computed = useMemo(() => {
     const allIssues = Array.isArray(issues) ? issues : []
@@ -81,6 +151,30 @@ export function ReportsPage() {
   const chartSeries = [
     { key: 'committed', name: 'Committed', color: '#4c9aff' },
     { key: 'completed', name: 'Completed', color: '#36b37e' },
+  ]
+
+  // JL-87: Sprint Report — committed vs completed points bar
+  const sprintSummary = sprintReport?.summary || null
+  const sprintChartData = sprintSummary
+    ? [
+        {
+          label: 'Points',
+          committed: sprintSummary.committedPoints || 0,
+          completed: sprintSummary.completedPoints || 0,
+        },
+      ]
+    : []
+
+  // JL-87: Created vs Resolved — two-series line chart
+  const crSeries = Array.isArray(createdResolved?.series) ? createdResolved.series : []
+  const crChartData = crSeries.map((row) => ({
+    label: row.date?.slice(5) || row.date,
+    created: row.created,
+    resolved: row.resolved,
+  }))
+  const crChartSeries = [
+    { key: 'created', name: 'Created', color: '#4c9aff' },
+    { key: 'resolved', name: 'Resolved', color: '#36b37e' },
   ]
 
   const handleExportCsv = () => {
@@ -162,6 +256,116 @@ export function ReportsPage() {
           <p>Low: {low}%</p>
         </article>
       </div>
+
+      {/* JL-87: Sprint Report */}
+      <article className="panel chart-placeholder sprint-report-panel">
+        <div className="reports-panel-header">
+          <h3>Sprint Report</h3>
+          <FormControl size="small" className="no-print" sx={{ minWidth: 200 }}>
+            <InputLabel id="sprint-report-label">Sprint</InputLabel>
+            <Select
+              labelId="sprint-report-label"
+              label="Sprint"
+              value={sprintOptions.some((s) => s.id === selectedSprintId) ? selectedSprintId : ''}
+              onChange={(e) => setSelectedSprintId(e.target.value)}
+            >
+              {sprintOptions.map((s) => (
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </div>
+        {sprintError && <p className="banner" style={{ color: 'var(--jira-danger, #de350b)' }}>{sprintError}</p>}
+        {!sprintOptions.length && <div className="fake-chart">No sprints available</div>}
+        {sprintOptions.length > 0 && sprintLoading && !sprintReport && <div className="fake-chart">Loading…</div>}
+        {sprintSummary && (
+          <div className="two-col">
+            <div>
+              <div className="stats-grid">
+                <StatCard label="Committed" value={`${sprintSummary.committedPoints} pts`} />
+                <StatCard label="Completed" value={`${sprintSummary.completedPoints} pts`} />
+                <StatCard label="Added (scope)" value={`${sprintSummary.scopeChange.addedPoints} pts`} />
+                <StatCard label="Removed (scope)" value={`${sprintSummary.scopeChange.removedPoints} pts`} />
+              </div>
+              <Table size="small" className="sprint-report-table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Category</TableCell>
+                    <TableCell align="right">Issues</TableCell>
+                    <TableCell align="right">Points</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>Completed</TableCell>
+                    <TableCell align="right">{sprintSummary.completedIssues}</TableCell>
+                    <TableCell align="right">{sprintSummary.completedPoints}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Not completed</TableCell>
+                    <TableCell align="right">{sprintSummary.notCompletedIssues}</TableCell>
+                    <TableCell align="right">{sprintSummary.notCompletedPoints}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Removed</TableCell>
+                    <TableCell align="right">{sprintSummary.removedIssues}</TableCell>
+                    <TableCell align="right">{sprintSummary.removedPoints}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            <div>
+              <div className="velocity-legend">
+                <span><i className="velocity-legend-dot committed" />Committed</span>
+                <span><i className="velocity-legend-dot completed" />Completed</span>
+              </div>
+              <SvgBarChart
+                data={sprintChartData}
+                series={chartSeries}
+                width={360}
+                height={240}
+                ariaLabel="Sprint report: committed vs completed points"
+              />
+            </div>
+          </div>
+        )}
+      </article>
+
+      {/* JL-87: Created vs Resolved */}
+      <article className="panel chart-placeholder created-resolved-panel">
+        <div className="reports-panel-header">
+          <h3>Created vs Resolved</h3>
+          <FormControl size="small" className="no-print" sx={{ minWidth: 140 }}>
+            <InputLabel id="cr-days-label">Range</InputLabel>
+            <Select
+              labelId="cr-days-label"
+              label="Range"
+              value={crDays}
+              onChange={(e) => setCrDays(Number(e.target.value))}
+            >
+              <MenuItem value={7}>Last 7 days</MenuItem>
+              <MenuItem value={14}>Last 14 days</MenuItem>
+              <MenuItem value={30}>Last 30 days</MenuItem>
+              <MenuItem value={90}>Last 90 days</MenuItem>
+            </Select>
+          </FormControl>
+        </div>
+        <div className="velocity-legend">
+          <span><i className="velocity-legend-dot committed" />Created ({createdResolved?.totals?.created ?? 0})</span>
+          <span><i className="velocity-legend-dot completed" />Resolved ({createdResolved?.totals?.resolved ?? 0})</span>
+        </div>
+        {crChartData.length > 0 ? (
+          <SvgLineChart
+            data={crChartData}
+            series={crChartSeries}
+            width={720}
+            height={260}
+            ariaLabel="Created versus resolved issues per day"
+          />
+        ) : (
+          <div className="fake-chart">No created/resolved data available</div>
+        )}
+      </article>
     </section>
   )
 }

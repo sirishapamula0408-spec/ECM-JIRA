@@ -3,6 +3,17 @@ import { api } from './client.js'
 export const fetchDashboard = () => api('/api/dashboard')
 export const fetchReports = (projectId) =>
   api(projectId ? `/api/reports?projectId=${projectId}` : '/api/reports')
+
+// JL-87: Sprint Report + Created-vs-Resolved report
+export const fetchSprintReport = (sprintId) => api(`/api/reports/sprint/${sprintId}`)
+
+export const fetchCreatedResolved = ({ projectId, days = 30 } = {}) => {
+  const query = new URLSearchParams()
+  if (projectId) query.set('projectId', projectId)
+  if (days) query.set('days', days)
+  const qs = query.toString()
+  return api(`/api/reports/created-resolved${qs ? `?${qs}` : ''}`)
+}
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {
