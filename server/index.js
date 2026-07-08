@@ -32,6 +32,8 @@ import issueLinkRoutes from './routes/issueLinks.js'
 import worklogRoutes from './routes/worklogs.js'
 import customFieldRoutes from './routes/customFields.js'
 import automationRoutes from './routes/automation.js'
+import publicApiRoutes from './routes/publicApi.js'
+import apiTokenRoutes from './routes/apiTokens.js'
 
 const app = express()
 
@@ -45,8 +47,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-// Public routes (no auth required)
+// Public routes (no session auth required)
 app.use('/api/auth', authRoutes)
+
+// Public REST API (JL-84): authenticated by user-generated API tokens, not JWT sessions
+app.use('/api/public', publicApiRoutes)
 
 // Protected routes (JWT + role loading)
 // authGuard verifies JWT and sets req.user = { id, email }
@@ -70,6 +75,7 @@ app.use('/api/issues', ...protect, watcherRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
 app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)
+app.use('/api/api-tokens', ...protect, apiTokenRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)

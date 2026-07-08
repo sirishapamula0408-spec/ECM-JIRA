@@ -1,7 +1,101 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../context/MemberContext'
+import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
 import './ProfilePage.css'
+
+function ApiTokensSection() {
+  const [tokens, setTokens] = useState([])
+  const [name, setName] = useState('')
+  const [scopes, setScopes] = useState('read')
+  const [creating, setCreating] = useState(false)
+  const [newToken, setNewToken] = useState(null) // plaintext shown once
+  const [error, setError] = useState('')
+
+  async function load() {
+    try { setTokens(await fetchApiTokens()) } catch { /* ignore */ }
+  }
+  useEffect(() => { load() }, [])
+
+  async function handleCreate() {
+    if (!name.trim()) return
+    setCreating(true); setError('')
+    try {
+      const res = await createApiToken({ name: name.trim(), scopes })
+      setNewToken(res.token)
+      setName('')
+      await load()
+    } catch (err) {
+      setError(err?.message || 'Failed to create token')
+    } finally { setCreating(false) }
+  }
+
+  async function handleRevoke(id) {
+    try { await revokeApiToken(id); await load() } catch { /* ignore */ }
+  }
+
+  return (
+    <article className="panel profile-form-panel" style={{ marginTop: 24 }}>
+      <h3>API Tokens</h3>
+      <p>Generate personal tokens to access the public REST API (<code>/api/public</code>). Tokens are shown only once.</p>
+
+      {newToken && (
+        <div className="api-token-reveal" style={{ background: 'var(--surface-hover, #f4f5f7)', padding: 12, borderRadius: 6, margin: '12px 0' }}>
+          <strong>Copy your new token now — it won't be shown again:</strong>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <input readOnly value={newToken} style={{ flex: 1, fontFamily: 'monospace' }} />
+            <button className="btn btn-ghost" type="button" onClick={() => navigator.clipboard?.writeText(newToken)}>Copy</button>
+            <button className="btn btn-ghost" type="button" onClick={() => setNewToken(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', margin: '12px 0' }}>
+        <label style={{ flex: 1, minWidth: 180 }}>Token name
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. CI pipeline" />
+        </label>
+        <label>Scopes
+          <select value={scopes} onChange={(e) => setScopes(e.target.value)}>
+            <option value="read">read</option>
+            <option value="read,write">read, write</option>
+            <option value="*">all (*)</option>
+          </select>
+        </label>
+        <button className="btn btn-primary" type="button" onClick={handleCreate} disabled={creating || !name.trim()}>
+          {creating ? 'Creating...' : 'Create token'}
+        </button>
+      </div>
+      {error && <p style={{ color: 'var(--danger, #de350b)' }}>{error}</p>}
+
+      <table className="api-tokens-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+        <thead>
+          <tr style={{ textAlign: 'left' }}>
+            <th>Name</th><th>Prefix</th><th>Scopes</th><th>Last used</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {tokens.length === 0 && (
+            <tr><td colSpan={6} style={{ padding: 12, color: 'var(--text-subtle, #6b778c)' }}>No API tokens yet.</td></tr>
+          )}
+          {tokens.map((t) => (
+            <tr key={t.id} style={{ borderTop: '1px solid var(--border, #ebecf0)' }}>
+              <td style={{ padding: '8px 4px' }}>{t.name}</td>
+              <td><code>{t.token_prefix}…</code></td>
+              <td>{t.scopes}</td>
+              <td>{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : 'Never'}</td>
+              <td>{t.revoked ? 'Revoked' : 'Active'}</td>
+              <td>
+                {!t.revoked && (
+                  <button className="btn btn-ghost" type="button" onClick={() => handleRevoke(t.id)}>Revoke</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </article>
+  )
+}
 
 export function ProfilePage() {
   const { authUser } = useAuth()
@@ -87,6 +181,8 @@ export function ProfilePage() {
           </div>
         </article>
       </section>
+
+      <ApiTokensSection />
     </section>
   )
 }
