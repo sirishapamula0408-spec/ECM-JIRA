@@ -761,6 +761,22 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_board_configs_project ON board_configs(project_id)')
 
+  // --- JL-56: CI/CD Pipeline Status ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ci_builds (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      pipeline TEXT,
+      branch TEXT,
+      commit_ref TEXT,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'success', 'failed', 'canceled')),
+      url TEXT,
+      duration_seconds INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ci_builds_issue ON ci_builds(issue_id, created_at DESC)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
