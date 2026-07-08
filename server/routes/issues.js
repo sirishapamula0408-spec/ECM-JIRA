@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
+import { emitEvent } from '../services/events.js'
 
 const router = Router()
 
@@ -150,6 +151,9 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     [created.lastID, req.user.email],
   )
 
+  // JL-59: emit issue.created event to subscribed webhooks (fire-and-forget)
+  emitEvent('issue.created', mapIssue(row), resolvedProjectId).catch(() => {})
+
   res.status(201).json(mapIssue(row))
 }))
 
@@ -233,6 +237,10 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [id],
   )
+
+  // JL-59: emit issue.updated event to subscribed webhooks (fire-and-forget)
+  emitEvent('issue.updated', mapIssue(row), row.project_id ?? null).catch(() => {})
+
   res.json(mapIssue(row))
 }))
 
@@ -308,6 +316,10 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
     [id],
   )
+
+  // JL-59: emit issue.status_changed event to subscribed webhooks (fire-and-forget)
+  emitEvent('issue.status_changed', { ...mapIssue(finalRow), status }, finalRow.project_id ?? null).catch(() => {})
+
   res.json(mapIssue(finalRow))
 }))
 
