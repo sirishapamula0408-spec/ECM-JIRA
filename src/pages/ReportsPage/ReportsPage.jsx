@@ -9,7 +9,7 @@ import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
 import { SvgLineChart } from '../../components/charts/SvgLineChart'
 import { SvgAreaChart } from '../../components/charts/SvgAreaChart'
-import { fetchBurndown, fetchBurnup } from '../../api/dashboardApi'
+import { fetchBurndown, fetchBurnup, fetchCycleTime } from '../../api/dashboardApi'
 import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
 import './ReportsPage.css'
@@ -21,6 +21,23 @@ const CFD_STATUS_COLORS = {
   'In Progress': '#ff991f',
   'Code Review': '#6554c0',
   Done: '#36b37e',
+}
+
+// JL-51: bin cycleDays into up to 6 buckets → { label, count } for a histogram.
+function buildHistogram(cycleValues) {
+  if (!cycleValues.length) return []
+  const max = Math.max(...cycleValues)
+  const binCount = Math.min(6, Math.max(1, Math.ceil(max) || 1))
+  const size = Math.max(1, Math.ceil(max / binCount) || 1)
+  const bins = Array.from({ length: binCount }, (_, i) => ({
+    label: `${i * size}-${(i + 1) * size}d`,
+    count: 0,
+  }))
+  for (const v of cycleValues) {
+    const idx = Math.min(bins.length - 1, Math.floor(v / size))
+    bins[idx].count += 1
+  }
+  return bins
 }
 
 export function ReportsPage() {
@@ -201,6 +218,28 @@ export function ReportsPage() {
       { key: 'value', label: 'Value' },
     ])
   }
+
+  // JL-51: Cycle Time Analytics — fetched from the backend (issue_history based).
+  const [cycleTime, setCycleTime] = useState(null)
+  const [cycleLoading, setCycleLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setCycleLoading(true)
+    fetchCycleTime(projectId ? Number(projectId) : undefined)
+      .then((data) => { if (!cancelled) setCycleTime(data) })
+      .catch(() => { if (!cancelled) setCycleTime(null) })
+      .finally(() => { if (!cancelled) setCycleLoading(false) })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  const cycleIssues = Array.isArray(cycleTime?.issues) ? cycleTime.issues : []
+  const cycleSummary = cycleTime?.summary || null
+  const scatterData = cycleIssues
+    .filter((i) => i.cycleDays !== null && i.cycleDays !== undefined)
+    .map((i) => ({ label: `${i.key} (${new Date(i.doneAt).toLocaleDateString()})`, cycleDays: i.cycleDays }))
+  const histogramData = buildHistogram(scatterData.map((d) => d.cycleDays))
+  const fmt = (v) => (v === null || v === undefined ? '—' : v)
 
   const handlePrint = () => window.print()
 
@@ -397,6 +436,56 @@ export function ReportsPage() {
           <div className="fake-chart">No flow data available</div>
         )}
       </article>
+
+      <div className="cycle-time-section">
+        <h2>Cycle Time Analytics</h2>
+        {cycleLoading ? (
+          <p className="banner" style={{ color: 'var(--jira-text-muted)', padding: '12px' }}>Loading cycle time…</p>
+        ) : cycleIssues.length === 0 ? (
+          <p className="banner" style={{ color: 'var(--jira-text-muted)', padding: '12px' }}>
+            No completed issues with status history yet. Move issues through In Progress → Done to see cycle time.
+          </p>
+        ) : (
+          <>
+            <div className="stats-grid">
+              <StatCard label="Cycle p50" value={`${fmt(cycleSummary?.cycle?.p50)}d`} />
+              <StatCard label="Cycle p85" value={`${fmt(cycleSummary?.cycle?.p85)}d`} />
+              <StatCard label="Cycle p95" value={`${fmt(cycleSummary?.cycle?.p95)}d`} />
+              <StatCard label="Cycle Avg" value={`${fmt(cycleSummary?.cycle?.average)}d`} />
+              <StatCard label="Lead p50" value={`${fmt(cycleSummary?.lead?.p50)}d`} />
+              <StatCard label="Lead p85" value={`${fmt(cycleSummary?.lead?.p85)}d`} />
+              <StatCard label="Lead p95" value={`${fmt(cycleSummary?.lead?.p95)}d`} />
+              <StatCard label="Lead Avg" value={`${fmt(cycleSummary?.lead?.average)}d`} />
+            </div>
+            <div className="two-col">
+              <article className="panel chart-placeholder">
+                <h3>Cycle Time per Issue (days)</h3>
+                {scatterData.length > 0 ? (
+                  <SvgLineChart
+                    data={scatterData}
+                    series={[{ key: 'cycleDays', name: 'Cycle days', color: '#6554c0' }]}
+                    width={480}
+                    height={240}
+                    ariaLabel="Cycle time in days per completed issue over time"
+                  />
+                ) : (<div className="fake-chart">No cycle data available</div>)}
+              </article>
+              <article className="panel chart-placeholder">
+                <h3>Cycle Time Distribution</h3>
+                {histogramData.length > 0 ? (
+                  <SvgBarChart
+                    data={histogramData}
+                    series={[{ key: 'count', name: 'Issues', color: '#36b37e' }]}
+                    width={480}
+                    height={240}
+                    ariaLabel="Histogram of issue counts per cycle-time bucket"
+                  />
+                ) : (<div className="fake-chart">No cycle data available</div>)}
+              </article>
+            </div>
+          </>
+        )}
+      </div>
     </section>
   )
 }
