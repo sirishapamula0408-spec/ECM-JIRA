@@ -7,6 +7,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { isAllowedEmail, hashPassword, verifyPassword } from '../middleware/validate.js'
 import { authGuard } from '../middleware/authGuard.js'
 import { loadUserRoles } from '../middleware/authorize.js'
+import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/mailer.js'
 
 function issueToken(user, expiresIn = '1d') {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn })
@@ -94,12 +95,25 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
     [user.id, resetToken, expiresAt],
   )
 
-  // In a real app, send an email with the token. Here we return it directly for demo purposes.
-  res.json({
-    message: 'If an account exists with that email, a reset link has been generated.',
-    resetToken,
-    expiresIn: '15 minutes',
+  // Send the reset link by email (best-effort, fire-and-forget — never block the
+  // response on SMTP). sendMail() itself never throws; the catch is a safety net.
+  const { subject, html, text } = buildPasswordResetEmail({ token: resetToken })
+  sendMail({ to: user.email, subject, html, text }).catch((err) => {
+    console.error(`[auth] Failed to send password reset email: ${err.message}`)
   })
+
+  const responseBody = {
+    message: 'If an account exists with that email, a reset link has been generated.',
+    expiresIn: '15 minutes',
+  }
+  // Only expose the raw token in the response when SMTP is NOT configured, so
+  // dev/testing still works without a mail server. In production (SMTP set), the
+  // token is delivered exclusively by email and never leaked in the API response.
+  if (!isSmtpConfigured()) {
+    responseBody.resetToken = resetToken
+  }
+
+  res.json(responseBody)
 }))
 
 // --- Reset Password: use token to set new password ---

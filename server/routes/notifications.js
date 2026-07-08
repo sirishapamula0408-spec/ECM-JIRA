@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { sendMail } from '../utils/mailer.js'
 
 const router = Router()
 
@@ -122,5 +123,40 @@ export async function createNotification({ recipientEmail, type, title, message 
     'INSERT INTO notifications (recipient_email, type, title, message, issue_id, project_id, actor_email) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [recipientEmail, type, title, message, issueId, projectId, actorEmail],
   )
+
+  // Best-effort email delivery — fire-and-forget so it never blocks or breaks
+  // the caller. Send only when the recipient has email notifications enabled and
+  // this notification type isn't muted.
+  maybeSendNotificationEmail({ recipientEmail, type, title, message }).catch((err) => {
+    console.error(`[notifications] email delivery failed: ${err.message}`)
+  })
+
   return result.lastID
+}
+
+/**
+ * Send a notification email if the recipient's preferences opt in.
+ * Never throws — resolves quietly on any error or when email is disabled/muted.
+ */
+async function maybeSendNotificationEmail({ recipientEmail, type, title, message }) {
+  const prefs = await get(
+    'SELECT email_enabled, muted_types FROM notification_preferences WHERE user_email = ?',
+    [recipientEmail],
+  )
+  if (!prefs || !prefs.email_enabled) return
+
+  let muted = prefs.muted_types
+  if (typeof muted === 'string') {
+    try { muted = JSON.parse(muted) } catch { muted = [] }
+  }
+  if (Array.isArray(muted) && muted.includes(type)) return
+
+  const subject = title || 'New notification from ECM-JIRA'
+  const text = message ? `${title}\n\n${message}` : title
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#172b4d;">`
+    + `<h3 style="color:#0052cc;margin:0 0 8px;">${title || 'Notification'}</h3>`
+    + (message ? `<p style="font-size:14px;line-height:1.6;">${message}</p>` : '')
+    + `</div>`
+
+  await sendMail({ to: recipientEmail, subject, text, html })
 }
