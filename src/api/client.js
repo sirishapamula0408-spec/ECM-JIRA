@@ -44,10 +44,25 @@ export function setToken(token, remember) {
   } catch { /* ignore */ }
 }
 
+// JL-73: active workspace id, mirrors WORKSPACE_STORAGE_KEY in workspaceApi.js.
+// Kept as a literal here to avoid a circular import (workspaceApi imports client).
+const WORKSPACE_KEY = 'jira_active_workspace_id'
+
+function getActiveWorkspace() {
+  try {
+    return window.localStorage.getItem(WORKSPACE_KEY) || null
+  } catch {
+    return null
+  }
+}
+
 function authHeaders() {
   const token = getToken()
   const headers = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // JL-73: forward the selected workspace so the backend can resolve req.workspaceId.
+  const workspaceId = getActiveWorkspace()
+  if (workspaceId) headers['X-Workspace-Id'] = workspaceId
   return headers
 }
 

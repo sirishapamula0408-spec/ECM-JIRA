@@ -774,6 +774,56 @@ export async function initializeDatabase() {
     `).catch(() => {}) // Ignore if already exists
   }
 
+  // --- JL-73: Multi-workspace / tenant data isolation (additive foundation) ---
+  // Workspaces are the top-level tenant boundary. This ticket lays the schema,
+  // request context, and management endpoints; full per-query row isolation is a
+  // follow-on. Columns on existing tables stay NULLABLE so legacy inserts that
+  // omit workspace_id keep working, and existing rows are backfilled to a single
+  // seeded "default" workspace so nothing is orphaned.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      owner_email TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workspace_members (
+      id SERIAL PRIMARY KEY,
+      workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      member_email TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'Member',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(workspace_id, member_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace ON workspace_members(workspace_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_email ON workspace_members(member_email)')
+
+  // Seed a single default workspace (idempotent via the unique slug).
+  await pool.query(
+    "INSERT INTO workspaces (name, slug) VALUES ('Default Workspace', 'default') ON CONFLICT (slug) DO NOTHING",
+  )
+  const defaultWorkspace = await get("SELECT id FROM workspaces WHERE slug = 'default'")
+  const defaultWorkspaceId = defaultWorkspace?.id ?? null
+
+  // Nullable workspace_id on projects + members, FK → workspaces (SET NULL on delete).
+  if (!(await columnExists('projects', 'workspace_id'))) {
+    await pool.query('ALTER TABLE projects ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_projects_workspace_id ON projects(workspace_id)')
+  }
+  if (!(await columnExists('members', 'workspace_id'))) {
+    await pool.query('ALTER TABLE members ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_members_workspace_id ON members(workspace_id)')
+  }
+  // Backfill existing rows to the default workspace so nothing is orphaned.
+  if (defaultWorkspaceId) {
+    await pool.query('UPDATE projects SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
+    await pool.query('UPDATE members SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
+  }
+
   const { seedDatabase } = await import('./seed.js')
   await seedDatabase()
 }
