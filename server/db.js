@@ -654,6 +654,72 @@ export async function initializeDatabase() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_release_id ON issues(release_id)')
   }
 
+  // --- JL-78: Configurable priorities & statuses per project ---
+  // project_id NULL => global default. Non-null => project-level override.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_priorities (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#42526E',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_priorities_project ON issue_priorities(project_id)')
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_statuses (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#42526E',
+      category TEXT NOT NULL DEFAULT 'todo' CHECK(category IN ('todo', 'inprogress', 'done')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_statuses_project ON issue_statuses(project_id)')
+
+  // Seed global defaults (project_id NULL) only if the table has no global rows.
+  const prioSeeded = await get('SELECT 1 FROM issue_priorities WHERE project_id IS NULL LIMIT 1')
+  if (!prioSeeded) {
+    const defaultPriorities = [
+      ['Lowest', 0, '#57D9A3'],
+      ['Low', 1, '#79E2F2'],
+      ['Medium', 2, '#FFAB00'],
+      ['High', 3, '#FF7452'],
+      ['Highest', 4, '#FF5630'],
+    ]
+    for (const [name, position, color] of defaultPriorities) {
+      await pool.query(
+        'INSERT INTO issue_priorities (project_id, name, position, color) VALUES (NULL, $1, $2, $3)',
+        [name, position, color],
+      )
+    }
+  }
+  const statusSeeded = await get('SELECT 1 FROM issue_statuses WHERE project_id IS NULL LIMIT 1')
+  if (!statusSeeded) {
+    const defaultStatuses = [
+      ['Backlog', 0, '#42526E', 'todo'],
+      ['To Do', 1, '#42526E', 'todo'],
+      ['In Progress', 2, '#0052CC', 'inprogress'],
+      ['Code Review', 3, '#0052CC', 'inprogress'],
+      ['Done', 4, '#36B37E', 'done'],
+    ]
+    for (const [name, position, color, category] of defaultStatuses) {
+      await pool.query(
+        'INSERT INTO issue_statuses (project_id, name, position, color, category) VALUES (NULL, $1, $2, $3, $4)',
+        [name, position, color, category],
+      )
+    }
+  }
+
+  // Relax the hardcoded CHECK constraints on issues so custom values are allowed.
+  // Validation now happens in the route layer against the configured lists.
+  await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_priority_check')
+  await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_status_check')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints

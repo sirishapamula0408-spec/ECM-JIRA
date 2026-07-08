@@ -33,6 +33,7 @@ import worklogRoutes from './routes/worklogs.js'
 import customFieldRoutes from './routes/customFields.js'
 import automationRoutes from './routes/automation.js'
 import releaseRoutes from './routes/releases.js'
+import issueConfigRoutes from './routes/issueConfig.js'
 
 const app = express()
 
@@ -80,6 +81,7 @@ app.use('/api', ...protect, worklogRoutes)
 app.use('/api', ...protect, customFieldRoutes)
 app.use('/api', ...protect, automationRoutes)
 app.use('/api', ...protect, releaseRoutes)
+app.use('/api', ...protect, issueConfigRoutes)
 
 app.use(errorHandler)
 
