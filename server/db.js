@@ -571,6 +571,20 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_automation_rules_project ON automation_rules(project_id)')
 
+  // --- JL-79: Configurable Workflow Engine (transitions, validators, post-functions) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workflow_transitions (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      validators JSONB NOT NULL DEFAULT '[]'::jsonb,
+      post_functions JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_workflow_transitions_project ON workflow_transitions(project_id)')
+
   // --- Theme-1 #7: Custom Fields (EAV) ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS custom_fields (

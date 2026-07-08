@@ -32,6 +32,7 @@ import issueLinkRoutes from './routes/issueLinks.js'
 import worklogRoutes from './routes/worklogs.js'
 import customFieldRoutes from './routes/customFields.js'
 import automationRoutes from './routes/automation.js'
+import workflowTransitionRoutes from './routes/workflowTransitions.js'
 import releaseRoutes from './routes/releases.js'
 import issueConfigRoutes from './routes/issueConfig.js'
 import boardConfigRoutes from './routes/boardConfig.js'
@@ -92,6 +93,7 @@ app.use('/api', ...protect, issueLinkRoutes)
 app.use('/api', ...protect, worklogRoutes)
 app.use('/api', ...protect, customFieldRoutes)
 app.use('/api', ...protect, automationRoutes)
+app.use('/api', ...protect, workflowTransitionRoutes)
 app.use('/api', ...protect, releaseRoutes)
 app.use('/api', ...protect, issueConfigRoutes)
 app.use('/api', ...protect, boardConfigRoutes)

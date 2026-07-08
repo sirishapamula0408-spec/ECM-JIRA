@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
+import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearch } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
 
@@ -447,9 +448,28 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     return
   }
 
-  const existing = await get('SELECT id, sprint_id, status FROM issues WHERE id = ?', [id])
+  const existing = await get(
+    'SELECT id, sprint_id, status, project_id, assignee, priority, resolution, reporter, environment, components FROM issues WHERE id = ?',
+    [id],
+  )
   if (!existing) {
     res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+
+  // JL-79: enforce the project's configurable workflow. Backward compatible —
+  // a project with no transitions configured allows every status change.
+  const transitions = await loadTransitions(existing.project_id)
+  if (!isTransitionAllowed(transitions, existing.status, status)) {
+    res.status(409).json({
+      error: `Transition from "${existing.status}" to "${status}" is not allowed by the workflow`,
+    })
+    return
+  }
+  const workflowTransition = findTransition(transitions, existing.status, status)
+  const validationErrors = runValidators(workflowTransition, existing, req.body)
+  if (validationErrors.length > 0) {
+    res.status(400).json({ error: validationErrors[0], errors: validationErrors })
     return
   }
 
@@ -488,6 +508,12 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // JL-82: record the status transition in the per-issue audit log
   await recordHistory(id, 'status', existing.status, status, req.user?.email)
+
+  // JL-79: apply workflow post-functions directly to the DB (loop-safe — never
+  // re-invokes the engine, mirroring the automation.js pattern)
+  if (workflowTransition) {
+    await applyPostFunctions(workflowTransition, id, { run }).catch(() => {})
+  }
 
   const row = await get(
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
