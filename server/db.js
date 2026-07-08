@@ -720,6 +720,25 @@ export async function initializeDatabase() {
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_priority_check')
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_status_check')
 
+  // --- JL-84: Public REST API tokens ---
+  // Stores only a SHA-256 hash of each token; plaintext is shown once at creation.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id SERIAL PRIMARY KEY,
+      member_id INTEGER REFERENCES members(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      token_prefix TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      scopes TEXT NOT NULL DEFAULT '',
+      revoked BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
