@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
+import { buildIssueSearch } from '../services/jqlSearch.js'
 
 const router = Router()
 
@@ -69,19 +70,27 @@ async function recordHistory(issueId, field, oldValue, newValue, actor) {
 }
 
 router.get('/', asyncHandler(async (req, res) => {
-  const status = req.query.status
-  const params = []
-  let sql =
-    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, ' +
-    '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i'
+  const { status, q, jql } = req.query
 
-  if (status) {
-    sql += ' WHERE i.status = ?'
-    params.push(status)
+  let built
+  try {
+    // Whitelisted fields + bound params only — see server/services/jqlSearch.js.
+    built = buildIssueSearch({ status, q, jql })
+  } catch (err) {
+    if (err.status === 400) {
+      res.status(400).json({ error: err.message })
+      return
+    }
+    throw err
   }
 
-  sql += ' ORDER BY i.id DESC'
-  const rows = await all(sql, params)
+  const sql =
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, ' +
+    '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
+    (built.where ? ` ${built.where}` : '') +
+    ` ORDER BY ${built.orderBy}`
+
+  const rows = await all(sql, built.params)
   res.json(rows.map(mapIssue))
 }))
 
