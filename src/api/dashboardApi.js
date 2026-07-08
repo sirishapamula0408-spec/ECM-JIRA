@@ -30,6 +30,16 @@ export const fetchCreatedResolved = ({ projectId, days = 30 } = {}) => {
   const qs = query.toString()
   return api(`/api/reports/created-resolved${qs ? `?${qs}` : ''}`)
 }
+// JL-53: Capacity Planning — per-assignee committed points vs capacity.
+export const fetchCapacity = (sprintId) =>
+  api(`/api/reports/capacity?sprintId=${sprintId}`)
+
+export const setCapacity = ({ sprintId, assignee, capacityPoints }) =>
+  api('/api/reports/capacity', {
+    method: 'PUT',
+    body: JSON.stringify({ sprintId, assignee, capacityPoints }),
+  })
+
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {

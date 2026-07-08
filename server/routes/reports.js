@@ -1,6 +1,7 @@
 import { Router } from 'express'
-import { all, get } from '../db.js'
+import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -726,6 +727,136 @@ router.get('/created-resolved', asyncHandler(async (req, res) => {
     series,
     totals: { created: cumulativeCreated, resolved: cumulativeResolved },
   })
+}))
+
+/* ================================================================
+   JL-53: Capacity Planning
+   Per-assignee committed workload (sum of their in-sprint issue story
+   points) versus their configured capacity for the sprint. Capacity is
+   stored per (assignee, sprint) in member_capacity; a missing row means
+   no capacity has been set yet (capacityPoints = 0, utilization null).
+   ================================================================ */
+
+// Parse & validate a sprintId from the query/body. Returns an integer or null.
+const parseSprintId = (raw) =>
+  raw !== undefined && raw !== null && raw !== '' && Number.isInteger(Number(raw))
+    ? Number(raw)
+    : null
+
+// GET /api/reports/capacity?sprintId=
+router.get('/capacity', asyncHandler(async (req, res) => {
+  const sprintId = parseSprintId(req.query.sprintId)
+  if (sprintId === null) {
+    res.status(400).json({ error: 'sprintId is required' })
+    return
+  }
+
+  const sprint = await get('SELECT id, name FROM sprints WHERE id = ?', [sprintId])
+  if (!sprint) {
+    res.status(404).json({ error: 'Sprint not found' })
+    return
+  }
+
+  // Committed workload: every issue in the sprint contributes its points to
+  // its assignee. Parameterized; grouped in JS so the per-type point fallback
+  // (toPoints) stays consistent with the rest of the reports module.
+  const issues = await all(
+    'SELECT assignee, issue_type, story_points FROM issues WHERE sprint_id = ?',
+    [sprintId],
+  )
+
+  const capacityRows = await all(
+    'SELECT assignee, capacity_points FROM member_capacity WHERE sprint_id = ?',
+    [sprintId],
+  )
+
+  const committedByAssignee = new Map()
+  for (const row of issues || []) {
+    const key = row.assignee || 'Unassigned'
+    committedByAssignee.set(key, (committedByAssignee.get(key) || 0) + toPoints(row))
+  }
+
+  const capacityByAssignee = new Map()
+  for (const row of capacityRows || []) {
+    const points = Number(row.capacity_points)
+    capacityByAssignee.set(row.assignee, Number.isFinite(points) ? points : 0)
+  }
+
+  // Union of assignees who either have committed work or a set capacity.
+  const assignees = new Set([...committedByAssignee.keys(), ...capacityByAssignee.keys()])
+
+  const rows = [...assignees]
+    .map((assignee) => {
+      const committedPoints = committedByAssignee.get(assignee) || 0
+      const capacityPoints = capacityByAssignee.get(assignee) || 0
+      const utilizationPct = capacityPoints > 0
+        ? Math.round((committedPoints / capacityPoints) * 100)
+        : null
+      return { assignee, committedPoints, capacityPoints, utilizationPct }
+    })
+    .sort((a, b) => b.committedPoints - a.committedPoints || a.assignee.localeCompare(b.assignee))
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.committedPoints += r.committedPoints
+      acc.capacityPoints += r.capacityPoints
+      return acc
+    },
+    { committedPoints: 0, capacityPoints: 0 },
+  )
+
+  res.json({
+    sprintId: sprint.id,
+    sprintName: sprint.name,
+    rows,
+    totals: {
+      committedPoints: totals.committedPoints,
+      capacityPoints: totals.capacityPoints,
+      utilizationPct: totals.capacityPoints > 0
+        ? Math.round((totals.committedPoints / totals.capacityPoints) * 100)
+        : null,
+    },
+  })
+}))
+
+// PUT /api/reports/capacity — set an assignee's capacity for a sprint.
+// Body: { sprintId, assignee, capacityPoints }. Member+ (workspace) gated.
+router.put('/capacity', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+  const sprintId = parseSprintId(req.body?.sprintId)
+  const assignee = typeof req.body?.assignee === 'string' ? req.body.assignee.trim() : ''
+  const capacityRaw = req.body?.capacityPoints
+  const capacityPoints = Number(capacityRaw)
+
+  if (sprintId === null) {
+    res.status(400).json({ error: 'sprintId is required' })
+    return
+  }
+  if (!assignee) {
+    res.status(400).json({ error: 'assignee is required' })
+    return
+  }
+  if (!Number.isFinite(capacityPoints) || capacityPoints < 0) {
+    res.status(400).json({ error: 'capacityPoints must be a non-negative number' })
+    return
+  }
+
+  const sprint = await get('SELECT id FROM sprints WHERE id = ?', [sprintId])
+  if (!sprint) {
+    res.status(404).json({ error: 'Sprint not found' })
+    return
+  }
+
+  const points = Math.round(capacityPoints)
+  await run(
+    `INSERT INTO member_capacity (assignee, sprint_id, capacity_points)
+     VALUES (?, ?, ?)
+     ON CONFLICT (assignee, sprint_id)
+     DO UPDATE SET capacity_points = EXCLUDED.capacity_points
+     RETURNING id`,
+    [assignee, sprintId, points],
+  )
+
+  res.json({ sprintId, assignee, capacityPoints: points })
 }))
 
 export default router

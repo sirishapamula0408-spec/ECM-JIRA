@@ -533,6 +533,20 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_sprint_scope_sprint ON sprint_scope(sprint_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_sprint_scope_issue ON sprint_scope(issue_id)')
+
+  // --- JL-53: Capacity Planning ---
+  // Per-assignee capacity (in story points) for a given sprint. `assignee` is
+  // the member key (matches issues.assignee). One row per (assignee, sprint).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS member_capacity (
+      id SERIAL PRIMARY KEY,
+      assignee TEXT NOT NULL,
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      capacity_points INTEGER NOT NULL DEFAULT 0,
+      UNIQUE (assignee, sprint_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_member_capacity_sprint ON member_capacity(sprint_id)')
   await pool.query(`
     CREATE TABLE IF NOT EXISTS worklogs (
       id SERIAL PRIMARY KEY,

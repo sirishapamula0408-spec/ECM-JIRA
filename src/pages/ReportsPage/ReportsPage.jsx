@@ -24,7 +24,8 @@ import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
 import { SvgLineChart } from '../../components/charts/SvgLineChart'
 import { SvgAreaChart } from '../../components/charts/SvgAreaChart'
-import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCreatedResolved } from '../../api/dashboardApi'
+import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCreatedResolved, fetchCapacity, setCapacity } from '../../api/dashboardApi'
+import { usePermissions } from '../../hooks/usePermissions'
 import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
 import './ReportsPage.css'
@@ -115,6 +116,57 @@ export function ReportsPage() {
       .catch(() => { if (active) setCreatedResolved(null) })
     return () => { active = false }
   }, [projectId, crDays])
+
+  // JL-53: Capacity Planning — per-assignee committed points vs capacity.
+  const { canEditIssue } = usePermissions(projectId ? Number(projectId) : undefined)
+  const [capacity, setCapacityData] = useState(null)
+  const [capacityError, setCapacityError] = useState('')
+  const [capacityDrafts, setCapacityDrafts] = useState({})
+  const [capacitySaving, setCapacitySaving] = useState('')
+
+  const loadCapacity = (sprintId) => {
+    if (!sprintId) { setCapacityData(null); return }
+    fetchCapacity(sprintId)
+      .then((data) => { setCapacityData(data); setCapacityError('') })
+      .catch((err) => { setCapacityData(null); setCapacityError(err?.message || 'Failed to load capacity') })
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    if (!selectedSprintId) { setCapacityData(null); return }
+    setCapacityError('')
+    fetchCapacity(selectedSprintId)
+      .then((data) => { if (!cancelled) setCapacityData(data) })
+      .catch((err) => { if (!cancelled) { setCapacityData(null); setCapacityError(err?.message || 'Failed to load capacity') } })
+    return () => { cancelled = true }
+  }, [selectedSprintId])
+
+  const handleSaveCapacity = async (assignee) => {
+    const raw = capacityDrafts[assignee]
+    const value = Number(raw)
+    if (!Number.isFinite(value) || value < 0) return
+    setCapacitySaving(assignee)
+    try {
+      await setCapacity({ sprintId: selectedSprintId, assignee, capacityPoints: value })
+      setCapacityDrafts((prev) => { const next = { ...prev }; delete next[assignee]; return next })
+      loadCapacity(selectedSprintId)
+    } catch (err) {
+      setCapacityError(err?.message || 'Failed to save capacity')
+    } finally {
+      setCapacitySaving('')
+    }
+  }
+
+  const capacityRows = Array.isArray(capacity?.rows) ? capacity.rows : []
+  const capacityChartData = capacityRows.map((r) => ({
+    label: r.assignee,
+    committed: r.committedPoints,
+    capacity: r.capacityPoints,
+  }))
+  const capacityChartSeries = [
+    { key: 'committed', name: 'Committed', color: '#4c9aff' },
+    { key: 'capacity', name: 'Capacity', color: '#36b37e' },
+  ]
 
   const computed = useMemo(() => {
     const allIssues = Array.isArray(issues) ? issues : []
@@ -633,6 +685,100 @@ export function ReportsPage() {
                 width={360}
                 height={240}
                 ariaLabel="Sprint report: committed vs completed points"
+              />
+            </div>
+          </div>
+        )}
+      </article>
+
+      {/* JL-53: Capacity Planning */}
+      <article className="panel chart-placeholder capacity-panel">
+        <div className="reports-panel-header">
+          <h3>Capacity Planning</h3>
+          <FormControl size="small" className="no-print" sx={{ minWidth: 200 }}>
+            <InputLabel id="capacity-sprint-label">Sprint</InputLabel>
+            <Select
+              labelId="capacity-sprint-label"
+              label="Sprint"
+              value={sprintOptions.some((s) => s.id === selectedSprintId) ? selectedSprintId : ''}
+              onChange={(e) => setSelectedSprintId(e.target.value)}
+            >
+              {sprintOptions.map((s) => (
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </div>
+        {capacityError && <p className="banner" style={{ color: 'var(--jira-danger, #de350b)' }}>{capacityError}</p>}
+        {!selectedSprintId && <div className="fake-chart">Select a sprint to plan capacity</div>}
+        {selectedSprintId && capacityRows.length === 0 && !capacityError && (
+          <div className="fake-chart">No assignees with committed work in this sprint</div>
+        )}
+        {selectedSprintId && capacityRows.length > 0 && (
+          <div className="two-col">
+            <div>
+              <Table size="small" className="capacity-table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Assignee</TableCell>
+                    <TableCell align="right">Committed</TableCell>
+                    <TableCell align="right">Capacity</TableCell>
+                    <TableCell align="right">Utilization</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {capacityRows.map((row) => {
+                    const draft = capacityDrafts[row.assignee]
+                    const over = row.utilizationPct !== null && row.utilizationPct > 100
+                    return (
+                      <TableRow key={row.assignee}>
+                        <TableCell>{row.assignee}</TableCell>
+                        <TableCell align="right">{row.committedPoints} pts</TableCell>
+                        <TableCell align="right">
+                          {canEditIssue ? (
+                            <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                              <TextField
+                                type="number"
+                                size="small"
+                                value={draft !== undefined ? draft : row.capacityPoints}
+                                onChange={(e) => setCapacityDrafts((prev) => ({ ...prev, [row.assignee]: e.target.value }))}
+                                inputProps={{ min: 0, style: { width: 64, textAlign: 'right' } }}
+                                className="no-print"
+                              />
+                              <Button
+                                size="small"
+                                variant="text"
+                                className="no-print"
+                                disabled={draft === undefined || capacitySaving === row.assignee}
+                                onClick={() => handleSaveCapacity(row.assignee)}
+                              >
+                                Save
+                              </Button>
+                            </Stack>
+                          ) : (
+                            `${row.capacityPoints} pts`
+                          )}
+                        </TableCell>
+                        <TableCell align="right" style={over ? { color: 'var(--jira-danger, #de350b)', fontWeight: 600 } : undefined}>
+                          {row.utilizationPct === null ? '—' : `${row.utilizationPct}%`}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <div>
+              <div className="velocity-legend">
+                <span><i className="velocity-legend-dot committed" />Committed</span>
+                <span><i className="velocity-legend-dot completed" />Capacity</span>
+              </div>
+              <SvgBarChart
+                data={capacityChartData}
+                series={capacityChartSeries}
+                width={360}
+                height={240}
+                ariaLabel="Capacity planning: committed points vs capacity per assignee"
               />
             </div>
           </div>
