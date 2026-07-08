@@ -24,6 +24,10 @@ export function deleteIssue(id) {
   return api(`/api/issues/${id}`, { method: 'DELETE' })
 }
 
+export function getIssueHistory(id) {
+  return api(`/api/issues/${id}/history`)
+}
+
 export function fetchSubtasks(parentId) {
   return api(`/api/issues/${parentId}/subtasks`)
 }
