@@ -1,0 +1,32 @@
+.releases-page { padding: 24px; }
+.rel-header { display: flex; align-items: center; gap: 16px; }
+.rel-sub { color: var(--color-text-subtle, #6b778c); margin: 4px 0 16px; }
+.rel-input { padding: 6px 10px; border: 1px solid var(--color-border, #dfe1e6); border-radius: 6px; background: var(--color-surface, #fff); color: inherit; }
+.rel-builder { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px; }
+.rel-name { min-width: 200px; }
+.rel-desc { flex: 1; min-width: 220px; }
+.rel-error { color: #de350b; width: 100%; margin: 4px 0 0; }
+
+.rel-body { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(280px, 1.2fr); gap: 24px; align-items: start; }
+@media (max-width: 800px) { .rel-body { grid-template-columns: 1fr; } }
+
+.rel-section-title { margin: 12px 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-subtle, #6b778c); }
+.rel-empty { color: var(--color-text-subtle, #6b778c); font-style: italic; }
+
+.rel-card { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-border, #dfe1e6); border-radius: 8px; margin-bottom: 8px; }
+.rel-card--active { border-color: #4c9aff; box-shadow: 0 0 0 1px #4c9aff; }
+.rel-card-main { display: flex; flex-direction: column; gap: 2px; background: none; border: none; text-align: left; cursor: pointer; color: inherit; flex: 1; }
+.rel-card-actions { display: flex; gap: 4px; }
+.rel-meta { font-size: 12px; color: var(--color-text-subtle, #6b778c); }
+
+.rel-badge { display: inline-block; align-self: flex-start; font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-top: 2px; text-transform: capitalize; }
+.rel-badge--unreleased { background: #dfe1e6; color: #42526e; }
+.rel-badge--released { background: #e3fcef; color: #006644; }
+
+.rel-bar { height: 10px; background: #dfe1e6; border-radius: 6px; overflow: hidden; }
+.rel-bar-fill { height: 100%; background: #36b37e; transition: width 0.3s ease; }
+.rel-progress-text { font-size: 13px; margin: 8px 0; }
+.rel-ready { color: #006644; font-weight: 600; }
+.rel-readiness ul, .rel-notes-group ul { margin: 4px 0 12px; padding-left: 18px; }
+.rel-readiness li, .rel-notes-group li { margin: 2px 0; font-size: 13px; }
+.rel-notes-group h4 { margin: 12px 0 4px; }

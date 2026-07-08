@@ -634,6 +634,26 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label_id)')
 
+  // --- JL-57: Release Management ---
+  // Named releases per project with a target date; issues are assigned via issues.release_id.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS releases (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      release_date DATE,
+      status TEXT NOT NULL DEFAULT 'unreleased' CHECK (status IN ('unreleased', 'released')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_releases_project ON releases(project_id)')
+  // Nullable FK on issues; unassigning is handled by setting to NULL on release delete.
+  if (!(await columnExists('issues', 'release_id'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_release_id ON issues(release_id)')
+  }
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
