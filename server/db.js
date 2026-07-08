@@ -477,6 +477,35 @@ export async function initializeDatabase() {
   if (!(await columnExists('issues', 'updated_at'))) {
     await pool.query('ALTER TABLE issues ADD COLUMN updated_at TIMESTAMPTZ')
   }
+
+  // --- JL-86: Reporting data foundation ---
+  // Story points on issues (nullable). Real sprint dates + completion timestamp.
+  if (!(await columnExists('issues', 'story_points'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN story_points INTEGER')
+  }
+  if (!(await columnExists('sprints', 'start_date'))) {
+    await pool.query('ALTER TABLE sprints ADD COLUMN start_date TIMESTAMPTZ')
+  }
+  if (!(await columnExists('sprints', 'end_date'))) {
+    await pool.query('ALTER TABLE sprints ADD COLUMN end_date TIMESTAMPTZ')
+  }
+  if (!(await columnExists('sprints', 'completed_at'))) {
+    await pool.query('ALTER TABLE sprints ADD COLUMN completed_at TIMESTAMPTZ')
+  }
+  // Scope snapshot per sprint: what issues (and their points) were in scope,
+  // when they were added, and if/when removed. Drives burndown/burnup/CFD later.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sprint_scope (
+      id SERIAL PRIMARY KEY,
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      points INTEGER,
+      added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      removed_at TIMESTAMPTZ
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_sprint_scope_sprint ON sprint_scope(sprint_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_sprint_scope_issue ON sprint_scope(issue_id)')
   await pool.query(`
     CREATE TABLE IF NOT EXISTS worklogs (
       id SERIAL PRIMARY KEY,

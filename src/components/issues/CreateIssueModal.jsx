@@ -45,6 +45,7 @@ export function CreateIssueModal({ onClose }) {
     startDate: '',
     components: '',
     environment: '',
+    storyPoints: '',
   })
   const [createAnother, setCreateAnother] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -104,6 +105,7 @@ export function CreateIssueModal({ onClose }) {
         startDate: form.startDate || undefined,
         components: form.components.trim() || undefined,
         environment: form.environment.trim() || undefined,
+        storyPoints: form.storyPoints === '' ? null : Number(form.storyPoints),
       }
       await handleCreate(payload)
 
@@ -329,6 +331,21 @@ export function CreateIssueModal({ onClose }) {
               value={form.environment}
               onChange={(e) => update('environment', e.target.value)}
             />
+          </div>
+
+          {/* Story Points (optional) */}
+          <div className="create-issue-row">
+            <div className="create-issue-field">
+              <label>Story Points</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 5"
+                value={form.storyPoints}
+                onChange={(e) => update('storyPoints', e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
