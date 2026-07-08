@@ -32,6 +32,7 @@ import issueLinkRoutes from './routes/issueLinks.js'
 import worklogRoutes from './routes/worklogs.js'
 import customFieldRoutes from './routes/customFields.js'
 import automationRoutes from './routes/automation.js'
+import docsRoutes from './routes/docs.js'
 
 const app = express()
 
@@ -47,6 +48,10 @@ app.get('/api/health', (_req, res) => {
 
 // Public routes (no auth required)
 app.use('/api/auth', authRoutes)
+
+// API documentation (JL-58) — public, mounted before auth-protected routes
+// GET /api/openapi.json (raw OpenAPI 3.0 spec) and GET /api/docs (HTML viewer)
+app.use('/api', docsRoutes)
 
 // Protected routes (JWT + role loading)
 // authGuard verifies JWT and sets req.user = { id, email }
