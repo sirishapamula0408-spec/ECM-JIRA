@@ -474,6 +474,23 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_history_issue ON issue_history(issue_id)')
 
+  // --- JL-52: SLA Tracking & Alerts ---
+  // Per-project SLA targets keyed by issue priority. `target_hours` is the
+  // budget an issue has before it breaches; `applies_to` distinguishes a
+  // resolution SLA (time to Done) from a response SLA (time to first action).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sla_policies (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      priority TEXT NOT NULL,
+      target_hours INTEGER NOT NULL,
+      applies_to TEXT NOT NULL DEFAULT 'resolution'
+        CHECK (applies_to IN ('resolution', 'response')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_sla_policies_project ON sla_policies(project_id)')
+
   // --- Theme-1 #5: Time Tracking ---
   if (!(await columnExists('issues', 'original_estimate_minutes'))) {
     await pool.query('ALTER TABLE issues ADD COLUMN original_estimate_minutes INTEGER')

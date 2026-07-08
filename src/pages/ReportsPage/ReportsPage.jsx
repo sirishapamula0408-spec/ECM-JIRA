@@ -28,6 +28,7 @@ import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCre
 import { usePermissions } from '../../hooks/usePermissions'
 import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
+import { SlaPanel } from './SlaPanel'
 import './ReportsPage.css'
 
 // Band colours for the CFD, bottom → top (Done on top).
@@ -820,6 +821,9 @@ export function ReportsPage() {
           <div className="fake-chart">No created/resolved data available</div>
         )}
       </article>
+
+      {/* JL-52: SLA Tracking & Alerts */}
+      <SlaPanel projectId={projectId} />
     </section>
   )
 }
