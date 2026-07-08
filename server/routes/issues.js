@@ -21,6 +21,9 @@ function mapIssue(row) {
     projectId: row.project_id ?? null,
     parentId: row.parent_id ?? null,
     createdAt: row.created_at,
+    ...(row.watcher_count !== undefined
+      ? { watcherCount: Number(row.watcher_count) || 0 }
+      : {}),
   }
 }
 
@@ -33,14 +36,15 @@ router.get('/', asyncHandler(async (req, res) => {
   const status = req.query.status
   const params = []
   let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues'
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.created_at, ' +
+    '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i'
 
   if (status) {
-    sql += ' WHERE status = ?'
+    sql += ' WHERE i.status = ?'
     params.push(status)
   }
 
-  sql += ' ORDER BY id DESC'
+  sql += ' ORDER BY i.id DESC'
   const rows = await all(sql, params)
   res.json(rows.map(mapIssue))
 }))
@@ -182,6 +186,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     params.push(fields.priority)
   }
 
+  let newAssignee = null
   if (fields.assignee !== undefined) {
     const a = String(fields.assignee || '').trim()
     if (!a) {
@@ -190,6 +195,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('assignee = ?')
     params.push(a)
+    newAssignee = a
   }
 
   if (fields.issueType !== undefined) {
@@ -228,6 +234,21 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
 
   params.push(id)
   await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
+
+  // JL-36: Auto-watch on assign — subscribe the newly assigned member (by name or email)
+  if (newAssignee && newAssignee !== existing.assignee) {
+    const member = await get(
+      'SELECT email FROM members WHERE email = ? OR name = ? LIMIT 1',
+      [newAssignee, newAssignee],
+    )
+    const watcherEmail = member?.email || newAssignee
+    if (watcherEmail) {
+      await run(
+        'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+        [id, watcherEmail],
+      )
+    }
+  }
 
   const row = await get(
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
