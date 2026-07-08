@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -6,6 +6,8 @@ import { useMembers } from '../../context/MemberContext'
 import { useNotifications } from '../../context/NotificationContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
+import { searchIssues } from '../../api/issueApi'
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { NotificationDropdown } from '../notifications/NotificationDropdown'
@@ -26,6 +28,52 @@ export function Topbar({ onCreate, hasProjects }) {
   const fullName = String(displayNameFromEmail(email) || profile?.full_name || 'User')
   const avatarText = (fullName || 'U').trim().charAt(0).toUpperCase() || 'U'
 
+  // JL-75 — global quick-search
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const searchWrapRef = useRef(null)
+
+  useEffect(() => {
+    const term = searchTerm.trim()
+    if (!term) {
+      setSearchResults([])
+      setSearching(false)
+      return undefined
+    }
+    setSearching(true)
+    let cancelled = false
+    // JQL-lite queries contain an operator; otherwise treat as free text.
+    const isJql = /[a-zA-Z_]+\s*(!=|=|~)/.test(term)
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchIssues(isJql ? { jql: term } : { q: term })
+        if (!cancelled) {
+          setSearchResults(Array.isArray(results) ? results.slice(0, 8) : [])
+          setSearchOpen(true)
+        }
+      } catch {
+        if (!cancelled) setSearchResults([])
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [searchTerm])
+
+  const handleSelectResult = useCallback(
+    (issue) => {
+      setSearchOpen(false)
+      setSearchTerm('')
+      navigate(`/issues/${issue.id}`)
+    },
+    [navigate],
+  )
+
   const [now, setNow] = useState(new Date())
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -37,7 +85,44 @@ export function Topbar({ onCreate, hasProjects }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <input className="search" placeholder="Search" />
+        <div
+          className="topbar-search-wrap"
+          ref={searchWrapRef}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false)
+          }}
+        >
+          <input
+            className="search"
+            placeholder="Search issues or JQL (e.g. status = Done AND priority = High)"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onFocus={() => { if (searchResults.length) setSearchOpen(true) }}
+            aria-label="Search issues"
+          />
+          {searching && <CircularProgress size={16} className="topbar-search-spinner" />}
+          {searchOpen && searchTerm.trim() && (
+            <div className="topbar-search-results" role="listbox">
+              {searchResults.length === 0 && !searching && (
+                <div className="topbar-search-empty">No matching issues</div>
+              )}
+              {searchResults.map((issue) => (
+                <button
+                  key={issue.id}
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  className="topbar-search-item"
+                  onClick={() => handleSelectResult(issue)}
+                >
+                  <span className="topbar-search-key">{issue.key}</span>
+                  <span className="topbar-search-title">{issue.title}</span>
+                  <span className="topbar-search-status">{issue.status}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="top-actions top-actions-jira">

@@ -2,6 +2,16 @@ import { api } from './client.js'
 
 export const fetchIssues = () => api('/api/issues')
 
+// JL-75 — global/advanced search. Pass { q } for free-text or { jql } for
+// JQL-lite. Returns the same issue shape as fetchIssues.
+export function searchIssues({ q, jql } = {}) {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (jql) params.set('jql', jql)
+  const qs = params.toString()
+  return api(`/api/issues${qs ? `?${qs}` : ''}`)
+}
+
 export function fetchIssueById(id) {
   return api(`/api/issues/${id}`)
 }

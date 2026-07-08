@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
+import { buildIssueSearch } from '../services/jqlSearch.js'
 
 const router = Router()
 
@@ -30,18 +31,26 @@ async function getDefaultSprintId() {
 }
 
 router.get('/', asyncHandler(async (req, res) => {
-  const status = req.query.status
-  const params = []
-  let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues'
+  const { status, q, jql } = req.query
 
-  if (status) {
-    sql += ' WHERE status = ?'
-    params.push(status)
+  let built
+  try {
+    // Whitelisted fields + bound params only — see server/services/jqlSearch.js.
+    built = buildIssueSearch({ status, q, jql })
+  } catch (err) {
+    if (err.status === 400) {
+      res.status(400).json({ error: err.message })
+      return
+    }
+    throw err
   }
 
-  sql += ' ORDER BY id DESC'
-  const rows = await all(sql, params)
+  const sql =
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues' +
+    (built.where ? ` ${built.where}` : '') +
+    ` ORDER BY ${built.orderBy}`
+
+  const rows = await all(sql, built.params)
   res.json(rows.map(mapIssue))
 }))
 
