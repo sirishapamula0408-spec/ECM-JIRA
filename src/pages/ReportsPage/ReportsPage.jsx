@@ -1,8 +1,13 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
+import { Button, Stack } from '@mui/material'
+import DownloadIcon from '@mui/icons-material/Download'
+import PrintIcon from '@mui/icons-material/Print'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { StatCard } from '../../components/ui/StatCard'
+import { SvgBarChart } from '../../components/charts/SvgBarChart'
+import { downloadCSV } from '../../utils/reportExport'
 import './ReportsPage.css'
 
 export function ReportsPage() {
@@ -57,7 +62,6 @@ export function ReportsPage() {
 
   const reportData = computed
   const trend = Array.isArray(reportData.velocityTrend) ? reportData.velocityTrend : []
-  const maxPoints = Math.max(1, ...trend.map((item) => item.committedPoints))
   const critical = reportData.priorityDistribution?.critical || 0
   const medium = reportData.priorityDistribution?.medium || 0
   const low = reportData.priorityDistribution?.low || 0
@@ -69,9 +73,57 @@ export function ReportsPage() {
     ? allIssues.some((issue) => issue.projectId === Number(projectId))
     : allIssues.length > 0
 
+  const chartData = trend.map((item) => ({
+    label: item.name,
+    committed: item.committedPoints,
+    completed: item.completedPoints,
+  }))
+  const chartSeries = [
+    { key: 'committed', name: 'Committed', color: '#4c9aff' },
+    { key: 'completed', name: 'Completed', color: '#36b37e' },
+  ]
+
+  const handleExportCsv = () => {
+    const rows = [
+      { metric: 'Total Points', value: reportData.totalPoints || 0 },
+      { metric: 'Velocity Avg', value: reportData.velocityAverage || 0 },
+      { metric: 'Completion Rate (%)', value: reportData.completionRate || 0 },
+      { metric: 'Sprint Progress (%)', value: reportData.sprintProgress || 0 },
+      { metric: 'Priority Critical (%)', value: critical },
+      { metric: 'Priority Medium (%)', value: reportData.priorityDistribution?.medium || 0 },
+      { metric: 'Priority Low (%)', value: reportData.priorityDistribution?.low || 0 },
+    ]
+    const velocityRows = trend.map((item) => ({
+      metric: `Sprint: ${item.name} committed`,
+      value: item.committedPoints,
+    }))
+    const velocityDoneRows = trend.map((item) => ({
+      metric: `Sprint: ${item.name} completed`,
+      value: item.completedPoints,
+    }))
+    const filename = projectId ? `report-project-${projectId}.csv` : 'report.csv'
+    downloadCSV(filename, [...rows, ...velocityRows, ...velocityDoneRows], [
+      { key: 'metric', label: 'Metric' },
+      { key: 'value', label: 'Value' },
+    ])
+  }
+
+  const handlePrint = () => window.print()
+
   return (
-    <section className="page">
-      <h1>Reporting Dashboard</h1>
+    <section className="page reports-page">
+      <div className="reports-header no-print">
+        <h1>Reporting Dashboard</h1>
+        <Stack direction="row" spacing={1}>
+          <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportCsv}>
+            Export CSV
+          </Button>
+          <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
+            Print / PDF
+          </Button>
+        </Stack>
+      </div>
+      <h1 className="print-only reports-print-title">Reporting Dashboard</h1>
       {!hasIssues && projectId && (
         <p className="banner" style={{ textAlign: 'center', color: 'var(--jira-text-muted)', padding: '12px' }}>
           No issues found for this project. Create issues to see report data.
@@ -92,17 +144,13 @@ export function ReportsPage() {
                 <span><i className="velocity-legend-dot committed" />Committed</span>
                 <span><i className="velocity-legend-dot completed" />Completed</span>
               </div>
-              <div className="velocity-chart">
-                {trend.map((item) => (
-                  <div key={item.id} className="velocity-group">
-                    <div className="velocity-bars">
-                      <span className="velocity-bar velocity-bar-committed" style={{ height: `${Math.max(6, Math.round((item.committedPoints / maxPoints) * 100))}%` }} title={`${item.name} committed: ${item.committedPoints}`} />
-                      <span className="velocity-bar velocity-bar-completed" style={{ height: `${Math.max(6, Math.round((item.completedPoints / maxPoints) * 100))}%` }} title={`${item.name} completed: ${item.completedPoints}`} />
-                    </div>
-                    <small>{item.name}</small>
-                  </div>
-                ))}
-              </div>
+              <SvgBarChart
+                data={chartData}
+                series={chartSeries}
+                width={480}
+                height={240}
+                ariaLabel="Velocity chart: committed vs completed points per sprint"
+              />
             </>
           ) : (<div className="fake-chart">No sprint data available</div>)}
         </article>

@@ -1,5 +1,59 @@
 /* ReportsPage styles */
 
+.reports-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.reports-header h1 {
+  margin: 0;
+}
+
+.print-only {
+  display: none;
+}
+
+/* Print-friendly / PDF section: hide app chrome, show clean report */
+@media print {
+  .no-print,
+  .sidebar,
+  .topbar {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .reports-print-title {
+    margin: 0 0 16px;
+  }
+
+  .page.reports-page {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+  }
+
+  .panel,
+  .chart-placeholder {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .two-col {
+    display: block;
+  }
+
+  .svg-chart-tooltip {
+    display: none !important;
+  }
+}
+
 .chart-placeholder .fake-chart {
   height: 220px;
   border-radius: 4px;
