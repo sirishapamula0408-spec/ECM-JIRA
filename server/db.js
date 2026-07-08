@@ -739,6 +739,20 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_email)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)')
 
+  // --- JL-85: Board configuration (swimlanes, quick filters, WIP limits) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS board_configs (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+      swimlane_by TEXT NOT NULL DEFAULT 'none',
+      wip_limits JSONB NOT NULL DEFAULT '{}',
+      quick_filters JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_board_configs_project ON board_configs(project_id)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints

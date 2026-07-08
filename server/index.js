@@ -34,6 +34,7 @@ import customFieldRoutes from './routes/customFields.js'
 import automationRoutes from './routes/automation.js'
 import releaseRoutes from './routes/releases.js'
 import issueConfigRoutes from './routes/issueConfig.js'
+import boardConfigRoutes from './routes/boardConfig.js'
 import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
@@ -93,6 +94,7 @@ app.use('/api', ...protect, customFieldRoutes)
 app.use('/api', ...protect, automationRoutes)
 app.use('/api', ...protect, releaseRoutes)
 app.use('/api', ...protect, issueConfigRoutes)
+app.use('/api', ...protect, boardConfigRoutes)
 
 app.use(errorHandler)
 
