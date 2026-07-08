@@ -36,6 +36,9 @@ function mapIssue(row) {
     environment: row.environment ?? null,
     components: row.components ?? null,
     updatedAt: row.updated_at ?? null,
+    ...(row.watcher_count !== undefined
+      ? { watcherCount: Number(row.watcher_count) || 0 }
+      : {}),
   }
 }
 
@@ -69,14 +72,15 @@ router.get('/', asyncHandler(async (req, res) => {
   const status = req.query.status
   const params = []
   let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues'
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, ' +
+    '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i'
 
   if (status) {
-    sql += ' WHERE status = ?'
+    sql += ' WHERE i.status = ?'
     params.push(status)
   }
 
-  sql += ' ORDER BY id DESC'
+  sql += ' ORDER BY i.id DESC'
   const rows = await all(sql, params)
   res.json(rows.map(mapIssue))
 }))
@@ -245,6 +249,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     changes.push({ field: 'priority', oldValue: existing.priority, newValue: fields.priority })
   }
 
+  let newAssignee = null
   if (fields.assignee !== undefined) {
     const a = String(fields.assignee || '').trim()
     if (!a) {
@@ -254,6 +259,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     sets.push('assignee = ?')
     params.push(a)
     changes.push({ field: 'assignee', oldValue: existing.assignee, newValue: a })
+    newAssignee = a
   }
 
   if (fields.issueType !== undefined) {
@@ -328,6 +334,21 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   // JL-82: write one audit-log row per field that actually changed
   for (const change of changes) {
     await recordHistory(id, change.field, change.oldValue, change.newValue, req.user?.email)
+  }
+
+  // JL-36: Auto-watch on assign — subscribe the newly assigned member (by name or email)
+  if (newAssignee && newAssignee !== existing.assignee) {
+    const member = await get(
+      'SELECT email FROM members WHERE email = ? OR name = ? LIMIT 1',
+      [newAssignee, newAssignee],
+    )
+    const watcherEmail = member?.email || newAssignee
+    if (watcherEmail) {
+      await run(
+        'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+        [id, watcherEmail],
+      )
+    }
   }
 
   const row = await get(

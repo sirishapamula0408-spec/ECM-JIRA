@@ -500,6 +500,15 @@ textarea:focus {
   line-height: var(--line-height-xs);
 }
 
+.issue-watcher-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #6b778c;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+}
+
 .quick-create-row {
   display: flex;
   align-items: center;
