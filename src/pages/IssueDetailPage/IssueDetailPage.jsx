@@ -14,6 +14,7 @@ import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '.
 import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS } from '../../api/gitIntegrationApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
+import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
@@ -99,6 +100,7 @@ export function IssueDetailPage() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
   const [links, setLinks] = useState([])
+  const [ciBuilds, setCiBuilds] = useState([])
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   // JL-55: Git integration (branches / commits / PRs)
   const [gitLinks, setGitLinks] = useState([])
@@ -417,6 +419,14 @@ export function IssueDetailPage() {
     if (!issue?.id) return
     reloadLinks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id])
+
+  // CI/CD builds
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchCiBuilds(issue.id)
+      .then((data) => setCiBuilds(Array.isArray(data) ? data : []))
+      .catch(() => setCiBuilds([]))
   }, [issue?.id])
 
   async function handleAddLink() {
@@ -943,6 +953,30 @@ export function IssueDetailPage() {
                   </ul>
                 </div>
               ))
+            )}
+          </div>
+
+          {/* CI/CD Pipeline Status */}
+          <div className="id-section">
+            <h3 className="id-section-title">CI/CD ({ciBuilds.length})</h3>
+            {ciBuilds.length === 0 ? (
+              <p className="id-empty-text">No builds recorded.</p>
+            ) : (
+              <ul className="id-ci-list">
+                {ciBuilds.map((b) => (
+                  <li key={b.id} className="id-ci-row">
+                    <span className={`id-ci-status id-ci-status--${b.status}`}>{b.status}</span>
+                    <span className="id-ci-pipeline">{b.pipeline || 'pipeline'}</span>
+                    {b.branch && <span className="id-ci-branch">{b.branch}</span>}
+                    {typeof b.duration_seconds === 'number' && (
+                      <span className="id-ci-duration">{b.duration_seconds}s</span>
+                    )}
+                    {b.url && (
+                      <a className="id-ci-link" href={b.url} target="_blank" rel="noopener noreferrer">View</a>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 

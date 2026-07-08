@@ -38,6 +38,7 @@ import issueConfigRoutes from './routes/issueConfig.js'
 import boardConfigRoutes from './routes/boardConfig.js'
 import slaRoutes from './routes/sla.js'
 import gitIntegrationRoutes from './routes/gitIntegration.js'
+import cicdRoutes from './routes/cicd.js'
 import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
@@ -101,6 +102,7 @@ app.use('/api', ...protect, issueConfigRoutes)
 app.use('/api', ...protect, boardConfigRoutes)
 app.use('/api', ...protect, slaRoutes)
 app.use('/api', ...protect, gitIntegrationRoutes)
+app.use('/api', ...protect, cicdRoutes)
 
 app.use(errorHandler)
 
