@@ -5,10 +5,15 @@ import {
   fetchProjectPriorities, createPriority, deletePriority,
   fetchProjectStatuses, createStatus, deleteStatus,
 } from '../../api/issueConfigApi'
+import {
+  fetchPermissionSchemes, fetchPermissionScheme, createPermissionScheme,
+  addPermissionGrant, deletePermissionGrant, assignPermissionScheme,
+  fetchEffectivePermissions, PERMISSION_KEYS, SCHEME_ROLES,
+} from '../../api/schemesApi'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
 
-const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields' }
+const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions' }
 const STATUS_CATEGORIES = ['todo', 'inprogress', 'done']
 
 export function ProjectSettingsPage() {
@@ -37,6 +42,32 @@ export function ProjectSettingsPage() {
   const [fieldsBusy, setFieldsBusy] = useState(false)
   const [fieldsError, setFieldsError] = useState('')
 
+  // Permissions tab state
+  const [schemes, setSchemes] = useState([])
+  const [assignedSchemeId, setAssignedSchemeId] = useState('') // '' = using default (fallback)
+  const [viewScheme, setViewScheme] = useState(null) // { ...scheme, grants }
+  const [effective, setEffective] = useState(null)
+  const [newSchemeName, setNewSchemeName] = useState('')
+  const [permsBusy, setPermsBusy] = useState(false)
+  const [permsError, setPermsError] = useState('')
+
+  const loadViewScheme = useCallback((schemeId) => {
+    if (!schemeId) { setViewScheme(null); return }
+    fetchPermissionScheme(schemeId).then(setViewScheme).catch(() => {})
+  }, [])
+
+  const loadSchemes = useCallback(() => {
+    fetchPermissionSchemes().then(setSchemes).catch(() => {})
+    fetchEffectivePermissions(projectId)
+      .then((data) => {
+        setEffective(data)
+        // fallback=true means the project has no explicit assignment (using default)
+        setAssignedSchemeId(data.fallback ? '' : String(data.schemeId || ''))
+        loadViewScheme(data.schemeId)
+      })
+      .catch(() => {})
+  }, [projectId, loadViewScheme])
+
   const loadProjectMembers = useCallback(() => {
     fetchProjectMembers(projectId)
       .then(setProjectMembers)
@@ -58,7 +89,8 @@ export function ProjectSettingsPage() {
       .finally(() => setLoading(false))
     loadProjectMembers()
     loadFieldConfig()
-  }, [projectId, loadProjectMembers, loadFieldConfig])
+    loadSchemes()
+  }, [projectId, loadProjectMembers, loadFieldConfig, loadSchemes])
 
   if (loading) return <div className="page ps-layout"><p style={{ padding: 24 }}>Loading...</p></div>
   if (!project || !form) return <div className="page ps-layout"><p style={{ padding: 24 }}>Project not found.</p></div>
@@ -169,6 +201,61 @@ export function ProjectSettingsPage() {
   // A row is a global default (not project-specific) when project_id is null.
   const isGlobal = (row) => row.project_id === null || row.project_id === undefined
 
+  // ── Permissions tab handlers ──
+  async function handleAssignScheme(schemeId) {
+    setAssignedSchemeId(schemeId)
+    setPermsBusy(true)
+    setPermsError('')
+    try {
+      await assignPermissionScheme(projectId, schemeId ? Number(schemeId) : null)
+      const data = await fetchEffectivePermissions(projectId)
+      setEffective(data)
+      loadViewScheme(data.schemeId)
+    } catch (err) {
+      setPermsError(err.message || 'Failed to assign scheme.')
+    }
+    setPermsBusy(false)
+  }
+
+  async function handleCreateScheme() {
+    const name = newSchemeName.trim()
+    if (!name) return
+    setPermsBusy(true)
+    setPermsError('')
+    try {
+      const created = await createPermissionScheme({ name })
+      setSchemes((prev) => [...prev, created])
+      setNewSchemeName('')
+    } catch (err) {
+      setPermsError(err.message || 'Failed to create scheme.')
+    }
+    setPermsBusy(false)
+  }
+
+  async function handleToggleGrant(permissionKey, role, currentlyGranted) {
+    if (!viewScheme) return
+    setPermsBusy(true)
+    setPermsError('')
+    try {
+      if (currentlyGranted) {
+        const grant = viewScheme.grants.find((g) => g.permission_key === permissionKey && g.role === role)
+        if (grant) await deletePermissionGrant(grant.id)
+      } else {
+        await addPermissionGrant(viewScheme.id, { permissionKey, role })
+      }
+      const refreshed = await fetchPermissionScheme(viewScheme.id)
+      setViewScheme(refreshed)
+      // Effective map may change if this is the project's active scheme.
+      fetchEffectivePermissions(projectId).then(setEffective).catch(() => {})
+    } catch (err) {
+      setPermsError(err.message || 'Failed to update grant.')
+    }
+    setPermsBusy(false)
+  }
+
+  const hasGrant = (permissionKey, role) =>
+    Boolean(viewScheme?.grants?.some((g) => g.permission_key === permissionKey && g.role === role))
+
   return (
     <section className="page ps-layout">
       {/* ── Sidebar ── */}
@@ -243,6 +330,20 @@ export function ProjectSettingsPage() {
               </svg>
             </span>
             Statuses &amp; Priorities
+          </button>
+
+          <button
+            className={`ps-nav-link${activeSection === SECTIONS.PERMISSIONS ? ' active' : ''}`}
+            type="button"
+            onClick={() => setActiveSection(SECTIONS.PERMISSIONS)}
+          >
+            <span className="ps-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </span>
+            Permissions
           </button>
         </div>
       </nav>
@@ -556,6 +657,95 @@ export function ProjectSettingsPage() {
                 </button>
               </div>
             </article>
+          </>
+        )}
+
+        {activeSection === SECTIONS.PERMISSIONS && (
+          <>
+            <h1>Permissions</h1>
+            <p className="muted">
+              Assign a permission scheme to control which roles hold each capability.
+              Projects use the default scheme until you assign a custom one.
+            </p>
+
+            {permsError && <p className="banner error">{permsError}</p>}
+
+            <article className="panel">
+              <h3>Assigned Scheme</h3>
+              <p className="muted">
+                {effective?.fallback
+                  ? `Using the default scheme (${effective?.schemeName || 'Default'}).`
+                  : `Using ${effective?.schemeName || 'a custom scheme'}.`}
+              </p>
+              <div className="ps-add-member-row">
+                <select
+                  value={assignedSchemeId}
+                  onChange={(e) => handleAssignScheme(e.target.value)}
+                  disabled={permsBusy}
+                >
+                  <option value="">Default scheme</option>
+                  {schemes.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.is_default ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="ps-add-member-row" style={{ marginTop: 12 }}>
+                <input
+                  placeholder="New scheme name"
+                  value={newSchemeName}
+                  onChange={(e) => setNewSchemeName(e.target.value)}
+                  disabled={permsBusy}
+                />
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleCreateScheme}
+                  disabled={!newSchemeName.trim() || permsBusy}
+                >
+                  Create scheme
+                </button>
+              </div>
+            </article>
+
+            {viewScheme && (
+              <article className="panel" style={{ marginTop: 16 }}>
+                <h3>Grants — {viewScheme.name}</h3>
+                <p className="muted">
+                  A checked box grants the capability to that role and every higher role.
+                  {viewScheme.is_default ? ' This is the default scheme.' : ''}
+                </p>
+                <table className="table" style={{ marginTop: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Capability</th>
+                      {SCHEME_ROLES.map((role) => (
+                        <th key={role} style={{ textAlign: 'center', width: 90 }}>{role}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PERMISSION_KEYS.map((key) => (
+                      <tr key={key}>
+                        <td><strong>{key}</strong></td>
+                        {SCHEME_ROLES.map((role) => (
+                          <td key={role} style={{ textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={hasGrant(key, role)}
+                              onChange={() => handleToggleGrant(key, role, hasGrant(key, role))}
+                              disabled={permsBusy}
+                              aria-label={`${key} for ${role}`}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </article>
+            )}
           </>
         )}
       </div>

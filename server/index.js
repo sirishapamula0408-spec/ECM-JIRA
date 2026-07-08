@@ -38,6 +38,7 @@ import boardConfigRoutes from './routes/boardConfig.js'
 import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
+import schemeRoutes from './routes/schemes.js'
 
 const app = express()
 
@@ -95,6 +96,7 @@ app.use('/api', ...protect, automationRoutes)
 app.use('/api', ...protect, releaseRoutes)
 app.use('/api', ...protect, issueConfigRoutes)
 app.use('/api', ...protect, boardConfigRoutes)
+app.use('/api', ...protect, schemeRoutes)
 
 app.use(errorHandler)
 
