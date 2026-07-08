@@ -1,14 +1,25 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Button, Stack } from '@mui/material'
+import { Button, MenuItem, Stack, TextField } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import PrintIcon from '@mui/icons-material/Print'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
+import { SvgAreaChart } from '../../components/charts/SvgAreaChart'
+import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
 import './ReportsPage.css'
+
+// Band colours for the CFD, bottom → top (Done on top).
+const CFD_STATUS_COLORS = {
+  Backlog: '#c1c7d0',
+  'To Do': '#4c9aff',
+  'In Progress': '#ff991f',
+  'Code Review': '#6554c0',
+  Done: '#36b37e',
+}
 
 export function ReportsPage() {
   const { issues } = useIssues()
@@ -59,6 +70,37 @@ export function ReportsPage() {
       velocityTrend: sprintTrend,
     }
   }, [issues, sprints, projectId])
+
+  // JL-50: Cumulative Flow Diagram — fetched from the reconstruction endpoint.
+  const [cfdDays, setCfdDays] = useState(30)
+  const [cfdGranularity, setCfdGranularity] = useState('daily')
+  const [cfd, setCfd] = useState(null)
+  const [cfdError, setCfdError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams({ days: String(cfdDays), granularity: cfdGranularity })
+    if (projectId) params.set('projectId', String(projectId))
+    setCfdError(null)
+    api(`/api/reports/cfd?${params.toString()}`)
+      .then((data) => { if (!cancelled) setCfd(data) })
+      .catch((err) => { if (!cancelled) { setCfd(null); setCfdError(err.message || 'Failed to load CFD') } })
+    return () => { cancelled = true }
+  }, [projectId, cfdDays, cfdGranularity])
+
+  const cfdChartData = useMemo(() => {
+    if (!cfd || !Array.isArray(cfd.days)) return []
+    return cfd.days.map((day) => ({ label: day.date, ...day.counts }))
+  }, [cfd])
+
+  const cfdSeries = useMemo(() => {
+    const statuses = cfd?.statuses || []
+    return statuses.map((status) => ({
+      key: status,
+      name: status,
+      color: CFD_STATUS_COLORS[status] || '#4c9aff',
+    }))
+  }, [cfd])
 
   const reportData = computed
   const trend = Array.isArray(reportData.velocityTrend) ? reportData.velocityTrend : []
@@ -162,6 +204,70 @@ export function ReportsPage() {
           <p>Low: {low}%</p>
         </article>
       </div>
+
+      <article className="panel chart-placeholder cfd-panel">
+        <div className="cfd-header">
+          <h3>Cumulative Flow Diagram</h3>
+          <Stack direction="row" spacing={1} className="no-print">
+            <TextField
+              select
+              size="small"
+              label="Range"
+              value={cfdDays}
+              onChange={(e) => setCfdDays(Number(e.target.value))}
+              sx={{ minWidth: 130 }}
+            >
+              <MenuItem value={7}>Last 7 days</MenuItem>
+              <MenuItem value={14}>Last 14 days</MenuItem>
+              <MenuItem value={30}>Last 30 days</MenuItem>
+              <MenuItem value={60}>Last 60 days</MenuItem>
+              <MenuItem value={90}>Last 90 days</MenuItem>
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Granularity"
+              value={cfdGranularity}
+              onChange={(e) => setCfdGranularity(e.target.value)}
+              sx={{ minWidth: 120 }}
+            >
+              <MenuItem value="daily">Daily</MenuItem>
+              <MenuItem value="weekly">Weekly</MenuItem>
+            </TextField>
+          </Stack>
+        </div>
+
+        {cfd?.metrics && (
+          <div className="cfd-metrics">
+            <span><strong>Current WIP:</strong> {cfd.metrics.currentWip}</span>
+            <span><strong>Avg lead time:</strong> {cfd.metrics.averageLeadTime} days</span>
+          </div>
+        )}
+
+        {cfdError ? (
+          <div className="fake-chart">Unable to load CFD: {cfdError}</div>
+        ) : cfdChartData.length > 0 ? (
+          <>
+            <div className="cfd-legend">
+              {cfdSeries.map((s) => (
+                <span key={s.key}>
+                  <i className="cfd-legend-dot" style={{ background: s.color }} />
+                  {s.name}
+                </span>
+              ))}
+            </div>
+            <SvgAreaChart
+              data={cfdChartData}
+              series={cfdSeries}
+              width={720}
+              height={300}
+              ariaLabel="Cumulative flow diagram: issue count per status over time"
+            />
+          </>
+        ) : (
+          <div className="fake-chart">No flow data available</div>
+        )}
+      </article>
     </section>
   )
 }

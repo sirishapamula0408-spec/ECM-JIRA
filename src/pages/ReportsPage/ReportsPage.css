@@ -154,3 +154,47 @@
   border-radius: 999px;
   background: var(--jira-surface);
 }
+
+/* JL-50: Cumulative Flow Diagram panel */
+.cfd-panel {
+  margin-top: 16px;
+}
+
+.cfd-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cfd-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 8px 0 4px;
+  color: var(--jira-text-muted);
+  font-size: 13px;
+}
+
+.cfd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--jira-text-muted);
+}
+
+.cfd-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cfd-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
