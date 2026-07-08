@@ -15,6 +15,7 @@ import roadmapRoutes from './routes/roadmap.js'
 import workflowRoutes from './routes/workflows.js'
 import profileRoutes from './routes/profile.js'
 import memberRoutes from './routes/members.js'
+import invitationRoutes from './routes/invitations.js'
 import activityRoutes from './routes/activity.js'
 import projectRoutes from './routes/projects.js'
 import commentRoutes from './routes/comments.js'
@@ -74,6 +75,7 @@ app.use('/api/roadmap', ...protect, roadmapRoutes)
 app.use('/api/workflows', ...protect, workflowRoutes)
 app.use('/api/profile', ...protect, profileRoutes)
 app.use('/api/members', ...protect, memberRoutes)
+app.use('/api/invitations', ...protect, invitationRoutes)
 app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)

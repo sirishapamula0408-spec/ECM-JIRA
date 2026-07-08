@@ -239,6 +239,23 @@ export async function initializeDatabase() {
     )
   `)
 
+  // JL-74: Member invitations for self-serve workspace onboarding
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS invitations (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'Member',
+      token TEXT NOT NULL UNIQUE,
+      invited_by TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'revoked')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL
+    )
+  `)
+
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status)')
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profile (
       id SERIAL PRIMARY KEY,

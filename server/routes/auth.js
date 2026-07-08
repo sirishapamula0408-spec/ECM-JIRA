@@ -37,6 +37,43 @@ router.post('/signup', asyncHandler(async (req, res) => {
   const passwordHash = hashPassword(password)
   const created = await run('INSERT INTO users (email, password_hash) VALUES (?, ?)', [email, passwordHash])
   const user = await get('SELECT id, email, created_at FROM users WHERE id = ?', [created.lastID])
+
+  // JL-74: Self-serve onboarding. Ensure the new user exists as a member so they
+  // aren't stranded with memberId=null. The very first user to ever sign up becomes
+  // the workspace Owner (Admin role, is_owner=TRUE); everyone else lands as Viewer.
+  // Idempotent: only insert if no member row already exists for this email.
+  try {
+    const existingMember = await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [email])
+    if (!existingMember) {
+      const memberCount = await get('SELECT COUNT(*) AS count FROM members')
+      const isFirst = Number(memberCount?.count || 0) === 0
+
+      // Honor a pending invitation for this email, if one exists and is still valid.
+      const invite = await get(
+        `SELECT id, role FROM invitations
+         WHERE LOWER(email) = LOWER(?) AND status = 'pending' AND expires_at > NOW()
+         ORDER BY id DESC LIMIT 1`,
+        [email],
+      )
+
+      const role = isFirst ? 'Admin' : invite ? invite.role : 'Viewer'
+      const isOwner = isFirst
+      const name = email.split('@')[0]
+
+      await run(
+        'INSERT INTO members (name, email, role, status, task_count, invited_by, is_owner) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [name, email, role, 'Active', 0, isFirst ? null : 'Self-signup', isOwner],
+      )
+
+      if (invite) {
+        await run("UPDATE invitations SET status = 'accepted' WHERE id = ?", [invite.id])
+      }
+    }
+  } catch (err) {
+    // Onboarding member creation is best-effort — never block signup on it.
+    console.error(`[auth] Failed to provision member for ${email}: ${err.message}`)
+  }
+
   const token = issueToken(user, '7d')
   res.status(201).json({ user, token })
 }))
