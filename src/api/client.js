@@ -66,7 +66,11 @@ async function unwrap(response) {
     )
   }
 
-  throw new Error(message)
+  const error = new Error(message)
+  error.status = response.status
+  // Preserve extra fields (e.g. JL-81 `mfaRequired`) for callers to inspect.
+  if (payload && typeof payload === 'object') error.data = payload
+  throw error
 }
 
 export async function api(path, options = {}) {

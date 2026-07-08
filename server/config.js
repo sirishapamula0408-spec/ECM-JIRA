@@ -4,6 +4,41 @@ export const JWT_SECRET = process.env.JWT_SECRET || 'ecm-jira-dev-secret-change-
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 export const APP_URL = process.env.APP_URL || 'http://localhost:5173'
 
+// --- JL-81: OAuth / SSO providers (config-gated) ---
+// A provider is considered "configured" only when both its client id and secret
+// are present in the environment. Without config, OAuth endpoints respond 501.
+// Authorize/token/userinfo URLs are known per provider; only credentials vary.
+export const OAUTH_PROVIDERS = {
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    userInfoUrl: 'https://openidconnect.googleapis.com/v1/userinfo',
+    scope: 'openid email profile',
+  },
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID || '',
+    clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+    authorizeUrl: 'https://github.com/login/oauth/authorize',
+    tokenUrl: 'https://github.com/login/oauth/access_token',
+    userInfoUrl: 'https://api.github.com/user',
+    scope: 'read:user user:email',
+  },
+}
+
+// Where providers redirect back to after user consent.
+export const OAUTH_REDIRECT_BASE = process.env.OAUTH_REDIRECT_BASE || `http://localhost:${PORT}`
+
+export function getOAuthProvider(name) {
+  return OAUTH_PROVIDERS[String(name || '').toLowerCase()] || null
+}
+
+export function isOAuthConfigured(name) {
+  const p = getOAuthProvider(name)
+  return Boolean(p && p.clientId && p.clientSecret)
+}
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587

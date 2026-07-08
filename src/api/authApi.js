@@ -31,3 +31,20 @@ export function resetPassword(token, newPassword) {
 export function fetchCurrentUser() {
   return api('/api/auth/me')
 }
+
+// --- JL-81: MFA (TOTP) ---
+export function fetchMfaStatus() {
+  return api('/api/auth/mfa/status')
+}
+
+export function setupMfa() {
+  return api('/api/auth/mfa/setup', { method: 'POST', body: JSON.stringify({}) })
+}
+
+export function enableMfa(code) {
+  return api('/api/auth/mfa/enable', { method: 'POST', body: JSON.stringify({ code }) })
+}
+
+export function disableMfa() {
+  return api('/api/auth/mfa/disable', { method: 'POST', body: JSON.stringify({}) })
+}

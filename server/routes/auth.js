@@ -2,12 +2,13 @@ import crypto from 'node:crypto'
 import { Router } from 'express'
 import jwt from 'jsonwebtoken'
 import { get, run, all } from '../db.js'
-import { JWT_SECRET } from '../config.js'
+import { JWT_SECRET, getOAuthProvider, isOAuthConfigured, OAUTH_REDIRECT_BASE } from '../config.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { isAllowedEmail, hashPassword, verifyPassword } from '../middleware/validate.js'
 import { authGuard } from '../middleware/authGuard.js'
 import { loadUserRoles } from '../middleware/authorize.js'
 import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/mailer.js'
+import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
 
 function issueToken(user, expiresIn = '1d') {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn })
@@ -92,10 +93,29 @@ router.post('/login', asyncHandler(async (req, res) => {
     return
   }
 
-  const user = await get('SELECT id, email, password_hash, created_at FROM users WHERE email = ?', [email])
+  const user = await get(
+    'SELECT id, email, password_hash, created_at, mfa_enabled, mfa_secret FROM users WHERE email = ?',
+    [email],
+  )
   if (!user || !verifyPassword(password, user.password_hash)) {
     res.status(401).json({ error: 'Invalid email or password' })
     return
+  }
+
+  // --- JL-81: MFA gate ---
+  // If the user enabled TOTP MFA, a valid `mfaCode` must accompany the password
+  // BEFORE any JWT is issued. Signal the frontend with `mfaRequired: true` so it
+  // can reveal the code field.
+  if (user.mfa_enabled) {
+    const mfaCode = String(req.body?.mfaCode || '').trim()
+    if (!mfaCode) {
+      res.status(401).json({ error: 'MFA code required', mfaRequired: true })
+      return
+    }
+    if (!verifyTOTP(user.mfa_secret, mfaCode, { window: 1 })) {
+      res.status(401).json({ error: 'Invalid MFA code', mfaRequired: true })
+      return
+    }
   }
 
   // "Keep me signed in" → 30 day token; otherwise → 1 day
@@ -226,6 +246,155 @@ router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
     profile: profile || null,
     projectRoles,
   })
+}))
+
+/* ============================================================
+   JL-81: Multi-Factor Authentication (TOTP / RFC 6238)
+   ============================================================ */
+
+// --- Setup: generate + persist a fresh secret (NOT yet enabled) ---
+// Returns the base32 secret and an otpauth:// URL for the authenticator app.
+// The user must confirm a code via /mfa/enable before MFA takes effect.
+router.post('/mfa/setup', authGuard, asyncHandler(async (req, res) => {
+  const user = await get('SELECT id, email FROM users WHERE id = ?', [req.user.id])
+  if (!user) {
+    res.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const secret = generateSecret()
+  await run('UPDATE users SET mfa_secret = ?, mfa_enabled = FALSE WHERE id = ?', [secret, user.id])
+
+  res.json({
+    secret,
+    otpauthUrl: getOtpAuthUrl(secret, user.email),
+  })
+}))
+
+// --- Enable: verify a code against the stored secret, then flip the flag on ---
+router.post('/mfa/enable', authGuard, asyncHandler(async (req, res) => {
+  const code = String(req.body?.code || req.body?.mfaCode || '').trim()
+  const user = await get('SELECT id, mfa_secret, mfa_enabled FROM users WHERE id = ?', [req.user.id])
+  if (!user) {
+    res.status(404).json({ error: 'User not found' })
+    return
+  }
+  if (!user.mfa_secret) {
+    res.status(400).json({ error: 'Run MFA setup first' })
+    return
+  }
+  if (!code) {
+    res.status(400).json({ error: 'Verification code is required' })
+    return
+  }
+  if (!verifyTOTP(user.mfa_secret, code, { window: 1 })) {
+    res.status(401).json({ error: 'Invalid verification code' })
+    return
+  }
+
+  await run('UPDATE users SET mfa_enabled = TRUE WHERE id = ?', [user.id])
+  res.json({ enabled: true, message: 'Two-factor authentication enabled' })
+}))
+
+// --- Disable: turn MFA off and clear the secret ---
+router.post('/mfa/disable', authGuard, asyncHandler(async (req, res) => {
+  await run('UPDATE users SET mfa_enabled = FALSE, mfa_secret = NULL WHERE id = ?', [req.user.id])
+  res.json({ enabled: false, message: 'Two-factor authentication disabled' })
+}))
+
+// --- Status: is MFA currently enabled for the signed-in user? ---
+router.get('/mfa/status', authGuard, asyncHandler(async (req, res) => {
+  const user = await get('SELECT mfa_enabled FROM users WHERE id = ?', [req.user.id])
+  res.json({ enabled: Boolean(user?.mfa_enabled) })
+}))
+
+/* ============================================================
+   JL-81: OAuth / SSO scaffold (config-gated)
+   ------------------------------------------------------------
+   These endpoints are structured for a standard Authorization-Code flow but
+   only activate when a provider's client id + secret are set in the env
+   (see server/config.js). Without config they respond 501 so the feature can
+   ship dark and be enabled per-deployment. No live provider calls run in tests.
+   ============================================================ */
+
+// --- Step 1: redirect the user to the provider's consent screen ---
+router.get('/oauth/:provider', asyncHandler(async (req, res) => {
+  const providerName = req.params.provider
+  const provider = getOAuthProvider(providerName)
+  if (!provider) {
+    res.status(404).json({ error: `Unknown OAuth provider: ${providerName}` })
+    return
+  }
+  if (!isOAuthConfigured(providerName)) {
+    res.status(501).json({ error: `OAuth provider '${providerName}' is not configured` })
+    return
+  }
+
+  const redirectUri = `${OAUTH_REDIRECT_BASE}/api/auth/oauth/${providerName}/callback`
+  const params = new URLSearchParams({
+    client_id: provider.clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: provider.scope,
+    // CSRF state — in a full impl this is persisted and validated on callback.
+    state: crypto.randomBytes(16).toString('hex'),
+  })
+  const authorizeUrl = `${provider.authorizeUrl}?${params.toString()}`
+
+  // Return the URL (SPA-friendly) rather than a 302 so the frontend controls navigation.
+  res.json({ authorizeUrl })
+}))
+
+// --- Step 2: provider redirects back here with ?code=... ---
+// Full flow (guarded behind config): exchange code → fetch profile → upsert
+// user + oauth_identity → issue JWT. Left as a documented no-op without config.
+router.get('/oauth/:provider/callback', asyncHandler(async (req, res) => {
+  const providerName = req.params.provider
+  const provider = getOAuthProvider(providerName)
+  if (!provider) {
+    res.status(404).json({ error: `Unknown OAuth provider: ${providerName}` })
+    return
+  }
+  if (!isOAuthConfigured(providerName)) {
+    res.status(501).json({ error: `OAuth provider '${providerName}' is not configured` })
+    return
+  }
+
+  const code = String(req.query?.code || '')
+  if (!code) {
+    res.status(400).json({ error: 'Missing authorization code' })
+    return
+  }
+
+  // --- Below is the intended flow, gated so it never runs without live config ---
+  //   1. POST provider.tokenUrl with { code, client_id, client_secret, redirect_uri }
+  //      → { access_token }
+  //   2. GET provider.userInfoUrl with the bearer access_token → { email, sub/id }
+  //   3. Upsert the user by email, then upsert oauth_identities:
+  //        const identity = await get(
+  //          'SELECT user_id FROM oauth_identities WHERE provider = ? AND provider_user_id = ?',
+  //          [providerName, providerUserId],
+  //        )
+  //        let userId = identity?.user_id
+  //        if (!userId) {
+  //          let u = await get('SELECT id FROM users WHERE email = ?', [email])
+  //          if (!u) {
+  //            const created = await run(
+  //              'INSERT INTO users (email, password_hash) VALUES (?, ?)',
+  //              [email, hashPassword(crypto.randomBytes(24).toString('hex'))],
+  //            )
+  //            u = { id: created.lastID }
+  //          }
+  //          userId = u.id
+  //          await run(
+  //            'INSERT INTO oauth_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
+  //            [userId, providerName, providerUserId],
+  //          )
+  //        }
+  //   4. issueToken({ id: userId, email }) and redirect to the SPA with the token.
+  //
+  // Until a live provider is wired up we return 501 to make the gate explicit.
+  res.status(501).json({ error: 'OAuth callback handling is not enabled in this environment' })
 }))
 
 export default router

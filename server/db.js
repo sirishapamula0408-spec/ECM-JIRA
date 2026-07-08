@@ -256,6 +256,29 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status)')
 
+  // --- JL-81: MFA (TOTP) + OAuth/SSO identities ---
+  // Per-user TOTP secret (base32) and enable flag. Idempotent column adds.
+  if (!(await columnExists('users', 'mfa_secret'))) {
+    await pool.query('ALTER TABLE users ADD COLUMN mfa_secret TEXT')
+  }
+  if (!(await columnExists('users', 'mfa_enabled'))) {
+    await pool.query('ALTER TABLE users ADD COLUMN mfa_enabled BOOLEAN DEFAULT FALSE')
+  }
+
+  // Linked external identities (Google / GitHub / Microsoft, …). One row per
+  // (provider, provider_user_id); a user may link several providers.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS oauth_identities (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      provider_user_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(provider, provider_user_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_oauth_identities_user ON oauth_identities(user_id)')
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profile (
       id SERIAL PRIMARY KEY,
