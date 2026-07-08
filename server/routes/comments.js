@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
 import { runCommentAutomations } from '../services/automation.js'
+import { emitEvent } from '../services/events.js'
 
 const router = Router()
 
@@ -93,6 +94,13 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
   // Theme-1 #8: fire comment-added automation rules (non-fatal)
   const fullIssue = await get('SELECT id, issue_key, project_id, assignee FROM issues WHERE id = ?', [issueId])
   await runCommentAutomations(fullIssue, normalizedText).catch(() => {})
+
+  // JL-59: emit comment.created event to subscribed webhooks (fire-and-forget)
+  emitEvent(
+    'comment.created',
+    { comment: row, issueId, issueKey: fullIssue?.issue_key || null },
+    fullIssue?.project_id ?? null,
+  ).catch(() => {})
 
   res.status(201).json(row)
 }))

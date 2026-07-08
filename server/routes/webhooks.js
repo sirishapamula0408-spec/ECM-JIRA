@@ -28,6 +28,16 @@ function formatSlackPayload(event, data) {
   }
 }
 
+/** Pre-built Discord message template */
+function formatDiscordPayload(event, data) {
+  return {
+    content: `**[JIRA Lite]** ${event}`,
+    embeds: [
+      { title: event, description: JSON.stringify(data).slice(0, 500), color: 0x0052cc },
+    ],
+  }
+}
+
 /** Pre-built Teams message template */
 function formatTeamsPayload(event, data) {
   return {
@@ -167,6 +177,51 @@ router.get('/:id/logs', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
+// POST /api/webhooks/logs/:logId/replay — re-send a past delivery (Admin only)
+router.post('/logs/:logId/replay', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const logId = Number(req.params.logId)
+  if (!Number.isInteger(logId)) {
+    res.status(400).json({ error: 'Invalid log id' })
+    return
+  }
+
+  const log = await get('SELECT id, webhook_id, event, payload FROM webhook_logs WHERE id = ?', [logId])
+  if (!log) {
+    res.status(404).json({ error: 'Delivery log not found' })
+    return
+  }
+
+  const webhook = await get('SELECT * FROM webhooks WHERE id = ?', [log.webhook_id])
+  if (!webhook) {
+    res.status(404).json({ error: 'Webhook not found' })
+    return
+  }
+
+  const payload = typeof log.payload === 'string' ? JSON.parse(log.payload) : log.payload
+  const signature = signPayload(payload, webhook.secret)
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const headers = { 'Content-Type': 'application/json' }
+    if (signature) headers['X-Hub-Signature-256'] = `sha256=${signature}`
+    const response = await fetch(webhook.url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    const body = await response.text().catch(() => '')
+    await logDelivery(webhook.id, log.event, payload, response.status, body, response.ok)
+    res.json({ success: response.ok, status: response.status, replayedFrom: logId })
+  } catch (err) {
+    await logDelivery(webhook.id, log.event, payload, 0, err.message, false)
+    res.json({ success: false, error: err.message, replayedFrom: logId })
+  }
+}))
+
 export default router
 
 /**
@@ -174,7 +229,7 @@ export default router
  */
 export async function fireWebhooks(event, data, projectId = null) {
   try {
-    let sql = 'SELECT id, url, secret, name FROM webhooks WHERE is_active = TRUE'
+    let sql = 'SELECT id, url, secret, name, events FROM webhooks WHERE is_active = TRUE'
     const params = []
     if (projectId) {
       sql += ' AND (project_id = ? OR project_id IS NULL)'
@@ -193,6 +248,8 @@ export async function fireWebhooks(event, data, projectId = null) {
         payload = formatSlackPayload(event, data)
       } else if (hookName.includes('teams')) {
         payload = formatTeamsPayload(event, data)
+      } else if (hookName.includes('discord')) {
+        payload = formatDiscordPayload(event, data)
       } else {
         payload = { event, timestamp: new Date().toISOString(), data }
       }

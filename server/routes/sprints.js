@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { get, run, all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { emitEvent } from '../services/events.js'
 
 const router = Router()
 
@@ -65,6 +66,10 @@ router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) =
   }
 
   const row = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
+
+  // JL-59: emit sprint.started event to subscribed webhooks (fire-and-forget)
+  emitEvent('sprint.started', mapSprint(row)).catch(() => {})
+
   res.json(mapSprint(row))
 }))
 
@@ -112,6 +117,10 @@ router.patch('/:id/complete', requireRole('Admin'), asyncHandler(async (req, res
   await run('UPDATE sprints SET is_started = FALSE, completed_at = NOW() WHERE id = ?', [id])
 
   const row = await get('SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE id = ?', [id])
+
+  // JL-59: emit sprint.completed event to subscribed webhooks (fire-and-forget)
+  emitEvent('sprint.completed', mapSprint(row)).catch(() => {})
+
   res.json(mapSprint(row))
 }))
 

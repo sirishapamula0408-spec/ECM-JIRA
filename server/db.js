@@ -367,6 +367,11 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-59: Event-type subscriptions (idempotent migration for pre-existing DBs) ---
+  if (!(await columnExists('webhooks', 'events'))) {
+    await pool.query("ALTER TABLE webhooks ADD COLUMN events JSONB NOT NULL DEFAULT '[]'")
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id SERIAL PRIMARY KEY,
