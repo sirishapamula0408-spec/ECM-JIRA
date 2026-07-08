@@ -103,8 +103,12 @@ export function IssueDetailPage() {
   const [labels, setLabels] = useState([]) // [{id,name,color}] assigned to this issue
   const [projectLabels, setProjectLabels] = useState([]) // catalog for the issue's project
   const [labelInput, setLabelInput] = useState('')
-  // Due date local state
+  // JL-77: expanded field local state (synced from issue, persisted on edit)
   const [dueDate, setDueDate] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [environment, setEnvironment] = useState('')
+  const [resolution, setResolution] = useState('')
+  const [components, setComponents] = useState('')
   // Change history log (tracked from sidebar edits)
   const [changeHistory, setChangeHistory] = useState([])
 
@@ -168,6 +172,18 @@ export function IssueDetailPage() {
       .then((data) => setProjectLabels(Array.isArray(data) ? data : []))
       .catch(() => setProjectLabels([]))
   }, [issue?.projectId])
+
+  // JL-77: sync expanded fields from the loaded issue
+  useEffect(() => {
+    if (!issue) return
+    const toDateInput = (v) => (v ? String(v).slice(0, 10) : '')
+    setDueDate(toDateInput(issue.dueDate))
+    setStartDate(toDateInput(issue.startDate))
+    setEnvironment(issue.environment || '')
+    setResolution(issue.resolution || '')
+    setComponents(issue.components || '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.id])
 
   // Load sub-tasks (only for non-subtask issues)
   function reloadSubtasks() {
@@ -453,6 +469,53 @@ export function IssueDetailPage() {
 
   function closeField() {
     setEditingField(null)
+  }
+
+  // JL-77: persist expanded fields on inline-edit close
+  async function saveDueDate() {
+    const prev = issue.dueDate ? String(issue.dueDate).slice(0, 10) : ''
+    const next = dueDate || ''
+    if (prev !== next) {
+      await handleUpdate(issue.id, { dueDate: next || null })
+      addHistoryEntry('Due date', prev || 'None', next || 'None')
+    }
+    closeField()
+  }
+  async function saveStartDate() {
+    const prev = issue.startDate ? String(issue.startDate).slice(0, 10) : ''
+    const next = startDate || ''
+    if (prev !== next) {
+      await handleUpdate(issue.id, { startDate: next || null })
+      addHistoryEntry('Start date', prev || 'None', next || 'None')
+    }
+    closeField()
+  }
+  async function saveEnvironment() {
+    const prev = issue.environment || ''
+    const next = environment.trim()
+    if (prev !== next) {
+      await handleUpdate(issue.id, { environment: next || null })
+      addHistoryEntry('Environment', prev || 'None', next || 'None')
+    }
+    closeField()
+  }
+  async function saveResolution() {
+    const prev = issue.resolution || ''
+    const next = resolution.trim()
+    if (prev !== next) {
+      await handleUpdate(issue.id, { resolution: next || null })
+      addHistoryEntry('Resolution', prev || 'None', next || 'None')
+    }
+    closeField()
+  }
+  async function saveComponents() {
+    const prev = issue.components || ''
+    const next = components.trim()
+    if (prev !== next) {
+      await handleUpdate(issue.id, { components: next || null })
+      addHistoryEntry('Components', prev || 'None', next || 'None')
+    }
+    closeField()
   }
 
   async function onChangeAssignee(e) {
@@ -852,15 +915,15 @@ export function IssueDetailPage() {
                 </dd>
               </div>
 
-              {/* Reporter — read-only */}
+              {/* Reporter — read-only (JL-77: from persisted issue.reporter) */}
               <div className="id-detail-row">
                 <dt>Reporter</dt>
                 <dd>
                   <div className="id-detail-user">
                     <span className="id-detail-avatar" style={{ background: '#0052cc', color: '#fff' }}>
-                      {(profile?.full_name || 'U').slice(0, 2).toUpperCase()}
+                      {(issue.reporter || profile?.full_name || 'U').slice(0, 2).toUpperCase()}
                     </span>
-                    <span>{profile?.full_name || 'Unknown'}</span>
+                    <span>{issue.reporter || profile?.full_name || 'Unknown'}</span>
                   </div>
                 </dd>
               </div>
@@ -1002,13 +1065,40 @@ export function IssueDetailPage() {
                 <dt>Created</dt>
                 <dd>{issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</dd>
               </div>
+              {/* JL-77: Start date */}
+              <div className="id-detail-row">
+                <dt>Start date</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'startDate'}
+                    onOpen={() => openField('startDate')}
+                    onClose={saveStartDate}
+                    display={
+                      <span className="id-sprint-display">
+                        {startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </span>
+                    }
+                  >
+                    <input
+                      className="id-inline-input"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      autoFocus
+                    />
+                  </InlineField>
+                </dd>
+              </div>
               <div className="id-detail-row">
                 <dt>Due date</dt>
                 <dd>
                   <InlineField
                     editing={editingField === 'dueDate'}
                     onOpen={() => openField('dueDate')}
-                    onClose={closeField}
+                    onClose={saveDueDate}
                     display={
                       <span className="id-sprint-display">
                         {dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="id-empty-value">None</span>}
@@ -1050,6 +1140,94 @@ export function IssueDetailPage() {
                       onChange={(e) => setEstimateInput(e.target.value)}
                       placeholder="e.g. 1d 4h"
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveEstimate() } }}
+                      autoFocus
+                    />
+                  </InlineField>
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* JL-77: Components / Environment / Resolution */}
+          <div className="id-sidebar-section">
+            <div className="id-sidebar-section-header"><h4>More details</h4></div>
+            <dl className="id-detail-list">
+              <div className="id-detail-row">
+                <dt>Components</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'components'}
+                    onOpen={() => openField('components')}
+                    onClose={saveComponents}
+                    display={
+                      <span className="id-sprint-display">
+                        {components ? components : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </span>
+                    }
+                  >
+                    <input
+                      className="id-inline-input"
+                      value={components}
+                      onChange={(e) => setComponents(e.target.value)}
+                      placeholder="Comma-separated, e.g. API, UI"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveComponents() } }}
+                      autoFocus
+                    />
+                  </InlineField>
+                </dd>
+              </div>
+              <div className="id-detail-row">
+                <dt>Environment</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'environment'}
+                    onOpen={() => openField('environment')}
+                    onClose={saveEnvironment}
+                    display={
+                      <span className="id-sprint-display">
+                        {environment ? environment : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </span>
+                    }
+                  >
+                    <input
+                      className="id-inline-input"
+                      value={environment}
+                      onChange={(e) => setEnvironment(e.target.value)}
+                      placeholder="e.g. Production, Chrome 120"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEnvironment() } }}
+                      autoFocus
+                    />
+                  </InlineField>
+                </dd>
+              </div>
+              <div className="id-detail-row">
+                <dt>Resolution</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'resolution'}
+                    onOpen={() => openField('resolution')}
+                    onClose={saveResolution}
+                    display={
+                      <span className="id-sprint-display">
+                        {resolution ? resolution : <span className="id-empty-value">Unresolved</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </span>
+                    }
+                  >
+                    <input
+                      className="id-inline-input"
+                      value={resolution}
+                      onChange={(e) => setResolution(e.target.value)}
+                      placeholder="e.g. Fixed, Won't Do, Duplicate"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveResolution() } }}
                       autoFocus
                     />
                   </InlineField>

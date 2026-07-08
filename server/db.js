@@ -451,6 +451,32 @@ export async function initializeDatabase() {
   if (!(await columnExists('issues', 'original_estimate_minutes'))) {
     await pool.query('ALTER TABLE issues ADD COLUMN original_estimate_minutes INTEGER')
   }
+
+  // --- JL-77: Expanded issue field model ---
+  // reporter, due/start date, resolution, environment, components, updated_at.
+  // Idempotent per-column migrations (Story points / fix versions are out of scope).
+  if (!(await columnExists('issues', 'reporter'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN reporter TEXT')
+  }
+  if (!(await columnExists('issues', 'due_date'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN due_date DATE')
+  }
+  if (!(await columnExists('issues', 'start_date'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN start_date DATE')
+  }
+  if (!(await columnExists('issues', 'resolution'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN resolution TEXT')
+  }
+  if (!(await columnExists('issues', 'environment'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN environment TEXT')
+  }
+  if (!(await columnExists('issues', 'components'))) {
+    // Comma-separated list for v1.
+    await pool.query('ALTER TABLE issues ADD COLUMN components TEXT')
+  }
+  if (!(await columnExists('issues', 'updated_at'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN updated_at TIMESTAMPTZ')
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS worklogs (
       id SERIAL PRIMARY KEY,

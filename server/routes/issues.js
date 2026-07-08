@@ -7,6 +7,13 @@ import { runStatusChangeAutomations } from '../services/automation.js'
 
 const router = Router()
 
+// JL-77: helper to normalize an optional string field ('' → null, trimmed).
+function optText(v) {
+  if (v === undefined || v === null) return undefined
+  const s = String(v).trim()
+  return s === '' ? null : s
+}
+
 function mapIssue(row) {
   return {
     id: row.id,
@@ -21,6 +28,13 @@ function mapIssue(row) {
     projectId: row.project_id ?? null,
     parentId: row.parent_id ?? null,
     createdAt: row.created_at,
+    reporter: row.reporter ?? null,
+    dueDate: row.due_date ?? null,
+    startDate: row.start_date ?? null,
+    resolution: row.resolution ?? null,
+    environment: row.environment ?? null,
+    components: row.components ?? null,
+    updatedAt: row.updated_at ?? null,
   }
 }
 
@@ -33,7 +47,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const status = req.query.status
   const params = []
   let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues'
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues'
 
   if (status) {
     sql += ' WHERE status = ?'
@@ -53,7 +67,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -67,6 +81,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const { title, description, priority, assignee, status, issueType, sprintId, projectId } = req.body
+  // JL-77: expanded, optional issue fields
+  const reporter = optText(req.body.reporter) ?? (req.user?.email || null)
+  const dueDate = optText(req.body.dueDate)
+  const startDate = optText(req.body.startDate)
+  const resolution = optText(req.body.resolution)
+  const environment = optText(req.body.environment)
+  const components = optText(req.body.components)
   const normalizedTitle = String(title || '').trim()
   const normalizedDescription = String(description || '').trim()
   const normalizedAssignee = String(assignee || '').trim()
@@ -129,12 +150,12 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     : await get('SELECT COUNT(*) AS count FROM issues')
   const issueKey = `${projectKey}-${count.count + 1}`
   const created = await run(
-    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId],
+    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
   )
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [created.lastID],
   )
 
@@ -161,7 +182,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const existing = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
   if (!existing) {
@@ -221,16 +242,35 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
   }
 
+  // JL-77: expanded optional fields (nullable text/date columns)
+  const optionalColumns = {
+    reporter: 'reporter',
+    dueDate: 'due_date',
+    startDate: 'start_date',
+    resolution: 'resolution',
+    environment: 'environment',
+    components: 'components',
+  }
+  for (const [field, column] of Object.entries(optionalColumns)) {
+    if (fields[field] !== undefined) {
+      sets.push(`${column} = ?`)
+      params.push(optText(fields[field]) ?? null)
+    }
+  }
+
   if (sets.length === 0) {
     res.json(mapIssue(existing))
     return
   }
 
+  // JL-77: always bump updated_at on any edit
+  sets.push('updated_at = NOW()')
+
   params.push(id)
   await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
   res.json(mapIssue(row))
@@ -290,7 +330,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   await run('UPDATE issues SET status = ?, sprint_id = ? WHERE id = ?', [status, nextSprintId, id])
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -305,7 +345,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // Re-read in case an automation action mutated the issue (e.g. transition/assign)
   const finalRow = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
   res.json(mapIssue(finalRow))
@@ -319,7 +359,7 @@ router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
     return
   }
   const rows = await all(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
     [parentId],
   )
   const total = rows.length
@@ -370,7 +410,7 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
     [issueKey, title, description, priority, assignee, status, 'Sub-task', sprintId, projectId, parentId],
   )
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [created.lastID],
   )
   res.status(201).json(mapIssue(row))

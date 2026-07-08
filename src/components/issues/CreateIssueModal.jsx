@@ -40,6 +40,11 @@ export function CreateIssueModal({ onClose }) {
     status: 'Backlog',
     assignee: profile?.full_name || '',
     sprintId: null,
+    // JL-77: expanded optional fields
+    dueDate: '',
+    startDate: '',
+    components: '',
+    environment: '',
   })
   const [createAnother, setCreateAnother] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,6 +98,12 @@ export function CreateIssueModal({ onClose }) {
         status: form.status,
         assignee: form.assignee,
         sprintId: form.status === 'Backlog' ? null : form.sprintId,
+        // JL-77: expanded optional fields (omit empties)
+        reporter: reporterName,
+        dueDate: form.dueDate || undefined,
+        startDate: form.startDate || undefined,
+        components: form.components.trim() || undefined,
+        environment: form.environment.trim() || undefined,
       }
       await handleCreate(payload)
 
@@ -280,6 +291,44 @@ export function CreateIssueModal({ onClose }) {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* JL-77: Start + Due date */}
+          <div className="create-issue-row">
+            <div className="create-issue-field">
+              <label>Start date</label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => update('startDate', e.target.value)}
+              />
+            </div>
+            <div className="create-issue-field">
+              <label>Due date</label>
+              <input
+                type="date"
+                value={form.dueDate}
+                onChange={(e) => update('dueDate', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* JL-77: Components + Environment */}
+          <div className="create-issue-field">
+            <label>Components</label>
+            <input
+              placeholder="Comma-separated, e.g. API, UI"
+              value={form.components}
+              onChange={(e) => update('components', e.target.value)}
+            />
+          </div>
+          <div className="create-issue-field">
+            <label>Environment</label>
+            <input
+              placeholder="e.g. Production, Chrome 120"
+              value={form.environment}
+              onChange={(e) => update('environment', e.target.value)}
+            />
           </div>
         </div>
 
