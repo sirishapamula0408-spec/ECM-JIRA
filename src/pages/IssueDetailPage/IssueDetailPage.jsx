@@ -4,7 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask } from '../../api/issueApi'
+import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
@@ -155,6 +155,35 @@ export function IssueDetailPage() {
     fetchIssueApprovals(issue.id)
       .then((data) => setApprovals(Array.isArray(data) ? data : []))
       .catch(() => {})
+  }, [issue?.id])
+
+  // JL-82: load the persisted per-issue change history (server-backed audit log)
+  function reloadHistory() {
+    if (!issue?.id) return
+    getIssueHistory(issue.id)
+      .then((rows) => {
+        const mapped = (Array.isArray(rows) ? rows : []).map((h) => {
+          const from = h.oldValue == null || h.oldValue === '' ? 'None' : h.oldValue
+          const to = h.newValue == null || h.newValue === '' ? 'None' : h.newValue
+          const ts = h.changedAt ? new Date(h.changedAt).getTime() : 0
+          return {
+            id: `ch-${h.id}`,
+            type: 'history',
+            author: h.actor || 'system',
+            text: `changed ${h.field} from "${from}" to "${to}"`,
+            time: h.changedAt
+              ? new Date(h.changedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : 'Just now',
+            sortKey: ts,
+          }
+        })
+        setChangeHistory(mapped)
+      })
+      .catch(() => {})
+  }
+  useEffect(() => {
+    reloadHistory()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue?.id])
 
   // Load labels assigned to this issue
@@ -434,17 +463,6 @@ export function IssueDetailPage() {
     }
   }
 
-  function addHistoryEntry(field, from, to) {
-    setChangeHistory((prev) => [{
-      id: `ch-${Date.now()}`,
-      type: 'history',
-      author: currentUserName,
-      text: `changed ${field} from "${from}" to "${to}"`,
-      time: 'Just now',
-      sortKey: Date.now(),
-    }, ...prev])
-  }
-
   async function handleAddWorkLog() {
     if (!workLogTime.trim()) return
     try {
@@ -522,7 +540,7 @@ export function IssueDetailPage() {
     const prev = issue.assignee || 'Unassigned'
     const next = e.target.value || 'Unassigned'
     await handleUpdate(issue.id, { assignee: e.target.value })
-    if (prev !== next) addHistoryEntry('Assignee', prev, next)
+    if (prev !== next) reloadHistory()
     closeField()
   }
 
@@ -530,7 +548,7 @@ export function IssueDetailPage() {
     const prev = issue.priority
     const next = e.target.value
     await handleUpdate(issue.id, { priority: next })
-    if (prev !== next) addHistoryEntry('Priority', prev, next)
+    if (prev !== next) reloadHistory()
     closeField()
   }
 
@@ -538,7 +556,7 @@ export function IssueDetailPage() {
     const prev = issue.issueType
     const next = e.target.value
     await handleUpdate(issue.id, { issueType: next })
-    if (prev !== next) addHistoryEntry('Type', prev, next)
+    if (prev !== next) reloadHistory()
     closeField()
   }
 
@@ -548,7 +566,7 @@ export function IssueDetailPage() {
     await handleUpdate(issue.id, { sprintId: val === '' ? null : Number(val) })
     const nextSprint = sprints.find((s) => s.id === Number(val))
     const nextName = nextSprint ? nextSprint.name : 'None'
-    if (prevName !== nextName) addHistoryEntry('Sprint', prevName, nextName)
+    if (prevName !== nextName) reloadHistory()
     closeField()
   }
 

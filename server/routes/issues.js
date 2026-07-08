@@ -53,6 +53,18 @@ async function getDefaultSprintId() {
   return sprint?.id ?? null
 }
 
+// JL-82: record a field-level change into the per-issue audit log.
+// Only writes a row when the value actually changed (compared as strings).
+async function recordHistory(issueId, field, oldValue, newValue, actor) {
+  const from = oldValue === null || oldValue === undefined ? '' : String(oldValue)
+  const to = newValue === null || newValue === undefined ? '' : String(newValue)
+  if (from === to) return
+  await run(
+    'INSERT INTO issue_history (issue_id, field, old_value, new_value, actor) VALUES (?, ?, ?, ?, ?)',
+    [issueId, field, from, to, actor || 'system'],
+  )
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const status = req.query.status
   const params = []
@@ -209,6 +221,19 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const fields = req.body
   const sets = []
   const params = []
+  // JL-82: collect field-level changes to write to the audit log after UPDATE
+  const changes = []
+
+  if (fields.title !== undefined) {
+    const t = String(fields.title || '').trim()
+    if (!t) {
+      res.status(400).json({ error: 'title cannot be empty' })
+      return
+    }
+    sets.push('title = ?')
+    params.push(t)
+    changes.push({ field: 'title', oldValue: existing.title, newValue: t })
+  }
 
   if (fields.priority !== undefined) {
     if (!validPriorities.includes(fields.priority)) {
@@ -217,6 +242,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('priority = ?')
     params.push(fields.priority)
+    changes.push({ field: 'priority', oldValue: existing.priority, newValue: fields.priority })
   }
 
   if (fields.assignee !== undefined) {
@@ -227,6 +253,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('assignee = ?')
     params.push(a)
+    changes.push({ field: 'assignee', oldValue: existing.assignee, newValue: a })
   }
 
   if (fields.issueType !== undefined) {
@@ -236,12 +263,14 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('issue_type = ?')
     params.push(fields.issueType)
+    changes.push({ field: 'type', oldValue: existing.issue_type, newValue: fields.issueType })
   }
 
   if (fields.sprintId !== undefined) {
     if (fields.sprintId === null || fields.sprintId === '') {
       sets.push('sprint_id = ?')
       params.push(null)
+      changes.push({ field: 'sprint', oldValue: existing.sprint_id, newValue: null })
     } else {
       const parsed = Number(fields.sprintId)
       if (!Number.isInteger(parsed)) {
@@ -255,6 +284,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
       }
       sets.push('sprint_id = ?')
       params.push(parsed)
+      changes.push({ field: 'sprint', oldValue: existing.sprint_id, newValue: parsed })
     }
   }
 
@@ -295,6 +325,11 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   params.push(id)
   await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
 
+  // JL-82: write one audit-log row per field that actually changed
+  for (const change of changes) {
+    await recordHistory(id, change.field, change.oldValue, change.newValue, req.user?.email)
+  }
+
   const row = await get(
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
@@ -316,7 +351,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     return
   }
 
-  const existing = await get('SELECT id, sprint_id FROM issues WHERE id = ?', [id])
+  const existing = await get('SELECT id, sprint_id, status FROM issues WHERE id = ?', [id])
   if (!existing) {
     res.status(404).json({ error: 'Issue not found' })
     return
@@ -355,6 +390,9 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   await run('UPDATE issues SET status = ?, sprint_id = ? WHERE id = ?', [status, nextSprintId, id])
 
+  // JL-82: record the status transition in the per-issue audit log
+  await recordHistory(id, 'status', existing.status, status, req.user?.email)
+
   const row = await get(
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
@@ -375,6 +413,30 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     [id],
   )
   res.json(mapIssue(finalRow))
+}))
+
+// JL-82: GET /api/issues/:id/history — per-issue field change log, newest-first
+router.get('/:id/history', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+  const rows = await all(
+    'SELECT id, issue_id, field, old_value, new_value, actor, changed_at FROM issue_history WHERE issue_id = ? ORDER BY changed_at DESC, id DESC',
+    [id],
+  )
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      issueId: r.issue_id,
+      field: r.field,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+      actor: r.actor,
+      changedAt: r.changed_at,
+    })),
+  )
 }))
 
 // GET /api/issues/:parentId/subtasks — list sub-tasks + progress summary
