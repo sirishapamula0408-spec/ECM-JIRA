@@ -34,6 +34,7 @@ import { DashboardPage } from './pages/DashboardPage/DashboardPage'
 import { BacklogPage } from './pages/BacklogPage/BacklogPage'
 import { BoardPage } from './pages/BoardPage/BoardPage'
 import { ReportsPage } from './pages/ReportsPage/ReportsPage'
+import { ReportBuilderPage } from './pages/ReportBuilderPage/ReportBuilderPage'
 import { RoadmapPage } from './pages/RoadmapPage/RoadmapPage'
 import { WorkflowsPage } from './pages/WorkflowsPage/WorkflowsPage'
 import { ProfilePage } from './pages/ProfilePage/ProfilePage'
@@ -151,6 +152,7 @@ function AppContent() {
               <Route path="/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
               <Route path="/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/report-builder" element={hasProjects ? <ReportBuilderPage /> : <Navigate to="/projects" replace />} />
               <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
               <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />

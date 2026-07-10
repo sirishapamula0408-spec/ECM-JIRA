@@ -13,6 +13,7 @@ import issueRoutes from './routes/issues.js'
 import sprintRoutes, { projectSprintRouter, templatesRouter as sprintTemplateRoutes } from './routes/sprints.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
+import reportBuilderRoutes from './routes/reportBuilder.js'
 import portfolioRoutes from './routes/portfolio.js'
 import timeInStatusReportRoutes from './routes/timeInStatusReports.js'
 import roadmapRoutes from './routes/roadmap.js'
@@ -136,6 +137,7 @@ app.use('/api', ...protect, projectSprintRouter) // JL-124: /api/projects/:id/sp
 app.use('/api/sprint-templates', ...protect, sprintTemplateRoutes)
 app.use('/api/dashboard', ...protect, dashboardRoutes)
 app.use('/api/reports', ...protect, reportRoutes)
+app.use('/api', ...protect, reportBuilderRoutes)
 app.use('/api', ...protect, portfolioRoutes)
 app.use('/api', ...protect, timeInStatusReportRoutes)
 app.use('/api/roadmap', ...protect, roadmapRoutes)
