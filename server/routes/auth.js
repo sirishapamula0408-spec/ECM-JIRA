@@ -21,6 +21,8 @@ import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/ma
 import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
 import { loginLockout } from '../middleware/loginLockout.js'
 import { upsertSsoUser } from '../services/sso.js'
+import { validatePassword } from '../services/passwordPolicy.js'
+import { getSecurityPolicy } from './securityPolicy.js'
 
 // Build a lockout key from the submitted identity + client IP so that a single
 // abusive source can't be masked by rotating emails, and vice versa.
@@ -48,6 +50,14 @@ router.post('/signup', asyncHandler(async (req, res) => {
     return
   }
 
+  // --- JL-134: enforce the org password policy at registration ---
+  const policy = await getSecurityPolicy()
+  const pwCheck = validatePassword(password, policy)
+  if (!pwCheck.ok) {
+    res.status(400).json({ error: pwCheck.errors[0], errors: pwCheck.errors })
+    return
+  }
+
   const existing = await get('SELECT id FROM users WHERE email = ?', [email])
   if (existing) {
     res.status(409).json({ error: 'Email already registered. Please log in.' })
@@ -55,7 +65,10 @@ router.post('/signup', asyncHandler(async (req, res) => {
   }
 
   const passwordHash = hashPassword(password)
-  const created = await run('INSERT INTO users (email, password_hash) VALUES (?, ?)', [email, passwordHash])
+  const created = await run(
+    'INSERT INTO users (email, password_hash, password_changed_at) VALUES (?, ?, NOW())',
+    [email, passwordHash],
+  )
   const user = await get('SELECT id, email, created_at FROM users WHERE id = ?', [created.lastID])
 
   // JL-74: Self-serve onboarding. Ensure the new user exists as a member so they
@@ -183,7 +196,22 @@ router.post('/login', asyncHandler(async (req, res) => {
   // "Keep me signed in" → 30 day token; otherwise → 1 day
   const expiresIn = remember ? '30d' : '1d'
   const token = issueToken(user, expiresIn)
-  res.json({ user: { id: user.id, email: user.email, createdAt: user.created_at }, token, remember })
+
+  // --- JL-134: additive org-wide 2FA nudge ---
+  // If the org enforces MFA and this user hasn't enrolled yet, flag it so the
+  // frontend can steer them to enrollment. This is intentionally NON-blocking so
+  // existing login flows/tests are unaffected.
+  const responseBody = { user: { id: user.id, email: user.email, createdAt: user.created_at }, token, remember }
+  try {
+    const policy = await getSecurityPolicy()
+    if (policy.require_mfa && !user.mfa_enabled) {
+      responseBody.mfaEnrollmentRequired = true
+    }
+  } catch {
+    // Never block login on a policy lookup failure.
+  }
+
+  res.json(responseBody)
 }))
 
 // --- Forgot Password: request reset ---
@@ -249,6 +277,14 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
     return
   }
 
+  // --- JL-134: enforce the org password policy on password change ---
+  const policy = await getSecurityPolicy()
+  const pwCheck = validatePassword(newPassword, policy)
+  if (!pwCheck.ok) {
+    res.status(400).json({ error: pwCheck.errors[0], errors: pwCheck.errors })
+    return
+  }
+
   const resetRow = await get(
     'SELECT id, user_id, expires_at, used FROM password_reset_tokens WHERE token = ?',
     [token],
@@ -269,7 +305,7 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
 
   // Update the password
   const passwordHash = hashPassword(newPassword)
-  await run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, resetRow.user_id])
+  await run('UPDATE users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?', [passwordHash, resetRow.user_id])
 
   // Mark token as used
   await run('UPDATE password_reset_tokens SET used = TRUE WHERE id = ?', [resetRow.id])

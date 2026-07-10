@@ -2,11 +2,46 @@ import { useState, useEffect, useCallback } from 'react'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import { fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
+import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import './TeamsPage.css'
 
 export function TeamsPage() {
   const { profile, members, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
-  const { canInviteMembers } = usePermissions()
+  const { canInviteMembers, isAdmin } = usePermissions()
+
+  // JL-134: org-wide security policy (enforced 2FA + password rules)
+  const [policy, setPolicy] = useState(null)
+  const [policyState, setPolicyState] = useState({ saving: false, error: '', message: '' })
+
+  const loadPolicy = useCallback(async () => {
+    try {
+      const p = await fetchSecurityPolicy()
+      setPolicy(p)
+    } catch {
+      /* ignore — non-fatal */
+    }
+  }, [])
+
+  useEffect(() => {
+    loadPolicy()
+  }, [loadPolicy])
+
+  async function handleSavePolicy(event) {
+    event.preventDefault()
+    if (!policy) return
+    setPolicyState({ saving: true, error: '', message: '' })
+    try {
+      const saved = await updateSecurityPolicy(policy)
+      setPolicy(saved)
+      setPolicyState({ saving: false, error: '', message: 'Security policy updated.' })
+    } catch (err) {
+      setPolicyState({ saving: false, error: err.message, message: '' })
+    }
+  }
+
+  function setPolicyField(field, value) {
+    setPolicy((c) => ({ ...c, [field]: value }))
+  }
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
   const [inviteState, setInviteState] = useState({ saving: false, error: '', message: '' })
@@ -207,6 +242,81 @@ export function TeamsPage() {
               </tbody>
             </table>
           )}
+        </article>
+      )}
+
+      {isAdmin && policy && (
+        <article className="panel teams-security-panel">
+          <h3>Security Policy</h3>
+          <p className="teams-subtitle">
+            Enforce two-factor authentication and password complexity across the whole organization.
+            Rules apply at registration and password change.
+          </p>
+          <form className="teams-security-form" onSubmit={handleSavePolicy}>
+            <label className="teams-security-check">
+              <input
+                type="checkbox"
+                checked={Boolean(policy.require_mfa)}
+                onChange={(e) => setPolicyField('require_mfa', e.target.checked)}
+              />
+              Require all users to enable two-factor authentication (MFA)
+            </label>
+
+            <label>
+              Minimum password length
+              <input
+                type="number"
+                min="1"
+                max="128"
+                value={policy.min_password_length ?? 8}
+                onChange={(e) => setPolicyField('min_password_length', Number(e.target.value))}
+              />
+            </label>
+
+            <label className="teams-security-check">
+              <input
+                type="checkbox"
+                checked={Boolean(policy.require_uppercase)}
+                onChange={(e) => setPolicyField('require_uppercase', e.target.checked)}
+              />
+              Require at least one uppercase letter
+            </label>
+            <label className="teams-security-check">
+              <input
+                type="checkbox"
+                checked={Boolean(policy.require_number)}
+                onChange={(e) => setPolicyField('require_number', e.target.checked)}
+              />
+              Require at least one number
+            </label>
+            <label className="teams-security-check">
+              <input
+                type="checkbox"
+                checked={Boolean(policy.require_symbol)}
+                onChange={(e) => setPolicyField('require_symbol', e.target.checked)}
+              />
+              Require at least one symbol
+            </label>
+
+            <label>
+              Password rotation (days, 0 = never expire)
+              <input
+                type="number"
+                min="0"
+                max="3650"
+                value={policy.password_max_age_days ?? 0}
+                onChange={(e) => setPolicyField('password_max_age_days', Number(e.target.value))}
+              />
+            </label>
+
+            <div className="teams-invite-actions">
+              <button className="btn btn-primary" type="submit" disabled={policyState.saving}>
+                {policyState.saving ? 'Saving...' : 'Save Policy'}
+              </button>
+            </div>
+          </form>
+          {policyState.error && <p className="banner error">{policyState.error}</p>}
+          {policyState.message && <p className="banner">{policyState.message}</p>}
         </article>
       )}
 
