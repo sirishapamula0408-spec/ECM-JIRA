@@ -1,8 +1,28 @@
 export const PORT = Number(process.env.PORT) || 4000
 export const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://jira_lite:jira_lite_dev@localhost:5432/jira_lite'
-export const JWT_SECRET = process.env.JWT_SECRET || 'ecm-jira-dev-secret-change-in-production'
+// JL-90: no in-code fallback for the JWT signing secret. If JWT_SECRET is not
+// set, tokens cannot be signed/verified — startup validation (assertRequiredEnv)
+// makes the server fail fast instead of silently using a known secret.
+export const JWT_SECRET = process.env.JWT_SECRET
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 export const APP_URL = process.env.APP_URL || 'http://localhost:5173'
+
+// --- JL-90: fail-fast environment validation ---
+// Variables the server cannot safely run without.
+export const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL']
+
+/**
+ * Returns the list of required environment variables that are missing or
+ * blank in the given env (defaults to process.env). Pure — never exits the
+ * process, so it is unit-testable; the caller (server/index.js) decides
+ * whether to exit.
+ */
+export function assertRequiredEnv(env = process.env) {
+  return REQUIRED_ENV_VARS.filter((name) => {
+    const value = env[name]
+    return value === undefined || value === null || String(value).trim() === ''
+  })
+}
 
 // --- JL-81: OAuth / SSO providers (config-gated) ---
 // A provider is considered "configured" only when both its client id and secret

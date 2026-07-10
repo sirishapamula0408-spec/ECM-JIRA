@@ -2,7 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { initializeDatabase } from './db.js'
-import { PORT } from './config.js'
+import { PORT, assertRequiredEnv } from './config.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
 import { loadUserRoles } from './middleware/authorize.js'
@@ -47,6 +47,16 @@ import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
+
+// JL-90: fail fast on missing required environment variables (before any
+// route wiring or listening). assertRequiredEnv only reports; we exit here.
+const missingEnv = assertRequiredEnv()
+if (missingEnv.length > 0) {
+  console.error(`FATAL: missing required environment variable(s): ${missingEnv.join(', ')}`)
+  console.error('Set them in your environment or .env file (see .env.example).')
+  console.error('JWT_SECRET must be a strong random value, e.g. generate one with: openssl rand -hex 32')
+  process.exit(1)
+}
 
 const app = express()
 
