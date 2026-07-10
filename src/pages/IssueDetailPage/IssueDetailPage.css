@@ -1189,6 +1189,20 @@
 .id-cf-delete:hover { color: #bf2600; }
 .id-cf-add { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 
+/* JL-131: issue security-level chip */
+.id-security-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffebe6;
+  color: #bf2600;
+  border: 1px solid #ffbdad;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* JL-113: extended custom-field types */
 .id-cf-calculated { font-weight: 600; color: #172b4d; }
 .id-cf-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }

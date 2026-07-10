@@ -16,6 +16,7 @@ import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '.
 import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS } from '../../api/gitIntegrationApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
+import { fetchSecurityLevels, setIssueSecurityLevel } from '../../api/securityLevelApi'
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useRecentIssues } from '../../hooks/useRecentIssues'
@@ -125,6 +126,9 @@ export function IssueDetailPage() {
   const [timeSummary, setTimeSummary] = useState({ estimateText: null, spentText: null, remainingText: null, percent: null })
   const [estimateInput, setEstimateInput] = useState('')
   const [customFields, setCustomFields] = useState([])
+  // JL-131: issue-level security schemes
+  const [securityLevels, setSecurityLevels] = useState([])
+  const [securityLevelId, setSecurityLevelId] = useState(null)
   const [showAddField, setShowAddField] = useState(false)
   const [newField, setNewField] = useState({ name: '', fieldType: 'text', options: '', formula: '', cascade: '' })
   const [activityOpen, setActivityOpen] = useState(true)
@@ -507,6 +511,29 @@ export function IssueDetailPage() {
     reloadCustomFields()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue?.id])
+
+  // JL-131: load the security-level catalog once, and sync this issue's level.
+  useEffect(() => {
+    fetchSecurityLevels()
+      .then((data) => setSecurityLevels(Array.isArray(data) ? data : []))
+      .catch(() => setSecurityLevels([]))
+  }, [])
+  useEffect(() => {
+    setSecurityLevelId(issue?.securityLevelId ?? null)
+  }, [issue?.id, issue?.securityLevelId])
+
+  async function handleChangeSecurityLevel(nextId) {
+    const value = nextId === '' || nextId === null || nextId === undefined ? null : Number(nextId)
+    const prev = securityLevelId
+    setSecurityLevelId(value)
+    try {
+      await setIssueSecurityLevel(issue.id, value)
+    } catch {
+      setSecurityLevelId(prev) // rollback to previous on failure
+    }
+  }
+
+  const currentSecurityLevel = securityLevels.find((l) => l.id === securityLevelId) || null
 
   async function handleSaveCustomField(fieldId, value) {
     setCustomFields((prev) => prev.map((f) => (f.id === fieldId ? { ...f, value } : f)))
@@ -2163,6 +2190,35 @@ export function IssueDetailPage() {
                 </div>
               ) : (
                 <button className="id-subtask-add-btn" type="button" onClick={() => setShowAddField(true)}>+ Add custom field</button>
+              )
+            )}
+          </div>
+          )}
+
+          {/* JL-131: Issue security level */}
+          {(isAdmin || currentSecurityLevel) && (
+          <div className="id-sidebar-section">
+            <div className="id-sidebar-section-header"><h4>Security level</h4></div>
+            {currentSecurityLevel && (
+              <span className="id-security-chip" title={currentSecurityLevel.description || 'Restricted issue'}>
+                {'🔒'} {currentSecurityLevel.name}
+              </span>
+            )}
+            {isAdmin ? (
+              <select
+                className="id-inline-select"
+                style={{ marginTop: '6px', width: '100%' }}
+                value={securityLevelId ?? ''}
+                onChange={(e) => handleChangeSecurityLevel(e.target.value)}
+              >
+                <option value="">None (public)</option>
+                {securityLevels.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            ) : (
+              !currentSecurityLevel && (
+                <p className="id-empty-text" style={{ fontSize: '12px', padding: '4px 0' }}>Public</p>
               )
             )}
           </div>

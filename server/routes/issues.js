@@ -11,6 +11,7 @@ import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
 import { validateRequiredFields } from './fieldConfig.js'
 import { processMentions } from '../services/mentions.js'
 import { publish } from '../services/realtime.js'
+import { canViewIssue } from '../services/issueSecurity.js'
 
 const router = Router()
 
@@ -45,6 +46,7 @@ function mapIssue(row) {
     environment: row.environment ?? null,
     components: row.components ?? null,
     updatedAt: row.updated_at ?? null,
+    securityLevelId: row.security_level_id ?? null,
     ...(row.watcher_count !== undefined
       ? { watcherCount: Number(row.watcher_count) || 0 }
       : {}),
@@ -218,7 +220,7 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   const sql =
-    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, ' +
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, i.security_level_id, ' +
     '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
     (built.where ? ` ${built.where}` : '') +
     ` ORDER BY ${built.orderBy}`
@@ -238,12 +240,14 @@ router.get('/', asyncHandler(async (req, res) => {
     res.set('X-Total-Count', String(total))
     res.set('X-Limit', String(limit))
     res.set('X-Offset', String(offset))
-    res.json(rows.map(mapIssue))
+    // JL-131: hide issues the caller may not view (no-op when none are secured).
+    res.json(rows.map(mapIssue).filter((issue) => canViewIssue(issue, req.user)))
     return
   }
 
   const rows = await all(sql, built.params)
-  res.json(rows.map(mapIssue))
+  // JL-131: hide issues the caller may not view (no-op when none are secured).
+  res.json(rows.map(mapIssue).filter((issue) => canViewIssue(issue, req.user)))
 }))
 
 router.get('/:id', asyncHandler(async (req, res) => {
@@ -254,7 +258,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, security_level_id FROM issues WHERE id = ?',
     [id],
   )
 
@@ -264,6 +268,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const issue = mapIssue(row)
+
+  // JL-131: enforce issue-level security. A null level stays public (backward
+  // compatible); otherwise only Admins/Owner + assignee/reporter may view it.
+  if (!canViewIssue(issue, req.user)) {
+    res.status(403).json({ error: 'You do not have permission to view this issue' })
+    return
+  }
 
   // JL-112: include fix/affects versions in the issue detail (best-effort).
   issue.fixVersions = []

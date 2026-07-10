@@ -1448,6 +1448,24 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-131: Issue-level security schemes ---
+  // A named security level (e.g. 'Confidential') restricts an issue's visibility
+  // to workspace Admins/Owners + the issue's assignee/reporter. A NULL level on
+  // an issue means it stays public (backward compatible — the default).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS security_levels (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  if (!(await columnExists('issues', 'security_level_id'))) {
+    await pool.query(
+      'ALTER TABLE issues ADD COLUMN security_level_id INTEGER REFERENCES security_levels(id) ON DELETE SET NULL',
+    )
+  }
+
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
   // production/CI never auto-seed fictional data. The seeders themselves only
