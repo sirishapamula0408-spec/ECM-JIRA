@@ -14,8 +14,8 @@ export function SprintProvider({ children }) {
     return created
   }, [])
 
-  const handleStartSprint = useCallback(async (sprintId) => {
-    const updated = await startSprint(sprintId)
+  const handleStartSprint = useCallback(async (sprintId, projectId) => {
+    const updated = await startSprint(sprintId, projectId)
     setSprints((current) => current.map((s) => (s.id === sprintId ? updated : s)))
     return updated
   }, [])

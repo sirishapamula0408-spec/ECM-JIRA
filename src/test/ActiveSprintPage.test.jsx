@@ -23,6 +23,16 @@ vi.mock('../context/SprintContext', () => ({
   }),
 }))
 
+// JL-124: parallel-sprints deps (permissions gating + settings API)
+vi.mock('../hooks/usePermissions', () => ({
+  usePermissions: () => ({ canManageSprints: false }),
+}))
+
+vi.mock('../api/sprintApi', () => ({
+  fetchParallelSprintSetting: vi.fn().mockResolvedValue({ allowParallelSprints: false }),
+  setParallelSprintSetting: vi.fn().mockResolvedValue({ allowParallelSprints: false }),
+}))
+
 let mockIssues = []
 let mockSprints = []
 
@@ -183,15 +193,23 @@ describe('ActiveSprintPage — positive scenarios', () => {
     expect(mockHandleMove).toHaveBeenCalledWith(1, 'Done', 1)
   })
 
-  it('renders multiple active sprints with divider', () => {
+  it('renders a selector to switch among multiple active sprints (JL-124)', () => {
     mockSprints = [
       { ...baseSprint },
       { id: 2, name: 'Sprint 2', dateRange: 'Mar 16 - Mar 30', isStarted: true },
     ]
     renderPage()
-    expect(screen.getByText('Sprint 1')).toBeInTheDocument()
-    expect(screen.getByText('Sprint 2')).toBeInTheDocument()
-    expect(document.querySelector('.active-sprint-divider')).toBeTruthy()
+    const selector = document.querySelector('.active-sprint-selector')
+    expect(selector).toBeTruthy()
+    // both active sprints appear as selectable tabs
+    expect(within(selector).getByText('Sprint 1')).toBeInTheDocument()
+    expect(within(selector).getByText('Sprint 2')).toBeInTheDocument()
+    // the first active sprint's board is shown by default
+    expect(screen.getByText('Mar 1 - Mar 15')).toBeInTheDocument()
+
+    // switching the tab swaps the displayed board
+    fireEvent.click(within(selector).getByText('Sprint 2'))
+    expect(screen.getByText('Mar 16 - Mar 30')).toBeInTheDocument()
   })
 })
 

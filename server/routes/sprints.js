@@ -6,6 +6,27 @@ import { emitEvent } from '../services/events.js'
 
 const router = Router()
 
+// JL-124: project-scoped sprint endpoints (mounted at /api → /api/projects/:id/...).
+// Sprints are global in this schema, so these read the *governing project's*
+// parallel-sprints setting and expose all currently-active sprints.
+export const projectSprintRouter = Router()
+
+/**
+ * JL-124 — Pure, unit-testable guard for whether a sprint may be started.
+ * A project's first sprint can always start; a second concurrent active sprint
+ * is only allowed when the project has opted into parallel sprints.
+ *
+ * @param {{ activeCount: number, allowParallel: boolean }} params
+ *   activeCount = number of OTHER sprints already in the started/active state.
+ * @returns {boolean}
+ */
+export function canStartSprint({ activeCount, allowParallel } = {}) {
+  const count = Number(activeCount)
+  const active = Number.isFinite(count) && count > 0 ? count : 0
+  if (allowParallel) return true
+  return active < 1
+}
+
 function mapSprint(row) {
   return {
     id: row.id,
@@ -45,6 +66,25 @@ router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) =
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
+    return
+  }
+
+  // JL-124: enforce single-active-sprint by default. A project may opt into
+  // parallel sprints via `projects.allow_parallel_sprints`; the governing
+  // project is passed as `projectId` (body or query). Absent that setting the
+  // default (single active) applies, preserving prior behavior.
+  const projectId = Number(req.body?.projectId ?? req.query?.projectId)
+  let allowParallel = false
+  if (Number.isInteger(projectId)) {
+    const proj = await get('SELECT allow_parallel_sprints FROM projects WHERE id = ?', [projectId])
+    allowParallel = Boolean(proj?.allow_parallel_sprints)
+  }
+  const activeRow = await get('SELECT COUNT(*) AS count FROM sprints WHERE is_started = TRUE AND id != ?', [id])
+  const activeCount = Number(activeRow?.count ?? 0)
+  if (!canStartSprint({ activeCount, allowParallel })) {
+    res.status(409).json({
+      error: 'Another sprint is already active. Enable parallel sprints for this project to run more than one at a time.',
+    })
     return
   }
 
@@ -140,6 +180,52 @@ router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await run("UPDATE issues SET status = 'Backlog', sprint_id = NULL WHERE sprint_id = ?", [id])
   await run('DELETE FROM sprints WHERE id = ?', [id])
   res.json({ ok: true, deleted: mapSprint(sprint) })
+}))
+
+/* ===================== JL-124: project-scoped endpoints ===================== */
+
+// GET /api/projects/:id/sprints/active → ALL currently-active sprints (array).
+projectSprintRouter.get('/projects/:id/sprints/active', asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.id)
+  if (!Number.isInteger(projectId)) {
+    res.status(400).json({ error: 'Invalid project id' })
+    return
+  }
+  const rows = await all(
+    'SELECT id, name, date_range, is_started, start_date, end_date, completed_at FROM sprints WHERE is_started = TRUE ORDER BY start_date ASC NULLS LAST, id ASC',
+  )
+  res.json(rows.map(mapSprint))
+}))
+
+// GET /api/projects/:id/sprints/settings → parallel-sprints opt-in state.
+projectSprintRouter.get('/projects/:id/sprints/settings', asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.id)
+  if (!Number.isInteger(projectId)) {
+    res.status(400).json({ error: 'Invalid project id' })
+    return
+  }
+  const proj = await get('SELECT allow_parallel_sprints FROM projects WHERE id = ?', [projectId])
+  if (!proj) {
+    res.status(404).json({ error: 'Project not found' })
+    return
+  }
+  res.json({ allowParallelSprints: Boolean(proj.allow_parallel_sprints) })
+}))
+
+// PUT /api/projects/:id/sprints/settings (Admin) → toggle parallel sprints.
+projectSprintRouter.put('/projects/:id/sprints/settings', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.id)
+  if (!Number.isInteger(projectId)) {
+    res.status(400).json({ error: 'Invalid project id' })
+    return
+  }
+  const allow = Boolean(req.body?.allowParallelSprints)
+  const update = await run('UPDATE projects SET allow_parallel_sprints = ? WHERE id = ?', [allow, projectId])
+  if (update.changes === 0) {
+    res.status(404).json({ error: 'Project not found' })
+    return
+  }
+  res.json({ allowParallelSprints: allow })
 }))
 
 export default router

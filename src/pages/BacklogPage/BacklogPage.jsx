@@ -172,7 +172,19 @@ export function BacklogPage() {
     setBacklogMessage(`${newSprint.name} created with ${selectedBacklogIds.length} issue(s).`)
   }
 
-  async function handleStartSprintAction(sprintId) { await onStartSprint(sprintId); setPanelExpanded(sprintId, true) }
+  async function handleStartSprintAction(sprintId) {
+    try {
+      await onStartSprint(sprintId, projectId ? Number(projectId) : undefined)
+      setPanelExpanded(sprintId, true)
+    } catch (err) {
+      // JL-124: single-active-sprint guard returns 409 unless parallel sprints are enabled
+      if (err?.status === 409) {
+        setBacklogMessage(err?.data?.error || 'Another sprint is already active. Enable parallel sprints to start more than one.')
+      } else {
+        throw err
+      }
+    }
+  }
 
   async function handleRenameSprint(sprintPanel) {
     const nextName = window.prompt('Sprint name', sprintPanel.name)
