@@ -70,6 +70,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Automation', path: '/automation', icon: 'workflow' },
     { label: 'Releases', path: '/releases', icon: 'recent' },
     { label: 'Goals', path: '/goals', icon: 'dashboards' },
+    { label: 'Incidents', path: '/incidents', icon: 'workflow' },
   ]
 
   const utilityItems = [
