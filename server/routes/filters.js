@@ -109,7 +109,9 @@ function parseJql(jql) {
   return { conditions, params, orderBy }
 }
 
-function mapFilter(row) {
+const VISIBILITIES = ['private', 'shared']
+
+function mapFilter(row, email) {
   return {
     id: row.id,
     name: row.name,
@@ -117,25 +119,32 @@ function mapFilter(row) {
     ownerEmail: row.owner_email,
     criteria: typeof row.criteria === 'string' ? JSON.parse(row.criteria || '{}') : (row.criteria || {}),
     isStarred: Boolean(row.is_starred),
+    visibility: row.visibility || 'private',
+    isOwner: email !== undefined ? row.owner_email === email : undefined,
+    isFavorite: Boolean(row.is_favorite),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }
 
-// List filters for the current user
+// List filters visible to the current user: their own + any shared filter.
 router.get('/', asyncHandler(async (req, res) => {
   const email = req.user?.email
   const rows = await all(
-    'SELECT * FROM filters WHERE owner_email = ? ORDER BY is_starred DESC, updated_at DESC',
-    [email],
+    `SELECT f.*, (ff.id IS NOT NULL) AS is_favorite
+       FROM filters f
+       LEFT JOIN filter_favorites ff ON ff.filter_id = f.id AND ff.user_email = ?
+      WHERE f.owner_email = ? OR f.visibility = 'shared'
+      ORDER BY f.is_starred DESC, f.updated_at DESC`,
+    [email, email],
   )
-  res.json(rows.map(mapFilter))
+  res.json(rows.map((r) => mapFilter(r, email)))
 }))
 
 // Create a new filter
 router.post('/', asyncHandler(async (req, res) => {
   const email = req.user?.email
-  const { name, description, criteria } = req.body
+  const { name, description, criteria, visibility } = req.body
   const trimmedName = String(name || '').trim()
 
   if (!trimmedName) {
@@ -143,56 +152,110 @@ router.post('/', asyncHandler(async (req, res) => {
     return
   }
 
+  const vis = visibility === undefined ? 'private' : visibility
+  if (!VISIBILITIES.includes(vis)) {
+    res.status(400).json({ error: "visibility must be 'private' or 'shared'" })
+    return
+  }
+
   const criteriaJson = JSON.stringify(criteria || {})
 
   const result = await run(
-    'INSERT INTO filters (name, description, owner_email, criteria) VALUES (?, ?, ?, ?::jsonb)',
-    [trimmedName, String(description || '').trim(), email, criteriaJson],
+    'INSERT INTO filters (name, description, owner_email, criteria, visibility) VALUES (?, ?, ?, ?::jsonb, ?)',
+    [trimmedName, String(description || '').trim(), email, criteriaJson, vis],
   )
 
   const row = await get('SELECT * FROM filters WHERE id = ?', [result.lastID])
-  res.status(201).json(mapFilter(row))
+  res.status(201).json(mapFilter(row, email))
 }))
 
-// Update a filter
+// Update a filter — owner only
 router.put('/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const email = req.user?.email
-  const existing = await get('SELECT * FROM filters WHERE id = ? AND owner_email = ?', [id, email])
+  const existing = await get('SELECT * FROM filters WHERE id = ?', [id])
 
   if (!existing) {
     res.status(404).json({ error: 'Filter not found' })
     return
   }
+  if (existing.owner_email !== email) {
+    res.status(403).json({ error: 'Only the owner can edit this filter' })
+    return
+  }
 
-  const { name, description, criteria, isStarred } = req.body
+  const { name, description, criteria, isStarred, visibility } = req.body
+
+  if (visibility !== undefined && !VISIBILITIES.includes(visibility)) {
+    res.status(400).json({ error: "visibility must be 'private' or 'shared'" })
+    return
+  }
+
   const updatedName = name !== undefined ? String(name).trim() : existing.name
   const updatedDesc = description !== undefined ? String(description).trim() : existing.description
   const updatedCriteria = criteria !== undefined ? JSON.stringify(criteria) : (typeof existing.criteria === 'string' ? existing.criteria : JSON.stringify(existing.criteria))
   const updatedStarred = isStarred !== undefined ? Boolean(isStarred) : existing.is_starred
+  const updatedVisibility = visibility !== undefined ? visibility : (existing.visibility || 'private')
 
   await run(
-    'UPDATE filters SET name = ?, description = ?, criteria = ?::jsonb, is_starred = ?, updated_at = NOW() WHERE id = ?',
-    [updatedName, updatedDesc, updatedCriteria, updatedStarred, id],
+    'UPDATE filters SET name = ?, description = ?, criteria = ?::jsonb, is_starred = ?, visibility = ?, updated_at = NOW() WHERE id = ?',
+    [updatedName, updatedDesc, updatedCriteria, updatedStarred, updatedVisibility, id],
   )
 
   const row = await get('SELECT * FROM filters WHERE id = ?', [id])
-  res.json(mapFilter(row))
+  res.json(mapFilter(row, email))
 }))
 
-// Delete a filter
+// Delete a filter — owner only
 router.delete('/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const email = req.user?.email
-  const existing = await get('SELECT * FROM filters WHERE id = ? AND owner_email = ?', [id, email])
+  const existing = await get('SELECT * FROM filters WHERE id = ?', [id])
 
   if (!existing) {
     res.status(404).json({ error: 'Filter not found' })
+    return
+  }
+  if (existing.owner_email !== email) {
+    res.status(403).json({ error: 'Only the owner can delete this filter' })
     return
   }
 
   await run('DELETE FROM filters WHERE id = ?', [id])
   res.json({ ok: true })
+}))
+
+// Toggle favourite (star) for the current user on any visible filter
+router.post('/:id/favorite', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const email = req.user?.email
+  const filter = await get('SELECT * FROM filters WHERE id = ?', [id])
+
+  if (!filter) {
+    res.status(404).json({ error: 'Filter not found' })
+    return
+  }
+  // Must be able to see the filter to favourite it.
+  if (filter.owner_email !== email && filter.visibility !== 'shared') {
+    res.status(403).json({ error: 'Filter not accessible' })
+    return
+  }
+
+  const existing = await get(
+    'SELECT id FROM filter_favorites WHERE filter_id = ? AND user_email = ?',
+    [id, email],
+  )
+
+  let isFavorite
+  if (existing) {
+    await run('DELETE FROM filter_favorites WHERE filter_id = ? AND user_email = ?', [id, email])
+    isFavorite = false
+  } else {
+    await run('INSERT INTO filter_favorites (filter_id, user_email) VALUES (?, ?)', [id, email])
+    isFavorite = true
+  }
+
+  res.json({ id, isFavorite })
 }))
 
 // ----- Natural language (Ask AI) parser -----
