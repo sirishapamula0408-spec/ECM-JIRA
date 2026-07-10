@@ -1137,6 +1137,12 @@ export async function initializeDatabase() {
     await pool.query('ALTER TABLE projects ADD COLUMN notification_scheme_id INTEGER REFERENCES notification_schemes(id) ON DELETE SET NULL')
   }
 
+  // --- JL-124: Parallel (concurrent) active sprints (opt-in per project) ---
+  // Default FALSE preserves the single-active-sprint behavior; admins may opt in.
+  if (!(await columnExists('projects', 'allow_parallel_sprints'))) {
+    await pool.query('ALTER TABLE projects ADD COLUMN allow_parallel_sprints BOOLEAN NOT NULL DEFAULT FALSE')
+  }
+
   // Seed the DEFAULT permission scheme (mirrors the fixed role→capability map in
   // middleware/authorize.js + hooks/usePermissions.js). Grants store the MINIMUM
   // role that holds each capability; higher roles inherit via rank in the resolver.

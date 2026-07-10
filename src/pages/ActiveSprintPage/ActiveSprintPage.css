@@ -1,5 +1,44 @@
 /* Active Sprint Page */
 
+/* JL-124: parallel sprints — admin toggle + multi-sprint selector */
+.active-sprint-parallel-toggle {
+  margin: 0 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--jira-text-muted);
+}
+
+.active-sprint-parallel-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.active-sprint-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--jira-border, #dfe1e6);
+  padding-bottom: 8px;
+}
+
+.active-sprint-tab {
+  border: 1px solid var(--jira-border, #dfe1e6);
+  background: transparent;
+  color: var(--jira-text);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.active-sprint-tab--selected {
+  background: var(--jira-primary, #0052cc);
+  border-color: var(--jira-primary, #0052cc);
+  color: #fff;
+}
+
 .active-sprint-empty {
   text-align: center;
   padding: 80px 16px;

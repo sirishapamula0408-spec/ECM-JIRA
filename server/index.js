@@ -8,7 +8,7 @@ import { authGuard } from './middleware/authGuard.js'
 import { loadUserRoles } from './middleware/authorize.js'
 import authRoutes from './routes/auth.js'
 import issueRoutes from './routes/issues.js'
-import sprintRoutes from './routes/sprints.js'
+import sprintRoutes, { projectSprintRouter } from './routes/sprints.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
 import roadmapRoutes from './routes/roadmap.js'
@@ -108,6 +108,7 @@ const protect = [authGuard, loadUserRoles, resolveWorkspace]
 app.use('/api/workspaces', ...protect, workspaceRoutes)
 app.use('/api/issues', ...protect, issueRoutes)
 app.use('/api/sprints', ...protect, sprintRoutes)
+app.use('/api', ...protect, projectSprintRouter) // JL-124: /api/projects/:id/sprints/*
 app.use('/api/dashboard', ...protect, dashboardRoutes)
 app.use('/api/reports', ...protect, reportRoutes)
 app.use('/api/roadmap', ...protect, roadmapRoutes)
