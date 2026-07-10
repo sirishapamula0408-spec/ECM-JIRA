@@ -1448,6 +1448,35 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-146: App registry / marketplace (catalog + per-workspace install state) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS marketplace_apps (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      vendor TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      category TEXT DEFAULT '',
+      icon TEXT DEFAULT '',
+      version TEXT DEFAULT '1.0.0',
+      config_schema JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS installed_apps (
+      id SERIAL PRIMARY KEY,
+      app_id INTEGER NOT NULL REFERENCES marketplace_apps(id) ON DELETE CASCADE,
+      workspace_id INTEGER,
+      config JSONB NOT NULL DEFAULT '{}',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      installed_by TEXT,
+      installed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (app_id, workspace_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_installed_apps_workspace ON installed_apps(workspace_id)')
+
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
   // production/CI never auto-seed fictional data. The seeders themselves only
