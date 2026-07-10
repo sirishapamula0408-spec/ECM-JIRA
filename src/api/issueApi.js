@@ -68,3 +68,16 @@ export function createComment(issueId, payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export function updateComment(issueId, commentId, payload) {
+  return api(`/api/issues/${issueId}/comments/${commentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteComment(issueId, commentId) {
+  return api(`/api/issues/${issueId}/comments/${commentId}`, {
+    method: 'DELETE',
+  })
+}

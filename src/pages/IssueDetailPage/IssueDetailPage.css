@@ -402,6 +402,38 @@
   color: #172b4d;
 }
 
+/* JL-160: comment edit/delete controls */
+.id-comment-edited {
+  font-size: var(--font-size-sm);
+  color: #97a0af;
+  font-style: italic;
+}
+
+.id-comment-controls {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.id-comment-action-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: #5e6c84;
+  font-weight: 600;
+}
+
+.id-comment-action-link:hover {
+  color: #0052cc;
+  text-decoration: underline;
+}
+
+.id-comment-edit-box {
+  margin-top: 4px;
+}
+
 /* Logged-in user avatar highlight */
 .id-comment-avatar--me {
   background: #0052cc;
