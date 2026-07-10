@@ -47,6 +47,7 @@ import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
+import { createRealtimeServer } from './services/realtime.js'
 
 const app = express()
 
@@ -120,9 +121,14 @@ app.use(errorHandler)
 
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`API server running at http://localhost:${PORT}`)
     })
+    // JL-136: attach the real-time collaboration WebSocket hub to the live HTTP
+    // server. Only reached when index.js actually starts the listener — under
+    // test the route modules are imported directly, so no socket is opened and
+    // publish() calls stay no-ops.
+    createRealtimeServer(server)
   })
   .catch((err) => {
     console.error('Database init failed:', err)

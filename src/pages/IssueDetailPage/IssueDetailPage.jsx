@@ -16,6 +16,7 @@ import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { getRealtimeClient } from '../../services/realtimeClient'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -127,6 +128,8 @@ export function IssueDetailPage() {
   const [components, setComponents] = useState('')
   // Change history log (tracked from sidebar edits)
   const [changeHistory, setChangeHistory] = useState([])
+  // JL-136: real-time presence — distinct users currently viewing this issue
+  const [viewers, setViewers] = useState([])
 
   // Logged-in user display name
   const currentUserName = profile?.full_name || authUser?.email || 'You'
@@ -155,6 +158,39 @@ export function IssueDetailPage() {
       .then((data) => setComments(Array.isArray(data) ? data : []))
       .catch(() => setComments([]))
       .finally(() => setCommentsLoading(false))
+  }, [issue?.id])
+
+  // JL-136: real-time collaboration — join this issue's room, show who's
+  // viewing, and live-refresh comments/issue on broadcast updates. Degrades
+  // gracefully: if the socket never connects, nothing here throws.
+  useEffect(() => {
+    if (!issue?.id) return undefined
+    const room = `issue:${issue.id}`
+    let client
+    try {
+      client = getRealtimeClient()
+    } catch {
+      return undefined
+    }
+    client.join(room)
+    const off = client.on((msg) => {
+      if (!msg || msg.room !== room) return // ignore other rooms / connection acks
+      if (msg.type === 'presence') {
+        setViewers(Array.isArray(msg.users) ? msg.users : [])
+      } else if (msg.type === 'update') {
+        // Refresh the affected data. Keep it simple + resilient.
+        fetchComments(issue.id).then((data) => setComments(Array.isArray(data) ? data : [])).catch(() => {})
+        if (msg.entity === 'issue') {
+          fetchIssueById(issue.id).then((fresh) => { if (fresh) setFetchedIssue(fresh) }).catch(() => {})
+          reloadHistory()
+        }
+      }
+    })
+    return () => {
+      off()
+      client.leave(room)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue?.id])
 
   // Load watchers
@@ -726,7 +762,22 @@ export function IssueDetailPage() {
           <span className="id-breadcrumb-sep">/</span>
           <span className="id-breadcrumb-current">{issue.key || `IT-${issue.id}`}</span>
         </nav>
-        <div className="id-top-actions" />
+        <div className="id-top-actions">
+          {viewers.length > 0 && (
+            <div className="id-presence" title={`${viewers.map((v) => v.email).filter(Boolean).join(', ')} viewing`}>
+              <div className="id-presence-avatars">
+                {viewers.slice(0, 4).map((v, i) => (
+                  <span key={v.email || v.id || i} className="id-presence-avatar" style={{ zIndex: 10 - i }}>
+                    {String(v.email || 'U').slice(0, 2).toUpperCase()}
+                  </span>
+                ))}
+              </div>
+              <span className="id-presence-label">
+                {viewers.length} {viewers.length === 1 ? 'person' : 'people'} viewing
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ---- Main grid ---- */}

@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
 import { runCommentAutomations } from '../services/automation.js'
 import { emitEvent } from '../services/events.js'
+import { publish } from '../services/realtime.js'
 
 const router = Router()
 
@@ -101,6 +102,10 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
     { comment: row, issueId, issueKey: fullIssue?.issue_key || null },
     fullIssue?.project_id ?? null,
   ).catch(() => {})
+
+  // JL-136: push a live update to everyone viewing this issue (no-op if realtime
+  // isn't initialized, so route tests are unaffected).
+  publish(`issue:${issueId}`, { type: 'update', room: `issue:${issueId}`, entity: 'comment', id: created.lastID, action: 'created' })
 
   res.status(201).json(row)
 }))
