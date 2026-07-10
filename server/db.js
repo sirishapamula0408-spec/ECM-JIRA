@@ -726,6 +726,11 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_automation_rules_project ON automation_rules(project_id)')
+  // JL-119: scheduled (time-based) automation triggers. trigger_type is a plain
+  // TEXT column (no CHECK constraint), so a new 'scheduled' value needs no schema
+  // relaxation — validation lives at the route layer. Add scheduling columns idempotently.
+  await pool.query('ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS schedule_interval_minutes INTEGER')
+  await pool.query('ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS last_run_at TIMESTAMP')
 
   // --- JL-79: Configurable Workflow Engine (transitions, validators, post-functions) ---
   await pool.query(`

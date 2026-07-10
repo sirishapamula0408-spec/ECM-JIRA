@@ -1,10 +1,10 @@
 import { all, run } from '../db.js'
 import { createNotification } from '../routes/notifications.js'
 
-export const TRIGGER_TYPES = ['status_changed', 'comment_added']
+export const TRIGGER_TYPES = ['status_changed', 'comment_added', 'scheduled']
 export const ACTION_TYPES = ['assign', 'transition', 'comment', 'notify']
 
-async function logExecution(ruleId, issueId, status, message) {
+export async function logExecution(ruleId, issueId, status, message) {
   await run(
     'INSERT INTO automation_logs (rule_id, issue_id, status, message) VALUES (?, ?, ?, ?)',
     [ruleId, issueId, status, message],
@@ -13,7 +13,7 @@ async function logExecution(ruleId, issueId, status, message) {
 
 // Execute a single rule's action against an issue. Actions apply directly to the
 // DB and never re-invoke the engine, so a "transition" action can't cause a loop.
-async function executeAction(rule, issue) {
+export async function executeAction(rule, issue) {
   const value = rule.action_value || ''
   switch (rule.action_type) {
     case 'assign':

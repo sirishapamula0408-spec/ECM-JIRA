@@ -55,6 +55,7 @@ import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
 import { logger } from './services/logger.js'
 import healthRoutes from './routes/health.js'
+import { startScheduler } from './services/scheduler.js'
 
 // JL-90: fail fast on missing required environment variables (before any
 // route wiring or listening). assertRequiredEnv only reports; we exit here.
@@ -161,6 +162,11 @@ initializeDatabase()
     app.listen(PORT, () => {
       logger.info('server started', { port: PORT, url: `http://localhost:${PORT}` })
     })
+    // JL-119: start the time-based automation scheduler in-process. Never spin
+    // timers under test (Vitest sets NODE_ENV=test / VITEST) so suites stay clean.
+    if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+      startScheduler({ intervalMs: Number(process.env.SCHEDULER_INTERVAL_MS) || 60000 })
+    }
   })
   .catch((err) => {
     logger.error('database init failed', { error: err?.message })
