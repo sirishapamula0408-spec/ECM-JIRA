@@ -47,6 +47,7 @@ import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
+import { startScheduler } from './services/scheduler.js'
 
 const app = express()
 
@@ -123,6 +124,11 @@ initializeDatabase()
     app.listen(PORT, () => {
       console.log(`API server running at http://localhost:${PORT}`)
     })
+    // JL-119: start the time-based automation scheduler in-process. Never spin
+    // timers under test (Vitest sets NODE_ENV=test / VITEST) so suites stay clean.
+    if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+      startScheduler({ intervalMs: Number(process.env.SCHEDULER_INTERVAL_MS) || 60000 })
+    }
   })
   .catch((err) => {
     console.error('Database init failed:', err)

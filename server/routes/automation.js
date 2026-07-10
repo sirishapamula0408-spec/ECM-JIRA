@@ -16,6 +16,8 @@ function mapRule(row) {
     actionType: row.action_type,
     actionValue: row.action_value || '',
     enabled: row.enabled,
+    scheduleIntervalMinutes: row.schedule_interval_minutes ?? null,
+    lastRunAt: row.last_run_at ?? null,
     createdAt: row.created_at,
   }
 }
@@ -42,9 +44,19 @@ router.post('/projects/:projectId/automation-rules', requireRole('Admin'), async
     res.status(400).json({ error: 'actionValue is required for this action type' }); return
   }
 
+  // JL-119: scheduled triggers require a positive interval in minutes.
+  let scheduleIntervalMinutes = null
+  if (triggerType === 'scheduled') {
+    scheduleIntervalMinutes = Number(req.body?.scheduleIntervalMinutes)
+    if (!Number.isFinite(scheduleIntervalMinutes) || scheduleIntervalMinutes <= 0) {
+      res.status(400).json({ error: 'scheduleIntervalMinutes must be a positive number for scheduled triggers' }); return
+    }
+    scheduleIntervalMinutes = Math.floor(scheduleIntervalMinutes)
+  }
+
   const created = await run(
-    'INSERT INTO automation_rules (project_id, name, trigger_type, condition_value, action_type, action_value) VALUES (?, ?, ?, ?, ?, ?)',
-    [projectId, name, triggerType, conditionValue, actionType, actionValue],
+    'INSERT INTO automation_rules (project_id, name, trigger_type, condition_value, action_type, action_value, schedule_interval_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [projectId, name, triggerType, conditionValue, actionType, actionValue, scheduleIntervalMinutes],
   )
   const row = await get('SELECT * FROM automation_rules WHERE id = ?', [created.lastID])
   res.status(201).json(mapRule(row))
@@ -62,6 +74,11 @@ router.patch('/automation-rules/:id', requireRole('Admin'), asyncHandler(async (
   if (req.body?.name !== undefined) { sets.push('name = ?'); params.push(String(req.body.name).trim()) }
   if (req.body?.conditionValue !== undefined) { sets.push('condition_value = ?'); params.push(String(req.body.conditionValue).trim()) }
   if (req.body?.actionValue !== undefined) { sets.push('action_value = ?'); params.push(String(req.body.actionValue).trim()) }
+  if (req.body?.scheduleIntervalMinutes !== undefined) {
+    const n = Number(req.body.scheduleIntervalMinutes)
+    if (!Number.isFinite(n) || n <= 0) { res.status(400).json({ error: 'scheduleIntervalMinutes must be a positive number' }); return }
+    sets.push('schedule_interval_minutes = ?'); params.push(Math.floor(n))
+  }
   if (sets.length === 0) { res.json(mapRule(existing)); return }
 
   params.push(id)
