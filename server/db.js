@@ -976,6 +976,30 @@ export async function initializeDatabase() {
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_priority_check')
   await pool.query('ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_status_check')
 
+  // --- JL-116: Issue-type schemes (which issue types apply per project) ---
+  // project_id NULL => global default scheme. Non-null (UNIQUE) => project-level
+  // override. `allowed_types` is a JSONB array of type names; `default_type` is
+  // the pre-selected type in the Create Issue modal. Resolution mirrors JL-78:
+  // a project's own row wins, else fall back to the global default.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_type_schemes (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+      allowed_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+      default_type TEXT NOT NULL DEFAULT 'Task',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_type_schemes_project ON issue_type_schemes(project_id)')
+  // Seed the single global-default scheme (project_id NULL) if none exists.
+  const typeSchemeSeeded = await get('SELECT 1 FROM issue_type_schemes WHERE project_id IS NULL LIMIT 1')
+  if (!typeSchemeSeeded) {
+    await pool.query(
+      "INSERT INTO issue_type_schemes (project_id, allowed_types, default_type) VALUES (NULL, $1::jsonb, $2)",
+      [JSON.stringify(['Story', 'Bug', 'Task', 'Epic', 'Sub-task']), 'Task'],
+    )
+  }
+
   // --- JL-84: Public REST API tokens ---
   // Stores only a SHA-256 hash of each token; plaintext is shown once at creation.
   await pool.query(`

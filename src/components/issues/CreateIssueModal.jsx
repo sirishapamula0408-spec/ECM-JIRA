@@ -5,6 +5,7 @@ import { useSprints } from '../../context/SprintContext'
 import { useAppData } from '../../context/AppDataContext'
 import { useAuth } from '../../context/AuthContext'
 import { fetchProjects } from '../../api/projectApi'
+import { fetchProjectIssueTypes } from '../../api/issueTypeSchemeApi'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
@@ -33,6 +34,8 @@ export function CreateIssueModal({ onClose }) {
   const reporterName = authUser?.email || profile?.full_name || 'Current User'
 
   const [projects, setProjects] = useState([])
+  // JL-116: issue-type scheme — the effective allowed types for the selected project.
+  const [allowedTypes, setAllowedTypes] = useState(ISSUE_TYPES)
   const [form, setForm] = useState({
     projectId: '',
     title: '',
@@ -63,6 +66,35 @@ export function CreateIssueModal({ onClose }) {
       }
     }).catch(() => {})
   }, [])
+
+  // JL-116: when the selected project changes, load its effective issue-type
+  // scheme and constrain the type picker (defaulting to the scheme's default).
+  useEffect(() => {
+    if (!form.projectId) {
+      setAllowedTypes(ISSUE_TYPES)
+      return
+    }
+    let cancelled = false
+    fetchProjectIssueTypes(form.projectId)
+      .then((data) => {
+        if (cancelled) return
+        const types = Array.isArray(data?.allowedTypes) && data.allowedTypes.length
+          ? data.allowedTypes
+          : ISSUE_TYPES
+        setAllowedTypes(types)
+        // Keep the current type if still allowed, otherwise fall back to the
+        // scheme's default (or the first allowed type).
+        setForm((c) => (
+          types.includes(c.issueType)
+            ? c
+            : { ...c, issueType: data?.defaultType && types.includes(data.defaultType) ? data.defaultType : types[0] }
+        ))
+      })
+      .catch(() => {
+        if (!cancelled) setAllowedTypes(ISSUE_TYPES)
+      })
+    return () => { cancelled = true }
+  }, [form.projectId])
 
   // When profile loads after mount, default assignee
   useEffect(() => {
@@ -174,7 +206,7 @@ export function CreateIssueModal({ onClose }) {
           <div className="create-issue-field">
             <label>Issue Type</label>
             <div className="create-issue-type-selector">
-              {ISSUE_TYPES.map((type) => {
+              {allowedTypes.map((type) => {
                 const meta = TYPE_META[type] || { icon: '\u{1F4CC}', label: type }
                 const isActive = form.issueType === type
                 return (
