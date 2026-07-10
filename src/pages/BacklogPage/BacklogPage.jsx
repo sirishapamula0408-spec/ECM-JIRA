@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import Chip from '@mui/material/Chip'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
@@ -36,13 +37,19 @@ export function BacklogPage() {
   const [showImportExport, setShowImportExport] = useState(false)
   const [showBulkWizard, setShowBulkWizard] = useState(false)
   const [dependencies, setDependencies] = useState(null) // JL-128: { byId, edges, cycles, blockedCount }
+  const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)
 
   // Import/Export is project-scoped: use the route project, else the project of the visible issues
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
-  const allBacklogItems = scopedIssues.filter((issue) => issue.status === 'Backlog')
-  const allSprintItems = scopedIssues.filter((issue) => issue.status !== 'Backlog')
+  // "My open issues" quick filter: only issues assigned to the current user that are not Done
+  const currentUserName = profile?.full_name || ''
+  const visibleIssues = showMyOpenOnly
+    ? scopedIssues.filter((issue) => issue.assignee === currentUserName && issue.status !== 'Done')
+    : scopedIssues
+  const allBacklogItems = visibleIssues.filter((issue) => issue.status === 'Backlog')
+  const allSprintItems = visibleIssues.filter((issue) => issue.status !== 'Backlog')
   const defaultSprintId = sprints[0]?.id
 
   useEffect(() => {
@@ -289,6 +296,15 @@ export function BacklogPage() {
             <span className="filter-glyph" aria-hidden="true"><TopNavIcon name="filter" /></span>
             Filter
           </button>
+          <Chip
+            label="My open issues"
+            size="small"
+            clickable
+            variant={showMyOpenOnly ? 'filled' : 'outlined'}
+            color={showMyOpenOnly ? 'primary' : 'default'}
+            onClick={() => setShowMyOpenOnly((current) => !current)}
+            aria-pressed={showMyOpenOnly}
+          />
         </div>
         <div className="backlog-toolbar-right">
           <div className="backlog-bulk">
