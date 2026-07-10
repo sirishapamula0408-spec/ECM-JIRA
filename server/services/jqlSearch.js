@@ -1,5 +1,6 @@
 // JL-75 — JQL-style advanced search + free-text search builder.
 // JL-117 — Full JQL functions (currentUser, membersOf, linkedIssues, date functions).
+// JL-118 — History operators (WAS / WAS IN / CHANGED) via issue_history.
 //
 // SAFETY CONTRACT:
 //   * Field names are ALWAYS resolved through FIELD_MAP (a whitelist) into a
@@ -11,6 +12,9 @@
 //     whitelisted by name. Their results (the current user identity, the member
 //     list, the linked-issue keys, the computed timestamps) are ALWAYS bound as
 //     parameters — never interpolated. Unknown functions → 400.
+//   * HISTORY operators (WAS/WAS IN/CHANGED) resolve the field through
+//     HISTORY_FIELD_MAP and compile to a correlated EXISTS against issue_history;
+//     the recorded field name and all compared values are bound as parameters.
 //   * ORDER BY column + direction are whitelisted (column via FIELD_MAP,
 //     direction constrained to ASC|DESC), so the only interpolated tokens are
 //     values the server controls.
@@ -40,6 +44,22 @@ const FIELD_MAP = {
   startdate: 'start_date',
 }
 
+// JL-118: Whitelist for history operators (WAS / WAS IN / CHANGED). Maps the JQL
+// field name (lowercased) -> the `field` string recorded in issue_history
+// (see recordHistory() in server/routes/issues.js). Only tracked fields qualify;
+// any other field used with a history operator is a 400.
+const HISTORY_FIELD_MAP = {
+  status: 'status',
+  priority: 'priority',
+  assignee: 'assignee',
+  type: 'type',
+  issuetype: 'type',
+  issue_type: 'type',
+  title: 'title',
+  sprint: 'sprint',
+  epic: 'epic',
+}
+
 // Columns that hold timestamps — the only columns for which bare relative
 // offsets (`-7d`, `+3d`) are interpreted as computed timestamps.
 const DATE_COLUMNS = new Set(['created_at', 'updated_at', 'due_date', 'start_date'])
@@ -62,15 +82,25 @@ function badRequest(message) {
   return err
 }
 
-// Matches one `field OP value` clause. Value may be a function call, a
-// double/single quoted string, or a bare token possibly containing spaces
-// (stops before an AND/OR/ORDER keyword).
-//   1 field
-//   2 operator
-//   3 function name   4 fn dq-arg   5 fn sq-arg   6 fn bare-arg
-//   7 double-quoted value   8 single-quoted value   9 bare value
+// Matches ONE clause. Alternatives, tried left-to-right (history operators first
+// so `field WAS ...` / `field CHANGED` win over the generic `field OP value`):
+//   A. `field WAS IN (list)`  -> g1 field, g2 list body
+//   B. `field WAS value`      -> g3 field, g4/g5/g6 value (dq/sq/bare)
+//   C. `field CHANGED`        -> g7 field
+//   D. `field OP funcOrValue` -> g8 field, g9 op,
+//        function: g10 name, g11 fn dq-arg, g12 fn sq-arg, g13 fn bare-arg
+//        value:    g14 dq-value, g15 sq-value, g16 bare-value
 const CLAUSE_RE = new RegExp(
-  '([a-zA-Z_]+)' +
+  // A. `field WAS IN (list)` — the list body allows quoted segments (which may
+  // contain `)`) or any non-`)` char, so a `)` inside a quoted value doesn't
+  // end the list early.
+  '([a-zA-Z_]+)\\s+WAS\\s+IN\\s*\\(((?:"[^"]*"|\'[^\']*\'|[^)])*)\\)' +
+    // B. `field WAS value`
+    '|([a-zA-Z_]+)\\s+WAS\\s+(?:"([^"]*)"|\'([^\']*)\'|([^\\s"\']+(?:\\s+(?!AND\\b)(?!OR\\b)(?!ORDER\\b)[^\\s]+)*))' +
+    // C. `field CHANGED`
+    '|([a-zA-Z_]+)\\s+CHANGED\\b' +
+    // D. `field OP value` (JL-117 functions + scalar values)
+    '|([a-zA-Z_]+)' +
     '\\s*(>=|<=|!=|~|=|>|<|\\bNOT\\s+IN\\b|\\bIN\\b)\\s*' +
     '(?:' +
     '([a-zA-Z][a-zA-Z0-9]*)\\s*\\(\\s*(?:"([^"]*)"|\'([^\']*)\'|([^)]*?))\\s*\\)' +
@@ -81,7 +111,37 @@ const CLAUSE_RE = new RegExp(
   'gi',
 )
 
+// Splits a `WAS IN (...)` list body into individual values (quotes respected;
+// bare items are comma-delimited). Leading/trailing whitespace is trimmed.
+const LIST_ITEM_RE = /\s*(?:"([^"]*)"|'([^']*)'|([^,]+))\s*(?:,|$)/g
+
 const OFFSET_RE = /^([+-])(\d+)([dwhm])$/
+
+function resolveHistoryField(rawField) {
+  const histField = HISTORY_FIELD_MAP[rawField.toLowerCase()]
+  if (!histField) {
+    throw badRequest(`Field not tracked in history: ${rawField}`)
+  }
+  return histField
+}
+
+// Builds a correlated EXISTS subquery against issue_history. `i.id` is the outer
+// issues alias used by GET /api/issues. All values are bound (pushed to params).
+function buildHistoryExists(kind, histField, values, params) {
+  if (kind === 'CHANGED') {
+    params.push(histField)
+    return `EXISTS (SELECT 1 FROM issue_history h WHERE h.issue_id = i.id AND h.field = ?)`
+  }
+  // WAS / WAS IN: match if the field was ever equal to any listed value, in
+  // either the old_value or new_value column of a history row.
+  params.push(histField)
+  const placeholders = values.map(() => '?').join(', ')
+  params.push(...values, ...values)
+  return (
+    `EXISTS (SELECT 1 FROM issue_history h WHERE h.issue_id = i.id AND h.field = ? ` +
+    `AND (h.old_value IN (${placeholders}) OR h.new_value IN (${placeholders})))`
+  )
+}
 
 /**
  * Peel a trailing ORDER BY and scan the remaining body into clause objects.
@@ -119,30 +179,59 @@ function scanQuery(input) {
     }
     first = false
 
-    const field = match[1].toLowerCase()
-    const column = FIELD_MAP[field]
-    if (!column) throw badRequest(`Unknown field: ${match[1]}`)
+    if (match[1] !== undefined) {
+      // A. `field WAS IN (list)` — history membership.
+      const histField = resolveHistoryField(match[1])
+      const values = []
+      LIST_ITEM_RE.lastIndex = 0
+      let item
+      while ((item = LIST_ITEM_RE.exec(match[2])) !== null) {
+        if (item.index === LIST_ITEM_RE.lastIndex) LIST_ITEM_RE.lastIndex += 1
+        const raw = item[1] !== undefined ? item[1] : item[2] !== undefined ? item[2] : item[3]
+        if (raw === undefined) continue
+        const v = String(raw).trim()
+        if (v) values.push(v)
+      }
+      if (values.length === 0) throw badRequest('WAS IN requires at least one value')
+      clauses.push({ kind: 'WAS', histField, values })
+    } else if (match[3] !== undefined) {
+      // B. `field WAS value` — ever equal to a single value.
+      const histField = resolveHistoryField(match[3])
+      const rawValue =
+        match[4] !== undefined ? match[4] : match[5] !== undefined ? match[5] : match[6]
+      clauses.push({ kind: 'WAS', histField, values: [String(rawValue).trim()] })
+    } else if (match[7] !== undefined) {
+      // C. `field CHANGED` — any history row for the field.
+      const histField = resolveHistoryField(match[7])
+      clauses.push({ kind: 'CHANGED', histField })
+    } else {
+      // D. `field OP value` — current-state clause (JL-117 functions + scalars).
+      const field = match[8].toLowerCase()
+      const column = FIELD_MAP[field]
+      if (!column) throw badRequest(`Unknown field: ${match[8]}`)
 
-    const op = match[2].replace(/\s+/g, ' ').toUpperCase()
-    const funcName = match[3]
-    const funcArg =
-      match[4] !== undefined
-        ? match[4]
-        : match[5] !== undefined
-          ? match[5]
-          : match[6] !== undefined
-            ? match[6]
-            : undefined
-    const rawValue =
-      match[7] !== undefined ? match[7] : match[8] !== undefined ? match[8] : match[9]
+      const op = match[9].replace(/\s+/g, ' ').toUpperCase()
+      const funcName = match[10]
+      const funcArg =
+        match[11] !== undefined
+          ? match[11]
+          : match[12] !== undefined
+            ? match[12]
+            : match[13] !== undefined
+              ? match[13]
+              : undefined
+      const rawValue =
+        match[14] !== undefined ? match[14] : match[15] !== undefined ? match[15] : match[16]
 
-    clauses.push({
-      column,
-      op,
-      funcName: funcName !== undefined ? funcName : null,
-      funcArg: funcArg === undefined ? '' : String(funcArg).trim(),
-      value: rawValue === undefined ? '' : String(rawValue).trim(),
-    })
+      clauses.push({
+        kind: 'CURRENT',
+        column,
+        op,
+        funcName: funcName !== undefined ? funcName : null,
+        funcArg: funcArg === undefined ? '' : String(funcArg).trim(),
+        value: rawValue === undefined ? '' : String(rawValue).trim(),
+      })
+    }
     lastIndex = CLAUSE_RE.lastIndex
   }
 
@@ -225,6 +314,12 @@ function buildInClause(column, opNorm, list, params) {
  * `resolved` is a Map of `fn:arg` -> value list for async (DB) functions.
  */
 function compileClause(clause, params, ctx, resolved) {
+  // JL-118: history operators compile to a correlated EXISTS against
+  // issue_history; the recorded field name + compared values are all bound.
+  if (clause.kind === 'WAS' || clause.kind === 'CHANGED') {
+    return buildHistoryExists(clause.kind, clause.histField, clause.values, params)
+  }
+
   const { column, op } = clause
 
   if (clause.funcName != null) {
@@ -348,8 +443,9 @@ async function resolveFunctions(clauses, ctx) {
 /**
  * Parse a JQL-lite string into a parameterized WHERE fragment (SYNCHRONOUS).
  * Supports: `field OP value` clauses joined by AND/OR, operators = != ~ > >= < <=,
- * scalar functions (currentUser, now/startOfDay/…), relative date offsets, and an
- * optional trailing `ORDER BY field [ASC|DESC]`.
+ * scalar functions (currentUser, now/startOfDay/…), relative date offsets, history
+ * operators (WAS / WAS IN / CHANGED), and an optional trailing
+ * `ORDER BY field [ASC|DESC]`.
  *
  * DB-backed functions (membersOf / linkedIssues) require async resolution — use
  * {@link buildIssueSearchAsync}; calling them here throws a 400.
