@@ -20,6 +20,9 @@ import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import { SmartText } from '../../components/common/SmartText'
+import { Button } from '@mui/material'
+import PrintIcon from '@mui/icons-material/Print'
+import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -942,6 +945,16 @@ export function IssueDetailPage() {
     persistVersions(fixVersions, next)
   }
 
+  // JL-153: build a print-optimized HTML view of this issue and open the browser print dialog.
+  function handlePrintIssue() {
+    const html = buildIssuePrintHtml(issue, {
+      projectName,
+      labels,
+      generatedAt: new Date().toLocaleString(),
+    })
+    openPrintWindow(html)
+  }
+
   return (
     <section className="page issue-detail-page">
       {/* ---- Breadcrumb bar ---- */}
@@ -953,7 +966,11 @@ export function IssueDetailPage() {
           <span className="id-breadcrumb-sep">/</span>
           <span className="id-breadcrumb-current">{issue.key || `IT-${issue.id}`}</span>
         </nav>
-        <div className="id-top-actions" />
+        <div className="id-top-actions">
+          <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintIssue}>
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       {/* ---- Main grid ---- */}
