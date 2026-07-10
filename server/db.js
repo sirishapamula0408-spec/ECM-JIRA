@@ -747,10 +747,18 @@ export async function initializeDatabase() {
       id SERIAL PRIMARY KEY,
       project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      field_type TEXT NOT NULL CHECK(field_type IN ('text', 'number', 'date', 'dropdown')),
+      field_type TEXT NOT NULL CHECK(field_type IN ('text', 'number', 'date', 'dropdown', 'multi_select', 'labels', 'user_picker', 'cascading_select', 'calculated')),
       options JSONB,
+      config JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `)
+  // JL-113: extend existing installs with new field types + config column (idempotent)
+  await pool.query('ALTER TABLE custom_fields ADD COLUMN IF NOT EXISTS config JSONB')
+  await pool.query('ALTER TABLE custom_fields DROP CONSTRAINT IF EXISTS custom_fields_field_type_check')
+  await pool.query(`
+    ALTER TABLE custom_fields ADD CONSTRAINT custom_fields_field_type_check
+    CHECK (field_type IN ('text', 'number', 'date', 'dropdown', 'multi_select', 'labels', 'user_picker', 'cascading_select', 'calculated'))
   `)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS issue_custom_field_values (

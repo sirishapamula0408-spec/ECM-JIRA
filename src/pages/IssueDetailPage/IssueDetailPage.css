@@ -1061,6 +1061,16 @@
 .id-cf-delete:hover { color: #bf2600; }
 .id-cf-add { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 
+/* JL-113: extended custom-field types */
+.id-cf-calculated { font-weight: 600; color: #172b4d; }
+.id-cf-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 12px; background: #dfe1e6; color: #172b4d; font-size: 12px; }
+.id-cf-chip button { border: none; background: none; color: #5e6c84; cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
+.id-cf-chip-toggle { cursor: pointer; user-select: none; }
+.id-cf-chip-toggle input { margin: 0; }
+.id-cf-chip-toggle.selected { background: #4c9aff; color: #fff; }
+.id-cf-cascade { display: flex; flex-direction: column; gap: 4px; }
+
 /* JL-56: CI/CD pipeline status */
 .id-ci-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: 4px; font-size: 13px; }
