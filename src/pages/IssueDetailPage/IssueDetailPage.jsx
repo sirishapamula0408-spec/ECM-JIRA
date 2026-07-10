@@ -83,7 +83,7 @@ export function IssueDetailPage() {
   const [estimateInput, setEstimateInput] = useState('')
   const [customFields, setCustomFields] = useState([])
   const [showAddField, setShowAddField] = useState(false)
-  const [newField, setNewField] = useState({ name: '', fieldType: 'text', options: '' })
+  const [newField, setNewField] = useState({ name: '', fieldType: 'text', options: '', formula: '', cascade: '' })
   const [activityOpen, setActivityOpen] = useState(true)
   const [isWatching, setIsWatching] = useState(false)
   const [watcherCount, setWatcherCount] = useState(0)
@@ -386,12 +386,25 @@ export function IssueDetailPage() {
   async function handleAddCustomField() {
     const name = newField.name.trim()
     if (!name) return
-    const options = newField.fieldType === 'dropdown'
+    const { fieldType } = newField
+    const options = (fieldType === 'dropdown' || fieldType === 'multi_select')
       ? newField.options.split(',').map((o) => o.trim()).filter(Boolean)
       : []
+    let config
+    if (fieldType === 'calculated') {
+      config = { formula: newField.formula.trim() }
+    } else if (fieldType === 'cascading_select') {
+      // one "Parent: c1, c2" pair per line
+      const cascade = newField.cascade.split('\n').map((line) => {
+        const [parent, rest] = line.split(':')
+        if (!parent || !parent.trim()) return null
+        return { parent: parent.trim(), children: (rest || '').split(',').map((c) => c.trim()).filter(Boolean) }
+      }).filter(Boolean)
+      config = { cascade }
+    }
     try {
-      await createCustomField(issue.projectId, { name, fieldType: newField.fieldType, options })
-      setNewField({ name: '', fieldType: 'text', options: '' })
+      await createCustomField(issue.projectId, { name, fieldType, options, config })
+      setNewField({ name: '', fieldType: 'text', options: '', formula: '', cascade: '' })
       setShowAddField(false)
       reloadCustomFields()
     } catch {
@@ -405,6 +418,94 @@ export function IssueDetailPage() {
       setCustomFields((prev) => prev.filter((f) => f.id !== fieldId))
     } catch {
       // ignore
+    }
+  }
+
+  function renderCustomFieldEditor(f) {
+    switch (f.fieldType) {
+      case 'calculated':
+        return <span className="id-cf-calculated">{f.value == null || f.value === '' ? '—' : f.value}</span>
+      case 'dropdown':
+        return (
+          <select className="id-inline-select" value={f.value || ''} onChange={(e) => handleSaveCustomField(f.id, e.target.value)}>
+            <option value="">—</option>
+            {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )
+      case 'user_picker':
+        return (
+          <select className="id-inline-select" value={f.value || ''} onChange={(e) => handleSaveCustomField(f.id, e.target.value)}>
+            <option value="">—</option>
+            {members.map((m) => <option key={m.email} value={m.email}>{m.name || m.email}</option>)}
+          </select>
+        )
+      case 'multi_select':
+      case 'labels': {
+        const selected = Array.isArray(f.value) ? f.value : []
+        const toggle = (opt) => {
+          const next = selected.includes(opt) ? selected.filter((x) => x !== opt) : [...selected, opt]
+          handleSaveCustomField(f.id, next)
+        }
+        if (f.fieldType === 'labels') {
+          return (
+            <div className="id-cf-chips">
+              {selected.map((v) => (
+                <span key={v} className="id-cf-chip">{v}<button type="button" onClick={() => handleSaveCustomField(f.id, selected.filter((x) => x !== v))}>&times;</button></span>
+              ))}
+              <input
+                className="id-inline-input"
+                placeholder="Add label + Enter"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    e.preventDefault()
+                    const v = e.target.value.trim()
+                    if (!selected.includes(v)) handleSaveCustomField(f.id, [...selected, v])
+                    e.target.value = ''
+                  }
+                }}
+              />
+            </div>
+          )
+        }
+        return (
+          <div className="id-cf-chips">
+            {f.options.map((o) => (
+              <label key={o} className={`id-cf-chip id-cf-chip-toggle${selected.includes(o) ? ' selected' : ''}`}>
+                <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)} />
+                {o}
+              </label>
+            ))}
+          </div>
+        )
+      }
+      case 'cascading_select': {
+        const val = f.value && typeof f.value === 'object' ? f.value : { parent: '', child: '' }
+        const cascade = Array.isArray(f.config?.cascade) ? f.config.cascade : []
+        const parentEntry = cascade.find((c) => c.parent === val.parent)
+        return (
+          <div className="id-cf-cascade">
+            <select className="id-inline-select" value={val.parent || ''} onChange={(e) => handleSaveCustomField(f.id, { parent: e.target.value, child: '' })}>
+              <option value="">—</option>
+              {cascade.map((c) => <option key={c.parent} value={c.parent}>{c.parent}</option>)}
+            </select>
+            {parentEntry && parentEntry.children.length > 0 && (
+              <select className="id-inline-select" value={val.child || ''} onChange={(e) => handleSaveCustomField(f.id, { parent: val.parent, child: e.target.value })}>
+                <option value="">—</option>
+                {parentEntry.children.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
+          </div>
+        )
+      }
+      default:
+        return (
+          <input
+            className="id-inline-input"
+            type={f.fieldType === 'number' ? 'number' : f.fieldType === 'date' ? 'date' : 'text'}
+            defaultValue={f.value || ''}
+            onBlur={(e) => { if (e.target.value !== (f.value || '')) handleSaveCustomField(f.id, e.target.value) }}
+          />
+        )
     }
   }
 
@@ -1501,19 +1602,7 @@ export function IssueDetailPage() {
                     {isAdmin && <button type="button" className="id-cf-delete" title="Delete field" onClick={() => handleDeleteCustomField(f.id)}>&times;</button>}
                   </dt>
                   <dd>
-                    {f.fieldType === 'dropdown' ? (
-                      <select className="id-inline-select" value={f.value || ''} onChange={(e) => handleSaveCustomField(f.id, e.target.value)}>
-                        <option value="">—</option>
-                        {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    ) : (
-                      <input
-                        className="id-inline-input"
-                        type={f.fieldType === 'number' ? 'number' : f.fieldType === 'date' ? 'date' : 'text'}
-                        defaultValue={f.value || ''}
-                        onBlur={(e) => { if (e.target.value !== (f.value || '')) handleSaveCustomField(f.id, e.target.value) }}
-                      />
-                    )}
+                    {renderCustomFieldEditor(f)}
                   </dd>
                 </div>
               ))}
@@ -1527,9 +1616,20 @@ export function IssueDetailPage() {
                     <option value="number">Number</option>
                     <option value="date">Date</option>
                     <option value="dropdown">Dropdown</option>
+                    <option value="multi_select">Multi-select</option>
+                    <option value="labels">Labels (free)</option>
+                    <option value="user_picker">User picker</option>
+                    <option value="cascading_select">Cascading select</option>
+                    <option value="calculated">Calculated</option>
                   </select>
-                  {newField.fieldType === 'dropdown' && (
+                  {(newField.fieldType === 'dropdown' || newField.fieldType === 'multi_select') && (
                     <input className="id-inline-input" placeholder="Options, comma-separated" value={newField.options} onChange={(e) => setNewField((n) => ({ ...n, options: e.target.value }))} />
+                  )}
+                  {newField.fieldType === 'cascading_select' && (
+                    <textarea className="id-inline-input" placeholder={'One per line — Parent: child1, child2'} value={newField.cascade} onChange={(e) => setNewField((n) => ({ ...n, cascade: e.target.value }))} />
+                  )}
+                  {newField.fieldType === 'calculated' && (
+                    <input className="id-inline-input" placeholder="Formula e.g. {12} + {13} * 2" value={newField.formula} onChange={(e) => setNewField((n) => ({ ...n, formula: e.target.value }))} />
                   )}
                   <div className="id-link-dialog-actions">
                     <button className="btn btn-primary btn-sm" type="button" onClick={handleAddCustomField}>Add field</button>

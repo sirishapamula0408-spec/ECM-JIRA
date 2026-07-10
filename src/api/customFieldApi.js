@@ -3,8 +3,8 @@ import { api } from './client.js'
 export const fetchProjectCustomFields = (projectId) =>
   api(`/api/projects/${projectId}/custom-fields`)
 
-export const createCustomField = (projectId, { name, fieldType, options }) =>
-  api(`/api/projects/${projectId}/custom-fields`, { method: 'POST', body: JSON.stringify({ name, fieldType, options }) })
+export const createCustomField = (projectId, { name, fieldType, options, config }) =>
+  api(`/api/projects/${projectId}/custom-fields`, { method: 'POST', body: JSON.stringify({ name, fieldType, options, config }) })
 
 export const deleteCustomField = (fieldId) =>
   api(`/api/custom-fields/${fieldId}`, { method: 'DELETE' })
