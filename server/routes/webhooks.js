@@ -18,6 +18,25 @@ async function logDelivery(webhookId, event, payload, status, body, success) {
   )
 }
 
+/**
+ * JL-150: Pure helper — reconstruct the payload + headers to re-send from a
+ * stored webhook_logs row. Parses the JSONB payload (string or object) and,
+ * when a secret is supplied, adds the HMAC signature header. UNIT-TESTABLE.
+ *
+ * @param {{event:string, payload:any}} logRow  A webhook_logs row.
+ * @param {string} [secret]  The parent webhook's secret (for signing).
+ * @returns {{event:string, payload:object, headers:object}}
+ */
+export function buildReplayPayload(logRow, secret = '') {
+  const payload = typeof logRow.payload === 'string'
+    ? JSON.parse(logRow.payload || '{}')
+    : (logRow.payload || {})
+  const headers = { 'Content-Type': 'application/json' }
+  const signature = signPayload(payload, secret)
+  if (signature) headers['X-Hub-Signature-256'] = `sha256=${signature}`
+  return { event: logRow.event, payload, headers }
+}
+
 /** Pre-built Slack message template */
 function formatSlackPayload(event, data) {
   return {
@@ -66,6 +85,93 @@ router.get('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   sql += ' ORDER BY created_at DESC'
   const rows = await all(sql, params)
   res.json(rows)
+}))
+
+// GET /api/webhooks/deliveries — searchable/filterable delivery console (Admin only)
+// Filters: ?webhookId, ?status=success|failed, ?event, ?limit, ?offset
+// NOTE: declared before '/:id' so 'deliveries' is not swallowed as an :id.
+router.get('/deliveries', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const { webhookId, status, event } = req.query
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200)
+  const offset = Math.max(Number(req.query.offset) || 0, 0)
+
+  const conditions = []
+  const params = []
+  if (webhookId) { conditions.push('l.webhook_id = ?'); params.push(Number(webhookId)) }
+  if (status === 'success') { conditions.push('l.success = TRUE') }
+  else if (status === 'failed') { conditions.push('l.success = FALSE') }
+  if (event) { conditions.push('l.event = ?'); params.push(event) }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const sql = `SELECT l.id, l.webhook_id, l.event, l.response_status, l.success, l.created_at,
+      w.name AS webhook_name, w.url AS webhook_url
+    FROM webhook_logs l
+    LEFT JOIN webhooks w ON w.id = l.webhook_id
+    ${where}
+    ORDER BY l.created_at DESC
+    LIMIT ? OFFSET ?`
+  params.push(limit, offset)
+  const rows = await all(sql, params)
+  res.json(rows)
+}))
+
+// GET /api/webhooks/deliveries/:id — one delivery's detail (request payload + response)
+router.get('/deliveries/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const row = await get(
+    `SELECT l.id, l.webhook_id, l.event, l.payload, l.response_status, l.response_body,
+        l.success, l.created_at, w.name AS webhook_name, w.url AS webhook_url
+      FROM webhook_logs l
+      LEFT JOIN webhooks w ON w.id = l.webhook_id
+      WHERE l.id = ?`,
+    [Number(req.params.id)],
+  )
+  if (!row) {
+    res.status(404).json({ error: 'Delivery not found' })
+    return
+  }
+  res.json(row)
+}))
+
+// POST /api/webhooks/deliveries/:id/replay — re-send a stored delivery (Admin only)
+router.post('/deliveries/:id/replay', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid delivery id' })
+    return
+  }
+
+  const log = await get('SELECT id, webhook_id, event, payload FROM webhook_logs WHERE id = ?', [id])
+  if (!log) {
+    res.status(404).json({ error: 'Delivery not found' })
+    return
+  }
+
+  const webhook = await get('SELECT * FROM webhooks WHERE id = ?', [log.webhook_id])
+  if (!webhook) {
+    res.status(404).json({ error: 'Webhook not found' })
+    return
+  }
+
+  const { event, payload, headers } = buildReplayPayload(log, webhook.secret)
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const response = await fetch(webhook.url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    const body = await response.text().catch(() => '')
+    await logDelivery(webhook.id, event, payload, response.status, body, response.ok)
+    res.json({ success: response.ok, status: response.status, replayedFrom: id })
+  } catch (err) {
+    await logDelivery(webhook.id, event, payload, 0, err.message, false)
+    res.json({ success: false, error: err.message, replayedFrom: id })
+  }
 }))
 
 // GET /api/webhooks/:id (Admin only, exclude secret)

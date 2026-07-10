@@ -30,6 +30,7 @@ import favoriteRoutes from './routes/favorites.js'
 import approvalRoutes from './routes/approvals.js'
 import sharedDashboardRoutes from './routes/shared-dashboards.js'
 import webhookRoutes from './routes/webhooks.js'
+import eventRoutes from './routes/events.js'
 import wikiRoutes from './routes/wiki.js'
 import labelRoutes from './routes/labels.js'
 import importExportRoutes from './routes/importExport.js'
@@ -155,6 +156,7 @@ app.use('/api', ...protect, favoriteRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
 app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)
+app.use('/api/events', ...protect, eventRoutes)
 app.use('/api/api-tokens', ...protect, apiTokenRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, labelRoutes)
