@@ -8,6 +8,7 @@ import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { TopNavIcon } from '../../components/icons/TopNavIcon'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
 import { ImportExportModal } from '../../components/issues/ImportExportModal'
+import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 
 export function BacklogPage() {
   const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
@@ -31,6 +32,7 @@ export function BacklogPage() {
   const [quickCreateErrorBySprint, setQuickCreateErrorBySprint] = useState({})
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
   const [showImportExport, setShowImportExport] = useState(false)
+  const [showBulkWizard, setShowBulkWizard] = useState(false)
 
   // Import/Export is project-scoped: use the route project, else the project of the visible issues
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
@@ -272,6 +274,7 @@ export function BacklogPage() {
               </select>
             )}
             <button className="btn btn-ghost" type="button" onClick={applyBulkAction} disabled={selectedCount === 0}>Apply</button>
+            <button className="btn btn-ghost" type="button" onClick={() => setShowBulkWizard(true)} disabled={selectedCount === 0}>Advanced bulk change</button>
           </div>
           <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
             Import / Export
@@ -290,6 +293,15 @@ export function BacklogPage() {
           onImported={() => { reloadIssues(); setBacklogMessage('Issues imported.') }}
         />
       )}
+
+      <BulkChangeWizard
+        open={showBulkWizard}
+        onClose={() => setShowBulkWizard(false)}
+        issueIds={selectedIssueIds}
+        members={members}
+        sprints={sprints}
+        onApplied={() => { reloadIssues(); setSelectedIssueIds([]); setBacklogMessage('Bulk change applied.') }}
+      />
 
       <article className="panel jira-backlog-panel">
         {sprintPanels.map((sprintPanel) => {

@@ -112,6 +112,87 @@ async function recordHistory(issueId, field, oldValue, newValue, actor) {
   )
 }
 
+// JL-121: pure, db-free preview builder for a bulk change.
+// Given the currently-loaded `issues` (mapped shape: { id, key, status,
+// priority, assignee, sprintId, labels? }) and an `operations` object,
+// returns a per-issue diff describing only the fields that would actually
+// change, whether the row would change at all, and any value-level validation
+// error (invalid status / priority). Existence checks (assignee, sprint) are
+// left to the endpoint because they need the database.
+export function buildBulkPreview(issues, operations = {}, options = {}) {
+  const allowedStatuses = options.allowedStatuses || validStatuses
+  const allowedPriorities = options.allowedPriorities || validPriorities
+  const ops = operations || {}
+  const isDelete = ops.delete === true
+
+  return (issues || []).map((issue) => {
+    if (isDelete) {
+      return {
+        issueId: issue.id,
+        key: issue.key ?? null,
+        delete: true,
+        willChange: true,
+        changes: [],
+        error: null,
+      }
+    }
+
+    const changes = []
+    let error = null
+
+    if (ops.status !== undefined && ops.status !== null && ops.status !== '') {
+      if (!allowedStatuses.includes(ops.status)) {
+        error = error || `Invalid status "${ops.status}"`
+      } else if ((issue.status ?? null) !== ops.status) {
+        changes.push({ field: 'status', from: issue.status ?? null, to: ops.status })
+      }
+    }
+
+    if (ops.priority !== undefined && ops.priority !== null && ops.priority !== '') {
+      if (!allowedPriorities.includes(ops.priority)) {
+        error = error || `Invalid priority "${ops.priority}"`
+      } else if ((issue.priority ?? null) !== ops.priority) {
+        changes.push({ field: 'priority', from: issue.priority ?? null, to: ops.priority })
+      }
+    }
+
+    if (ops.assignee !== undefined && ops.assignee !== null && String(ops.assignee).trim() !== '') {
+      const target = String(ops.assignee).trim()
+      if ((issue.assignee ?? null) !== target) {
+        changes.push({ field: 'assignee', from: issue.assignee ?? null, to: target })
+      }
+    }
+
+    if (ops.sprintId !== undefined) {
+      const target = ops.sprintId === null || ops.sprintId === '' ? null : Number(ops.sprintId)
+      const current = issue.sprintId ?? null
+      if (current !== target) {
+        changes.push({ field: 'sprintId', from: current, to: target })
+      }
+    }
+
+    if (Array.isArray(ops.addLabels) && ops.addLabels.length > 0) {
+      const existing = Array.isArray(issue.labels) ? issue.labels : []
+      const existingLower = new Set(existing.map((l) => String(l).toLowerCase()))
+      const toAdd = ops.addLabels
+        .map((l) => String(l).trim())
+        .filter((l) => l && !existingLower.has(l.toLowerCase()))
+      if (toAdd.length > 0) {
+        changes.push({ field: 'labels', from: existing, to: [...existing, ...toAdd], added: toAdd })
+      }
+    }
+
+    return {
+      issueId: issue.id,
+      key: issue.key ?? null,
+      delete: false,
+      willChange: changes.length > 0,
+      changes,
+      error,
+    }
+  })
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const { status, q, jql } = req.query
 
@@ -754,6 +835,190 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
     [created.lastID],
   )
   res.status(201).json(mapIssue(row))
+}))
+
+// JL-121: resolve a label name to an id within a project, creating it if needed.
+async function resolveLabelId(projectId, name) {
+  if (!projectId) return null
+  const existing = await get(
+    'SELECT id FROM labels WHERE project_id = ? AND LOWER(name) = LOWER(?)',
+    [projectId, name],
+  )
+  if (existing) return existing.id
+  const created = await run(
+    'INSERT INTO labels (project_id, name, color) VALUES (?, ?, ?)',
+    [projectId, name, '#42526E'],
+  )
+  return created.lastID
+}
+
+// POST /api/issues/bulk — multi-issue change wizard backend.
+// Body: { issueIds:[], operations:{ status?, assignee?, priority?, sprintId?, addLabels?, delete? }, dryRun?:bool }
+// dryRun=true → return a per-issue preview and write nothing.
+// dryRun=false → apply to valid issues, skipping/reporting invalid ones, and
+// return a { updated, skipped, errors, results } summary. Applied sequentially,
+// each guarded so one failure does not abort the batch.
+router.post('/bulk', requireRole('Member'), asyncHandler(async (req, res) => {
+  const body = req.body || {}
+  const operations = body.operations || {}
+  const dryRun = body.dryRun === true
+
+  if (!Array.isArray(body.issueIds) || body.issueIds.length === 0) {
+    res.status(400).json({ error: 'issueIds must be a non-empty array' })
+    return
+  }
+  const ids = body.issueIds.map(Number).filter((n) => Number.isInteger(n))
+  if (ids.length === 0) {
+    res.status(400).json({ error: 'issueIds must contain valid integer ids' })
+    return
+  }
+
+  const placeholders = ids.map(() => '?').join(', ')
+  const rows = await all(
+    `SELECT id, issue_key, title, priority, assignee, status, sprint_id, project_id FROM issues WHERE id IN (${placeholders})`,
+    ids,
+  )
+  const issues = rows.map((r) => ({
+    id: r.id,
+    key: r.issue_key,
+    title: r.title,
+    priority: r.priority,
+    assignee: r.assignee,
+    status: r.status,
+    sprintId: r.sprint_id ?? null,
+    projectId: r.project_id ?? null,
+  }))
+
+  const preview = buildBulkPreview(issues, operations)
+
+  // Flag ids that were requested but not found in the database.
+  const foundIds = new Set(issues.map((i) => i.id))
+  for (const id of ids) {
+    if (!foundIds.has(id)) {
+      preview.push({ issueId: id, key: null, delete: false, willChange: false, changes: [], error: 'Issue not found' })
+    }
+  }
+
+  // Existence validation for value operations that need the db. A failure here
+  // becomes a per-issue error (only for the issues whose row would change).
+  let sprintError = null
+  if (operations.sprintId !== undefined && operations.sprintId !== null && operations.sprintId !== '') {
+    const parsed = Number(operations.sprintId)
+    if (!Number.isInteger(parsed)) sprintError = 'Invalid sprint id'
+    else {
+      const sprintRow = await get('SELECT id FROM sprints WHERE id = ?', [parsed])
+      if (!sprintRow) sprintError = 'Sprint not found'
+    }
+  }
+  let assigneeError = null
+  if (operations.assignee !== undefined && operations.assignee !== null && String(operations.assignee).trim() !== '') {
+    const a = String(operations.assignee).trim()
+    const member = await get('SELECT email FROM members WHERE email = ? OR name = ? LIMIT 1', [a, a])
+    if (!member) assigneeError = 'Assignee not found'
+  }
+
+  if (dryRun) {
+    // Surface op-level existence errors in the preview for changed issues.
+    for (const item of preview) {
+      if (item.error || !item.willChange) continue
+      const changed = new Set(item.changes.map((c) => c.field))
+      if (sprintError && changed.has('sprintId')) item.error = sprintError
+      else if (assigneeError && changed.has('assignee')) item.error = assigneeError
+    }
+    res.json({ dryRun: true, preview })
+    return
+  }
+
+  const isDelete = operations.delete === true
+  const columnByField = {
+    status: 'status',
+    priority: 'priority',
+    assignee: 'assignee',
+    sprintId: 'sprint_id',
+  }
+
+  let updated = 0
+  let skipped = 0
+  const errors = []
+  const results = []
+
+  for (const item of preview) {
+    if (item.error) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: item.error })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: item.error })
+      continue
+    }
+
+    const changedFields = new Set(item.changes.map((c) => c.field))
+    // Apply op-level existence errors as per-issue failures.
+    if (sprintError && changedFields.has('sprintId')) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: sprintError })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: sprintError })
+      continue
+    }
+    if (assigneeError && changedFields.has('assignee')) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: assigneeError })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: assigneeError })
+      continue
+    }
+
+    if (!item.willChange) {
+      skipped += 1
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: null, noop: true })
+      continue
+    }
+
+    try {
+      if (isDelete) {
+        await run('DELETE FROM issues WHERE id = ?', [item.issueId])
+        updated += 1
+        results.push({ issueId: item.issueId, key: item.key, applied: true, deleted: true })
+        continue
+      }
+
+      const sets = []
+      const params = []
+      for (const change of item.changes) {
+        const column = columnByField[change.field]
+        if (!column) continue
+        sets.push(`${column} = ?`)
+        params.push(change.to)
+        await recordHistory(item.issueId, change.field === 'sprintId' ? 'sprint' : change.field, change.from, change.to, req.user?.email)
+      }
+      if (sets.length > 0) {
+        sets.push('updated_at = NOW()')
+        params.push(item.issueId)
+        await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
+      }
+
+      // Labels are applied as a separate additive step (never removes).
+      const labelChange = item.changes.find((c) => c.field === 'labels')
+      if (labelChange) {
+        const issueRow = issues.find((i) => i.id === item.issueId)
+        for (const name of labelChange.added || []) {
+          const labelId = await resolveLabelId(issueRow?.projectId, name)
+          if (labelId) {
+            await run(
+              'INSERT INTO issue_labels (issue_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING label_id',
+              [item.issueId, labelId],
+            )
+          }
+        }
+      }
+
+      updated += 1
+      results.push({ issueId: item.issueId, key: item.key, applied: true })
+    } catch (err) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: err.message })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: err.message })
+    }
+  }
+
+  res.json({ updated, skipped, errors, results })
 }))
 
 // DELETE /api/issues/:id — delete an issue (dependent rows cascade via FKs)
