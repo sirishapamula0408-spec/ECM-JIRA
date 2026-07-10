@@ -4,7 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS } from '../../api/issueApi'
+import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS, cloneIssue } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
@@ -93,6 +93,7 @@ export function IssueDetailPage() {
   const [activityOpen, setActivityOpen] = useState(true)
   const [isWatching, setIsWatching] = useState(false)
   const [watcherCount, setWatcherCount] = useState(0)
+  const [cloning, setCloning] = useState(false) // JL-158: clone-in-progress guard
   const [approvals, setApprovals] = useState([])
   const [subtasks, setSubtasks] = useState([])
   const [subtaskProgress, setSubtaskProgress] = useState({ total: 0, done: 0, percent: 0 })
@@ -665,6 +666,20 @@ export function IssueDetailPage() {
     }
   }
 
+  // JL-158: clone this issue and navigate to the new one
+  async function handleClone() {
+    if (!issue?.id || cloning) return
+    setCloning(true)
+    try {
+      const created = await cloneIssue(issue.id)
+      if (created?.id) navigate(`/issues/${created.id}`)
+    } catch {
+      // ignore — client surfaces API errors via Snackbar
+    } finally {
+      setCloning(false)
+    }
+  }
+
   async function handleApprovalAction(decision) {
     if (!issue?.id) return
     try {
@@ -997,6 +1012,10 @@ export function IssueDetailPage() {
             <button className="id-quick-btn" type="button" onClick={() => setShowLinkDialog((v) => !v)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
               Link issue
+            </button>
+            <button className="id-quick-btn" type="button" onClick={handleClone} disabled={cloning} title="Clone this issue">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              {cloning ? 'Cloning…' : 'Clone'}
             </button>
             <button className={`id-quick-btn${isWatching ? ' id-quick-btn--active' : ''}`} type="button" onClick={handleToggleWatch}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
