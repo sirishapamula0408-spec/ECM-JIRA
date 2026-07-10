@@ -17,6 +17,7 @@ import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_T
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { fetchCiBuilds } from '../../api/cicdApi'
+import { fetchAssets, fetchIssueAssets, linkIssueAsset, unlinkIssueAsset } from '../../api/assetApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useRecentIssues } from '../../hooks/useRecentIssues'
 import { timeAgo } from '../../utils/timeAgo'
@@ -145,6 +146,11 @@ export function IssueDetailPage() {
   const fileInputRef = useRef(null)
   const [links, setLinks] = useState([])
   const [ciBuilds, setCiBuilds] = useState([])
+  // JL-142: affected assets (CMDB)
+  const [issueAssets, setIssueAssets] = useState([])
+  const [allAssets, setAllAssets] = useState([])
+  const [showAssetLink, setShowAssetLink] = useState(false)
+  const [assetToLink, setAssetToLink] = useState('')
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   // JL-55: Git integration (branches / commits / PRs)
   const [gitLinks, setGitLinks] = useState([])
@@ -434,6 +440,35 @@ export function IssueDetailPage() {
       .then((data) => setAttachments(Array.isArray(data) ? data : []))
       .catch(() => setAttachments([]))
   }, [issue?.id])
+
+  // JL-142: affected assets
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchIssueAssets(issue.id)
+      .then((data) => setIssueAssets(Array.isArray(data) ? data : []))
+      .catch(() => setIssueAssets([]))
+  }, [issue?.id])
+  useEffect(() => {
+    fetchAssets()
+      .then((data) => setAllAssets(Array.isArray(data) ? data : []))
+      .catch(() => setAllAssets([]))
+  }, [])
+
+  async function handleLinkAsset() {
+    if (!assetToLink) return
+    try {
+      const rows = await linkIssueAsset(issue.id, Number(assetToLink))
+      setIssueAssets(Array.isArray(rows) ? rows : [])
+      setAssetToLink('')
+      setShowAssetLink(false)
+    } catch { /* surfaced via snackbar */ }
+  }
+  async function handleUnlinkAsset(assetId) {
+    try {
+      await unlinkIssueAsset(issue.id, assetId)
+      setIssueAssets((prev) => prev.filter((a) => a.id !== assetId))
+    } catch { /* surfaced via snackbar */ }
+  }
 
   async function handleFilesSelected(e) {
     const files = Array.from(e.target.files || [])
@@ -1320,6 +1355,42 @@ export function IssueDetailPage() {
                     <span className="id-subtask-title" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.title}</span>
                     <span className={`id-subtask-status id-subtask-status--${String(l.issue.status).toLowerCase().replace(/\s+/g, '-')}`}>{l.issue.status}</span>
                     <button type="button" className="id-attach-delete" onClick={() => handleRemoveLink(l.id)} aria-label="Remove link">&times;</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* JL-142: Affected assets (CMDB) */}
+          <div className="id-section">
+            <div className="id-subtask-header">
+              <h3 className="id-section-title">Affected assets</h3>
+              <button className="id-subtask-add-btn" type="button" onClick={() => setShowAssetLink((v) => !v)}>+ Link asset</button>
+            </div>
+            {showAssetLink && (
+              <div className="id-link-dialog">
+                <select className="id-inline-select" value={assetToLink} onChange={(e) => setAssetToLink(e.target.value)}>
+                  <option value="">Select asset…</option>
+                  {allAssets
+                    .filter((a) => !issueAssets.some((ia) => ia.id === a.id))
+                    .map((a) => <option key={a.id} value={a.id}>{a.typeIcon ? `${a.typeIcon} ` : ''}{a.name} ({a.typeName})</option>)}
+                </select>
+                <div className="id-link-dialog-actions">
+                  <button className="btn btn-primary btn-sm" type="button" onClick={handleLinkAsset} disabled={!assetToLink}>Link</button>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowAssetLink(false); setAssetToLink('') }}>Cancel</button>
+                </div>
+              </div>
+            )}
+            {issueAssets.length === 0 ? (
+              <p className="id-empty-text">No affected assets.</p>
+            ) : (
+              <ul className="id-subtask-list">
+                {issueAssets.map((a) => (
+                  <li key={a.id} className="id-subtask-row">
+                    <span className="id-subtask-title">{a.typeIcon ? `${a.typeIcon} ` : ''}{a.name}</span>
+                    <span className="id-link-type">{a.typeName}</span>
+                    <span className={`id-subtask-status id-subtask-status--${String(a.status).toLowerCase().replace(/\s+/g, '-')}`}>{a.status}</span>
+                    <button type="button" className="id-attach-delete" onClick={() => handleUnlinkAsset(a.id)} aria-label="Unlink asset">&times;</button>
                   </li>
                 ))}
               </ul>
