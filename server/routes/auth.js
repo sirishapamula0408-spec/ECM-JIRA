@@ -21,6 +21,7 @@ import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/ma
 import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
 import { loginLockout } from '../middleware/loginLockout.js'
 import { upsertSsoUser } from '../services/sso.js'
+import { safeAppendAudit } from '../services/auditLog.js'
 
 // Build a lockout key from the submitted identity + client IP so that a single
 // abusive source can't be masked by rotating emails, and vice versa.
@@ -183,6 +184,8 @@ router.post('/login', asyncHandler(async (req, res) => {
   // "Keep me signed in" → 30 day token; otherwise → 1 day
   const expiresIn = remember ? '30d' : '1d'
   const token = issueToken(user, expiresIn)
+  // JL-132: record successful logins in the tamper-evident audit log.
+  safeAppendAudit({ actor: user.email, action: 'login', target: user.email, metadata: { remember: Boolean(remember) } })
   res.json({ user: { id: user.id, email: user.email, createdAt: user.created_at }, token, remember })
 }))
 

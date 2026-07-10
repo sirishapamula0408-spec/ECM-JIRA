@@ -67,6 +67,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
     { label: 'Activity', path: '/activity', icon: 'recent' },
     { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
+    { label: 'Audit Log', path: '/audit-log', icon: 'recent' },
     { label: 'Automation', path: '/automation', icon: 'workflow' },
     { label: 'Releases', path: '/releases', icon: 'recent' },
     { label: 'Goals', path: '/goals', icon: 'dashboards' },

@@ -52,6 +52,7 @@ import { WikiPage } from './pages/WikiPage/WikiPage'
 import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
+import { AuditLogPage } from './pages/AuditLogPage/AuditLogPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
@@ -171,6 +172,7 @@ function AppContent() {
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
               <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/audit-log" element={<AuditLogPage />} />
               <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
               <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />

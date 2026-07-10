@@ -58,6 +58,7 @@ import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
 import listViewRoutes from './routes/listViews.js'
 import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
+import auditLogRoutes from './routes/auditLog.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -155,6 +156,7 @@ app.use('/api', ...protect, favoriteRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
 app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)
+app.use('/api', ...protect, auditLogRoutes)
 app.use('/api/api-tokens', ...protect, apiTokenRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, labelRoutes)

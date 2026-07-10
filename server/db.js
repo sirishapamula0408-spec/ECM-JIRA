@@ -670,6 +670,25 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_history_issue ON issue_history(issue_id)')
 
+  // --- JL-132: Tamper-evident audit log (append-only, hash-chained) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id BIGSERIAL PRIMARY KEY,
+      seq INTEGER NOT NULL,
+      actor TEXT,
+      action TEXT NOT NULL,
+      target TEXT,
+      metadata JSONB,
+      prev_hash TEXT,
+      hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq ON audit_log(seq)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)')
+
   // --- JL-52: SLA Tracking & Alerts ---
   // Per-project SLA targets keyed by issue priority. `target_hours` is the
   // budget an issue has before it breaches; `applies_to` distinguishes a

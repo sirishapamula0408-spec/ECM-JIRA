@@ -6,6 +6,9 @@ export const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://jira_lite:
 export const JWT_SECRET = process.env.JWT_SECRET
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 export const APP_URL = process.env.APP_URL || 'http://localhost:5173'
+// JL-132: audit-log retention window (days). Entries older than this may be
+// purged via POST /api/audit-log/retention. Default 365 days.
+export const AUDIT_RETENTION_DAYS = Number(process.env.AUDIT_RETENTION_DAYS) || 365
 
 // --- JL-90: fail-fast environment validation ---
 // Variables the server cannot safely run without.
