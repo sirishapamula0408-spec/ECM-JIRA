@@ -8,6 +8,38 @@ import { emitEvent } from '../services/events.js'
 
 const router = Router()
 
+// JL-139: fixed allow-list of emoji usable as comment reactions.
+export const REACTION_EMOJIS = ['👍', '👎', '❤️', '🎉', '😄', '👀', '🚀', '😕']
+
+/**
+ * Build the aggregated reaction summary for a set of comment ids.
+ * Returns a Map<commentId, [{ emoji, count, reactedByMe }]> aggregated by emoji.
+ */
+async function loadReactions(commentIds, userEmail) {
+  const summary = new Map()
+  if (!commentIds.length) return summary
+  const placeholders = commentIds.map(() => '?').join(', ')
+  const rows = await all(
+    `SELECT comment_id, emoji,
+            COUNT(*) AS count,
+            SUM(CASE WHEN user_email = ? THEN 1 ELSE 0 END) AS mine
+       FROM comment_reactions
+      WHERE comment_id IN (${placeholders})
+      GROUP BY comment_id, emoji
+      ORDER BY emoji`,
+    [userEmail, ...commentIds],
+  )
+  for (const r of rows) {
+    if (!summary.has(r.comment_id)) summary.set(r.comment_id, [])
+    summary.get(r.comment_id).push({
+      emoji: r.emoji,
+      count: Number(r.count),
+      reactedByMe: Number(r.mine) > 0,
+    })
+  }
+  return summary
+}
+
 /**
  * Extract @mentions from comment text.
  * Matches @email or @"display name" patterns.
@@ -53,7 +85,9 @@ router.get('/:issueId/comments', asyncHandler(async (req, res) => {
   const resolved = await Promise.all(
     rows.map(async (row) => ({ ...row, author: await resolveAuthorDisplay(row.author) })),
   )
-  res.json(resolved)
+  // JL-139: attach aggregated emoji reactions for the requesting user
+  const reactions = await loadReactions(rows.map((r) => r.id), req.user.email)
+  res.json(resolved.map((r) => ({ ...r, reactions: reactions.get(r.id) || [] })))
 }))
 
 // POST /api/issues/:issueId/comments
@@ -138,6 +172,41 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
   ).catch(() => {})
 
   res.status(201).json(row)
+}))
+
+// POST /api/comments/:id/reactions — toggle an emoji reaction (JL-139).
+// Mounted at /api/comments in index.js, so the router path is /:id/reactions.
+router.post('/:id/reactions', asyncHandler(async (req, res) => {
+  const commentId = Number(req.params.id)
+  const emoji = String(req.body?.emoji || '').trim()
+
+  if (!REACTION_EMOJIS.includes(emoji)) {
+    res.status(400).json({ error: 'Invalid emoji', allowed: REACTION_EMOJIS })
+    return
+  }
+
+  const comment = await get('SELECT id FROM comments WHERE id = ?', [commentId])
+  if (!comment) {
+    res.status(404).json({ error: 'Comment not found' })
+    return
+  }
+
+  const existing = await get(
+    'SELECT id FROM comment_reactions WHERE comment_id = ? AND emoji = ? AND user_email = ?',
+    [commentId, emoji, req.user.email],
+  )
+
+  if (existing) {
+    await run('DELETE FROM comment_reactions WHERE id = ?', [existing.id])
+  } else {
+    await run(
+      'INSERT INTO comment_reactions (comment_id, emoji, user_email) VALUES (?, ?, ?) ON CONFLICT (comment_id, emoji, user_email) DO NOTHING',
+      [commentId, emoji, req.user.email],
+    )
+  }
+
+  const summary = await loadReactions([commentId], req.user.email)
+  res.json({ commentId, reactions: summary.get(commentId) || [] })
 }))
 
 export default router

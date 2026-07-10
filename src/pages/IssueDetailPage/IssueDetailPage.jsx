@@ -4,7 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues } from '../../api/issueApi'
+import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
@@ -689,6 +689,7 @@ export function IssueDetailPage() {
     type: 'comment',
     author: c.author,
     text: c.text,
+    reactions: Array.isArray(c.reactions) ? c.reactions : [],
     time: c.created_at ? new Date(c.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now',
     sortKey: c.created_at ? new Date(c.created_at).getTime() : 0,
   }))
@@ -715,6 +716,16 @@ export function IssueDetailPage() {
       setCommentText('')
     } catch {
       // keep text so user can retry
+    }
+  }
+
+  // JL-139: toggle an emoji reaction on a comment and sync the returned summary
+  async function handleReact(commentId, emoji) {
+    try {
+      const { reactions } = await addReaction(commentId, emoji)
+      setComments((current) => current.map((c) => (c.id === commentId ? { ...c, reactions } : c)))
+    } catch {
+      // ignore reaction failure
     }
   }
 
@@ -1286,7 +1297,38 @@ export function IssueDetailPage() {
                       <span className="id-comment-time">{entry.time}</span>
                     </div>
                     {entry.type === 'comment' && (
-                      <p className="id-comment-text"><SmartText text={entry.text} issues={issues} renderText={(t) => <MentionText text={t} />} /></p>
+                      <>
+                        <p className="id-comment-text"><SmartText text={entry.text} issues={issues} renderText={(t) => <MentionText text={t} />} /></p>
+                        <div className="id-reaction-bar">
+                          {entry.reactions.map((r) => (
+                            <button
+                              key={r.emoji}
+                              type="button"
+                              className={`id-reaction-chip${r.reactedByMe ? ' id-reaction-chip--mine' : ''}`}
+                              onClick={() => handleReact(entry.id, r.emoji)}
+                              title={r.reactedByMe ? 'Remove your reaction' : 'React'}
+                            >
+                              <span className="id-reaction-emoji">{r.emoji}</span>
+                              <span className="id-reaction-count">{r.count}</span>
+                            </button>
+                          ))}
+                          <div className="id-reaction-picker">
+                            <button type="button" className="id-reaction-add" title="Add reaction">＋</button>
+                            <div className="id-reaction-menu">
+                              {REACTION_EMOJIS.map((em) => (
+                                <button
+                                  key={em}
+                                  type="button"
+                                  className="id-reaction-option"
+                                  onClick={() => handleReact(entry.id, em)}
+                                >
+                                  {em}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                     {entry.type === 'history' && (
                       <p className="id-history-text">{entry.text}</p>

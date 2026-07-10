@@ -396,6 +396,21 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_comment_id ON mentions(comment_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_email ON mentions(mentioned_email)')
 
+  // --- JL-139: Comment reactions (emoji) ---
+  // A user may react to a comment with several distinct emoji, but the same
+  // (comment, emoji, user) combination is unique so a react toggles cleanly.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS comment_reactions (
+      id SERIAL PRIMARY KEY,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      emoji TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(comment_id, emoji, user_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment_id ON comment_reactions(comment_id)')
+
   // --- Module 2: Notifications ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notifications (

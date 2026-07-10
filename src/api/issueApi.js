@@ -77,3 +77,14 @@ export function createComment(issueId, payload) {
     body: JSON.stringify(payload),
   })
 }
+
+// JL-139: allow-list of emoji usable as comment reactions (must match backend)
+export const REACTION_EMOJIS = ['👍', '👎', '❤️', '🎉', '😄', '👀', '🚀', '😕']
+
+// JL-139: toggle an emoji reaction on a comment; returns the updated summary
+export function addReaction(commentId, emoji) {
+  return api(`/api/comments/${commentId}/reactions`, {
+    method: 'POST',
+    body: JSON.stringify({ emoji }),
+  })
+}

@@ -408,6 +408,85 @@
   color: #fff;
 }
 
+/* JL-139: comment emoji reactions */
+.id-reaction-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.id-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid #dfe1e6;
+  border-radius: 12px;
+  background: #f4f5f7;
+  cursor: pointer;
+  font-size: var(--font-size-sm, 13px);
+  line-height: 1.4;
+  transition: background var(--transition-fast, 120ms), border-color var(--transition-fast, 120ms);
+}
+.id-reaction-chip:hover {
+  background: #ebecf0;
+}
+.id-reaction-chip--mine {
+  background: #deebff;
+  border-color: #4c9aff;
+  color: #0052cc;
+}
+.id-reaction-count {
+  font-weight: 600;
+}
+.id-reaction-picker {
+  position: relative;
+  display: inline-flex;
+}
+.id-reaction-add {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #dfe1e6;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  color: #5e6c84;
+  font-size: 15px;
+  line-height: 1;
+}
+.id-reaction-add:hover {
+  background: #f4f5f7;
+}
+.id-reaction-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  display: none;
+  gap: 2px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #dfe1e6;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
+  z-index: var(--z-dropdown, 100);
+}
+.id-reaction-picker:hover .id-reaction-menu,
+.id-reaction-picker:focus-within .id-reaction-menu {
+  display: flex;
+}
+.id-reaction-option {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.id-reaction-option:hover {
+  background: #ebecf0;
+}
+
 /* Tab count badge */
 .id-tab-count {
   display: inline-flex;
