@@ -10,6 +10,7 @@ import {
   addPermissionGrant, deletePermissionGrant, assignPermissionScheme,
   fetchEffectivePermissions, PERMISSION_KEYS, SCHEME_ROLES,
 } from '../../api/schemesApi'
+import { fetchProjectComponents, createComponent, deleteComponent } from '../../api/componentApi'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
 
@@ -41,6 +42,10 @@ export function ProjectSettingsPage() {
   const [newStatus, setNewStatus] = useState({ name: '', color: '#42526E', category: 'todo' })
   const [fieldsBusy, setFieldsBusy] = useState(false)
   const [fieldsError, setFieldsError] = useState('')
+
+  // Components (JL-111)
+  const [components, setComponents] = useState([])
+  const [newComponent, setNewComponent] = useState({ name: '', description: '', lead: '' })
 
   // Permissions tab state
   const [schemes, setSchemes] = useState([])
@@ -77,6 +82,7 @@ export function ProjectSettingsPage() {
   const loadFieldConfig = useCallback(() => {
     fetchProjectPriorities(projectId).then(setPriorities).catch(() => {})
     fetchProjectStatuses(projectId).then(setStatuses).catch(() => {})
+    fetchProjectComponents(projectId).then(setComponents).catch(() => {})
   }, [projectId])
 
   useEffect(() => {
@@ -194,6 +200,34 @@ export function ProjectSettingsPage() {
     try {
       await deleteStatus(id)
       setStatuses((prev) => prev.filter((s) => s.id !== id))
+    } catch { /* ignore */ }
+    setFieldsBusy(false)
+  }
+
+  async function handleAddComponent() {
+    const name = newComponent.name.trim()
+    if (!name) return
+    setFieldsBusy(true)
+    setFieldsError('')
+    try {
+      const row = await createComponent(projectId, {
+        name,
+        description: newComponent.description.trim(),
+        lead: newComponent.lead.trim(),
+      })
+      setComponents((prev) => [...prev, row].sort((a, b) => a.name.localeCompare(b.name)))
+      setNewComponent({ name: '', description: '', lead: '' })
+    } catch (err) {
+      setFieldsError(err.message || 'Failed to add component.')
+    }
+    setFieldsBusy(false)
+  }
+
+  async function handleDeleteComponent(id) {
+    setFieldsBusy(true)
+    try {
+      await deleteComponent(projectId, id)
+      setComponents((prev) => prev.filter((c) => c.id !== id))
     } catch { /* ignore */ }
     setFieldsBusy(false)
   }
@@ -652,6 +686,74 @@ export function ProjectSettingsPage() {
                   type="button"
                   onClick={handleAddStatus}
                   disabled={!newStatus.name.trim() || fieldsBusy}
+                >
+                  Add
+                </button>
+              </div>
+            </article>
+
+            <article className="panel" style={{ marginTop: 16 }}>
+              <h3>Components</h3>
+              <p className="muted" style={{ marginTop: 4 }}>
+                First-class components for this project. Assign them to issues from the issue detail page.
+              </p>
+              <table className="table" style={{ marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Lead</th>
+                    <th style={{ width: 80 }}>Issues</th>
+                    <th style={{ width: 80 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {components.length > 0 ? components.map((c) => (
+                    <tr key={c.id}>
+                      <td><strong>{c.name}</strong></td>
+                      <td className="muted">{c.description || '—'}</td>
+                      <td className="muted">{c.lead || '—'}</td>
+                      <td><span className="pill">{c.issueCount}</span></td>
+                      <td>
+                        <button
+                          className="btn btn-ghost btn-sm ps-remove-btn"
+                          type="button"
+                          onClick={() => handleDeleteComponent(c.id)}
+                          disabled={fieldsBusy}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="5" className="muted">No components configured.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              <div className="ps-add-member-row" style={{ marginTop: 12 }}>
+                <input
+                  placeholder="New component name"
+                  value={newComponent.name}
+                  onChange={(e) => setNewComponent((c) => ({ ...c, name: e.target.value }))}
+                  disabled={fieldsBusy}
+                />
+                <input
+                  placeholder="Description (optional)"
+                  value={newComponent.description}
+                  onChange={(e) => setNewComponent((c) => ({ ...c, description: e.target.value }))}
+                  disabled={fieldsBusy}
+                />
+                <input
+                  placeholder="Lead (optional)"
+                  value={newComponent.lead}
+                  onChange={(e) => setNewComponent((c) => ({ ...c, lead: e.target.value }))}
+                  disabled={fieldsBusy}
+                />
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleAddComponent}
+                  disabled={!newComponent.name.trim() || fieldsBusy}
                 >
                   Add
                 </button>

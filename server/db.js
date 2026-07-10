@@ -812,6 +812,29 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label_id)')
 
+  // --- JL-111: First-class Components ---
+  // Per-project component objects; issues link to components via issue_components.
+  // (The legacy free-text issues.components column stays alongside this.)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS components (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      lead TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(project_id, name)
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_components (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+      PRIMARY KEY (issue_id, component_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_components_component ON issue_components(component_id)')
+
   // --- JL-57: Release Management ---
   // Named releases per project with a target date; issues are assigned via issues.release_id.
   await pool.query(`
