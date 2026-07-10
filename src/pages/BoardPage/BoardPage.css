@@ -173,6 +173,25 @@
   font-size: var(--font-size-sm);
 }
 
+/* JL-126: estimation total badge */
+.board-estimation-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: #f4f5f7;
+  font-size: var(--font-size-sm);
+}
+.board-estimation-total-label {
+  color: #5e6c84;
+}
+.board-estimation-total-value {
+  font-weight: 600;
+  color: #172b4d;
+}
+
 /* Board settings panel */
 .board-settings-panel {
   border: 1px solid #dfe1e6;

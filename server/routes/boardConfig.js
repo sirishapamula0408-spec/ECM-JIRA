@@ -1,7 +1,13 @@
 import { Router } from 'express'
-import { get, run } from '../db.js'
+import { get, run, all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import {
+  ESTIMATION_STATISTICS,
+  DEFAULT_ESTIMATION_STATISTIC,
+  isValidEstimationStatistic,
+  computeEstimationTotal,
+} from '../services/estimation.js'
 
 const router = Router()
 
@@ -15,6 +21,7 @@ function defaultConfig(projectId) {
     swimlaneBy: 'none',
     wipLimits: {},
     quickFilters: [],
+    estimationStatistic: DEFAULT_ESTIMATION_STATISTIC,
   }
 }
 
@@ -34,14 +41,18 @@ function serialize(row) {
     swimlaneBy: row.swimlane_by,
     wipLimits: parseJson(row.wip_limits, {}),
     quickFilters: parseJson(row.quick_filters, []),
+    estimationStatistic: row.estimation_statistic || DEFAULT_ESTIMATION_STATISTIC,
   }
 }
+
+const CONFIG_COLUMNS =
+  'project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic'
 
 // GET the board config for a project (returns defaults when none saved).
 router.get('/projects/:projectId/board-config', asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const row = await get(
-    'SELECT project_id, swimlane_by, wip_limits, quick_filters FROM board_configs WHERE project_id = ?',
+    `SELECT ${CONFIG_COLUMNS} FROM board_configs WHERE project_id = ?`,
     [projectId],
   )
   res.json(row ? serialize(row) : defaultConfig(projectId))
@@ -77,22 +88,78 @@ router.put('/projects/:projectId/board-config', requireRole('Admin'), asyncHandl
     return
   }
 
+  const estimationStatistic = String(
+    req.body?.estimationStatistic ?? DEFAULT_ESTIMATION_STATISTIC,
+  ).trim()
+  if (!isValidEstimationStatistic(estimationStatistic)) {
+    res.status(400).json({
+      error: `estimationStatistic must be one of ${ESTIMATION_STATISTICS.join(', ')}`,
+    })
+    return
+  }
+
   await run(
-    `INSERT INTO board_configs (project_id, swimlane_by, wip_limits, quick_filters, updated_at)
-     VALUES (?, ?, ?::jsonb, ?::jsonb, NOW())
+    `INSERT INTO board_configs (project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic, updated_at)
+     VALUES (?, ?, ?::jsonb, ?::jsonb, ?, NOW())
      ON CONFLICT (project_id) DO UPDATE SET
        swimlane_by = EXCLUDED.swimlane_by,
        wip_limits = EXCLUDED.wip_limits,
        quick_filters = EXCLUDED.quick_filters,
+       estimation_statistic = EXCLUDED.estimation_statistic,
        updated_at = NOW()`,
-    [projectId, swimlaneBy, JSON.stringify(wipLimits), JSON.stringify(quickFilters)],
+    [projectId, swimlaneBy, JSON.stringify(wipLimits), JSON.stringify(quickFilters), estimationStatistic],
   )
 
   const row = await get(
-    'SELECT project_id, swimlane_by, wip_limits, quick_filters FROM board_configs WHERE project_id = ?',
+    `SELECT ${CONFIG_COLUMNS} FROM board_configs WHERE project_id = ?`,
     [projectId],
   )
   res.json(serialize(row))
+}))
+
+// GET estimation totals for a project, grouped by sprint plus the backlog,
+// computed with the board's configured estimation statistic (JL-126).
+router.get('/projects/:projectId/estimation-summary', asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.projectId)
+
+  const cfg = await get(
+    'SELECT estimation_statistic FROM board_configs WHERE project_id = ?',
+    [projectId],
+  )
+  const statistic = cfg?.estimation_statistic || DEFAULT_ESTIMATION_STATISTIC
+
+  const issues = await all(
+    'SELECT id, sprint_id, story_points, original_estimate_minutes FROM issues WHERE project_id = ?',
+    [projectId],
+  )
+
+  // Group by sprint_id (null → backlog).
+  const groups = new Map()
+  for (const issue of issues) {
+    const key = issue.sprint_id ?? 'backlog'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(issue)
+  }
+
+  const sprints = []
+  let backlog = 0
+  for (const [key, rows] of groups.entries()) {
+    const total = computeEstimationTotal(rows, statistic)
+    if (key === 'backlog') {
+      backlog = total
+    } else {
+      sprints.push({ sprintId: key, total, issueCount: rows.length })
+    }
+  }
+  sprints.sort((a, b) => a.sprintId - b.sprintId)
+
+  res.json({
+    projectId,
+    statistic,
+    backlogTotal: backlog,
+    total: computeEstimationTotal(issues, statistic),
+    sprints,
+  })
 }))
 
 export default router

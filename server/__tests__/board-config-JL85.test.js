@@ -56,7 +56,7 @@ describe('GET /api/projects/:id/board-config', () => {
     get.mockResolvedValueOnce(null)
     const res = await request(app).get('/api/projects/9/board-config')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ projectId: 9, swimlaneBy: 'none', wipLimits: {}, quickFilters: [] })
+    expect(res.body).toEqual({ projectId: 9, swimlaneBy: 'none', wipLimits: {}, quickFilters: [], estimationStatistic: 'story_points' })
   })
 
   it('parses JSONB columns returned as raw strings', async () => {

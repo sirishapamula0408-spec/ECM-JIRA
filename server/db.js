@@ -878,6 +878,17 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_board_configs_project ON board_configs(project_id)')
 
+  // --- JL-126: Configurable estimation statistic per board ---
+  // Which statistic drives sprint/backlog totals:
+  //   'story_points' | 'time_estimate' | 'issue_count'. Lives on the board config.
+  await pool.query(
+    "ALTER TABLE board_configs ADD COLUMN IF NOT EXISTS estimation_statistic TEXT NOT NULL DEFAULT 'story_points'",
+  )
+  // Ensure story_points can hold fractional/large values (JIRA allows decimals).
+  if (!(await columnExists('issues', 'story_points'))) {
+    await pool.query('ALTER TABLE issues ADD COLUMN story_points NUMERIC')
+  }
+
   // --- JL-55: Git Integration (branch / commit / PR linking) ---
   // Records links between issues and git refs. No live provider — records + ingest only.
   await pool.query(`
