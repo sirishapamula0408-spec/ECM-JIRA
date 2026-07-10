@@ -25,16 +25,76 @@ const FIELD_MAP = {
   createdat: 'created_at',
 }
 
+// JL-118: Whitelist for history operators (WAS / WAS IN / CHANGED). Maps the JQL
+// field name (lowercased) -> the `field` string recorded in issue_history
+// (see recordHistory() in server/routes/issues.js). Only tracked fields qualify;
+// any other field used with a history operator is a 400.
+const HISTORY_FIELD_MAP = {
+  status: 'status',
+  priority: 'priority',
+  assignee: 'assignee',
+  type: 'type',
+  issuetype: 'type',
+  issue_type: 'type',
+  title: 'title',
+  sprint: 'sprint',
+  epic: 'epic',
+}
+
 function badRequest(message) {
   const err = new Error(message)
   err.status = 400
   return err
 }
 
-// Matches one `field OP value` clause. Value may be double/single quoted, or a
-// bare token possibly containing spaces (stops before an AND/OR/ORDER keyword).
-const CLAUSE_RE =
-  /([a-zA-Z_]+)\s*(!=|=|~)\s*(?:"([^"]*)"|'([^']*)'|([^\s"']+(?:\s+(?!AND\b)(?!OR\b)(?!ORDER\b)[^\s]+)*))/gi
+// A JQL value: double/single quoted, or a bare token possibly containing spaces
+// (stops before an AND/OR/ORDER keyword). Reused across clause alternatives.
+const VALUE = `(?:"([^"]*)"|'([^']*)'|([^\\s"']+(?:\\s+(?!AND\\b)(?!OR\\b)(?!ORDER\\b)[^\\s]+)*))`
+
+// Matches ONE clause. Alternatives, tried left-to-right:
+//   A. `field WAS IN (list)`  -> g1 field, g2 list body
+//   B. `field WAS value`      -> g3 field, g4/g5/g6 value (dq/sq/bare)
+//   C. `field CHANGED`        -> g7 field
+//   D. `field OP value`       -> g8 field, g9 op, g10/g11/g12 value
+const CLAUSE_RE = new RegExp(
+  // The list body allows quoted segments (which may contain `)`) or any
+  // non-`)` char, so a `)` inside a quoted value doesn't end the list early.
+  `([a-zA-Z_]+)\\s+WAS\\s+IN\\s*\\(((?:"[^"]*"|'[^']*'|[^)])*)\\)` +
+    `|([a-zA-Z_]+)\\s+WAS\\s+${VALUE}` +
+    `|([a-zA-Z_]+)\\s+CHANGED\\b` +
+    `|([a-zA-Z_]+)\\s*(!=|=|~)\\s*${VALUE}`,
+  'gi',
+)
+
+// Splits a `WAS IN (...)` list body into individual values (quotes respected;
+// bare items are comma-delimited). Leading/trailing whitespace is trimmed.
+const LIST_ITEM_RE = /\s*(?:"([^"]*)"|'([^']*)'|([^,]+))\s*(?:,|$)/g
+
+function resolveHistoryField(rawField) {
+  const histField = HISTORY_FIELD_MAP[rawField.toLowerCase()]
+  if (!histField) {
+    throw badRequest(`Field not tracked in history: ${rawField}`)
+  }
+  return histField
+}
+
+// Builds a correlated EXISTS subquery against issue_history. `i.id` is the outer
+// issues alias used by GET /api/issues. All values are bound (pushed to params).
+function buildHistoryExists(kind, histField, values, params) {
+  if (kind === 'CHANGED') {
+    params.push(histField)
+    return `EXISTS (SELECT 1 FROM issue_history h WHERE h.issue_id = i.id AND h.field = ?)`
+  }
+  // WAS / WAS IN: match if the field was ever equal to any listed value, in
+  // either the old_value or new_value column of a history row.
+  params.push(histField)
+  const placeholders = values.map(() => '?').join(', ')
+  params.push(...values, ...values)
+  return (
+    `EXISTS (SELECT 1 FROM issue_history h WHERE h.issue_id = i.id AND h.field = ? ` +
+    `AND (h.old_value IN (${placeholders}) OR h.new_value IN (${placeholders})))`
+  )
+}
 
 /**
  * Parse a JQL-lite string into a parameterized WHERE fragment.
@@ -74,14 +134,41 @@ export function parseJql(input) {
     }
     first = false
 
-    const field = match[1].toLowerCase()
-    const column = FIELD_MAP[field]
-    if (!column) throw badRequest(`Unknown field: ${match[1]}`)
-
-    const op = match[2]
-    const rawValue =
-      match[3] !== undefined ? match[3] : match[4] !== undefined ? match[4] : match[5]
-    clauses.push({ column, op, value: String(rawValue).trim() })
+    if (match[1] !== undefined) {
+      // A. `field WAS IN (list)` — history membership.
+      const histField = resolveHistoryField(match[1])
+      const values = []
+      LIST_ITEM_RE.lastIndex = 0
+      let item
+      while ((item = LIST_ITEM_RE.exec(match[2])) !== null) {
+        if (item.index === LIST_ITEM_RE.lastIndex) LIST_ITEM_RE.lastIndex += 1
+        const raw = item[1] !== undefined ? item[1] : item[2] !== undefined ? item[2] : item[3]
+        if (raw === undefined) continue
+        const v = String(raw).trim()
+        if (v) values.push(v)
+      }
+      if (values.length === 0) throw badRequest('WAS IN requires at least one value')
+      clauses.push({ kind: 'WAS', histField, values })
+    } else if (match[3] !== undefined) {
+      // B. `field WAS value` — ever equal to a single value.
+      const histField = resolveHistoryField(match[3])
+      const rawValue =
+        match[4] !== undefined ? match[4] : match[5] !== undefined ? match[5] : match[6]
+      clauses.push({ kind: 'WAS', histField, values: [String(rawValue).trim()] })
+    } else if (match[7] !== undefined) {
+      // C. `field CHANGED` — any history row for the field.
+      const histField = resolveHistoryField(match[7])
+      clauses.push({ kind: 'CHANGED', histField })
+    } else {
+      // D. `field OP value` — current-state clause.
+      const field = match[8].toLowerCase()
+      const column = FIELD_MAP[field]
+      if (!column) throw badRequest(`Unknown field: ${match[8]}`)
+      const op = match[9]
+      const rawValue =
+        match[10] !== undefined ? match[10] : match[11] !== undefined ? match[11] : match[12]
+      clauses.push({ kind: 'CURRENT', column, op, value: String(rawValue).trim() })
+    }
     lastIndex = CLAUSE_RE.lastIndex
   }
 
@@ -90,6 +177,9 @@ export function parseJql(input) {
   // 3. Build the parameterized WHERE fragment. Values are ALWAYS bound.
   const params = []
   const parts = clauses.map((c) => {
+    if (c.kind === 'WAS' || c.kind === 'CHANGED') {
+      return buildHistoryExists(c.kind, c.histField, c.values, params)
+    }
     if (c.op === '~') {
       params.push(`%${c.value}%`)
       return `${c.column} ILIKE ?`
