@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchParallelSprintSetting, setParallelSprintSetting } from '../../api/sprintApi'
+import { fetchParallelSprintSetting, setParallelSprintSetting, addRetro, deleteRetro, fetchRetros } from '../../api/sprintApi'
 import { STATUS_COLUMNS } from '../../constants'
 import './ActiveSprintPage.css'
 
+const RETRO_COLUMNS = [
+  { key: 'well', label: 'What went well' },
+  { key: 'improve', label: 'What to improve' },
+  { key: 'action', label: 'Action items' },
+]
+
 export function ActiveSprintPage() {
   const { issues, handleMove, reloadIssues } = useIssues()
-  const { sprints, handleCompleteSprint } = useSprints()
+  const { sprints, handleCompleteSprint, handleUpdateSprint } = useSprints()
   const navigate = useNavigate()
   const { projectId } = useParams()
-  const { canManageSprints } = usePermissions(projectId)
+  const { canManageSprints } = usePermissions(projectId ? Number(projectId) : undefined)
   const scopedIssues = projectId ? issues.filter((i) => i.projectId === Number(projectId)) : issues
   const [dragIssueId, setDragIssueId] = useState(null)
   const [dropStatus, setDropStatus] = useState('')
@@ -108,6 +114,8 @@ export function ActiveSprintPage() {
         issues={scopedIssues}
         handleMove={handleMove}
         handleCompleteSprint={handleCompleteSprint}
+        handleUpdateSprint={handleUpdateSprint}
+        canManageSprints={canManageSprints}
         reloadIssues={reloadIssues}
         navigate={navigate}
         dragIssueId={dragIssueId}
@@ -120,7 +128,7 @@ export function ActiveSprintPage() {
   )
 }
 
-function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, reloadIssues, navigate, dragIssueId, setDragIssueId, dropStatus, setDropStatus, showDivider }) {
+function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleUpdateSprint, canManageSprints, reloadIssues, navigate, dragIssueId, setDragIssueId, dropStatus, setDropStatus, showDivider }) {
   const sprintIssues = useMemo(
     () => issues.filter((i) => i.sprintId === sprint.id && i.status !== 'Backlog'),
     [issues, sprint.id],
@@ -177,6 +185,8 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, reloadI
         </div>
       </div>
 
+      <SprintGoal sprint={sprint} canEdit={canManageSprints} handleUpdateSprint={handleUpdateSprint} />
+
       <div className="active-sprint-grid">
         {STATUS_COLUMNS.map((status) => (
           <article
@@ -212,6 +222,127 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, reloadI
                 </div>
               </div>
             ))}
+          </article>
+        ))}
+      </div>
+
+      <RetroPanel sprintId={sprint.id} canEdit={canManageSprints} />
+    </div>
+  )
+}
+
+function SprintGoal({ sprint, canEdit, handleUpdateSprint }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(sprint.goal || '')
+  const [saving, setSaving] = useState(false)
+
+  async function onSave() {
+    setSaving(true)
+    try {
+      await handleUpdateSprint(sprint.id, { name: sprint.name, dateRange: sprint.dateRange, goal: draft })
+      setEditing(false)
+    } catch {
+      // keep editing open on failure
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="active-sprint-goal active-sprint-goal--edit">
+        <span className="active-sprint-goal__label">Sprint goal</span>
+        <textarea
+          className="active-sprint-goal__input"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="What should this sprint achieve?"
+          rows={2}
+        />
+        <div className="active-sprint-goal__actions">
+          <button className="btn btn-primary" type="button" onClick={onSave} disabled={saving}>Save</button>
+          <button className="btn" type="button" onClick={() => { setDraft(sprint.goal || ''); setEditing(false) }}>Cancel</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="active-sprint-goal">
+      <span className="active-sprint-goal__label">Sprint goal</span>
+      <span className="active-sprint-goal__text">{sprint.goal || 'No goal set for this sprint.'}</span>
+      {canEdit && (
+        <button className="btn active-sprint-goal__edit" type="button" onClick={() => { setDraft(sprint.goal || ''); setEditing(true) }}>
+          {sprint.goal ? 'Edit' : 'Add goal'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function RetroPanel({ sprintId, canEdit }) {
+  const [retros, setRetros] = useState([])
+  const [drafts, setDrafts] = useState({ well: '', improve: '', action: '' })
+
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchRetros(sprintId)
+      setRetros(data)
+    } catch {
+      setRetros([])
+    }
+  }, [sprintId])
+
+  useEffect(() => { load() }, [load])
+
+  async function onAdd(category) {
+    const text = (drafts[category] || '').trim()
+    if (!text) return
+    try {
+      const created = await addRetro(sprintId, { category, text })
+      setRetros((current) => [...current, created])
+      setDrafts((d) => ({ ...d, [category]: '' }))
+    } catch {
+      // ignore add failure
+    }
+  }
+
+  async function onDelete(retroId) {
+    try {
+      await deleteRetro(sprintId, retroId)
+      setRetros((current) => current.filter((r) => r.id !== retroId))
+    } catch {
+      // ignore delete failure
+    }
+  }
+
+  return (
+    <div className="active-sprint-retro">
+      <h3 className="active-sprint-retro__title">Retrospective</h3>
+      <div className="active-sprint-retro__grid">
+        {RETRO_COLUMNS.map(({ key, label }) => (
+          <article key={key} className="active-sprint-retro__col">
+            <header>{label}</header>
+            {retros.filter((r) => r.category === key).map((r) => (
+              <div key={r.id} className="active-sprint-retro__note">
+                <span className="active-sprint-retro__note-text">{r.text}</span>
+                {canEdit && (
+                  <button className="active-sprint-retro__note-del" type="button" title="Delete" onClick={() => onDelete(r.id)}>&times;</button>
+                )}
+              </div>
+            ))}
+            {canEdit && (
+              <div className="active-sprint-retro__add">
+                <textarea
+                  className="active-sprint-retro__input"
+                  value={drafts[key]}
+                  onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
+                  placeholder="Add a note..."
+                  rows={2}
+                />
+                <button className="btn" type="button" onClick={() => onAdd(key)}>Add</button>
+              </div>
+            )}
           </article>
         ))}
       </div>

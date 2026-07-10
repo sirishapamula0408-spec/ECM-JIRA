@@ -16,14 +16,18 @@ vi.mock('../context/IssueContext', () => ({
   }),
 }))
 
+const mockHandleUpdateSprint = vi.fn()
+
 vi.mock('../context/SprintContext', () => ({
   useSprints: () => ({
     sprints: mockSprints,
     handleCompleteSprint: mockHandleCompleteSprint,
+    handleUpdateSprint: mockHandleUpdateSprint,
   }),
 }))
 
-// JL-124: parallel-sprints deps (permissions gating + settings API)
+// JL-124 + JL-127: parallel-sprints deps (permissions gating + settings API)
+// and sprint retro notes — stub all.
 vi.mock('../hooks/usePermissions', () => ({
   usePermissions: () => ({ canManageSprints: false }),
 }))
@@ -31,6 +35,9 @@ vi.mock('../hooks/usePermissions', () => ({
 vi.mock('../api/sprintApi', () => ({
   fetchParallelSprintSetting: vi.fn().mockResolvedValue({ allowParallelSprints: false }),
   setParallelSprintSetting: vi.fn().mockResolvedValue({ allowParallelSprints: false }),
+  fetchRetros: vi.fn().mockResolvedValue([]),
+  addRetro: vi.fn(),
+  deleteRetro: vi.fn(),
 }))
 
 let mockIssues = []
