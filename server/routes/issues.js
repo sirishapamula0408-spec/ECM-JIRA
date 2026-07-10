@@ -7,6 +7,7 @@ import { runStatusChangeAutomations } from '../services/automation.js'
 import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearch } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
+import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
 
 const router = Router()
 
@@ -114,6 +115,25 @@ router.get('/', asyncHandler(async (req, res) => {
     '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
     (built.where ? ` ${built.where}` : '') +
     ` ORDER BY ${built.orderBy}`
+
+  // JL-100: opt-in pagination. Default (no limit/offset/page) keeps the legacy
+  // unbounded array response shape. When a paging param is present, cap the
+  // result set with LIMIT/OFFSET and expose totals via response headers.
+  if (isPaginationRequested(req.query)) {
+    const { limit, offset } = parsePagination(req.query)
+
+    const countSql =
+      'SELECT COUNT(*) AS total FROM issues i' + (built.where ? ` ${built.where}` : '')
+    const countRow = await get(countSql, built.params)
+    const total = Number(countRow?.total) || 0
+
+    const rows = await all(`${sql} LIMIT ? OFFSET ?`, [...built.params, limit, offset])
+    res.set('X-Total-Count', String(total))
+    res.set('X-Limit', String(limit))
+    res.set('X-Offset', String(offset))
+    res.json(rows.map(mapIssue))
+    return
+  }
 
   const rows = await all(sql, built.params)
   res.json(rows.map(mapIssue))
