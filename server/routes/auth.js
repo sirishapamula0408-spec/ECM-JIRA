@@ -29,8 +29,8 @@ function lockoutKey(email, req) {
   return `${email}|${ip}`
 }
 
-function issueToken(user, expiresIn = '1d') {
-  return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn })
+function issueToken(user, expiresIn = '1d', extraClaims = {}) {
+  return jwt.sign({ sub: user.id, email: user.email, ...extraClaims }, JWT_SECRET, { expiresIn })
 }
 
 const router = Router()
@@ -182,7 +182,26 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   // "Keep me signed in" → 30 day token; otherwise → 1 day
   const expiresIn = remember ? '30d' : '1d'
-  const token = issueToken(user, expiresIn)
+
+  // --- JL-133: session/device tracking ---
+  // Generate a token id (jti) and record a session row so this login can later
+  // be listed / revoked. Best-effort: never block login if the insert fails.
+  const jti = crypto.randomUUID()
+  try {
+    await run(
+      'INSERT INTO user_sessions (user_email, jti, user_agent, ip) VALUES (?, ?, ?, ?)',
+      [
+        user.email,
+        jti,
+        req.headers?.['user-agent'] || null,
+        req.ip || req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || null,
+      ],
+    )
+  } catch (err) {
+    console.error(`[auth] Failed to record session for ${user.email}: ${err.message}`)
+  }
+
+  const token = issueToken(user, expiresIn, { jti })
   res.json({ user: { id: user.id, email: user.email, createdAt: user.created_at }, token, remember })
 }))
 
