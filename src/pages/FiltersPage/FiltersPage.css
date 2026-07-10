@@ -123,6 +123,11 @@
 
 .filters-results-header {
   padding: 12px 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .filters-results-header h3 { margin: 0; }

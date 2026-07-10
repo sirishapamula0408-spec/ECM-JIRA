@@ -45,6 +45,7 @@ import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
+import listViewRoutes from './routes/listViews.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 
@@ -92,6 +93,7 @@ app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)
 app.use('/api/filters', ...protect, filterRoutes)
+app.use('/api/list-views', ...protect, listViewRoutes)
 app.use('/api/notifications', ...protect, notificationRoutes)
 app.use('/api/issues', ...protect, watcherRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)

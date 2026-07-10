@@ -3,10 +3,55 @@ import { useNavigate } from 'react-router-dom'
 import { fetchFilters, createFilter, updateFilter, deleteFilter, searchIssues, searchByJql, aiSearch } from '../../api/filterApi'
 import { fetchProjects } from '../../api/projectApi'
 import { FilterChip } from '../../components/filters/FilterChip'
+import { ListViewControls } from '../../components/listViews/ListViewControls'
+import { DEFAULT_COLUMNS, COLUMN_LABELS } from '../../api/listViewApi'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './FiltersPage.css'
 
 const EMPTY_CRITERIA = { status: 'All', priority: 'All', issueType: 'All', assignee: '', text: '', projectId: 'All' }
+
+// Render a single results-table cell for a given column key.
+function renderCell(issue, key) {
+  switch (key) {
+    case 'key':
+      return <span className="filters-issue-key">{issue.key}</span>
+    case 'summary':
+      return <span className="filters-issue-title">{issue.title}</span>
+    case 'issueType':
+      return issue.issueType
+        ? <span className={`filters-type-badge filters-type-${issue.issueType.toLowerCase()}`}>{issue.issueType}</span>
+        : '—'
+    case 'priority':
+      return issue.priority
+        ? <span className={`filters-priority-badge filters-priority-${issue.priority.toLowerCase()}`}>{issue.priority}</span>
+        : '—'
+    case 'status':
+      return issue.status ? <span className="filters-status-pill">{issue.status}</span> : '—'
+    case 'assignee':
+      return issue.assignee
+        ? (
+          <div className="filters-assignee-cell">
+            <span className="filters-assignee-avatar">{issue.assignee.charAt(0).toUpperCase()}</span>
+            {issue.assignee}
+          </div>
+        )
+        : <span className="filters-unassigned">Unassigned</span>
+    case 'reporter':
+      return issue.reporter || '—'
+    case 'labels':
+      return Array.isArray(issue.labels) && issue.labels.length ? issue.labels.join(', ') : '—'
+    case 'created':
+      return issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : '—'
+    case 'updated':
+      return issue.updatedAt ? new Date(issue.updatedAt).toLocaleDateString() : '—'
+    case 'dueDate':
+      return issue.dueDate ? new Date(issue.dueDate).toLocaleDateString() : '—'
+    case 'storyPoints':
+      return issue.storyPoints ?? '—'
+    default:
+      return '—'
+  }
+}
 
 export function FiltersPage() {
   const navigate = useNavigate()
@@ -29,6 +74,7 @@ export function FiltersPage() {
   const [aiError, setAiError] = useState('')
   const [aiInterpreted, setAiInterpreted] = useState([])
   const [projects, setProjects] = useState([])
+  const [columns, setColumns] = useState([...DEFAULT_COLUMNS])
 
   const loadFilters = useCallback(() => {
     fetchFilters()
@@ -432,6 +478,11 @@ export function FiltersPage() {
             <article className="panel filters-results-panel">
               <div className="filters-results-header">
                 <h3>{results.length} issue{results.length !== 1 ? 's' : ''} found</h3>
+                <ListViewControls
+                  columns={columns}
+                  onColumnsChange={setColumns}
+                  filterJql={searchMode === 'jql' ? jqlQuery.trim() || null : null}
+                />
               </div>
               {results.length === 0 ? (
                 <div className="filters-empty">No issues match the current filter criteria.</div>
@@ -439,28 +490,17 @@ export function FiltersPage() {
                 <table className="table filters-results-table">
                   <thead>
                     <tr>
-                      <th>Key</th>
-                      <th>Summary</th>
-                      <th>Type</th>
-                      <th>Priority</th>
-                      <th>Status</th>
-                      <th>Assignee</th>
+                      {columns.map((key) => (
+                        <th key={key}>{COLUMN_LABELS[key] || key}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {results.map((issue) => (
                       <tr key={issue.id} className="filters-result-row" onClick={() => navigate(`/issues/${issue.id}`)}>
-                        <td><span className="filters-issue-key">{issue.key}</span></td>
-                        <td className="filters-issue-title">{issue.title}</td>
-                        <td><span className={`filters-type-badge filters-type-${issue.issueType.toLowerCase()}`}>{issue.issueType}</span></td>
-                        <td><span className={`filters-priority-badge filters-priority-${issue.priority.toLowerCase()}`}>{issue.priority}</span></td>
-                        <td><span className="filters-status-pill">{issue.status}</span></td>
-                        <td>
-                          <div className="filters-assignee-cell">
-                            <span className="filters-assignee-avatar">{issue.assignee.charAt(0).toUpperCase()}</span>
-                            {issue.assignee}
-                          </div>
-                        </td>
+                        {columns.map((key) => (
+                          <td key={key}>{renderCell(issue, key)}</td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

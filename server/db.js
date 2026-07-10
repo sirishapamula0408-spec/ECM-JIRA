@@ -1047,6 +1047,22 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace ON workspace_members(workspace_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_email ON workspace_members(member_email)')
 
+  // --- JL-122: Configurable result columns & saved list views ---
+  // Per-user named views: an ordered set of visible column keys + optional JQL filter.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS list_views (
+      id SERIAL PRIMARY KEY,
+      owner_email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      columns JSONB NOT NULL DEFAULT '[]',
+      filter_jql TEXT,
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_list_views_owner ON list_views(owner_email)')
+
   // Seed a single default workspace (idempotent via the unique slug).
   await pool.query(
     "INSERT INTO workspaces (name, slug) VALUES ('Default Workspace', 'default') ON CONFLICT (slug) DO NOTHING",
