@@ -57,6 +57,7 @@ import fieldConfigRoutes from './routes/fieldConfig.js'
 import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
 import listViewRoutes from './routes/listViews.js'
 import workspaceRoutes from './routes/workspaces.js'
+import scimRoutes from './routes/scim.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -110,6 +111,10 @@ app.use('/api/auth', authRoutes)
 
 // Public REST API (JL-84): authenticated by user-generated API tokens, not JWT sessions
 app.use('/api/public', publicApiRoutes)
+
+// SCIM 2.0 provisioning (JL-130): IdP-facing, guarded by its own shared bearer
+// token (SCIM_TOKEN) rather than JWT sessions. Mounted outside the /api tree.
+app.use('/scim/v2', scimRoutes)
 
 // API documentation (JL-58) — public, mounted before auth-protected routes
 // GET /api/openapi.json (raw OpenAPI 3.0 spec) and GET /api/docs (HTML viewer)

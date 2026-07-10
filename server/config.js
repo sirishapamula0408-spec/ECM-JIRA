@@ -146,6 +146,16 @@ export function isSamlConfigured(cfg = getSamlConfig()) {
   return Boolean(cfg && cfg.entryPoint && cfg.issuer && cfg.cert && cfg.callbackUrl)
 }
 
+// --- SCIM 2.0 provisioning (JL-130) ---
+// Shared bearer token that an enterprise IdP (Okta/Azure AD) presents on every
+// /scim/v2 request. Defaults to a dev value so local/testing works out of the
+// box; ALWAYS override with a strong secret in production.
+export const SCIM_TOKEN = process.env.SCIM_TOKEN || 'dev-scim-token-change-me'
+
+export function isScimConfigured() {
+  return Boolean(SCIM_TOKEN)
+}
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587
