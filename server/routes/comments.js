@@ -22,6 +22,25 @@ function extractMentions(text) {
   return [...new Set(mentions)]
 }
 
+/**
+ * JL-99: Resolve a stored comment author string to a friendly display name.
+ * Historically the author column may hold an email (or a blank that was
+ * persisted as the literal 'Unknown'). If it matches a known member's email,
+ * return that member's name; otherwise return the original value unchanged.
+ */
+async function resolveAuthorDisplay(author) {
+  const value = String(author || '').trim()
+  if (!value || value === 'Unknown') {
+    return value || 'Unknown'
+  }
+  // Only attempt a member lookup when the stored value looks like an email.
+  if (value.includes('@')) {
+    const member = await get('SELECT name FROM members WHERE email = ? LIMIT 1', [value])
+    if (member?.name) return member.name
+  }
+  return value
+}
+
 // GET /api/issues/:issueId/comments
 router.get('/:issueId/comments', asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
@@ -29,7 +48,12 @@ router.get('/:issueId/comments', asyncHandler(async (req, res) => {
     'SELECT id, issue_id, author, text, created_at FROM comments WHERE issue_id = ? ORDER BY created_at DESC',
     [issueId],
   )
-  res.json(rows)
+  // JL-99: upgrade email-based authors to member display names so the UI
+  // never shows a raw email (or a stale 'Unknown') for a known member.
+  const resolved = await Promise.all(
+    rows.map(async (row) => ({ ...row, author: await resolveAuthorDisplay(row.author) })),
+  )
+  res.json(resolved)
 }))
 
 // POST /api/issues/:issueId/comments
@@ -44,9 +68,20 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
     return
   }
 
+  // JL-99: never persist the literal 'Unknown'. When the client omits an
+  // author, derive one from the authenticated user — their member name, or
+  // failing that their email — so comments always show a real author.
+  let resolvedAuthor = normalizedAuthor
+  if (!resolvedAuthor) {
+    const member = req.user?.email
+      ? await get('SELECT name FROM members WHERE email = ? LIMIT 1', [req.user.email])
+      : null
+    resolvedAuthor = member?.name || req.user?.email || 'Unknown'
+  }
+
   const created = await run(
     'INSERT INTO comments (issue_id, author, text) VALUES (?, ?, ?)',
-    [issueId, normalizedAuthor || 'Unknown', normalizedText],
+    [issueId, resolvedAuthor, normalizedText],
   )
   const row = await get('SELECT id, issue_id, author, text, created_at FROM comments WHERE id = ?', [created.lastID])
 
@@ -61,7 +96,7 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
       recipientEmail: email,
       type: 'mention',
       title: `Mentioned in ${issue?.issue_key || 'a comment'}`,
-      message: `${normalizedAuthor} mentioned you: "${normalizedText.slice(0, 100)}"`,
+      message: `${resolvedAuthor} mentioned you: "${normalizedText.slice(0, 100)}"`,
       issueId,
       projectId: issue?.project_id || null,
       actorEmail: req.user.email,
@@ -77,7 +112,7 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
         recipientEmail: watcher.user_email,
         type: 'comment',
         title: `New comment on ${issue?.issue_key || 'an issue'}`,
-        message: `${normalizedAuthor}: "${normalizedText.slice(0, 100)}"`,
+        message: `${resolvedAuthor}: "${normalizedText.slice(0, 100)}"`,
         issueId,
         projectId: issue?.project_id || null,
         actorEmail: req.user.email,
