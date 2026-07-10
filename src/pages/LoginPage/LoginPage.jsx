@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { forgotPassword, resetPassword } from '../../api/authApi'
+import { forgotPassword, resetPassword, fetchSsoStatus, startOidcLogin, startSamlLogin } from '../../api/authApi'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import sedinLogoFull from '../../assets/sedin-logo-full.svg'
 import './LoginPage.css'
@@ -31,6 +31,33 @@ export function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [resetSuccess, setResetSuccess] = useState('')
+
+  // JL-129: Live SSO — reveal buttons only when the backend reports a method configured.
+  const [sso, setSso] = useState({ oidc: false, saml: false })
+  const [ssoError, setSsoError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    if (typeof fetchSsoStatus !== 'function') return undefined
+    Promise.resolve()
+      .then(() => fetchSsoStatus())
+      .then((status) => {
+        if (active && status) setSso({ oidc: Boolean(status.oidc), saml: Boolean(status.saml) })
+      })
+      .catch(() => { /* SSO discovery is best-effort — keep buttons hidden on failure */ })
+    return () => { active = false }
+  }, [])
+
+  async function startSso(kind) {
+    setSsoError('')
+    try {
+      const start = kind === 'saml' ? startSamlLogin : startOidcLogin
+      const { authorizeUrl } = await start()
+      if (authorizeUrl) window.location.href = authorizeUrl
+    } catch (error) {
+      setSsoError(error?.message || 'Unable to start single sign-on')
+    }
+  }
 
   const canSubmit = form.email.trim() && form.password.trim()
 
@@ -376,6 +403,36 @@ export function LoginPage() {
                   {authLoading ? 'Please wait...' : mode === 'login' ? 'Log In \u2192' : 'Create Account \u2192'}
                 </button>
               </form>
+
+              {mode === 'login' && (sso.oidc || sso.saml) && (
+                <div className="login-sso-options">
+                  <div className="login-sso-separator"><span>or</span></div>
+                  {sso.oidc && (
+                    <button
+                      type="button"
+                      className="login-sso-action"
+                      onClick={() => startSso('oidc')}
+                    >
+                      Sign in with SSO
+                    </button>
+                  )}
+                  {sso.saml && (
+                    <button
+                      type="button"
+                      className="login-sso-action"
+                      onClick={() => startSso('saml')}
+                    >
+                      Sign in with SAML
+                    </button>
+                  )}
+                  {ssoError && (
+                    <div className="login-error">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                      <span>{ssoError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <p className="login-toggle-link">
                 {mode === 'login' ? (

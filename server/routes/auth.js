@@ -2,13 +2,24 @@ import crypto from 'node:crypto'
 import { Router } from 'express'
 import jwt from 'jsonwebtoken'
 import { get, run, all } from '../db.js'
-import { JWT_SECRET, getOAuthProvider, isOAuthConfigured, OAUTH_REDIRECT_BASE } from '../config.js'
+import {
+  JWT_SECRET,
+  APP_URL,
+  getOAuthProvider,
+  isOAuthConfigured,
+  OAUTH_REDIRECT_BASE,
+  getOidcConfig,
+  isOidcConfigured,
+  getSamlConfig,
+  isSamlConfigured,
+} from '../config.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { isAllowedEmail, hashPassword, verifyPassword } from '../middleware/validate.js'
 import { authGuard } from '../middleware/authGuard.js'
 import { loadUserRoles } from '../middleware/authorize.js'
 import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/mailer.js'
 import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
+import { upsertSsoUser } from '../services/sso.js'
 
 function issueToken(user, expiresIn = '1d') {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn })
@@ -417,6 +428,184 @@ router.get('/oauth/:provider/callback', asyncHandler(async (req, res) => {
   //
   // Until a live provider is wired up we return 501 to make the gate explicit.
   res.status(501).json({ error: 'OAuth callback handling is not enabled in this environment' })
+}))
+
+/* ============================================================
+   JL-129: Live SSO — OIDC (openid-client v6) & SAML 2.0 (@node-saml/node-saml v5)
+   ------------------------------------------------------------
+   Real login flows that activate only when an IdP is configured (see
+   isOidcConfigured / isSamlConfigured in config.js). When unconfigured every
+   endpoint responds 501 — identical dark-ship behaviour to the JL-81 OAuth
+   scaffold, so dev/test never touch a live IdP.
+
+   The heavy library calls (issuer discovery, code exchange, SAML response
+   validation) are LAZY-imported inside each handler so this module always
+   imports cleanly under vitest without pulling openid-client's ESM/network path.
+   Persistence is delegated to the pure `upsertSsoUser` helper.
+   ============================================================ */
+
+// Short-lived in-memory store for OIDC per-request CSRF material
+// (state → { codeVerifier, nonce }). MVP single-instance; entries auto-expire.
+const oidcStateStore = new Map()
+const OIDC_STATE_TTL_MS = 10 * 60 * 1000
+
+function rememberOidcState(state, data) {
+  const now = Date.now()
+  // Opportunistic cleanup of expired entries.
+  for (const [key, val] of oidcStateStore) {
+    if (now - val.ts > OIDC_STATE_TTL_MS) oidcStateStore.delete(key)
+  }
+  oidcStateStore.set(state, { ...data, ts: now })
+}
+
+function takeOidcState(state) {
+  const val = oidcStateStore.get(state)
+  if (!val) return null
+  oidcStateStore.delete(state)
+  if (Date.now() - val.ts > OIDC_STATE_TTL_MS) return null
+  return val
+}
+
+// --- Discoverability: which SSO methods are live in this deployment? ---
+router.get('/sso/status', (req, res) => {
+  res.json({ oidc: isOidcConfigured(), saml: isSamlConfigured() })
+})
+
+// --- OIDC step 1: build the authorization URL (state + nonce + PKCE) ---
+router.get('/sso/oidc', asyncHandler(async (req, res) => {
+  if (!isOidcConfigured()) {
+    res.status(501).json({ error: 'OIDC SSO is not configured' })
+    return
+  }
+
+  const client = await import('openid-client')
+  const cfg = getOidcConfig()
+  const config = await client.discovery(new URL(cfg.issuerUrl), cfg.clientId, cfg.clientSecret)
+
+  const codeVerifier = client.randomPKCECodeVerifier()
+  const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier)
+  const state = client.randomState()
+  const nonce = client.randomNonce()
+  rememberOidcState(state, { codeVerifier, nonce })
+
+  const authorizeUrl = client.buildAuthorizationUrl(config, {
+    redirect_uri: cfg.redirectUri,
+    scope: 'openid email profile',
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    state,
+    nonce,
+  })
+
+  // Return the URL (SPA controls navigation), matching the JL-81 OAuth style.
+  res.json({ authorizeUrl: authorizeUrl.href })
+}))
+
+// --- OIDC step 2: exchange the code, upsert user + identity, issue JWT ---
+router.get('/sso/oidc/callback', asyncHandler(async (req, res) => {
+  if (!isOidcConfigured()) {
+    res.status(501).json({ error: 'OIDC SSO is not configured' })
+    return
+  }
+
+  const state = String(req.query?.state || '')
+  const stored = takeOidcState(state)
+  if (!stored) {
+    res.status(400).json({ error: 'Invalid or expired SSO state' })
+    return
+  }
+
+  const client = await import('openid-client')
+  const cfg = getOidcConfig()
+  const config = await client.discovery(new URL(cfg.issuerUrl), cfg.clientId, cfg.clientSecret)
+
+  // Reconstruct the callback URL with the IdP-provided query params.
+  const currentUrl = new URL(cfg.redirectUri)
+  for (const [k, v] of Object.entries(req.query || {})) {
+    currentUrl.searchParams.set(k, String(v))
+  }
+
+  const tokens = await client.authorizationCodeGrant(config, currentUrl, {
+    pkceCodeVerifier: stored.codeVerifier,
+    expectedState: state,
+    expectedNonce: stored.nonce,
+    idTokenExpected: true,
+  })
+
+  const claims = tokens.claims() || {}
+  const email = String(claims.email || '').trim().toLowerCase()
+  if (!email) {
+    res.status(400).json({ error: 'OIDC identity did not include an email claim' })
+    return
+  }
+
+  const user = await upsertSsoUser(
+    { email, provider: 'oidc', providerUserId: claims.sub },
+    { get, run },
+  )
+
+  // Redirect back to the SPA with the app JWT (matches JL-81 callback intent).
+  const token = issueToken(user, '7d')
+  res.redirect(`${APP_URL}/?sso_token=${encodeURIComponent(token)}`)
+}))
+
+// --- SAML step 1: redirect to the IdP with a signed/authn request URL ---
+router.get('/sso/saml', asyncHandler(async (req, res) => {
+  if (!isSamlConfigured()) {
+    res.status(501).json({ error: 'SAML SSO is not configured' })
+    return
+  }
+
+  const { SAML } = await import('@node-saml/node-saml')
+  const cfg = getSamlConfig()
+  const saml = new SAML({
+    entryPoint: cfg.entryPoint,
+    issuer: cfg.issuer,
+    idpCert: cfg.cert,
+    callbackUrl: cfg.callbackUrl,
+    wantAuthnResponseSigned: false,
+  })
+
+  const authorizeUrl = await saml.getAuthorizeUrlAsync('', undefined, {})
+  res.json({ authorizeUrl })
+}))
+
+// --- SAML step 2: validate the SAMLResponse, upsert user + identity, issue JWT ---
+router.post('/sso/saml/callback', asyncHandler(async (req, res) => {
+  if (!isSamlConfigured()) {
+    res.status(501).json({ error: 'SAML SSO is not configured' })
+    return
+  }
+
+  const { SAML } = await import('@node-saml/node-saml')
+  const cfg = getSamlConfig()
+  const saml = new SAML({
+    entryPoint: cfg.entryPoint,
+    issuer: cfg.issuer,
+    idpCert: cfg.cert,
+    callbackUrl: cfg.callbackUrl,
+    wantAuthnResponseSigned: false,
+  })
+
+  const { profile } = await saml.validatePostResponseAsync(req.body || {})
+  if (!profile) {
+    res.status(400).json({ error: 'SAML response did not contain a profile' })
+    return
+  }
+
+  const email = String(profile.email || profile.mail || profile.nameID || '').trim().toLowerCase()
+  if (!email) {
+    res.status(400).json({ error: 'SAML identity did not include an email or nameID' })
+    return
+  }
+
+  const user = await upsertSsoUser(
+    { email, provider: 'saml', providerUserId: profile.nameID || email },
+    { get, run },
+  )
+
+  const token = issueToken(user, '7d')
+  res.redirect(`${APP_URL}/?sso_token=${encodeURIComponent(token)}`)
 }))
 
 export default router

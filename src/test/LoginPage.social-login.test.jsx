@@ -10,6 +10,10 @@ vi.mock('../api/authApi', () => ({
   loginWithEmail: vi.fn(),
   forgotPassword: vi.fn(),
   resetPassword: vi.fn(),
+  // JL-129: SSO discovery — resolve as disabled so no SSO buttons render.
+  fetchSsoStatus: vi.fn(() => Promise.resolve({ oidc: false, saml: false })),
+  startOidcLogin: vi.fn(),
+  startSamlLogin: vi.fn(),
 }))
 
 vi.mock('../api/client', () => ({
