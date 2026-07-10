@@ -10,6 +10,7 @@ import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
 import { ImportExportModal } from '../../components/issues/ImportExportModal'
 import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 import { fetchProjectDependencies } from '../../api/dependencyApi'
+import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 
 export function BacklogPage() {
   const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
@@ -157,6 +158,20 @@ export function BacklogPage() {
       return
     }
 
+    if (bulkAction === 'watch') {
+      await Promise.all(ids.map((id) => watchIssue(id)))
+      setSelectedIssueIds([])
+      setBacklogMessage(`Now watching ${ids.length} issue(s).`)
+      return
+    }
+
+    if (bulkAction === 'unwatch') {
+      await Promise.all(ids.map((id) => unwatchIssue(id)))
+      setSelectedIssueIds([])
+      setBacklogMessage(`Stopped watching ${ids.length} issue(s).`)
+      return
+    }
+
     if (bulkAction === 'status') {
       await Promise.all(ids.map((id) => handleMove(id, bulkValue, bulkValue === 'Backlog' ? null : defaultSprintId)))
       setPanelExpanded(bulkValue === 'Backlog' ? 'backlog' : defaultSprintId, true)
@@ -283,6 +298,8 @@ export function BacklogPage() {
               <option value="assignee">Assignee</option>
               <option value="priority">Priority</option>
               <option value="sprint">Sprint</option>
+              <option value="watch">Watch</option>
+              <option value="unwatch">Unwatch</option>
               <option value="delete">Delete</option>
             </select>
             {bulkAction === 'status' && (
