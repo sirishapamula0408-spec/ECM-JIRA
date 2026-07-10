@@ -32,6 +32,21 @@ export function fetchCurrentUser() {
   return api('/api/auth/me')
 }
 
+// --- JL-129: Live SSO (OIDC / SAML) ---
+// Reports which SSO methods are configured/live in this deployment.
+export function fetchSsoStatus() {
+  return api('/api/auth/sso/status')
+}
+
+// Fetch the IdP authorization URL to redirect the browser to.
+export function startOidcLogin() {
+  return api('/api/auth/sso/oidc')
+}
+
+export function startSamlLogin() {
+  return api('/api/auth/sso/saml')
+}
+
 // --- JL-81: MFA (TOTP) ---
 export function fetchMfaStatus() {
   return api('/api/auth/mfa/status')

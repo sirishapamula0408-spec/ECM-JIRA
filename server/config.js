@@ -96,6 +96,56 @@ export function isSeedDemoDataEnabled() {
   return process.env.SEED_DEMO_DATA === 'true'
 }
 
+/* ============================================================
+   JL-129: Live SSO — OIDC & SAML 2.0 (config-gated)
+   ------------------------------------------------------------
+   Real login flows activate only when a full set of env vars is present.
+   Without config the SSO endpoints respond 501 (like the JL-81 OAuth scaffold),
+   so dev/test behaviour is unchanged and no live IdP is ever contacted.
+   ============================================================ */
+
+// --- OIDC (openid-client v6) ---
+export const OIDC_ISSUER_URL = process.env.OIDC_ISSUER_URL || ''
+export const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID || ''
+export const OIDC_CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET || ''
+export const OIDC_REDIRECT_URI =
+  process.env.OIDC_REDIRECT_URI || `http://localhost:${PORT}/api/auth/sso/oidc/callback`
+
+export function getOidcConfig() {
+  return {
+    issuerUrl: OIDC_ISSUER_URL,
+    clientId: OIDC_CLIENT_ID,
+    clientSecret: OIDC_CLIENT_SECRET,
+    redirectUri: OIDC_REDIRECT_URI,
+  }
+}
+
+// Pure predicate: OIDC is usable only when issuer + client id/secret + redirect are all set.
+export function isOidcConfigured(cfg = getOidcConfig()) {
+  return Boolean(cfg && cfg.issuerUrl && cfg.clientId && cfg.clientSecret && cfg.redirectUri)
+}
+
+// --- SAML 2.0 (@node-saml/node-saml v5) ---
+export const SAML_ENTRY_POINT = process.env.SAML_ENTRY_POINT || ''
+export const SAML_ISSUER = process.env.SAML_ISSUER || ''
+export const SAML_CERT = process.env.SAML_CERT || ''
+export const SAML_CALLBACK_URL =
+  process.env.SAML_CALLBACK_URL || `http://localhost:${PORT}/api/auth/sso/saml/callback`
+
+export function getSamlConfig() {
+  return {
+    entryPoint: SAML_ENTRY_POINT,
+    issuer: SAML_ISSUER,
+    cert: SAML_CERT,
+    callbackUrl: SAML_CALLBACK_URL,
+  }
+}
+
+// Pure predicate: SAML is usable only when entry point + issuer + IdP cert + callback are all set.
+export function isSamlConfigured(cfg = getSamlConfig()) {
+  return Boolean(cfg && cfg.entryPoint && cfg.issuer && cfg.cert && cfg.callbackUrl)
+}
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587
