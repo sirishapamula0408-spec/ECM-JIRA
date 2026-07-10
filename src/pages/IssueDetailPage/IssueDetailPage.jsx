@@ -18,6 +18,7 @@ import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { usePluginContributions } from '../../hooks/usePluginContributions'
 import { useRecentIssues } from '../../hooks/useRecentIssues'
 import { timeAgo } from '../../utils/timeAgo'
 import { getRealtimeClient } from '../../services/realtimeClient'
@@ -104,6 +105,8 @@ export function IssueDetailPage() {
   const { members, profile } = useMembers()
   const { sprints } = useSprints()
   const { authUser } = useAuth()
+  // JL-145: declarative issue-panel plugin contributions (rendered as safe links).
+  const { contributions: pluginIssuePanels } = usePluginContributions('issue-panel')
   const { issueId } = useParams()
   const navigate = useNavigate()
   const id = Number(issueId)
@@ -1570,6 +1573,27 @@ export function IssueDetailPage() {
               {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
+          {/* JL-145: plugin-contributed issue panels (declarative, safe links) */}
+          {pluginIssuePanels.length > 0 && (
+            <div className="id-sidebar-section">
+              <div className="id-sidebar-section-header"><h4>Apps</h4></div>
+              <div className="id-plugin-panels">
+                {pluginIssuePanels.map((panel) => (
+                  <div key={panel.manifestId ? `${panel.manifestId}-${panel.id}` : panel.id} className="id-plugin-panel">
+                    {panel.icon && <span aria-hidden="true">{panel.icon}</span>}
+                    {panel.url ? (
+                      <a href={panel.url} target={/^https?:\/\//i.test(panel.url) ? '_blank' : undefined} rel="noopener noreferrer">
+                        {panel.label}
+                      </a>
+                    ) : (
+                      <span>{panel.label}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Details */}
           <div className="id-sidebar-section">

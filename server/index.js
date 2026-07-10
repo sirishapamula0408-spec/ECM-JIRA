@@ -56,6 +56,7 @@ import screenSchemeRoutes from './routes/screenSchemes.js'
 import fieldConfigRoutes from './routes/fieldConfig.js'
 import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
 import listViewRoutes from './routes/listViews.js'
+import pluginRoutes from './routes/plugins.js'
 import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
 import { resolveWorkspace } from './middleware/workspace.js'
@@ -178,6 +179,7 @@ app.use('/api', ...protect, schemeRoutes)
 app.use('/api', ...protect, screenSchemeRoutes)
 app.use('/api', ...protect, fieldConfigRoutes)
 app.use('/api', ...protect, issueTypeSchemeRoutes)
+app.use('/api/plugins', ...protect, pluginRoutes)
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so

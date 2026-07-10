@@ -1448,6 +1448,20 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-145: Plugin/app framework — declarative extension-point manifests. ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS plugin_manifests (
+      id SERIAL PRIMARY KEY,
+      app_key TEXT,
+      name TEXT NOT NULL,
+      version TEXT NOT NULL DEFAULT '1.0.0',
+      contributions JSONB NOT NULL DEFAULT '[]',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_plugin_manifests_enabled ON plugin_manifests(enabled)')
+
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
   // production/CI never auto-seed fictional data. The seeders themselves only
