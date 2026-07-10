@@ -85,6 +85,11 @@ These extend the issue model. Most issue-scoped routers are mounted at `/api` wi
 ### API Proxy
 Vite dev server proxies `/api/*` requests to `http://localhost:4000` (configured in `vite.config.js`).
 
+### Deployment (JL-97)
+- **Serve static:** `server/serveStatic.js` exports `shouldServeStatic(env)` and `setupStaticServing(app, opts)`. When `NODE_ENV==='production'` or `SERVE_STATIC` is set, `server/index.js` serves the built `/dist` via `express.static` plus an SPA history-fallback (`SPA_FALLBACK_PATTERN` regex excludes `/api`). Dev behavior (Vite serving the frontend) is unchanged.
+- **Docker:** `Dockerfile` is multi-stage (build frontend → run API serving `/dist`); `docker-compose.prod.yml` wires app + postgres (+ optional `nginx` under the `proxy` profile); `nginx.conf.example` handles HTTPS/reverse-proxy termination.
+- **Backups:** `scripts/backup-db.sh` — cron-friendly `pg_dump` (custom-format, gzip) into `./backups` with `RETENTION_DAYS` pruning; restore via `pg_restore`.
+
 ### Key Constants
 `src/constants.js` defines statuses (`Backlog → To Do → In Progress → Code Review → Done`), priorities, and issue types (`Story`, `Bug`, `Task`, `Sub-task`) used across the app.
 
