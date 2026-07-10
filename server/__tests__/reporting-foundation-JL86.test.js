@@ -3,13 +3,21 @@ import express from 'express'
 import request from 'supertest'
 
 // Mock the db module (no live DB — same pattern as collaboration-modules.test.js)
-vi.mock('../db.js', () => ({
-  run: vi.fn(),
-  all: vi.fn(),
-  get: vi.fn(),
-  columnExists: vi.fn(),
-  tableExists: vi.fn(),
-}))
+vi.mock('../db.js', () => {
+  const run = vi.fn()
+  const all = vi.fn()
+  const get = vi.fn()
+  return {
+    run,
+    all,
+    get,
+    columnExists: vi.fn(),
+    tableExists: vi.fn(),
+    // JL-94: run the callback with the same mocked helpers so existing
+    // run/get assertions still see the transactional writes.
+    withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
+  }
+})
 
 // Automation engine is invoked from the issues status route — stub it out.
 vi.mock('../services/automation.js', () => ({

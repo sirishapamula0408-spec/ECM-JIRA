@@ -3,11 +3,19 @@ import express from 'express'
 import request from 'supertest'
 
 // --- Mock the db module ---
-vi.mock('../db.js', () => ({
-  run: vi.fn(),
-  all: vi.fn(),
-  get: vi.fn(),
-}))
+vi.mock('../db.js', () => {
+  const run = vi.fn()
+  const all = vi.fn()
+  const get = vi.fn()
+  return {
+    run,
+    all,
+    get,
+    // JL-94: run the callback with the same mocked helpers so existing
+    // run/get assertions still see the transactional writes.
+    withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
+  }
+})
 
 // --- Mock the mailer (never send real email in tests) ---
 vi.mock('../utils/mailer.js', () => ({

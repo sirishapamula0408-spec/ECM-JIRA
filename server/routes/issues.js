@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { all, get, run } from '../db.js'
+import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
@@ -243,27 +243,33 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     return
   }
 
-  const created = await run(
-    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints, normalizedEpicId, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
-  )
+  // JL-94: the issue insert, its activity-log row, and the creator auto-watch
+  // must all land together or not at all — wrap them in a single transaction.
+  const row = await withTransaction(async (tx) => {
+    const created = await tx.run(
+      'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+      [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints, normalizedEpicId, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
+    )
 
-  const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
-    [created.lastID],
-  )
+    const inserted = await tx.get(
+      'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+      [created.lastID],
+    )
 
-  await run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
-    normalizedAssignee,
-    `created ${issueKey} (${normalizedTitle})`,
-    'Just now',
-  ])
+    await tx.run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
+      normalizedAssignee,
+      `created ${issueKey} (${normalizedTitle})`,
+      'Just now',
+    ])
 
-  // JL-43: Auto-watch on issue create for the creator
-  await run(
-    'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
-    [created.lastID, req.user.email],
-  )
+    // JL-43: Auto-watch on issue create for the creator
+    await tx.run(
+      'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+      [created.lastID, req.user.email],
+    )
+
+    return inserted
+  })
 
   // JL-59: emit issue.created event to subscribed webhooks (fire-and-forget)
   emitEvent('issue.created', mapIssue(row), resolvedProjectId).catch(() => {})

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { all, get, run } from '../db.js'
+import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { DEFAULT_WORKSPACE_SLUG } from '../middleware/workspace.js'
 
@@ -82,22 +82,25 @@ router.post('/', asyncHandler(async (req, res) => {
     slug = `${slug}-${Date.now().toString(36)}`
   }
 
-  const created = await run(
-    'INSERT INTO workspaces (name, slug, owner_email) VALUES (?, ?, ?)',
-    [name, slug, req.user.email],
-  )
-  // Owner membership (idempotent).
-  await run(
-    `INSERT INTO workspace_members (workspace_id, member_email, role)
-     VALUES (?, ?, 'Owner')
-     ON CONFLICT (workspace_id, member_email) DO NOTHING`,
-    [created.lastID, req.user.email],
-  )
+  // JL-94: the workspace row and its owner membership must be created atomically.
+  const workspace = await withTransaction(async (tx) => {
+    const created = await tx.run(
+      'INSERT INTO workspaces (name, slug, owner_email) VALUES (?, ?, ?)',
+      [name, slug, req.user.email],
+    )
+    // Owner membership (idempotent).
+    await tx.run(
+      `INSERT INTO workspace_members (workspace_id, member_email, role)
+       VALUES (?, ?, 'Owner')
+       ON CONFLICT (workspace_id, member_email) DO NOTHING`,
+      [created.lastID, req.user.email],
+    )
 
-  const workspace = await get(
-    'SELECT id, name, slug, owner_email, created_at FROM workspaces WHERE id = ?',
-    [created.lastID],
-  )
+    return tx.get(
+      'SELECT id, name, slug, owner_email, created_at FROM workspaces WHERE id = ?',
+      [created.lastID],
+    )
+  })
   res.status(201).json(workspace)
 }))
 
