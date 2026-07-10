@@ -1137,6 +1137,28 @@ export async function initializeDatabase() {
     }
   }
 
+  // --- JL-115: Field configuration schemes (required / hidden / default per field) ---
+  // Per-project (optionally per issue-type) behavior overrides for built-in and
+  // custom fields. issue_type NULL means the row applies to every issue type.
+  // Enforced on issue create (missing required field → 400). Backward compatible:
+  // a project with no rows behaves exactly as before.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS field_configurations (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      issue_type TEXT,
+      field_key TEXT NOT NULL,
+      is_required BOOLEAN NOT NULL DEFAULT FALSE,
+      is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+      default_value TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_field_configurations_unique ON field_configurations (project_id, COALESCE(issue_type, ''), field_key)",
+  )
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_field_configurations_project ON field_configurations(project_id)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
