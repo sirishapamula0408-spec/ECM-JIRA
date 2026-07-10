@@ -40,6 +40,15 @@ export const setCapacity = ({ sprintId, assignee, capacityPoints }) =>
     body: JSON.stringify({ sprintId, assignee, capacityPoints }),
   })
 
+// JL-155: Time-in-status metrics + control chart (issue_history based).
+export const fetchTimeInStatus = (projectId) =>
+  api(`/api/projects/${projectId}/reports/time-in-status`)
+
+export const fetchControlChart = (projectId, window) => {
+  const qs = window ? `?window=${window}` : ''
+  return api(`/api/projects/${projectId}/reports/control-chart${qs}`)
+}
+
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {
