@@ -3,13 +3,20 @@ import express from 'express'
 import request from 'supertest'
 
 // Mock the db module (no live DB — matches the other __tests__ suites)
-vi.mock('../db.js', () => ({
-  run: vi.fn(),
-  all: vi.fn(),
-  get: vi.fn(),
-  columnExists: vi.fn(),
-  tableExists: vi.fn(),
-}))
+vi.mock('../db.js', () => {
+  const run = vi.fn()
+  const all = vi.fn()
+  const get = vi.fn()
+  return {
+    run,
+    all,
+    get,
+    columnExists: vi.fn(),
+    tableExists: vi.fn(),
+    // JL-94: run the callback with the same mocked helpers so run/get assertions still see writes.
+    withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
+  }
+})
 
 // issues.js pulls the automation status-change hook from db too; stub it.
 vi.mock('../services/automation.js', () => ({
