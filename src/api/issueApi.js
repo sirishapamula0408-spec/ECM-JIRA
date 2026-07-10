@@ -34,6 +34,15 @@ export function deleteIssue(id) {
   return api(`/api/issues/${id}`, { method: 'DELETE' })
 }
 
+// JL-121: bulk change wizard. dryRun=true returns { preview:[] }; dryRun=false
+// applies and returns { updated, skipped, errors, results }.
+export function bulkChangeIssues({ issueIds, operations, dryRun = false }) {
+  return api('/api/issues/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ issueIds, operations, dryRun }),
+  })
+}
+
 export function getIssueHistory(id) {
   return api(`/api/issues/${id}/history`)
 }
