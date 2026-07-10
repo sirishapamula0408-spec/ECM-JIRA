@@ -1,7 +1,9 @@
 import { ISSUE_STATUSES } from '../../constants'
 
-export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd }) {
+export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
+  const isBlocked = !!blocked?.isBlocked
+  const blockers = blocked?.blockedBy || []
 
   return (
     <div
@@ -21,6 +23,15 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         <small>{issue.key}</small>
         <strong>{issue.title}</strong>
       </button>
+      {isBlocked && (
+        <span
+          className="backlog-blocked-chip"
+          title={blockers.length ? `Blocked by ${blockers.join(', ')}` : 'Blocked by an open issue'}
+          aria-label={blockers.length ? `Blocked by ${blockers.join(', ')}` : 'Blocked'}
+        >
+          ⛔ Blocked
+        </span>
+      )}
       <div className="backlog-issue-actions">
         <span className="backlog-row-minus">-</span>
         <select

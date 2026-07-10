@@ -9,6 +9,7 @@ import { TopNavIcon } from '../../components/icons/TopNavIcon'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
 import { ImportExportModal } from '../../components/issues/ImportExportModal'
 import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
+import { fetchProjectDependencies } from '../../api/dependencyApi'
 
 export function BacklogPage() {
   const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
@@ -33,6 +34,7 @@ export function BacklogPage() {
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
   const [showImportExport, setShowImportExport] = useState(false)
   const [showBulkWizard, setShowBulkWizard] = useState(false)
+  const [dependencies, setDependencies] = useState(null) // JL-128: { byId, edges, cycles, blockedCount }
 
   // Import/Export is project-scoped: use the route project, else the project of the visible issues
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
@@ -51,6 +53,25 @@ export function BacklogPage() {
       return next
     })
   }, [sprints])
+
+  // JL-128: load dependency graph / blocked-issue flags for the visible project.
+  useEffect(() => {
+    let cancelled = false
+    if (!exportProjectId) { setDependencies(null); return undefined }
+    fetchProjectDependencies(exportProjectId)
+      .then((data) => {
+        if (cancelled) return
+        const byId = new Map((data.issues || []).map((i) => [i.id, i]))
+        setDependencies({ byId, edges: data.edges || [], cycles: data.cycles || [], summary: data.summary || {} })
+      })
+      .catch(() => { if (!cancelled) setDependencies(null) })
+    return () => { cancelled = true }
+  }, [exportProjectId, issues])
+
+  const blockedFor = (issueId) => {
+    const info = dependencies?.byId.get(issueId)
+    return info ? { isBlocked: info.isBlocked, blockedBy: info.blockedBy } : undefined
+  }
 
   const matchesSearch = (issue) => {
     if (!normalizedSearch) return true
@@ -298,6 +319,25 @@ export function BacklogPage() {
       </div>
       {backlogMessage && <p className="backlog-message">{backlogMessage}</p>}
 
+      {dependencies && (dependencies.summary?.blockedCount > 0 || dependencies.cycles.length > 0) && (
+        <div className="backlog-dependency-summary" role="status">
+          <span className="backlog-dependency-summary-item">
+            ⛔ {dependencies.summary.blockedCount} blocked
+          </span>
+          <span className="backlog-dependency-summary-item">
+            {dependencies.edges.length} dependency link{dependencies.edges.length === 1 ? '' : 's'}
+          </span>
+          {dependencies.cycles.length > 0 && (
+            <span
+              className="backlog-dependency-summary-item backlog-dependency-cycle"
+              title={dependencies.cycles.map((c) => c.join(' → ')).join('; ')}
+            >
+              ⚠️ {dependencies.cycles.length} dependency cycle{dependencies.cycles.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      )}
+
       {showImportExport && exportProjectId && (
         <ImportExportModal
           projectId={exportProjectId}
@@ -365,7 +405,7 @@ export function BacklogPage() {
                 {isExpanded && (
                   <>
                     {sprintPanel.issues.map((issue) => (
-                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
                     ))}
                     {quickCreateBySprint[sprintPanel.id] && (
                       <div className="quick-create-row">
@@ -405,7 +445,7 @@ export function BacklogPage() {
 
         <div className={`sprint-issues${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           {expandedPanels.backlog && backlogItems.map((issue) => (
-            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
           ))}
         </div>
       </article>
