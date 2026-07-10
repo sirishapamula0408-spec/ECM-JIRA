@@ -45,6 +45,7 @@ import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
 import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
+import fieldConfigRoutes from './routes/fieldConfig.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 
@@ -115,6 +116,7 @@ app.use('/api', ...protect, slaRoutes)
 app.use('/api', ...protect, gitIntegrationRoutes)
 app.use('/api', ...protect, cicdRoutes)
 app.use('/api', ...protect, schemeRoutes)
+app.use('/api', ...protect, fieldConfigRoutes)
 
 app.use(errorHandler)
 

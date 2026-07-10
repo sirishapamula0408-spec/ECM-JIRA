@@ -7,6 +7,7 @@ import { runStatusChangeAutomations } from '../services/automation.js'
 import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearch } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
+import { validateRequiredFields } from './fieldConfig.js'
 
 const router = Router()
 
@@ -223,6 +224,37 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const epicError = await validateEpicRef(normalizedEpicId, issueType)
   if (epicError) {
     res.status(400).json({ error: epicError })
+    return
+  }
+
+  // JL-115: enforce project field-configuration required fields. No-op (and no
+  // extra query) when the issue has no project or the project has no config rows,
+  // so existing create behavior is unchanged.
+  const providedFields = {
+    title: normalizedTitle,
+    description: normalizedDescription,
+    assignee: normalizedAssignee,
+    priority,
+    status,
+    issueType,
+    reporter,
+    dueDate,
+    startDate,
+    resolution,
+    environment,
+    components,
+    storyPoints: normalizedStoryPoints,
+    sprintId: nextSprintId,
+    epicId: normalizedEpicId,
+    ...(req.body?.customFields && typeof req.body.customFields === 'object'
+      ? Object.fromEntries(
+          Object.entries(req.body.customFields).map(([k, v]) => [`custom:${k}`, v]),
+        )
+      : {}),
+  }
+  const missingRequired = await validateRequiredFields(resolvedProjectId, issueType, providedFields)
+  if (missingRequired.length > 0) {
+    res.status(400).json({ error: 'Missing required fields', missingFields: missingRequired })
     return
   }
 

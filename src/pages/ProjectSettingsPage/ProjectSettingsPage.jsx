@@ -10,11 +10,25 @@ import {
   addPermissionGrant, deletePermissionGrant, assignPermissionScheme,
   fetchEffectivePermissions, PERMISSION_KEYS, SCHEME_ROLES,
 } from '../../api/schemesApi'
+import { fetchFieldConfig, saveFieldConfig } from '../../api/fieldConfigApi'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
 
-const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions' }
+const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', FIELD_CONFIG: 'fieldconfig' }
 const STATUS_CATEGORIES = ['todo', 'inprogress', 'done']
+
+// JL-115: built-in fields that can carry a per-project configuration.
+const CONFIGURABLE_FIELDS = [
+  { key: 'priority', label: 'Priority' },
+  { key: 'assignee', label: 'Assignee' },
+  { key: 'reporter', label: 'Reporter' },
+  { key: 'dueDate', label: 'Due date' },
+  { key: 'startDate', label: 'Start date' },
+  { key: 'storyPoints', label: 'Story points' },
+  { key: 'components', label: 'Components' },
+  { key: 'environment', label: 'Environment' },
+  { key: 'resolution', label: 'Resolution' },
+]
 
 export function ProjectSettingsPage() {
   const { projectId } = useParams()
@@ -41,6 +55,11 @@ export function ProjectSettingsPage() {
   const [newStatus, setNewStatus] = useState({ name: '', color: '#42526E', category: 'todo' })
   const [fieldsBusy, setFieldsBusy] = useState(false)
   const [fieldsError, setFieldsError] = useState('')
+
+  // Field configuration tab state (JL-115) — map of field_key -> { isRequired, isHidden, defaultValue }
+  const [fieldCfg, setFieldCfg] = useState({})
+  const [fieldCfgBusy, setFieldCfgBusy] = useState(false)
+  const [fieldCfgBanner, setFieldCfgBanner] = useState({ type: '', message: '' })
 
   // Permissions tab state
   const [schemes, setSchemes] = useState([])
@@ -79,6 +98,25 @@ export function ProjectSettingsPage() {
     fetchProjectStatuses(projectId).then(setStatuses).catch(() => {})
   }, [projectId])
 
+  const loadFieldCfg = useCallback(() => {
+    fetchFieldConfig(projectId)
+      .then((rows) => {
+        // Only surface project-wide (issue_type === null) rows in this table.
+        const map = {}
+        for (const r of rows) {
+          if (r.issueType == null) {
+            map[r.fieldKey] = {
+              isRequired: Boolean(r.isRequired),
+              isHidden: Boolean(r.isHidden),
+              defaultValue: r.defaultValue ?? '',
+            }
+          }
+        }
+        setFieldCfg(map)
+      })
+      .catch(() => {})
+  }, [projectId])
+
   useEffect(() => {
     fetchProjectById(projectId)
       .then((data) => {
@@ -89,8 +127,9 @@ export function ProjectSettingsPage() {
       .finally(() => setLoading(false))
     loadProjectMembers()
     loadFieldConfig()
+    loadFieldCfg()
     loadSchemes()
-  }, [projectId, loadProjectMembers, loadFieldConfig, loadSchemes])
+  }, [projectId, loadProjectMembers, loadFieldConfig, loadFieldCfg, loadSchemes])
 
   if (loading) return <div className="page ps-layout"><p style={{ padding: 24 }}>Loading...</p></div>
   if (!project || !form) return <div className="page ps-layout"><p style={{ padding: 24 }}>Project not found.</p></div>
@@ -256,6 +295,38 @@ export function ProjectSettingsPage() {
   const hasGrant = (permissionKey, role) =>
     Boolean(viewScheme?.grants?.some((g) => g.permission_key === permissionKey && g.role === role))
 
+  // ── Field configuration tab handlers (JL-115) ──
+  function setFieldCfgProp(fieldKey, prop, value) {
+    setFieldCfg((prev) => ({
+      ...prev,
+      [fieldKey]: { isRequired: false, isHidden: false, defaultValue: '', ...prev[fieldKey], [prop]: value },
+    }))
+  }
+
+  async function handleSaveFieldCfg() {
+    setFieldCfgBusy(true)
+    setFieldCfgBanner({ type: '', message: '' })
+    try {
+      // Only persist fields that deviate from the all-default behavior.
+      const fields = CONFIGURABLE_FIELDS
+        .map(({ key }) => ({ key, cfg: fieldCfg[key] }))
+        .filter(({ cfg }) => cfg && (cfg.isRequired || cfg.isHidden || (cfg.defaultValue ?? '') !== ''))
+        .map(({ key, cfg }) => ({
+          field_key: key,
+          issue_type: null,
+          is_required: Boolean(cfg.isRequired),
+          is_hidden: Boolean(cfg.isHidden),
+          default_value: cfg.defaultValue ?? '',
+        }))
+      await saveFieldConfig(projectId, fields)
+      setFieldCfgBanner({ type: 'success', message: 'Field configuration saved.' })
+      loadFieldCfg()
+    } catch (err) {
+      setFieldCfgBanner({ type: 'error', message: err.message || 'Failed to save field configuration.' })
+    }
+    setFieldCfgBusy(false)
+  }
+
   return (
     <section className="page ps-layout">
       {/* ── Sidebar ── */}
@@ -344,6 +415,20 @@ export function ProjectSettingsPage() {
               </svg>
             </span>
             Permissions
+          </button>
+
+          <button
+            className={`ps-nav-link${activeSection === SECTIONS.FIELD_CONFIG ? ' active' : ''}`}
+            type="button"
+            onClick={() => setActiveSection(SECTIONS.FIELD_CONFIG)}
+          >
+            <span className="ps-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+            </span>
+            Field configuration
           </button>
         </div>
       </nav>
@@ -746,6 +831,80 @@ export function ProjectSettingsPage() {
                 </table>
               </article>
             )}
+          </>
+        )}
+
+        {activeSection === SECTIONS.FIELD_CONFIG && (
+          <>
+            <h1>Field configuration</h1>
+            <p className="muted">
+              Mark fields as required or hidden, or give them a default value. Required fields are
+              enforced when an issue is created. Fields left untouched keep their standard behavior.
+            </p>
+
+            {fieldCfgBanner.message && (
+              <p className={`banner${fieldCfgBanner.type === 'error' ? ' error' : ''}`}>{fieldCfgBanner.message}</p>
+            )}
+
+            <article className="panel">
+              <table className="table" style={{ marginTop: 4 }}>
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th style={{ textAlign: 'center', width: 90 }}>Required</th>
+                    <th style={{ textAlign: 'center', width: 90 }}>Hidden</th>
+                    <th style={{ width: 220 }}>Default value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {CONFIGURABLE_FIELDS.map(({ key, label }) => {
+                    const cfg = fieldCfg[key] || {}
+                    return (
+                      <tr key={key}>
+                        <td><strong>{label}</strong></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(cfg.isRequired)}
+                            onChange={(e) => setFieldCfgProp(key, 'isRequired', e.target.checked)}
+                            disabled={fieldCfgBusy}
+                            aria-label={`${label} required`}
+                          />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(cfg.isHidden)}
+                            onChange={(e) => setFieldCfgProp(key, 'isHidden', e.target.checked)}
+                            disabled={fieldCfgBusy}
+                            aria-label={`${label} hidden`}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={cfg.defaultValue ?? ''}
+                            onChange={(e) => setFieldCfgProp(key, 'defaultValue', e.target.value)}
+                            placeholder="—"
+                            disabled={fieldCfgBusy}
+                            style={{ width: '100%' }}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="ps-actions" style={{ marginTop: 16 }}>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSaveFieldCfg}
+                  disabled={fieldCfgBusy}
+                >
+                  {fieldCfgBusy ? 'Saving...' : 'Save field configuration'}
+                </button>
+              </div>
+            </article>
           </>
         )}
       </div>
