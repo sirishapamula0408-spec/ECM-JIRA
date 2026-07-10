@@ -2,7 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { initializeDatabase } from './db.js'
-import { PORT } from './config.js'
+import { PORT, assertValidConfig } from './config.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
 import { loadUserRoles } from './middleware/authorize.js'
@@ -47,6 +47,11 @@ import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
+
+// JL-102: fail fast on insecure/incomplete secrets in production. Guarded so a
+// misconfiguration surfaces clearly at boot without affecting dev/test (which
+// are lenient) — assertValidConfig only throws for fatal production errors.
+assertValidConfig()
 
 const app = express()
 
