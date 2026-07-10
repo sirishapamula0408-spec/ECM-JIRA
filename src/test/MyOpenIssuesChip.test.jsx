@@ -25,15 +25,20 @@ vi.mock('../context/IssueContext', () => ({
   }),
 }))
 
-vi.mock('../context/SprintContext', () => ({
-  useSprints: () => ({
-    sprints: [{ id: 10, name: 'Sprint 1', dateRange: 'Jul 1 - Jul 14', isStarted: false }],
-    handleCreateSprint: vi.fn(),
-    handleStartSprint: vi.fn(),
-    handleUpdateSprint: vi.fn(),
-    handleDeleteSprint: vi.fn(),
-  }),
-}))
+vi.mock('../context/SprintContext', () => {
+  // Stable reference — BacklogPage has useEffect(..., [sprints]); returning a
+  // fresh array each render would re-run the effect → setState → infinite loop.
+  const sprints = [{ id: 10, name: 'Sprint 1', dateRange: 'Jul 1 - Jul 14', isStarted: false }]
+  return {
+    useSprints: () => ({
+      sprints,
+      handleCreateSprint: vi.fn(),
+      handleStartSprint: vi.fn(),
+      handleUpdateSprint: vi.fn(),
+      handleDeleteSprint: vi.fn(),
+    }),
+  }
+})
 
 vi.mock('../context/MemberContext', () => ({
   useMembers: () => ({
