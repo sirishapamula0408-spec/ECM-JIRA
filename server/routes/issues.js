@@ -82,6 +82,22 @@ async function getDefaultSprintId() {
   return sprint?.id ?? null
 }
 
+// JL-92: allocate the next issue-key number for a project using a monotonic
+// per-project counter (never reuses numbers after a delete; concurrency-safe
+// because the increment happens atomically inside the UPDATE). Falls back to
+// COUNT(*)+1 only for the legacy path where an issue has no project.
+async function nextIssueKey(projectKey, resolvedProjectId) {
+  if (resolvedProjectId) {
+    const row = await get(
+      'UPDATE projects SET issue_counter = issue_counter + 1 WHERE id = ? RETURNING issue_counter',
+      [resolvedProjectId],
+    )
+    return `${projectKey}-${row.issue_counter}`
+  }
+  const count = await get('SELECT COUNT(*) AS count FROM issues')
+  return `${projectKey}-${Number(count.count) + 1}`
+}
+
 // JL-82: record a field-level change into the per-issue audit log.
 // Only writes a row when the value actually changed (compared as strings).
 async function recordHistory(issueId, field, oldValue, newValue, actor) {
@@ -204,10 +220,11 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     }
   }
 
-  // Generate issue key scoped to project
-  const count = resolvedProjectId
-    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [resolvedProjectId])
-    : await get('SELECT COUNT(*) AS count FROM issues')
+  // JL-92: allocate a monotonic issue key scoped to the project. The atomic
+  // increment happens here (in the same spot the old COUNT query lived) so the
+  // db-mock call order in existing tests is preserved.
+  const issueKey = await nextIssueKey(projectKey, resolvedProjectId)
+
   const normalizedStoryPoints = normalizeStoryPoints(storyPoints)
   if (normalizedStoryPoints === undefined) {
     res.status(400).json({ error: 'storyPoints must be a non-negative integer' })
@@ -226,7 +243,6 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     return
   }
 
-  const issueKey = `${projectKey}-${count.count + 1}`
   const created = await run(
     'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
     [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints, normalizedEpicId, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
@@ -638,10 +654,8 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
 
   const projectRow = projectId ? await get('SELECT key FROM projects WHERE id = ?', [projectId]) : null
   const projectKey = projectRow?.key || 'PROJ'
-  const count = projectId
-    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [projectId])
-    : await get('SELECT COUNT(*) AS count FROM issues')
-  const issueKey = `${projectKey}-${Number(count.count) + 1}`
+  // JL-92: use the monotonic per-project counter (same as the main create path)
+  const issueKey = await nextIssueKey(projectKey, projectId)
 
   const created = await run(
     'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',

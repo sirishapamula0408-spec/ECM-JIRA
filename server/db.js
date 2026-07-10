@@ -500,6 +500,28 @@ export async function initializeDatabase() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_epic_id ON issues(epic_id)')
   }
 
+  // --- JL-92: Monotonic per-project issue-key counter ---
+  // Replaces the fragile COUNT(*)+1 key generation (which reused numbers after a
+  // delete and could collide under concurrency). Each project holds a counter that
+  // is atomically incremented on issue create and never reused. On first add we
+  // backfill each project's counter to the current MAX issue-key suffix so existing
+  // keys keep advancing rather than restarting from 1.
+  if (!(await columnExists('projects', 'issue_counter'))) {
+    await pool.query('ALTER TABLE projects ADD COLUMN issue_counter INTEGER NOT NULL DEFAULT 0')
+    await pool.query(`
+      UPDATE projects p
+      SET issue_counter = sub.max_num
+      FROM (
+        SELECT project_id,
+               MAX((regexp_replace(issue_key, '^.*-', ''))::int) AS max_num
+        FROM issues
+        WHERE project_id IS NOT NULL AND issue_key ~ '-[0-9]+$'
+        GROUP BY project_id
+      ) sub
+      WHERE p.id = sub.project_id
+    `)
+  }
+
   // --- JL-82: Per-issue change history / audit log ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS issue_history (
