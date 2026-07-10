@@ -1,0 +1,55 @@
+# Example nginx reverse proxy for the ECM JIRA Clone (JL-97).
+# Terminates HTTPS and proxies everything to the app container (app:4000),
+# which serves both the REST API (/api/*) and the built frontend (/dist SPA).
+#
+# Usage:
+#   1. Copy this file to nginx.conf and edit server_name + cert paths.
+#   2. Provide TLS certs (e.g. Let's Encrypt) under the mounted ./certs dir.
+#   3. Start the proxy:  docker compose -f docker-compose.prod.yml --profile proxy up -d
+#
+# For automated certificate issuance/renewal, put Caddy or certbot in front,
+# or use a managed load balancer instead of this static config.
+
+upstream ecm_jira_app {
+    server app:4000;
+}
+
+# Redirect all plain HTTP to HTTPS.
+server {
+    listen 80;
+    server_name your-domain.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name your-domain.example.com;
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # Allow base64 attachment uploads (server accepts up to 25mb JSON).
+    client_max_body_size 30m;
+
+    # Security headers.
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location / {
+        proxy_pass http://ecm_jira_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Support SSE (JL-42 notification stream) — disable buffering, keep alive.
+        proxy_set_header Connection        '';
+        proxy_buffering    off;
+        proxy_read_timeout 3600s;
+    }
+}

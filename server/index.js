@@ -47,6 +47,7 @@ import docsRoutes from './routes/docs.js'
 import schemeRoutes from './routes/schemes.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
+import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 
 // JL-90: fail fast on missing required environment variables (before any
 // route wiring or listening). assertRequiredEnv only reports; we exit here.
@@ -125,6 +126,15 @@ app.use('/api', ...protect, slaRoutes)
 app.use('/api', ...protect, gitIntegrationRoutes)
 app.use('/api', ...protect, cicdRoutes)
 app.use('/api', ...protect, schemeRoutes)
+
+// JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
+// from /dist with an SPA history-fallback. Registered AFTER all /api routes so
+// the catch-all never intercepts the API. No-op in the default dev setup where
+// Vite serves the frontend and proxies /api to this server.
+if (shouldServeStatic()) {
+  setupStaticServing(app)
+  console.log('Serving static frontend from /dist (SPA fallback enabled)')
+}
 
 app.use(errorHandler)
 
