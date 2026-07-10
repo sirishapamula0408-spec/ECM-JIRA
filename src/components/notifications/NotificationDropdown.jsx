@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../../context/NotificationContext'
+import { timeAgo } from '../../utils/timeAgo'
 import './NotificationDropdown.css'
 
 const TYPE_ICONS = {
@@ -10,17 +11,6 @@ const TYPE_ICONS = {
   assignment: '\uD83D\uDC64',
   status: '\u27A1\uFE0F',
   watcher: '\uD83D\uDC41\uFE0F',
-}
-
-function timeAgo(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 export function NotificationDropdown({ open, onClose }) {

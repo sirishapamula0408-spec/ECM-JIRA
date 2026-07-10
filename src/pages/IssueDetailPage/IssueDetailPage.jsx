@@ -19,6 +19,7 @@ import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteC
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useRecentIssues } from '../../hooks/useRecentIssues'
+import { timeAgo } from '../../utils/timeAgo'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import { SmartText } from '../../components/common/SmartText'
 import { Button } from '@mui/material'
@@ -1803,7 +1804,9 @@ export function IssueDetailPage() {
             <dl className="id-detail-list">
               <div className="id-detail-row">
                 <dt>Created</dt>
-                <dd>{issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</dd>
+                <dd title={issue.createdAt ? new Date(issue.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined}>
+                  {timeAgo(issue.createdAt) || 'Unknown'}
+                </dd>
               </div>
               {/* JL-77: Start date */}
               <div className="id-detail-row">
