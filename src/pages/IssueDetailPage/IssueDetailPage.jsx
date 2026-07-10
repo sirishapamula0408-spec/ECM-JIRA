@@ -17,6 +17,8 @@ import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteC
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
+import { TipTapEditor } from '../../components/editor/TipTapEditor'
+import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -584,6 +586,15 @@ export function IssueDetailPage() {
     setIsEditing(true)
   }
 
+  // JL-135: persist the WYSIWYG (HTML) description via handleUpdate.
+  async function saveDesc() {
+    const next = isEmptyDoc(editDesc) ? '' : sanitizeHtml(editDesc)
+    if (next !== (issue.description || '')) {
+      await handleUpdate(issue.id, { description: next })
+    }
+    setIsEditing(false)
+  }
+
   function openField(field) {
     setEditingField(field)
   }
@@ -765,15 +776,23 @@ export function IssueDetailPage() {
             <h3 className="id-section-title">Description</h3>
             {isEditing ? (
               <div className="id-desc-edit">
-                <textarea className="id-desc-textarea" rows={5} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+                <TipTapEditor value={editDesc} onChange={setEditDesc} placeholder="Add a description… Type / for blocks" autoFocus />
                 <div className="id-desc-edit-actions">
-                  <button className="btn btn-primary btn-sm" type="button" onClick={() => setIsEditing(false)}>Save</button>
+                  <button className="btn btn-primary btn-sm" type="button" onClick={saveDesc}>Save</button>
                   <button className="btn btn-ghost btn-sm" type="button" onClick={() => setIsEditing(false)}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="id-description" onClick={startEditDesc} title="Click to edit">
-                {issue.description ? <p>{issue.description}</p> : <p className="id-placeholder">Add a description...</p>}
+                {issue.description ? (
+                  looksLikeHtml(issue.description) ? (
+                    <div className="id-desc-rendered" dangerouslySetInnerHTML={{ __html: sanitizeHtml(issue.description) }} />
+                  ) : (
+                    <p>{issue.description}</p>
+                  )
+                ) : (
+                  <p className="id-placeholder">Add a description...</p>
+                )}
               </div>
             )}
           </div>
