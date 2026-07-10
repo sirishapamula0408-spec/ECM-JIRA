@@ -85,6 +85,17 @@ export const LOGIN_LOCKOUT_MAX_ATTEMPTS = Number(process.env.LOGIN_LOCKOUT_MAX_A
 export const LOGIN_LOCKOUT_WINDOW_MS = Number(process.env.LOGIN_LOCKOUT_WINDOW_MS) || 15 * 60 * 1000
 export const LOGIN_LOCKOUT_MS = Number(process.env.LOGIN_LOCKOUT_MS) || 15 * 60 * 1000
 
+// --- JL-95: Demo/seed data gating ---
+// Demo/seed data must NEVER load unless this flag is explicitly "true".
+// This keeps production (and CI/tests) from auto-seeding fictional data.
+export const SEED_DEMO_DATA = process.env.SEED_DEMO_DATA === 'true'
+
+// Runtime check (reads process.env each call) so seeding can be toggled without
+// re-importing this module — used by seedDemoData() and initializeDatabase().
+export function isSeedDemoDataEnabled() {
+  return process.env.SEED_DEMO_DATA === 'true'
+}
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587

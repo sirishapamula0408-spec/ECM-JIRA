@@ -165,6 +165,21 @@ export async function tableExists(table) {
  * Initialize all database tables with PostgreSQL-native types.
  */
 export async function initializeDatabase() {
+  // --- JL-95: Schema migration tracking (additive, idempotent) ---
+  // Lightweight ledger of which versioned migrations have run. Layered on top of
+  // the existing idempotent DDL below; it does not replace it. A 'baseline'
+  // version is recorded once to mark the initial schema.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id SERIAL PRIMARY KEY,
+      version TEXT NOT NULL UNIQUE,
+      name TEXT,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  const { recordMigration } = await import('./services/migrations.js')
+  await recordMigration('baseline', 'Initial ECM JIRA schema baseline')
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -1394,8 +1409,12 @@ export async function initializeDatabase() {
     )
   `)
 
-  const { seedDatabase } = await import('./seed.js')
-  await seedDatabase()
+  // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
+  // seedDemoData() is a no-op unless the flag is explicitly enabled, so
+  // production/CI never auto-seed fictional data. The seeders themselves only
+  // insert into empty tables, so this stays idempotent when enabled.
+  const { seedDemoData } = await import('./seed.js')
+  await seedDemoData()
 }
 
 /**

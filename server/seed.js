@@ -1,4 +1,5 @@
 import { all, get, run } from './db.js'
+import { isSeedDemoDataEnabled } from './config.js'
 
 async function seedIssues(defaultSprintId) {
   const row = await get('SELECT COUNT(*) AS count FROM issues')
@@ -186,4 +187,19 @@ export async function seedDatabase() {
   await seedWorkflows()
   await seedProjectMembers()
   return defaultSprintId
+}
+
+/**
+ * JL-95: Environment-gated demo seeding. This is the ONLY entry point called at
+ * boot. Seeding NEVER runs unless SEED_DEMO_DATA is explicitly "true", so
+ * production/CI never auto-load fictional demo data. When enabled, the
+ * individual seeders only insert into empty tables (idempotent).
+ * @returns {Promise<{ seeded: boolean, sprintId?: number }>}
+ */
+export async function seedDemoData() {
+  if (!isSeedDemoDataEnabled()) {
+    return { seeded: false }
+  }
+  const sprintId = await seedDatabase()
+  return { seeded: true, sprintId }
 }
