@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchFilters, createFilter, updateFilter, deleteFilter, searchIssues, searchByJql, aiSearch } from '../../api/filterApi'
+import { fetchFilters, createFilter, updateFilter, deleteFilter, toggleFilterFavorite, searchIssues, searchByJql, aiSearch } from '../../api/filterApi'
 import { fetchProjects } from '../../api/projectApi'
 import { FilterChip } from '../../components/filters/FilterChip'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -19,7 +19,9 @@ export function FiltersPage() {
   const [showSave, setShowSave] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saveDesc, setSaveDesc] = useState('')
+  const [saveVisibility, setSaveVisibility] = useState('private')
   const [saveError, setSaveError] = useState('')
+  const [listFilter, setListFilter] = useState('all') // 'all' | 'mine' | 'shared' | 'favorites'
   const [view, setView] = useState('list') // 'list' or 'search'
   const [searchMode, setSearchMode] = useState('basic') // 'basic', 'jql', or 'ai'
   const [jqlQuery, setJqlQuery] = useState('')
@@ -117,12 +119,13 @@ export function FiltersPage() {
     setSaveError('')
     if (!saveName.trim()) { setSaveError('Filter name is required'); return }
     try {
-      const created = await createFilter({ name: saveName.trim(), description: saveDesc.trim(), criteria })
+      const created = await createFilter({ name: saveName.trim(), description: saveDesc.trim(), criteria, visibility: saveVisibility })
       setFilters((prev) => [created, ...prev])
       setActiveFilterId(created.id)
       setShowSave(false)
       setSaveName('')
       setSaveDesc('')
+      setSaveVisibility('private')
     } catch (err) { setSaveError(err.message) }
   }
 
@@ -132,8 +135,13 @@ export function FiltersPage() {
     setFilters((prev) => prev.map((f) => (f.id === updated.id ? updated : f)))
   }
 
-  async function handleToggleStar(filter) {
-    const updated = await updateFilter(filter.id, { isStarred: !filter.isStarred })
+  async function handleToggleFavorite(filter) {
+    const { isFavorite } = await toggleFilterFavorite(filter.id)
+    setFilters((prev) => prev.map((f) => (f.id === filter.id ? { ...f, isFavorite } : f)))
+  }
+
+  async function handleChangeVisibility(filter, visibility) {
+    const updated = await updateFilter(filter.id, { visibility })
     setFilters((prev) => prev.map((f) => (f.id === updated.id ? updated : f)))
   }
 
@@ -418,6 +426,23 @@ export function FiltersPage() {
                   Description
                   <input value={saveDesc} onChange={(e) => setSaveDesc(e.target.value)} placeholder="Optional description" />
                 </label>
+                <div className="filters-visibility-toggle" role="group" aria-label="Visibility">
+                  <span className="filters-visibility-label">Visibility</span>
+                  <button
+                    className={`filters-mode-btn ${saveVisibility === 'private' ? 'filters-mode-btn--active' : ''}`}
+                    type="button"
+                    onClick={() => setSaveVisibility('private')}
+                  >
+                    Private
+                  </button>
+                  <button
+                    className={`filters-mode-btn ${saveVisibility === 'shared' ? 'filters-mode-btn--active' : ''}`}
+                    type="button"
+                    onClick={() => setSaveVisibility('shared')}
+                  >
+                    Shared with workspace
+                  </button>
+                </div>
                 <div className="filters-save-actions">
                   <button className="btn btn-primary" type="submit">Save</button>
                   <button className="btn btn-ghost" type="button" onClick={() => { setShowSave(false); setSaveError('') }}>Cancel</button>
@@ -473,6 +498,25 @@ export function FiltersPage() {
 
       {view === 'list' && (
         <article className="panel filters-list-panel">
+          {!loading && filters.length > 0 && (
+            <div className="filters-group-tabs">
+              {[
+                { key: 'all', label: 'All' },
+                { key: 'mine', label: 'Owned by me' },
+                { key: 'shared', label: 'Shared with me' },
+                { key: 'favorites', label: 'Favourites' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`filters-mode-btn ${listFilter === tab.key ? 'filters-mode-btn--active' : ''}`}
+                  type="button"
+                  onClick={() => setListFilter(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
           {loading ? (
             <div className="filters-empty">Loading filters...</div>
           ) : filters.length === 0 ? (
@@ -493,13 +537,22 @@ export function FiltersPage() {
                   <th></th>
                   <th>Name</th>
                   <th>Description</th>
+                  <th>Owner</th>
+                  <th>Visibility</th>
                   <th>Criteria</th>
                   <th>Updated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filters.map((filter) => {
+                {filters
+                  .filter((f) => {
+                    if (listFilter === 'mine') return f.isOwner
+                    if (listFilter === 'shared') return !f.isOwner
+                    if (listFilter === 'favorites') return f.isFavorite
+                    return true
+                  })
+                  .map((filter) => {
                   const c = filter.criteria || {}
                   const chips = []
                   if (c.status && c.status !== 'All') chips.push(`Status: ${c.status}`)
@@ -515,8 +568,8 @@ export function FiltersPage() {
                   return (
                     <tr key={filter.id} className="filters-list-row">
                       <td>
-                        <button className="filters-star-btn" type="button" onClick={() => handleToggleStar(filter)} title={filter.isStarred ? 'Unstar' : 'Star'}>
-                          {filter.isStarred ? (
+                        <button className="filters-star-btn" type="button" onClick={() => handleToggleFavorite(filter)} title={filter.isFavorite ? 'Remove favourite' : 'Add favourite'}>
+                          {filter.isFavorite ? (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffab00" stroke="#ffab00" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                           ) : (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b3bac5" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
@@ -529,6 +582,21 @@ export function FiltersPage() {
                         </button>
                       </td>
                       <td className="filters-desc-cell">{filter.description || '-'}</td>
+                      <td className="filters-owner-cell">{filter.isOwner ? 'You' : filter.ownerEmail}</td>
+                      <td>
+                        {filter.isOwner ? (
+                          <select
+                            className="filters-visibility-select"
+                            value={filter.visibility}
+                            onChange={(e) => handleChangeVisibility(filter, e.target.value)}
+                          >
+                            <option value="private">Private</option>
+                            <option value="shared">Shared</option>
+                          </select>
+                        ) : (
+                          <span className="filters-visibility-badge">Shared</span>
+                        )}
+                      </td>
                       <td>
                         <div className="filters-criteria-chips">
                           {chips.length > 0 ? chips.map((chip) => (
@@ -540,7 +608,9 @@ export function FiltersPage() {
                       <td>
                         <div className="filters-row-actions">
                           <button className="link-btn" type="button" onClick={() => handleLoadFilter(filter)}>Run</button>
-                          <button className="link-btn filters-delete-btn" type="button" onClick={() => handleDeleteFilter(filter)}>Delete</button>
+                          {filter.isOwner && (
+                            <button className="link-btn filters-delete-btn" type="button" onClick={() => handleDeleteFilter(filter)}>Delete</button>
+                          )}
                         </div>
                       </td>
                     </tr>

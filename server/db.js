@@ -367,6 +367,23 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-120: Shared & favourited saved filters ---
+  // Visibility: 'private' (owner only) or 'shared' (whole workspace). Idempotent.
+  if (!(await columnExists('filters', 'visibility'))) {
+    await pool.query("ALTER TABLE filters ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'")
+  }
+  // Per-user favourites (star) for any filter the user can see.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS filter_favorites (
+      id SERIAL PRIMARY KEY,
+      filter_id INTEGER NOT NULL REFERENCES filters(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (filter_id, user_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_filter_favorites_user ON filter_favorites(user_email)')
+
   // --- Module 1: @Mentions ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS mentions (

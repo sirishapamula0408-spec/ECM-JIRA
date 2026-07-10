@@ -20,6 +20,10 @@ export function deleteFilter(id) {
   return api(`/api/filters/${id}`, { method: 'DELETE' })
 }
 
+export function toggleFilterFavorite(id) {
+  return api(`/api/filters/${id}/favorite`, { method: 'POST' })
+}
+
 export function searchIssues(criteria) {
   return api('/api/filters/search', {
     method: 'POST',
