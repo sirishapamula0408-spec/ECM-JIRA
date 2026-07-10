@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // JL-102: Lightweight, dependency-free secret scanner.
 //
 // Greps tracked files for obvious secret patterns (AWS keys, private-key

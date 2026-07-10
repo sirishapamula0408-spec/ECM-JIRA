@@ -439,7 +439,7 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   // JL-166: notify members @mentioned in the description (skips unknown emails)
   await processMentions({
     text: normalizedDescription,
-    issueId: created.lastID,
+    issueId: row.id,
     actorEmail: req.user.email,
     requireMember: true,
   })
