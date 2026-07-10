@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { fetchActivity } from '../../api/dashboardApi'
 import { fetchProjects } from '../../api/projectApi'
 import { fetchMembers } from '../../api/memberApi'
+import { timeAgo } from '../../utils/timeAgo'
 import './ActivityFeedPage.css'
 
 const ACTIVITY_TYPES = [
@@ -11,19 +12,6 @@ const ACTIVITY_TYPES = [
   { value: 'sprint', label: 'Sprints' },
   { value: 'general', label: 'General' },
 ]
-
-function timeAgo(dateStr) {
-  if (!dateStr || dateStr === 'Just now') return 'Just now'
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return new Date(dateStr).toLocaleDateString()
-}
 
 export function ActivityFeedPage() {
   const [activities, setActivities] = useState([])
@@ -141,7 +129,7 @@ export function ActivityFeedPage() {
             <div className="af-item-content">
               <div className="af-item-header">
                 <span className="af-actor">{a.actor}</span>
-                <span className="af-time">{timeAgo(a.created_at || a.happened_at)}</span>
+                <span className="af-time">{timeAgo(a.created_at || a.happened_at) || 'Just now'}</span>
               </div>
               <p className="af-action">{a.action}</p>
               {a.activity_type && a.activity_type !== 'general' && (
