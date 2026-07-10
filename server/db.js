@@ -1144,6 +1144,30 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_git_links_issue ON git_links(issue_id)')
 
+  // --- JL-147: Deep Git integration (PR state, deployments, provider webhooks) ---
+  // Extend git_links with pull-request state tracking (open/merged/closed).
+  if (!(await columnExists('git_links', 'state'))) {
+    await pool.query("ALTER TABLE git_links ADD COLUMN state TEXT DEFAULT ''")
+  }
+  if (!(await columnExists('git_links', 'merged_at'))) {
+    await pool.query('ALTER TABLE git_links ADD COLUMN merged_at TIMESTAMPTZ')
+  }
+  // Deployment records surfaced against an issue (issue_id nullable — a deploy
+  // may reference no known key). Populated by the provider webhook.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS deployments (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
+      environment TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT '',
+      version TEXT DEFAULT '',
+      url TEXT DEFAULT '',
+      deployed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_deployments_issue ON deployments(issue_id, deployed_at DESC)')
+
   // --- JL-56: CI/CD Pipeline Status ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ci_builds (

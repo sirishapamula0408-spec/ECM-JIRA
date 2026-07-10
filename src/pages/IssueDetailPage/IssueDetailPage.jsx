@@ -13,7 +13,7 @@ import { fetchProjectComponents, fetchIssueComponents, setIssueComponents } from
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
-import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS } from '../../api/gitIntegrationApi'
+import { fetchGitLinks, createGitLink, deleteGitLink, fetchDeployments, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS, PR_STATE_LABELS } from '../../api/gitIntegrationApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { fetchCiBuilds } from '../../api/cicdApi'
@@ -153,6 +153,8 @@ export function IssueDetailPage() {
   const [gitRef, setGitRef] = useState('')
   const [gitUrl, setGitUrl] = useState('')
   const [gitTitle, setGitTitle] = useState('')
+  // JL-147: deployments recorded against this issue (via provider webhook)
+  const [deployments, setDeployments] = useState([])
   const [linkType, setLinkType] = useState(LINK_TYPES[0])
   const [linkSearch, setLinkSearch] = useState('')
   const [linkTargetId, setLinkTargetId] = useState('')
@@ -693,9 +695,17 @@ export function IssueDetailPage() {
       .then((data) => setGitLinks(Array.isArray(data) ? data : []))
       .catch(() => setGitLinks([]))
   }
+  // JL-147: deployments recorded against this issue
+  function reloadDeployments() {
+    if (!issue?.id) return
+    fetchDeployments(issue.id)
+      .then((data) => setDeployments(Array.isArray(data) ? data : []))
+      .catch(() => setDeployments([]))
+  }
   useEffect(() => {
     if (!issue?.id) return
     reloadGitLinks()
+    reloadDeployments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue?.id])
 
@@ -1364,6 +1374,9 @@ export function IssueDetailPage() {
                           <span className="id-subtask-key">{g.ref}</span>
                         )}
                         <span className="id-subtask-title">{g.title || ''}</span>
+                        {t === 'pull_request' && g.state && (
+                          <span className={`id-pr-state id-pr-state--${g.state}`}>{PR_STATE_LABELS[g.state] || g.state}</span>
+                        )}
                         {g.author && <span className="id-git-author">{g.author}</span>}
                         <button type="button" className="id-attach-delete" onClick={() => handleRemoveGitLink(g.id)} aria-label="Remove git link">&times;</button>
                       </li>
@@ -1371,6 +1384,32 @@ export function IssueDetailPage() {
                   </ul>
                 </div>
               ))
+            )}
+          </div>
+
+          {/* JL-147: Deployments recorded against this issue (via provider webhook) */}
+          <div className="id-section">
+            <h3 className="id-section-title">Deployments ({deployments.length})</h3>
+            {deployments.length === 0 ? (
+              <p className="id-empty-text">No deployments recorded.</p>
+            ) : (
+              <ul className="id-ci-list">
+                {deployments.map((d) => (
+                  <li key={d.id} className="id-ci-row">
+                    <span className={`id-ci-status id-ci-status--${d.status}`}>{d.status || 'deployed'}</span>
+                    {d.environment && <span className="id-ci-pipeline">{d.environment}</span>}
+                    {d.version && <span className="id-ci-branch">{d.version}</span>}
+                    {d.deployed_at && (
+                      <span className="id-ci-duration">
+                        {new Date(d.deployed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    {d.url && (
+                      <a className="id-ci-link" href={d.url} target="_blank" rel="noopener noreferrer">View</a>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
