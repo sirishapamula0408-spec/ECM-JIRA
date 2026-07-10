@@ -48,6 +48,9 @@ import schemeRoutes from './routes/schemes.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
+import { requestLogger } from './middleware/requestLogger.js'
+import { logger } from './services/logger.js'
+import healthRoutes from './routes/health.js'
 
 // JL-90: fail fast on missing required environment variables (before any
 // route wiring or listening). assertRequiredEnv only reports; we exit here.
@@ -61,15 +64,17 @@ if (missingEnv.length > 0) {
 
 const app = express()
 
+// JL-98: correlation id + structured request/response logging (mounted early).
+app.use(requestLogger)
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
   credentials: true,
 }))
 app.use(express.json({ limit: '25mb' })) // 25mb accommodates base64 file uploads (Theme-1 #3 Attachments)
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' })
-})
+// JL-98: liveness (/api/health) + readiness (/api/ready) probes.
+app.use('/api', healthRoutes)
 
 // Public routes (no session auth required)
 app.use('/api/auth', authRoutes)
@@ -141,9 +146,9 @@ app.use(errorHandler)
 initializeDatabase()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`API server running at http://localhost:${PORT}`)
+      logger.info('server started', { port: PORT, url: `http://localhost:${PORT}` })
     })
   })
   .catch((err) => {
-    console.error('Database init failed:', err)
+    logger.error('database init failed', { error: err?.message })
   })

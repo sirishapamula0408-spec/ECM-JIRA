@@ -24,6 +24,13 @@ export function assertRequiredEnv(env = process.env) {
   })
 }
 
+// --- JL-98: Observability / structured logging ---
+// LOG_LEVEL gates the structured logger (debug < info < warn < error). Messages
+// below the threshold are suppressed. Under the test runner we default to a high
+// threshold ('error') so suites stay quiet unless a test sets LOG_LEVEL explicitly.
+const IS_TEST = process.env.NODE_ENV === 'test' || process.env.VITEST
+export const LOG_LEVEL = (process.env.LOG_LEVEL || (IS_TEST ? 'error' : 'info')).toLowerCase()
+
 // --- JL-81: OAuth / SSO providers (config-gated) ---
 // A provider is considered "configured" only when both its client id and secret
 // are present in the environment. Without config, OAuth endpoints respond 501.
