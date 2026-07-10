@@ -11,6 +11,9 @@ vi.mock('../context/IssueContext', () => ({
 vi.mock('../context/AppDataContext', () => ({
   useAppData: () => ({ activity: [] }),
 }))
+vi.mock('../context/MemberContext', () => ({
+  useMembers: () => ({ profile: null, members: [] }),
+}))
 vi.mock('../api/projectApi', () => ({
   fetchProjects: vi.fn().mockResolvedValue([]),
 }))
