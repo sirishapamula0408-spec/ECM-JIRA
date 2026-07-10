@@ -17,6 +17,9 @@ import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteC
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
+import IconButton from '@mui/material/IconButton'
+import Tooltip from '@mui/material/Tooltip'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -32,6 +35,33 @@ const PRIORITY_ICON = {
   High:   { icon: '\u2191', color: '#ff5630', bg: '#ffebe6' },
   Medium: { icon: '\u2194', color: '#ff991f', bg: '#fff7e6' },
   Low:    { icon: '\u2193', color: '#36b37e', bg: '#e3fcef' },
+}
+
+/* ---- Copy issue link button (JL-161) ---- */
+export function CopyIssueLinkButton({ issueId }) {
+  const [copied, setCopied] = useState(false)
+  const timerRef = useRef(null)
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  async function handleCopy() {
+    const url = `${window.location.origin}/issues/${issueId}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard unavailable — silently ignore */
+    }
+  }
+
+  return (
+    <Tooltip title={copied ? 'Copied!' : 'Copy issue link'}>
+      <IconButton size="small" aria-label="Copy issue link" onClick={handleCopy} sx={{ ml: 0.5 }}>
+        <ContentCopyIcon sx={{ fontSize: 14 }} />
+      </IconButton>
+    </Tooltip>
+  )
 }
 
 /* ---- Inline editable field (JIRA click-to-edit pattern) ---- */
@@ -736,6 +766,7 @@ export function IssueDetailPage() {
           <div className="id-type-row">
             <span className="id-type-icon" style={{ color: typeMeta.color }}>{typeMeta.icon}</span>
             <span className="id-issue-key">{issue.key || `IT-${issue.id}`}</span>
+            <CopyIssueLinkButton issueId={issue.id} />
           </div>
 
           <h1 className="id-title">{issue.title}</h1>
