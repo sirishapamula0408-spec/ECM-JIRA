@@ -47,10 +47,10 @@ describe('Issues API — story points (JL-86)', () => {
   })
 
   it('accepts storyPoints on create and returns it (mapIssue → storyPoints)', async () => {
-    // get sequence: project lookup, issue count, final row fetch
+    // get sequence: project lookup, JL-92 counter increment, final row fetch
     get
       .mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
-      .mockResolvedValueOnce({ count: 0 }) // issue count
+      .mockResolvedValueOnce({ issue_counter: 1 }) // JL-92 monotonic counter
       .mockResolvedValueOnce({
         id: 42,
         issue_key: 'PROJ-1',
