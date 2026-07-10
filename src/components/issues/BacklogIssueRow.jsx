@@ -1,4 +1,5 @@
 import { ISSUE_STATUSES } from '../../constants'
+import { DueDateBadge } from './DueDateBadge'
 
 export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
@@ -22,6 +23,7 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         <strong>{issue.title}</strong>
       </button>
       <div className="backlog-issue-actions">
+        <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
         <span className="backlog-row-minus">-</span>
         <select
           className="backlog-status-select"

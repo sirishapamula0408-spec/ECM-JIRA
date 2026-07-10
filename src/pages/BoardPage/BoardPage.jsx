@@ -4,6 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import { fetchBoardConfig, saveBoardConfig } from '../../api/boardConfigApi'
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
+import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import './BoardPage.css'
 
 const SWIMLANE_OPTIONS = [
@@ -277,6 +278,7 @@ export function BoardPage() {
                       <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
                       <h4>{issue.title}</h4>
                       <p>{issue.issueType}</p>
+                      <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
                       <select value={issue.status} onChange={(event) => handleMove(issue.id, event.target.value, issue.sprintId ?? null)}>
                         {ISSUE_STATUSES.map((item) => (<option key={item} value={item}>{item}</option>))}
                       </select>
