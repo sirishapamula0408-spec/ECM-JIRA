@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ErrorBoundary } from '../components/ErrorBoundary'
+import { ErrorBoundary } from '../components/common/ErrorBoundary'
 
 function ThrowingChild({ shouldThrow }) {
   if (shouldThrow) throw new Error('Test explosion')
@@ -8,6 +8,10 @@ function ThrowingChild({ shouldThrow }) {
 }
 
 describe('ErrorBoundary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders children when no error', () => {
     render(
       <ErrorBoundary>
@@ -17,8 +21,8 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('All good')).toBeInTheDocument()
   })
 
-  it('renders fallback UI when child throws', () => {
-    // Suppress console.error from React error boundary
+  it('renders the fallback and hides the thrown content when a child throws', () => {
+    // Suppress React's expected error-boundary console.error noise.
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     render(
       <ErrorBoundary>
@@ -28,10 +32,12 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     expect(screen.getByText('Test explosion')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
+    // The thrown child's content must NOT be shown.
+    expect(screen.queryByText('All good')).not.toBeInTheDocument()
     spy.mockRestore()
   })
 
-  it('recovers after clicking Try again', () => {
+  it('recovers after clicking "Try again"', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { rerender } = render(
       <ErrorBoundary>
@@ -40,7 +46,7 @@ describe('ErrorBoundary', () => {
     )
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
 
-    // Rerender with non-throwing child before clicking reset
+    // Swap to a non-throwing child, then reset the boundary.
     rerender(
       <ErrorBoundary>
         <ThrowingChild shouldThrow={false} />
@@ -48,6 +54,7 @@ describe('ErrorBoundary', () => {
     )
     fireEvent.click(screen.getByText('Try again'))
     expect(screen.getByText('All good')).toBeInTheDocument()
+    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
     spy.mockRestore()
   })
 })
