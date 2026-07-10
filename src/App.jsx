@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 
@@ -26,6 +26,8 @@ import { MobileBottomNav } from './components/layout/MobileBottomNav'
 import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
+import { KeyboardShortcutsDialog } from './components/shortcuts/KeyboardShortcutsDialog'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
@@ -66,8 +68,10 @@ function AppContent() {
   const { loadAppData, setAppLoading, setAppError, loading, error } = useAppData()
   const { loadProfile, loadMembers, loadCurrentMember } = useMembers()
   const { loadNotifications } = useNotifications()
+  const navigate = useNavigate()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projectRefreshKey, setProjectRefreshKey] = useState(0)
   const [hasProjects, setHasProjects] = useState(true)
@@ -88,6 +92,20 @@ function AppContent() {
   const handleCloseSnackbar = useCallback(() => {
     setPermissionSnackbar((prev) => ({ ...prev, open: false }))
   }, [])
+
+  // JL-164 — global keyboard shortcuts (power-user navigation)
+  const focusGlobalSearch = useCallback(() => {
+    const searchInput = document.querySelector('input.search')
+    if (searchInput) searchInput.focus()
+  }, [])
+
+  useKeyboardShortcuts({
+    enabled: isAuthenticated,
+    onCreate: () => setShowCreate(true),
+    onFocusSearch: focusGlobalSearch,
+    onNavigate: navigate,
+    onShowHelp: () => setShowShortcuts(true),
+  })
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -164,6 +182,7 @@ function AppContent() {
       </main>
       <MobileBottomNav onCreate={() => setShowCreate(true)} />
       {showCreate && <CreateIssueModal onClose={() => setShowCreate(false)} />}
+      <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
       {showCreateProject && <CreateProjectModal onClose={() => setShowCreateProject(false)} onProjectCreated={() => { setProjectRefreshKey((k) => k + 1); setHasProjects(true) }} />}
       <Snackbar
         open={permissionSnackbar.open}
