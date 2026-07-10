@@ -1200,6 +1200,32 @@ export async function initializeDatabase() {
     await pool.query('UPDATE members SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
   }
 
+  // --- JL-114: Screen schemes (per-issue-type field screens) ---
+  // A scheme describes which built-in + custom fields appear on the create/edit
+  // screens for one issue type in one project. When no scheme exists for an issue
+  // type, the resolved endpoint falls back to "all fields" so legacy projects are
+  // unaffected.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS screen_schemes (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      issue_type TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(project_id, issue_type)
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS screen_scheme_fields (
+      id SERIAL PRIMARY KEY,
+      scheme_id INTEGER NOT NULL REFERENCES screen_schemes(id) ON DELETE CASCADE,
+      field_key TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      show_on_create BOOLEAN NOT NULL DEFAULT TRUE,
+      show_on_edit BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_screen_scheme_fields_scheme ON screen_scheme_fields(scheme_id)')
+
   const { seedDatabase } = await import('./seed.js')
   await seedDatabase()
 }
