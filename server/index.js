@@ -22,6 +22,7 @@ import commentRoutes from './routes/comments.js'
 import filterRoutes from './routes/filters.js'
 import notificationRoutes from './routes/notifications.js'
 import watcherRoutes from './routes/watchers.js'
+import favoriteRoutes from './routes/favorites.js'
 import approvalRoutes from './routes/approvals.js'
 import sharedDashboardRoutes from './routes/shared-dashboards.js'
 import webhookRoutes from './routes/webhooks.js'
@@ -94,6 +95,7 @@ app.use('/api/issues', ...protect, commentRoutes)
 app.use('/api/filters', ...protect, filterRoutes)
 app.use('/api/notifications', ...protect, notificationRoutes)
 app.use('/api/issues', ...protect, watcherRoutes)
+app.use('/api', ...protect, favoriteRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
 app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)

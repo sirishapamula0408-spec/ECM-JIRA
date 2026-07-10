@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchProjects, deleteProject } from '../../api/projectApi'
+import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/favoriteApi'
 import './ProjectsPage.css'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
@@ -9,6 +10,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [openMenuId, setOpenMenuId] = useState(null)
+  const [favorites, setFavorites] = useState(() => new Set())
 
   useEffect(() => {
     setLoading(true)
@@ -21,15 +23,51 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
       .finally(() => setLoading(false))
   }, [projectRefreshKey])
 
-  const filtered = projects.filter((p) => {
-    const q = query.trim().toLowerCase()
-    if (!q) return true
-    return (
-      p.name.toLowerCase().includes(q) ||
-      p.key.toLowerCase().includes(q) ||
-      p.lead.toLowerCase().includes(q)
-    )
-  })
+  useEffect(() => {
+    fetchFavorites()
+      .then((data) => setFavorites(new Set(data?.projectIds || [])))
+      .catch(() => {})
+  }, [])
+
+  async function toggleFavorite(project) {
+    const isFav = favorites.has(project.id)
+    // Optimistic update
+    setFavorites((prev) => {
+      const next = new Set(prev)
+      if (isFav) next.delete(project.id)
+      else next.add(project.id)
+      return next
+    })
+    try {
+      if (isFav) await unfavoriteProject(project.id)
+      else await favoriteProject(project.id)
+    } catch {
+      // Revert on failure
+      setFavorites((prev) => {
+        const next = new Set(prev)
+        if (isFav) next.add(project.id)
+        else next.delete(project.id)
+        return next
+      })
+    }
+  }
+
+  const filtered = projects
+    .filter((p) => {
+      const q = query.trim().toLowerCase()
+      if (!q) return true
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.key.toLowerCase().includes(q) ||
+        p.lead.toLowerCase().includes(q)
+      )
+    })
+    // Favorited projects first, preserving existing order within each group
+    .sort((a, b) => {
+      const fa = favorites.has(a.id) ? 1 : 0
+      const fb = favorites.has(b.id) ? 1 : 0
+      return fb - fa
+    })
 
   async function handleMoveToTrash(project) {
     const confirmed = window.confirm(`Move project "${project.name}" to trash? Issues will be unlinked but not deleted.`)
@@ -101,6 +139,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
           <table className="projects-table">
             <thead>
               <tr>
+                <th aria-label="Favorite"></th>
                 <th>Name</th>
                 <th>Key</th>
                 <th>Type</th>
@@ -111,6 +150,20 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
             <tbody>
               {filtered.map((project) => (
                 <tr key={project.id} className="projects-row-clickable" onClick={() => navigate(`/projects/${project.id}`)}>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={`projects-star-btn${favorites.has(project.id) ? ' is-favorite' : ''}`}
+                      aria-label={favorites.has(project.id) ? 'Unstar project' : 'Star project'}
+                      aria-pressed={favorites.has(project.id)}
+                      title={favorites.has(project.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      onClick={() => toggleFavorite(project)}
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill={favorites.has(project.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                    </button>
+                  </td>
                   <td>
                     <div className="projects-name-cell">
                       <span
