@@ -18,7 +18,7 @@ import { AppDataProvider, useAppData } from './context/AppDataContext'
 import { MemberProvider, useMembers } from './context/MemberContext'
 import { NotificationProvider, useNotifications } from './context/NotificationContext'
 
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
