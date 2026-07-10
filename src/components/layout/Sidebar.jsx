@@ -76,6 +76,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Filters', path: '/filters', icon: 'filters' },
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
     { label: 'Portfolio', path: '/portfolio', icon: 'dashboards' },
+    { label: 'Advanced Roadmap', path: '/advanced-roadmap', icon: 'roadmap' },
     { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
   ]
 

@@ -1448,6 +1448,38 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-125: Advanced Roadmaps (multi-team, dependency- & capacity-aware) ---
+  // Dependencies between epics (issues with issue_type='Epic'). Default type is
+  // finish_to_start: the to-epic must not start before the from-epic finishes.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS roadmap_dependencies (
+      id SERIAL PRIMARY KEY,
+      from_epic_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      to_epic_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'finish_to_start',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (from_epic_id, to_epic_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_roadmap_deps_from ON roadmap_dependencies(from_epic_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_roadmap_deps_to ON roadmap_dependencies(to_epic_id)')
+
+  // Team capacity (in points) for a planning window, optionally scoped to a
+  // project. Distinct from JL-53 member_capacity (per assignee/sprint): this is
+  // per team/period across the advanced roadmap.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_capacity (
+      id SERIAL PRIMARY KEY,
+      team_name TEXT NOT NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      capacity_points NUMERIC NOT NULL DEFAULT 0,
+      period_start DATE,
+      period_end DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_team_capacity_project ON team_capacity(project_id)')
+
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
   // production/CI never auto-seed fictional data. The seeders themselves only

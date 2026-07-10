@@ -16,6 +16,7 @@ import reportRoutes from './routes/reports.js'
 import portfolioRoutes from './routes/portfolio.js'
 import timeInStatusReportRoutes from './routes/timeInStatusReports.js'
 import roadmapRoutes from './routes/roadmap.js'
+import advancedRoadmapRoutes from './routes/advancedRoadmap.js'
 import workflowRoutes from './routes/workflows.js'
 import profileRoutes from './routes/profile.js'
 import memberRoutes from './routes/members.js'
@@ -139,6 +140,7 @@ app.use('/api/reports', ...protect, reportRoutes)
 app.use('/api', ...protect, portfolioRoutes)
 app.use('/api', ...protect, timeInStatusReportRoutes)
 app.use('/api/roadmap', ...protect, roadmapRoutes)
+app.use('/api', ...protect, advancedRoadmapRoutes) // JL-125: advanced roadmap, dependencies, team capacity
 app.use('/api/workflows', ...protect, workflowRoutes)
 app.use('/api/profile', ...protect, profileRoutes)
 app.use('/api/members', ...protect, memberRoutes)
