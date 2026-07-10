@@ -28,6 +28,8 @@ import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import { TipTapEditor } from '../../components/editor/TipTapEditor'
+import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -841,10 +843,11 @@ export function IssueDetailPage() {
     setIsEditing(true)
   }
 
-  // JL-166: persist the description on save so @mentions reach the backend
+  // JL-135: persist the WYSIWYG (HTML) description via handleUpdate.
+  // Backend still extracts @mentions from the saved text (JL-166).
   async function saveDesc() {
-    const next = editDesc.trim()
-    if (next !== (issue.description || '').trim()) {
+    const next = isEmptyDoc(editDesc) ? '' : sanitizeHtml(editDesc)
+    if (next !== (issue.description || '')) {
       await handleUpdate(issue.id, { description: next })
     }
     setIsEditing(false)
@@ -1122,7 +1125,7 @@ export function IssueDetailPage() {
             <h3 className="id-section-title">Description</h3>
             {isEditing ? (
               <div className="id-desc-edit">
-                <MentionInput rows={5} value={editDesc} onChange={setEditDesc} placeholder="Add a description... Use @email to mention someone" className="id-desc-textarea" />
+                <TipTapEditor value={editDesc} onChange={setEditDesc} placeholder="Add a description… Type / for blocks" autoFocus />
                 <div className="id-desc-edit-actions">
                   <button className="btn btn-primary btn-sm" type="button" onClick={saveDesc}>Save</button>
                   <button className="btn btn-ghost btn-sm" type="button" onClick={() => setIsEditing(false)}>Cancel</button>
@@ -1130,7 +1133,15 @@ export function IssueDetailPage() {
               </div>
             ) : (
               <div className="id-description" onClick={startEditDesc} title="Click to edit">
-                {issue.description ? <p><MentionText text={issue.description} /></p> : <p className="id-placeholder">Add a description...</p>}
+                {issue.description ? (
+                  looksLikeHtml(issue.description) ? (
+                    <div className="id-desc-rendered" dangerouslySetInnerHTML={{ __html: sanitizeHtml(issue.description) }} />
+                  ) : (
+                    <p>{issue.description}</p>
+                  )
+                ) : (
+                  <p className="id-placeholder">Add a description...</p>
+                )}
               </div>
             )}
           </div>
