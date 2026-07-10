@@ -5,6 +5,7 @@ import { initializeDatabase } from './db.js'
 import { PORT, assertRequiredEnv, assertValidConfig } from './config.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
+import { securityHeaders } from './middleware/securityHeaders.js'
 import { loadUserRoles } from './middleware/authorize.js'
 import authRoutes from './routes/auth.js'
 import issueRoutes from './routes/issues.js'
@@ -81,6 +82,9 @@ const app = express()
 
 // JL-98: correlation id + structured request/response logging (mounted early).
 app.use(requestLogger)
+// JL-91: apply Content-Security-Policy + hardening headers to every response,
+// mounted before routes so it also covers auth and error responses.
+app.use(securityHeaders)
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
