@@ -10,11 +10,21 @@ import {
   addPermissionGrant, deletePermissionGrant, assignPermissionScheme,
   fetchEffectivePermissions, PERMISSION_KEYS, SCHEME_ROLES,
 } from '../../api/schemesApi'
+import { fetchResolvedScreen, saveScreenScheme } from '../../api/screenSchemeApi'
+import { fetchProjectCustomFields } from '../../api/customFieldApi'
+import { ISSUE_TYPES } from '../../constants'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
 
-const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions' }
+const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', SCREENS: 'screens' }
 const STATUS_CATEGORIES = ['todo', 'inprogress', 'done']
+
+// Human labels for the built-in field keys the screen editor can toggle.
+const BUILTIN_FIELD_LABELS = {
+  summary: 'Summary', description: 'Description', status: 'Status', priority: 'Priority',
+  assignee: 'Assignee', reporter: 'Reporter', issue_type: 'Issue type', labels: 'Labels',
+  story_points: 'Story points', due_date: 'Due date', original_estimate: 'Original estimate', parent: 'Parent',
+}
 
 export function ProjectSettingsPage() {
   const { projectId } = useParams()
@@ -51,6 +61,15 @@ export function ProjectSettingsPage() {
   const [permsBusy, setPermsBusy] = useState(false)
   const [permsError, setPermsError] = useState('')
 
+  // Screens tab state
+  const [screenIssueType, setScreenIssueType] = useState(ISSUE_TYPES[0])
+  const [screenFields, setScreenFields] = useState([])
+  const [screenConfigured, setScreenConfigured] = useState(false)
+  const [customFieldNames, setCustomFieldNames] = useState({})
+  const [screensBusy, setScreensBusy] = useState(false)
+  const [screensError, setScreensError] = useState('')
+  const [screensMsg, setScreensMsg] = useState('')
+
   const loadViewScheme = useCallback((schemeId) => {
     if (!schemeId) { setViewScheme(null); return }
     fetchPermissionScheme(schemeId).then(setViewScheme).catch(() => {})
@@ -79,6 +98,16 @@ export function ProjectSettingsPage() {
     fetchProjectStatuses(projectId).then(setStatuses).catch(() => {})
   }, [projectId])
 
+  const loadScreen = useCallback((issueType) => {
+    setScreensMsg('')
+    fetchResolvedScreen(projectId, issueType)
+      .then((data) => {
+        setScreenFields(data.fields || [])
+        setScreenConfigured(Boolean(data.configured))
+      })
+      .catch((err) => setScreensError(err.message || 'Failed to load screen.'))
+  }, [projectId])
+
   useEffect(() => {
     fetchProjectById(projectId)
       .then((data) => {
@@ -90,7 +119,18 @@ export function ProjectSettingsPage() {
     loadProjectMembers()
     loadFieldConfig()
     loadSchemes()
+    fetchProjectCustomFields(projectId)
+      .then((rows) => {
+        const map = {}
+        for (const r of rows) map[`custom:${r.id}`] = r.name
+        setCustomFieldNames(map)
+      })
+      .catch(() => {})
   }, [projectId, loadProjectMembers, loadFieldConfig, loadSchemes])
+
+  useEffect(() => {
+    if (activeSection === SECTIONS.SCREENS) loadScreen(screenIssueType)
+  }, [activeSection, screenIssueType, loadScreen])
 
   if (loading) return <div className="page ps-layout"><p style={{ padding: 24 }}>Loading...</p></div>
   if (!project || !form) return <div className="page ps-layout"><p style={{ padding: 24 }}>Project not found.</p></div>
@@ -256,6 +296,44 @@ export function ProjectSettingsPage() {
   const hasGrant = (permissionKey, role) =>
     Boolean(viewScheme?.grants?.some((g) => g.permission_key === permissionKey && g.role === role))
 
+  // ── Screens tab handlers ──
+  const fieldLabel = (key) =>
+    BUILTIN_FIELD_LABELS[key] || customFieldNames[key] || key
+
+  function toggleScreenField(index, prop) {
+    setScreenFields((prev) => prev.map((f, i) => (i === index ? { ...f, [prop]: !f[prop] } : f)))
+  }
+
+  function moveScreenField(index, dir) {
+    setScreenFields((prev) => {
+      const next = [...prev]
+      const target = index + dir
+      if (target < 0 || target >= next.length) return prev
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next.map((f, i) => ({ ...f, position: i }))
+    })
+  }
+
+  async function handleSaveScreen() {
+    setScreensBusy(true)
+    setScreensError('')
+    setScreensMsg('')
+    try {
+      const payload = screenFields.map((f) => ({
+        fieldKey: f.fieldKey,
+        showOnCreate: f.showOnCreate,
+        showOnEdit: f.showOnEdit,
+      }))
+      const saved = await saveScreenScheme(projectId, screenIssueType, payload)
+      setScreenFields(saved.fields || [])
+      setScreenConfigured(true)
+      setScreensMsg('Screen layout saved.')
+    } catch (err) {
+      setScreensError(err.message || 'Failed to save screen.')
+    }
+    setScreensBusy(false)
+  }
+
   return (
     <section className="page ps-layout">
       {/* ── Sidebar ── */}
@@ -344,6 +422,21 @@ export function ProjectSettingsPage() {
               </svg>
             </span>
             Permissions
+          </button>
+
+          <button
+            className={`ps-nav-link${activeSection === SECTIONS.SCREENS ? ' active' : ''}`}
+            type="button"
+            onClick={() => setActiveSection(SECTIONS.SCREENS)}
+          >
+            <span className="ps-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </span>
+            Screens
           </button>
         </div>
       </nav>
@@ -746,6 +839,105 @@ export function ProjectSettingsPage() {
                 </table>
               </article>
             )}
+          </>
+        )}
+
+        {activeSection === SECTIONS.SCREENS && (
+          <>
+            <h1>Screens</h1>
+            <p className="muted">
+              Choose which fields appear on the create and edit screens for each issue type.
+              Until you save a layout, every field is shown (the default).
+            </p>
+
+            {screensError && <p className="banner error">{screensError}</p>}
+            {screensMsg && <p className="banner">{screensMsg}</p>}
+
+            <article className="panel">
+              <div className="ps-add-member-row">
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  Issue type
+                  <select
+                    value={screenIssueType}
+                    onChange={(e) => setScreenIssueType(e.target.value)}
+                    disabled={screensBusy}
+                  >
+                    {ISSUE_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
+                <span className="pill">{screenConfigured ? 'Custom layout' : 'Default (all fields)'}</span>
+              </div>
+
+              <table className="table" style={{ marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th style={{ textAlign: 'center', width: 100 }}>On create</th>
+                    <th style={{ textAlign: 'center', width: 100 }}>On edit</th>
+                    <th style={{ width: 90 }}>Order</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {screenFields.length > 0 ? screenFields.map((f, i) => (
+                    <tr key={f.fieldKey}>
+                      <td>
+                        <strong>{fieldLabel(f.fieldKey)}</strong>
+                        {f.fieldKey.startsWith('custom:') && <span className="pill" style={{ marginLeft: 8 }}>custom</span>}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(f.showOnCreate)}
+                          onChange={() => toggleScreenField(i, 'showOnCreate')}
+                          disabled={screensBusy}
+                          aria-label={`${fieldLabel(f.fieldKey)} on create`}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(f.showOnEdit)}
+                          onChange={() => toggleScreenField(i, 'showOnEdit')}
+                          disabled={screensBusy}
+                          aria-label={`${fieldLabel(f.fieldKey)} on edit`}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => moveScreenField(i, -1)}
+                          disabled={screensBusy || i === 0}
+                          aria-label="Move up"
+                        >↑</button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => moveScreenField(i, 1)}
+                          disabled={screensBusy || i === screenFields.length - 1}
+                          aria-label="Move down"
+                        >↓</button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="4" className="muted">No fields available.</td></tr>
+                  )}
+                </tbody>
+              </table>
+
+              <div className="ps-actions">
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSaveScreen}
+                  disabled={screensBusy || screenFields.length === 0}
+                >
+                  {screensBusy ? 'Saving...' : 'Save screen layout'}
+                </button>
+              </div>
+            </article>
           </>
         )}
       </div>
