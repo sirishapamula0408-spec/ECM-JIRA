@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
-import { all, get, run } from '../db.js'
+import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { sendMail, buildInviteEmail } from '../utils/mailer.js'
@@ -136,30 +136,37 @@ router.post('/:token/accept', asyncHandler(async (req, res) => {
 
   const name = String(req.body?.name || '').trim() || invite.email.split('@')[0]
 
-  // Create or update the member with the invited role.
-  const existing = await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [invite.email])
-  let member
-  if (existing) {
-    await run(
-      "UPDATE members SET role = ?, status = 'Active' WHERE id = ?",
-      [invite.role, existing.id],
-    )
-    member = await get(
-      'SELECT id, name, email, role, status FROM members WHERE id = ?',
-      [existing.id],
-    )
-  } else {
-    const created = await run(
-      'INSERT INTO members (name, email, role, status, task_count, invited_by, is_owner) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, invite.email, invite.role, 'Active', 0, 'Invitation', false],
-    )
-    member = await get(
-      'SELECT id, name, email, role, status FROM members WHERE id = ?',
-      [created.lastID],
-    )
-  }
+  // JL-94: upserting the member and marking the invitation accepted must be
+  // atomic — a partial failure could leave an accepted invite with no member,
+  // or a member whose invite still looks pending.
+  const member = await withTransaction(async (tx) => {
+    // Create or update the member with the invited role.
+    const existing = await tx.get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [invite.email])
+    let m
+    if (existing) {
+      await tx.run(
+        "UPDATE members SET role = ?, status = 'Active' WHERE id = ?",
+        [invite.role, existing.id],
+      )
+      m = await tx.get(
+        'SELECT id, name, email, role, status FROM members WHERE id = ?',
+        [existing.id],
+      )
+    } else {
+      const created = await tx.run(
+        'INSERT INTO members (name, email, role, status, task_count, invited_by, is_owner) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [name, invite.email, invite.role, 'Active', 0, 'Invitation', false],
+      )
+      m = await tx.get(
+        'SELECT id, name, email, role, status FROM members WHERE id = ?',
+        [created.lastID],
+      )
+    }
 
-  await run("UPDATE invitations SET status = 'accepted' WHERE id = ?", [invite.id])
+    await tx.run("UPDATE invitations SET status = 'accepted' WHERE id = ?", [invite.id])
+
+    return m
+  })
 
   res.json({ ok: true, member })
 }))

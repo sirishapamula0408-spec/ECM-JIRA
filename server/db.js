@@ -75,6 +75,69 @@ export async function get(sql, params = []) {
 }
 
 /**
+ * JL-94 — Run a set of writes inside a single database transaction.
+ *
+ * Checks out a dedicated client from the pool, issues BEGIN, then invokes
+ * `fn(tx)` where `tx` exposes the same `run/get/all` interface as the module
+ * wrappers — bound to that one client so every statement shares the same
+ * transaction. Placeholders (`?` → `$n`) and the INSERT `RETURNING id`
+ * auto-append behaviour match the non-transactional helpers exactly.
+ *
+ * On success the transaction is COMMITted and `fn`'s return value is returned.
+ * On any error the transaction is ROLLBACKed and the error is rethrown. The
+ * client is always released back to the pool.
+ *
+ * Usage:
+ *   await withTransaction(async (tx) => {
+ *     const { lastID } = await tx.run('INSERT INTO ... VALUES (?, ?)', [a, b])
+ *     await tx.run('INSERT INTO ... VALUES (?)', [lastID])
+ *   })
+ */
+export async function withTransaction(fn) {
+  const client = await pool.connect()
+
+  const txRun = async (sql, params = []) => {
+    const pgSql = convertPlaceholders(sql)
+    const isInsert = /^\s*INSERT\b/i.test(pgSql)
+    let finalSql = pgSql
+    if (isInsert && !/RETURNING\b/i.test(pgSql)) {
+      finalSql = pgSql.replace(/;?\s*$/, ' RETURNING id')
+    }
+    const result = await client.query(finalSql, params)
+    return {
+      lastID: result.rows?.[0]?.id ?? null,
+      changes: result.rowCount ?? 0,
+    }
+  }
+
+  const txAll = async (sql, params = []) => {
+    const result = await client.query(convertPlaceholders(sql), params)
+    return result.rows
+  }
+
+  const txGet = async (sql, params = []) => {
+    const result = await client.query(convertPlaceholders(sql), params)
+    return result.rows[0] || null
+  }
+
+  try {
+    await client.query('BEGIN')
+    const out = await fn({ run: txRun, get: txGet, all: txAll })
+    await client.query('COMMIT')
+    return out
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK')
+    } catch {
+      // Ignore rollback failures; surface the original error below.
+    }
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+/**
  * Check if a column exists in a table (replaces PRAGMA table_info).
  */
 export async function columnExists(table, column) {

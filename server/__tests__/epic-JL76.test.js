@@ -3,13 +3,21 @@ import express from 'express'
 import request from 'supertest'
 
 // Mock the db module used by the issues route (and its imported services)
-vi.mock('../db.js', () => ({
-  run: vi.fn(),
-  all: vi.fn(),
-  get: vi.fn(),
-  columnExists: vi.fn(),
-  tableExists: vi.fn(),
-}))
+vi.mock('../db.js', () => {
+  const run = vi.fn()
+  const all = vi.fn()
+  const get = vi.fn()
+  return {
+    run,
+    all,
+    get,
+    columnExists: vi.fn(),
+    tableExists: vi.fn(),
+    // JL-94: run the callback with the same mocked helpers so existing
+    // run/get assertions still see the transactional writes.
+    withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
+  }
+})
 
 // Keep automation / events side-effects inert
 vi.mock('../services/automation.js', () => ({
