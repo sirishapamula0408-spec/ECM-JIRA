@@ -39,6 +39,26 @@ export function isOAuthConfigured(name) {
   return Boolean(p && p.clientId && p.clientSecret)
 }
 
+// --- JL-137: Cloud attachment storage (S3-compatible, config-gated) ---
+// When all required S3 vars are present, attachments are stored in object
+// storage; otherwise the default local-disk backend (server/uploads) is used.
+// S3_ENDPOINT is optional (for MinIO / non-AWS S3-compatible providers).
+export const S3_BUCKET = process.env.S3_BUCKET || ''
+export const S3_REGION = process.env.S3_REGION || ''
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || ''
+export const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID || ''
+export const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY || ''
+
+export function getStorageConfig() {
+  return {
+    bucket: S3_BUCKET,
+    region: S3_REGION,
+    endpoint: S3_ENDPOINT,
+    accessKeyId: S3_ACCESS_KEY_ID,
+    secretAccessKey: S3_SECRET_ACCESS_KEY,
+  }
+}
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587

@@ -707,6 +707,14 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_attachments_issue ON attachments(issue_id)')
 
+  // --- JL-137: cloud storage backend + thumbnail key (idempotent) ---
+  if (!(await columnExists('attachments', 'thumbnail_key'))) {
+    await pool.query('ALTER TABLE attachments ADD COLUMN thumbnail_key TEXT')
+  }
+  if (!(await columnExists('attachments', 'storage_backend'))) {
+    await pool.query("ALTER TABLE attachments ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'local'")
+  }
+
   // --- Theme-1 #2: Labels / Tags ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS labels (
