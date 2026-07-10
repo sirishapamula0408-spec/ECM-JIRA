@@ -400,6 +400,13 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_comment_id ON mentions(comment_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_email ON mentions(mentioned_email)')
+  // JL-166: allow mentions that originate from an issue description (no comment).
+  // comment_id becomes nullable; issue_id links the mention to its issue.
+  await pool.query('ALTER TABLE mentions ALTER COLUMN comment_id DROP NOT NULL')
+  if (!(await columnExists('mentions', 'issue_id'))) {
+    await pool.query('ALTER TABLE mentions ADD COLUMN issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_mentions_issue_id ON mentions(issue_id)')
+  }
 
   // --- JL-139: Comment reactions (emoji) ---
   // A user may react to a comment with several distinct emoji, but the same
