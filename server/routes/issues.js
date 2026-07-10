@@ -5,7 +5,7 @@ import { validStatuses, validPriorities, validIssueTypes } from '../middleware/v
 import { requireRole } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
 import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
-import { buildIssueSearch } from '../services/jqlSearch.js'
+import { buildIssueSearchAsync } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
 
 const router = Router()
@@ -100,7 +100,14 @@ router.get('/', asyncHandler(async (req, res) => {
   let built
   try {
     // Whitelisted fields + bound params only — see server/services/jqlSearch.js.
-    built = buildIssueSearch({ status, q, jql })
+    // currentUser() resolves to the requesting user (JL-117); membersOf/
+    // linkedIssues are resolved via DB and bound as params.
+    built = await buildIssueSearchAsync({
+      status,
+      q,
+      jql,
+      currentUser: req.user?.email,
+    })
   } catch (err) {
     if (err.status === 400) {
       res.status(400).json({ error: err.message })
