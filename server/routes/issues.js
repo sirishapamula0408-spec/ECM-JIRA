@@ -10,6 +10,7 @@ import { emitEvent } from '../services/events.js'
 import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
 import { validateRequiredFields } from './fieldConfig.js'
 import { processMentions } from '../services/mentions.js'
+import { publish } from '../services/realtime.js'
 
 const router = Router()
 
@@ -647,6 +648,9 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   // JL-59: emit issue.updated event to subscribed webhooks (fire-and-forget)
   emitEvent('issue.updated', mapIssue(row), row?.project_id ?? null).catch(() => {})
 
+  // JL-136: live-push the change to viewers of this issue (no-op if realtime off)
+  publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'updated' })
+
   res.json(mapIssue(row))
 }))
 
@@ -753,6 +757,9 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // JL-59: emit issue.status_changed event to subscribed webhooks (fire-and-forget)
   emitEvent('issue.status_changed', { ...mapIssue(finalRow), status }, finalRow.project_id ?? null).catch(() => {})
+
+  // JL-136: live-push the status change to viewers of this issue (no-op if realtime off)
+  publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'status_changed' })
 
   res.json(mapIssue(finalRow))
 }))

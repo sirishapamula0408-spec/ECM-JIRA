@@ -64,6 +64,7 @@ import { requestLogger } from './middleware/requestLogger.js'
 import { logger } from './services/logger.js'
 import healthRoutes from './routes/health.js'
 import { startScheduler } from './services/scheduler.js'
+import { createRealtimeServer } from './services/realtime.js'
 
 // JL-90: fail fast on missing required environment variables (before any
 // route wiring or listening). assertRequiredEnv only reports; we exit here.
@@ -191,7 +192,7 @@ app.use(errorHandler)
 
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       logger.info('server started', { port: PORT, url: `http://localhost:${PORT}` })
     })
     // JL-119: start the time-based automation scheduler in-process. Never spin
@@ -199,6 +200,9 @@ initializeDatabase()
     if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
       startScheduler({ intervalMs: Number(process.env.SCHEDULER_INTERVAL_MS) || 60000 })
     }
+    // JL-136: attach the real-time collaboration WebSocket hub to the live HTTP
+    // server. Only reached when index.js actually starts the listener.
+    createRealtimeServer(server)
   })
   .catch((err) => {
     logger.error('database init failed', { error: err?.message })
