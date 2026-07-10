@@ -647,6 +647,14 @@ export function IssueDetailPage() {
     closeField()
   }
 
+  // JL-162: one-click "Assign to me" shortcut next to the Assignee field
+  async function onAssignToMe() {
+    const prev = issue.assignee || 'Unassigned'
+    if (prev === currentUserName) return
+    await handleUpdate(issue.id, { assignee: currentUserName })
+    reloadHistory()
+  }
+
   async function onChangePriority(e) {
     const prev = issue.priority
     const next = e.target.value
@@ -1133,6 +1141,16 @@ export function IssueDetailPage() {
                       {members.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>
                   </InlineField>
+                  {issue.assignee !== currentUserName && (
+                    <button
+                      type="button"
+                      className="id-assign-to-me"
+                      onClick={onAssignToMe}
+                      title={`Assign this issue to ${currentUserName}`}
+                    >
+                      Assign to me
+                    </button>
+                  )}
                 </dd>
               </div>
 
