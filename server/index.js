@@ -49,6 +49,7 @@ import schemeRoutes from './routes/schemes.js'
 import screenSchemeRoutes from './routes/screenSchemes.js'
 import fieldConfigRoutes from './routes/fieldConfig.js'
 import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
+import listViewRoutes from './routes/listViews.js'
 import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
@@ -118,6 +119,7 @@ app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)
 app.use('/api/filters', ...protect, filterRoutes)
+app.use('/api/list-views', ...protect, listViewRoutes)
 app.use('/api/notifications', ...protect, notificationRoutes)
 app.use('/api/issues', ...protect, watcherRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
