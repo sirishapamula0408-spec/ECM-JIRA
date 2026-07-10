@@ -9,6 +9,7 @@ import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
+import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
 import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS } from '../../api/gitIntegrationApi'
@@ -118,6 +119,11 @@ export function IssueDetailPage() {
   // Labels — persisted per-issue assignments + project label catalog
   const [labels, setLabels] = useState([]) // [{id,name,color}] assigned to this issue
   const [projectLabels, setProjectLabels] = useState([]) // catalog for the issue's project
+
+  // JL-112: Fix/Affects versions — project release catalog + this issue's assignments
+  const [projectReleases, setProjectReleases] = useState([]) // [{id,name,status}]
+  const [fixVersions, setFixVersions] = useState([]) // [{id,name,status}]
+  const [affectsVersions, setAffectsVersions] = useState([])
   const [labelInput, setLabelInput] = useState('')
   // JL-77: expanded field local state (synced from issue, persisted on edit)
   const [dueDate, setDueDate] = useState('')
@@ -217,6 +223,25 @@ export function IssueDetailPage() {
       .then((data) => setProjectLabels(Array.isArray(data) ? data : []))
       .catch(() => setProjectLabels([]))
   }, [issue?.projectId])
+
+  // JL-112: load the project's release catalog (for the version pickers)
+  useEffect(() => {
+    if (!issue?.projectId) { setProjectReleases([]); return }
+    fetchProjectReleases(issue.projectId)
+      .then((data) => setProjectReleases(Array.isArray(data) ? data : []))
+      .catch(() => setProjectReleases([]))
+  }, [issue?.projectId])
+
+  // JL-112: load fix/affects versions assigned to this issue
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchIssueVersions(issue.id)
+      .then((data) => {
+        setFixVersions(Array.isArray(data?.fix) ? data.fix : [])
+        setAffectsVersions(Array.isArray(data?.affects) ? data.affects : [])
+      })
+      .catch(() => { setFixVersions([]); setAffectsVersions([]) })
+  }, [issue?.id])
 
   // JL-77: sync expanded fields from the loaded issue
   useEffect(() => {
@@ -713,6 +738,35 @@ export function IssueDetailPage() {
 
   function removeLabel(label) {
     persistLabels(labels.filter((l) => l.id !== label.id))
+  }
+
+  // JL-112: persist fix/affects versions (replace-all on the backend).
+  async function persistVersions(nextFix, nextAffects) {
+    const prevFix = fixVersions
+    const prevAffects = affectsVersions
+    setFixVersions(nextFix) // optimistic
+    setAffectsVersions(nextAffects)
+    try {
+      await setIssueVersions(issue.id, {
+        fix: nextFix.map((v) => v.id),
+        affects: nextAffects.map((v) => v.id),
+      })
+    } catch {
+      setFixVersions(prevFix) // rollback
+      setAffectsVersions(prevAffects)
+    }
+  }
+
+  function toggleFixVersion(release) {
+    const exists = fixVersions.some((v) => v.id === release.id)
+    const next = exists ? fixVersions.filter((v) => v.id !== release.id) : [...fixVersions, release]
+    persistVersions(next, affectsVersions)
+  }
+
+  function toggleAffectsVersion(release) {
+    const exists = affectsVersions.some((v) => v.id === release.id)
+    const next = exists ? affectsVersions.filter((v) => v.id !== release.id) : [...affectsVersions, release]
+    persistVersions(fixVersions, next)
   }
 
   return (
@@ -1278,6 +1332,80 @@ export function IssueDetailPage() {
                         />
                         <button className="id-label-add-btn" type="button" onClick={addLabel}>Add</button>
                       </div>
+                    </div>
+                  </InlineField>
+                </dd>
+              </div>
+
+              {/* JL-112: Fix Versions — multi-select tied to project releases */}
+              <div className="id-detail-row">
+                <dt>Fix Versions</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'fixVersions'}
+                    onOpen={() => openField('fixVersions')}
+                    onClose={closeField}
+                    display={
+                      <div className="id-labels-wrap">
+                        {fixVersions.length > 0 ? fixVersions.map((v) => (
+                          <span key={v.id} className="pill">{v.name}</span>
+                        )) : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </div>
+                    }
+                  >
+                    <div className="id-labels-editor">
+                      {projectReleases.length === 0 ? (
+                        <span className="id-empty-value">No releases defined for this project</span>
+                      ) : projectReleases.map((r) => (
+                        <label key={r.id} className="id-version-option">
+                          <input
+                            type="checkbox"
+                            checked={fixVersions.some((v) => v.id === r.id)}
+                            onChange={() => toggleFixVersion(r)}
+                          />
+                          {r.name}
+                        </label>
+                      ))}
+                    </div>
+                  </InlineField>
+                </dd>
+              </div>
+
+              {/* JL-112: Affects Versions — multi-select tied to project releases */}
+              <div className="id-detail-row">
+                <dt>Affects Versions</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'affectsVersions'}
+                    onOpen={() => openField('affectsVersions')}
+                    onClose={closeField}
+                    display={
+                      <div className="id-labels-wrap">
+                        {affectsVersions.length > 0 ? affectsVersions.map((v) => (
+                          <span key={v.id} className="pill">{v.name}</span>
+                        )) : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </div>
+                    }
+                  >
+                    <div className="id-labels-editor">
+                      {projectReleases.length === 0 ? (
+                        <span className="id-empty-value">No releases defined for this project</span>
+                      ) : projectReleases.map((r) => (
+                        <label key={r.id} className="id-version-option">
+                          <input
+                            type="checkbox"
+                            checked={affectsVersions.some((v) => v.id === r.id)}
+                            onChange={() => toggleAffectsVersion(r)}
+                          />
+                          {r.name}
+                        </label>
+                      ))}
                     </div>
                   </InlineField>
                 </dd>
