@@ -2,7 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { initializeDatabase } from './db.js'
-import { PORT, assertRequiredEnv } from './config.js'
+import { PORT, assertRequiredEnv, assertValidConfig } from './config.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
 import { loadUserRoles } from './middleware/authorize.js'
@@ -61,6 +61,11 @@ if (missingEnv.length > 0) {
   console.error('JWT_SECRET must be a strong random value, e.g. generate one with: openssl rand -hex 32')
   process.exit(1)
 }
+
+// JL-102: fail fast on insecure/incomplete secrets in production. Guarded so a
+// misconfiguration surfaces clearly at boot without affecting dev/test (which
+// are lenient) — assertValidConfig only throws for fatal production errors.
+assertValidConfig()
 
 const app = express()
 

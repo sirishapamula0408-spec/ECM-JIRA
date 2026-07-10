@@ -72,3 +72,139 @@ export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587
 export const SMTP_USER = process.env.SMTP_USER || ''
 export const SMTP_PASS = process.env.SMTP_PASS || ''
 export const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@ecm-jira.local'
+
+// --- JL-102: Secrets management / startup config validation ---
+//
+// Known dev/default placeholder values that must NEVER be used as a real secret
+// in production. `validateConfig()` treats a JWT_SECRET matching any of these
+// (case-insensitive) as a fatal error when NODE_ENV=production.
+export const DEFAULT_JWT_SECRET = 'ecm-jira-dev-secret-change-in-production'
+
+const INSECURE_SECRET_VALUES = new Set(
+  [
+    DEFAULT_JWT_SECRET,
+    'change-in-production',
+    'change-me-in-production',
+    'changeme',
+    'change-me',
+    'secret',
+    'jwt-secret',
+    'your-secret',
+    'your-secret-key',
+    'dev-secret',
+    'test-secret',
+    'password',
+    'placeholder',
+  ].map((v) => v.toLowerCase()),
+)
+
+// Minimum acceptable length for a production secret. Short secrets are trivially
+// brute-forceable regardless of whether they match a known placeholder.
+const MIN_SECRET_LENGTH = 16
+
+function isInsecureSecret(value) {
+  if (!value || typeof value !== 'string') return true
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return true
+  if (INSECURE_SECRET_VALUES.has(trimmed.toLowerCase())) return true
+  return false
+}
+
+/**
+ * Validate critical configuration / secrets at startup.
+ *
+ * Pure and unit-testable: pass an explicit env object (defaults to
+ * `process.env`). It never reads global state beyond the argument.
+ *
+ * Behaviour:
+ *  - In production (`NODE_ENV=production`): missing/insecure critical secrets
+ *    (notably JWT_SECRET) produce fatal errors. DATABASE_URL must be set.
+ *  - In development/test (or unset NODE_ENV): lenient — no fatal errors, only
+ *    advisory warnings, so tests and local dev never crash.
+ *  - Partially-configured SMTP or OAuth providers produce warnings in every env.
+ *
+ * @param {Record<string,string|undefined>} [env=process.env]
+ * @returns {{ ok: boolean, errors: string[], warnings: string[], isProduction: boolean }}
+ */
+export function validateConfig(env = process.env) {
+  const errors = []
+  const warnings = []
+  const isProduction = String(env.NODE_ENV || '').toLowerCase() === 'production'
+
+  // --- JWT_SECRET (the most critical secret) ---
+  const jwtSecret = env.JWT_SECRET
+  if (isProduction) {
+    if (!jwtSecret || String(jwtSecret).trim().length === 0) {
+      errors.push('JWT_SECRET is required in production but is not set.')
+    } else if (isInsecureSecret(jwtSecret)) {
+      errors.push(
+        'JWT_SECRET is set to a known default/placeholder value; set a strong, unique secret in production.',
+      )
+    } else if (String(jwtSecret).length < MIN_SECRET_LENGTH) {
+      errors.push(
+        `JWT_SECRET is too short (min ${MIN_SECRET_LENGTH} characters recommended for production).`,
+      )
+    }
+
+    // --- DATABASE_URL ---
+    if (!env.DATABASE_URL || String(env.DATABASE_URL).trim().length === 0) {
+      errors.push('DATABASE_URL is required in production but is not set.')
+    }
+  } else {
+    // Dev/test: advise but never fail.
+    if (!jwtSecret || isInsecureSecret(jwtSecret)) {
+      warnings.push(
+        'JWT_SECRET is using an insecure/default value — acceptable for dev/test, but must be changed before deploying to production.',
+      )
+    }
+  }
+
+  // --- SMTP: warn if partially configured (host without user/pass, etc.) ---
+  const smtpParts = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASS]
+  const smtpSet = smtpParts.filter((v) => v && String(v).trim().length > 0).length
+  if (smtpSet > 0 && smtpSet < smtpParts.length) {
+    warnings.push(
+      'SMTP is only partially configured (need SMTP_HOST, SMTP_USER and SMTP_PASS together); email delivery may fail.',
+    )
+  }
+
+  // --- OAuth providers: warn if one credential of a pair is set without the other ---
+  for (const provider of ['GOOGLE', 'GITHUB']) {
+    const id = env[`${provider}_CLIENT_ID`]
+    const secret = env[`${provider}_CLIENT_SECRET`]
+    const hasId = id && String(id).trim().length > 0
+    const hasSecret = secret && String(secret).trim().length > 0
+    if (hasId !== hasSecret) {
+      warnings.push(
+        `${provider} OAuth is partially configured (need both ${provider}_CLIENT_ID and ${provider}_CLIENT_SECRET); provider will stay disabled.`,
+      )
+    }
+  }
+
+  return { ok: errors.length === 0, errors, warnings, isProduction }
+}
+
+/**
+ * Run validateConfig and throw when there are fatal errors. Intended for
+ * startup. Logs warnings to the console. Safe to call in any environment.
+ *
+ * @param {Record<string,string|undefined>} [env=process.env]
+ * @param {{ logger?: Pick<Console,'warn'|'error'> }} [opts]
+ * @returns {{ ok: boolean, errors: string[], warnings: string[], isProduction: boolean }}
+ */
+export function assertValidConfig(env = process.env, { logger = console } = {}) {
+  const result = validateConfig(env)
+  for (const w of result.warnings) {
+    logger.warn(`[config] warning: ${w}`)
+  }
+  if (!result.ok) {
+    for (const e of result.errors) {
+      logger.error(`[config] FATAL: ${e}`)
+    }
+    throw new Error(
+      `Insecure or incomplete configuration detected (${result.errors.length} fatal error(s)). ` +
+        'Refusing to start. See logs above.',
+    )
+  }
+  return result
+}
