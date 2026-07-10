@@ -54,6 +54,7 @@ import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboa
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
+import { QueuesPage } from './pages/QueuesPage/QueuesPage'
 import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
 
 import './styles/variables.css'
@@ -176,6 +177,8 @@ function AppContent() {
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="*" element={<NotFoundPage />} />

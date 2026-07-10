@@ -1,0 +1,31 @@
+.queues-page {
+  padding: var(--space-4, 16px);
+}
+
+.queues-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: var(--space-4, 16px);
+  align-items: start;
+}
+
+.queues-sidebar {
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-surface, #fff);
+}
+
+.queues-content {
+  min-width: 0;
+}
+
+.queues-table {
+  margin-top: var(--space-2, 8px);
+}
+
+@media (max-width: 800px) {
+  .queues-layout {
+    grid-template-columns: 1fr;
+  }
+}
