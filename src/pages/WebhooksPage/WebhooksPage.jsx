@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { fetchWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook, fetchWebhookLogs } from '../../api/webhookApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { EmptyState } from '../../components/common/EmptyState'
 import './WebhooksPage.css'
 
 const EVENT_OPTIONS = [
@@ -124,7 +125,13 @@ export function WebhooksPage() {
       )}
 
       <div className="wh-list">
-        {webhooks.length === 0 && <p className="wh-empty">No webhooks configured.</p>}
+        {webhooks.length === 0 && (
+          <EmptyState
+            icon="🔗"
+            title="No webhooks configured"
+            description="Webhooks let external services react to issue, sprint, and comment events in real time."
+          />
+        )}
         {webhooks.map((hook) => (
           <div key={hook.id} className={`wh-card${hook.is_active ? '' : ' wh-card--inactive'}`}>
             <div className="wh-card-header">

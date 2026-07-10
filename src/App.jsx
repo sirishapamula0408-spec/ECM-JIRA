@@ -57,6 +57,7 @@ import './styles/variables.css'
 import './styles/theme.css'
 import './styles/layout.css'
 import './styles/shared.css'
+import './styles/interactions.css'
 import './pages/NotFoundPage/NotFoundPage.css'
 
 function AppContent() {
