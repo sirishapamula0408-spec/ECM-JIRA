@@ -24,7 +24,7 @@ import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
 import { SvgLineChart } from '../../components/charts/SvgLineChart'
 import { SvgAreaChart } from '../../components/charts/SvgAreaChart'
-import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCreatedResolved, fetchCapacity, setCapacity } from '../../api/dashboardApi'
+import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCreatedResolved, fetchCapacity, setCapacity, fetchTimeInStatus, fetchControlChart } from '../../api/dashboardApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
@@ -373,6 +373,41 @@ export function ReportsPage() {
   const histogramData = buildHistogram(scatterData.map((d) => d.cycleDays))
   const fmt = (v) => (v === null || v === undefined ? '—' : v)
 
+  // JL-155: Time-in-status metrics + control chart (project-scoped).
+  const [timeInStatus, setTimeInStatus] = useState(null)
+  const [controlChart, setControlChart] = useState(null)
+
+  useEffect(() => {
+    if (!projectId) { setTimeInStatus(null); setControlChart(null); return }
+    let cancelled = false
+    Promise.all([
+      fetchTimeInStatus(Number(projectId)).catch(() => null),
+      fetchControlChart(Number(projectId)).catch(() => null),
+    ]).then(([tis, cc]) => {
+      if (cancelled) return
+      setTimeInStatus(tis)
+      setControlChart(cc)
+    })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  // Aggregated hours-per-status bar (JL-155).
+  const tisStatuses = Array.isArray(timeInStatus?.statuses) ? timeInStatus.statuses : []
+  const tisTotalsData = tisStatuses.map((status) => ({
+    label: status,
+    hours: timeInStatus?.totals?.[status]?.hours ?? 0,
+  }))
+
+  // Control chart: cycle-time scatter with rolling mean ± 1σ bands (JL-155).
+  const ccPoints = Array.isArray(controlChart?.points) ? controlChart.points : []
+  const controlChartData = ccPoints.map((p) => ({
+    label: `${p.issueKey}`,
+    cycle: p.cycleTimeHours,
+    mean: p.rollingMean,
+    upper: p.upper,
+    lower: p.lower,
+  }))
+
   const handlePrint = () => window.print()
 
   return (
@@ -618,6 +653,93 @@ export function ReportsPage() {
           </>
         )}
       </div>
+
+      {/* JL-155: Time in status + Control chart (project-scoped) */}
+      {projectId && (
+        <div className="time-in-status-section">
+          <h2>Time in Status</h2>
+          <div className="two-col">
+            <article className="panel chart-placeholder">
+              <h3>Total Time per Status (hours)</h3>
+              {tisTotalsData.length > 0 ? (
+                <SvgBarChart
+                  data={tisTotalsData}
+                  series={[{ key: 'hours', name: 'Hours', color: '#6554c0' }]}
+                  width={480}
+                  height={240}
+                  ariaLabel="Total hours all issues spent in each status"
+                />
+              ) : (
+                <div className="fake-chart">
+                  No status history yet. Move issues through statuses to see time-in-status.
+                </div>
+              )}
+            </article>
+            <article className="panel chart-placeholder">
+              <h3>Control Chart — Cycle Time (hours)</h3>
+              {controlChart?.count ? (
+                <>
+                  <div className="velocity-legend">
+                    <span><i className="velocity-legend-dot committed" />Cycle time</span>
+                    <span><i className="velocity-legend-dot completed" />Rolling mean</span>
+                  </div>
+                  <p className="cfd-metrics" style={{ margin: '4px 0 8px' }}>
+                    <span><strong>Mean:</strong> {controlChart.mean}h</span>{' '}
+                    <span><strong>Std dev:</strong> {controlChart.std}h</span>{' '}
+                    <span><strong>n:</strong> {controlChart.count}</span>
+                  </p>
+                  <SvgLineChart
+                    data={controlChartData}
+                    series={[
+                      { key: 'upper', name: 'Upper (μ+σ)', color: '#dfe1e6' },
+                      { key: 'lower', name: 'Lower (μ-σ)', color: '#dfe1e6' },
+                      { key: 'mean', name: 'Rolling mean', color: '#36b37e' },
+                      { key: 'cycle', name: 'Cycle time', color: '#6554c0' },
+                    ]}
+                    width={480}
+                    height={240}
+                    ariaLabel="Control chart: per-issue cycle time with rolling mean and standard deviation bands"
+                  />
+                </>
+              ) : (
+                <div className="fake-chart">
+                  No completed issues with status history yet.
+                </div>
+              )}
+            </article>
+          </div>
+          {timeInStatus?.perIssue?.length > 0 && (
+            <article className="panel chart-placeholder">
+              <h3>Time in Status by Issue (hours)</h3>
+              <Table size="small" className="time-in-status-table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Issue</TableCell>
+                    {tisStatuses.map((s) => (
+                      <TableCell key={s} align="right">{s}</TableCell>
+                    ))}
+                    <TableCell align="right">Total</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {timeInStatus.perIssue.map((row) => (
+                    <TableRow key={row.issueKey}>
+                      <TableCell>{row.issueKey}</TableCell>
+                      {tisStatuses.map((s) => (
+                        <TableCell key={s} align="right">
+                          {row.byStatus?.[s]?.hours ?? 0}
+                        </TableCell>
+                      ))}
+                      <TableCell align="right">{row.totalHours ?? 0}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </article>
+          )}
+        </div>
+      )}
+
       {/* JL-87: Sprint Report */}
       <article className="panel chart-placeholder sprint-report-panel">
         <div className="reports-panel-header">
