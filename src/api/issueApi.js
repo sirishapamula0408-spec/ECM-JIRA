@@ -34,6 +34,11 @@ export function deleteIssue(id) {
   return api(`/api/issues/${id}`, { method: 'DELETE' })
 }
 
+// JL-158: clone/duplicate an issue — returns the newly created issue
+export function cloneIssue(id) {
+  return api(`/api/issues/${id}/clone`, { method: 'POST' })
+}
+
 export function getIssueHistory(id) {
   return api(`/api/issues/${id}/history`)
 }

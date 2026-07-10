@@ -670,4 +670,90 @@ router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   res.json({ success: true, id })
 }))
 
+// JL-158: POST /api/issues/:id/clone — duplicate an issue into a new one.
+// Copies core + expanded fields, allocates a fresh key via the same
+// project-scoped counter used by the create handler, prefixes the title with
+// "CLONE - ", optionally copies labels, and records a create activity row.
+router.post('/:id/clone', requireRole('Member'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+
+  const source = await get(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, epic_id, story_points, reporter, due_date, start_date, resolution, environment, components FROM issues WHERE id = ?',
+    [id],
+  )
+  if (!source) {
+    res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+
+  // Resolve project key for the fresh issue key (same path as create handler)
+  let projectKey = 'PROJ'
+  if (source.project_id) {
+    const project = await get('SELECT key FROM projects WHERE id = ?', [source.project_id])
+    if (project?.key) projectKey = project.key
+  }
+  const count = source.project_id
+    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [source.project_id])
+    : await get('SELECT COUNT(*) AS count FROM issues')
+  const issueKey = `${projectKey}-${Number(count.count) + 1}`
+
+  const clonedTitle = `CLONE - ${source.title}`
+  const reporter = req.user?.email || source.reporter || null
+
+  const created = await run(
+    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+    [
+      issueKey,
+      clonedTitle,
+      source.description,
+      source.priority,
+      source.assignee,
+      source.status,
+      source.issue_type,
+      source.sprint_id,
+      source.project_id,
+      source.story_points,
+      source.epic_id,
+      reporter,
+      source.due_date,
+      source.start_date,
+      source.resolution,
+      source.environment,
+      source.components,
+    ],
+  )
+
+  // Optionally copy labels (JL-32). Best-effort — ignore if the table is absent.
+  try {
+    const sourceLabels = await all('SELECT label_id FROM issue_labels WHERE issue_id = ?', [id])
+    for (const { label_id } of sourceLabels) {
+      await run(
+        'INSERT INTO issue_labels (issue_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING label_id',
+        [created.lastID, label_id],
+      )
+    }
+  } catch {
+    // labels are optional — do not fail the clone if issue_labels is unavailable
+  }
+
+  const row = await get(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    [created.lastID],
+  )
+
+  await run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
+    source.assignee,
+    `created ${issueKey} (${clonedTitle})`,
+    'Just now',
+  ])
+
+  emitEvent('issue.created', mapIssue(row), source.project_id ?? null).catch(() => {})
+
+  res.status(201).json(mapIssue(row))
+}))
+
 export default router
