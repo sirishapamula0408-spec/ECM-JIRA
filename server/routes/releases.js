@@ -185,4 +185,82 @@ router.get('/releases/:id/notes', asyncHandler(async (req, res) => {
   })
 }))
 
+// --- JL-112: Fix/Affects Versions (multiple typed versions per issue) ---
+const VERSION_TYPES = ['fix', 'affects']
+
+// GET /api/issues/:issueId/versions — the issue's fix + affects versions, grouped by type.
+router.get('/issues/:issueId/versions', asyncHandler(async (req, res) => {
+  const issueId = Number(req.params.issueId)
+  const issue = await get('SELECT id FROM issues WHERE id = ?', [issueId])
+  if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
+
+  const rows = await all(
+    `SELECT iv.id AS link_id, iv.type, r.id, r.name, r.status, r.release_date
+     FROM issue_versions iv
+     JOIN releases r ON r.id = iv.version_id
+     WHERE iv.issue_id = ?
+     ORDER BY r.release_date DESC NULLS LAST, r.id ASC`,
+    [issueId],
+  )
+  const fix = []
+  const affects = []
+  for (const row of rows) {
+    const v = { id: row.id, name: row.name, status: row.status, releaseDate: row.release_date }
+    if (row.type === 'fix') fix.push(v)
+    else if (row.type === 'affects') affects.push(v)
+  }
+  res.json({ issueId, fix, affects })
+}))
+
+// PUT /api/issues/:issueId/versions (Member+) — replace-all set of fix + affects versions.
+// Body: { fix: [versionId...], affects: [versionId...] }
+router.put('/issues/:issueId/versions', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+  const issueId = Number(req.params.issueId)
+  const issue = await get('SELECT id, project_id FROM issues WHERE id = ?', [issueId])
+  if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
+
+  // Normalize + validate input for each type.
+  const groups = {}
+  for (const type of VERSION_TYPES) {
+    const raw = req.body?.[type]
+    if (raw === undefined || raw === null) { groups[type] = []; continue }
+    if (!Array.isArray(raw)) { res.status(400).json({ error: `${type} must be an array of version ids` }); return }
+    const ids = []
+    for (const val of raw) {
+      const id = Number(val)
+      if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: `Invalid version id: ${val}` }); return }
+      if (!ids.includes(id)) ids.push(id)
+    }
+    groups[type] = ids
+  }
+
+  // Reject any unknown keys that look like a type (defensive against typos like 'affect').
+  for (const key of Object.keys(req.body || {})) {
+    if (!VERSION_TYPES.includes(key)) { res.status(400).json({ error: `Invalid version type: ${key}` }); return }
+  }
+
+  // Validate every referenced version exists and belongs to the issue's project.
+  const allIds = [...new Set([...groups.fix, ...groups.affects])]
+  for (const versionId of allIds) {
+    const release = await get('SELECT id, project_id FROM releases WHERE id = ?', [versionId])
+    if (!release) { res.status(404).json({ error: `Version not found: ${versionId}` }); return }
+    if (release.project_id !== issue.project_id) {
+      res.status(400).json({ error: 'Version and issue belong to different projects' }); return
+    }
+  }
+
+  // Replace-all: clear then re-insert.
+  await run('DELETE FROM issue_versions WHERE issue_id = ?', [issueId])
+  for (const type of VERSION_TYPES) {
+    for (const versionId of groups[type]) {
+      await run(
+        'INSERT INTO issue_versions (issue_id, version_id, type) VALUES (?, ?, ?)',
+        [issueId, versionId, type],
+      )
+    }
+  }
+
+  res.json({ issueId, fix: groups.fix, affects: groups.affects })
+}))
+
 export default router

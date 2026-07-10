@@ -26,6 +26,16 @@ export const assignIssueRelease = (issueId, releaseId) =>
 export const fetchReleaseIssues = (releaseId) =>
   api(`/api/releases/${releaseId}/issues`)
 
+// JL-112: Fix/Affects versions (multiple typed versions per issue)
+export const fetchIssueVersions = (issueId) =>
+  api(`/api/issues/${issueId}/versions`)
+
+export const setIssueVersions = (issueId, { fix, affects }) =>
+  api(`/api/issues/${issueId}/versions`, {
+    method: 'PUT',
+    body: JSON.stringify({ fix, affects }),
+  })
+
 // Progress / readiness / release notes
 export const fetchReleaseProgress = (releaseId) =>
   api(`/api/releases/${releaseId}/progress`)

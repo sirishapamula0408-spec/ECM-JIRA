@@ -172,7 +172,30 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return
   }
 
-  res.json(mapIssue(row))
+  const issue = mapIssue(row)
+
+  // JL-112: include fix/affects versions in the issue detail (best-effort).
+  issue.fixVersions = []
+  issue.affectsVersions = []
+  try {
+    const versionRows = await all(
+      `SELECT iv.type, r.id, r.name, r.status, r.release_date
+       FROM issue_versions iv
+       JOIN releases r ON r.id = iv.version_id
+       WHERE iv.issue_id = ?
+       ORDER BY r.release_date DESC NULLS LAST, r.id ASC`,
+      [id],
+    )
+    for (const v of Array.isArray(versionRows) ? versionRows : []) {
+      const item = { id: v.id, name: v.name, status: v.status, releaseDate: v.release_date }
+      if (v.type === 'fix') issue.fixVersions.push(item)
+      else if (v.type === 'affects') issue.affectsVersions.push(item)
+    }
+  } catch {
+    // leave versions empty if the query fails
+  }
+
+  res.json(issue)
 }))
 
 router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {

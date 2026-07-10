@@ -855,6 +855,21 @@ export async function initializeDatabase() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_release_id ON issues(release_id)')
   }
 
+  // --- JL-112: Fix/Affects Versions ---
+  // Multiple typed version associations per issue (fix vs affects). "Versions" are the
+  // existing JL-57 releases; an issue may be tied to many releases under each type.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_versions (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      version_id INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK (type IN ('fix', 'affects')),
+      UNIQUE (issue_id, version_id, type)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_versions_issue ON issue_versions(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_versions_version ON issue_versions(version_id)')
+
   // --- JL-54: OKR / Goal Tracking ---
   // Objectives per project, each with measurable key results tracked to progress.
   await pool.query(`

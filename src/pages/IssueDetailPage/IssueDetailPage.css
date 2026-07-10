@@ -844,6 +844,15 @@
   width: 100%;
 }
 
+/* JL-112: Fix/Affects version checkbox option */
+.id-version-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .id-labels-list {
   display: flex;
   flex-wrap: wrap;
