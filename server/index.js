@@ -91,6 +91,7 @@ app.use('/api/invitations', ...protect, invitationRoutes)
 app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)
+app.use('/api/comments', ...protect, commentRoutes) // JL-139: comment reactions
 app.use('/api/filters', ...protect, filterRoutes)
 app.use('/api/notifications', ...protect, notificationRoutes)
 app.use('/api/issues', ...protect, watcherRoutes)
