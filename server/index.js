@@ -58,6 +58,7 @@ import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
 import listViewRoutes from './routes/listViews.js'
 import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
+import portalRoutes from './routes/portal.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -178,6 +179,7 @@ app.use('/api', ...protect, schemeRoutes)
 app.use('/api', ...protect, screenSchemeRoutes)
 app.use('/api', ...protect, fieldConfigRoutes)
 app.use('/api', ...protect, issueTypeSchemeRoutes)
+app.use('/api', ...protect, portalRoutes) // JL-140: customer request portal
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so

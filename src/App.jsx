@@ -55,6 +55,7 @@ import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
+import { PortalPage } from './pages/PortalPage/PortalPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -178,6 +179,7 @@ function AppContent() {
               <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/portal" element={<PortalPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
