@@ -39,6 +39,25 @@ export function isOAuthConfigured(name) {
   return Boolean(p && p.clientId && p.clientSecret)
 }
 
+// --- JL-93: Auth abuse protection (rate limiting, login lockout, strict CORS) ---
+// Comma-separated allow-list of browser origins. EMPTY/unset → permissive CORS
+// (reflect any origin) so local dev and existing tests keep working. Set it in
+// production to lock cross-origin access down to known frontends.
+export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
+
+// General API rate limiter (applied early, all /api traffic). Generous defaults
+// so normal usage — and multi-request test suites — never trip it.
+export const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000
+export const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX) || 600
+
+// Tighter limiter scoped to /api/auth to blunt credential-stuffing.
+export const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX) || 60
+
+// Login brute-force lockout: N failures within the window → cooldown lock.
+export const LOGIN_LOCKOUT_MAX_ATTEMPTS = Number(process.env.LOGIN_LOCKOUT_MAX_ATTEMPTS) || 5
+export const LOGIN_LOCKOUT_WINDOW_MS = Number(process.env.LOGIN_LOCKOUT_WINDOW_MS) || 15 * 60 * 1000
+export const LOGIN_LOCKOUT_MS = Number(process.env.LOGIN_LOCKOUT_MS) || 15 * 60 * 1000
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587

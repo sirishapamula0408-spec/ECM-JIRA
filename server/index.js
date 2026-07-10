@@ -1,8 +1,15 @@
 import 'dotenv/config'
-import cors from 'cors'
 import express from 'express'
 import { initializeDatabase } from './db.js'
-import { PORT } from './config.js'
+import {
+  PORT,
+  CORS_ALLOWED_ORIGINS,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX,
+  AUTH_RATE_LIMIT_MAX,
+} from './config.js'
+import { corsAllowList } from './middleware/corsAllowList.js'
+import { rateLimit } from './middleware/rateLimit.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
 import { loadUserRoles } from './middleware/authorize.js'
@@ -50,15 +57,24 @@ import { resolveWorkspace } from './middleware/workspace.js'
 
 const app = express()
 
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || true,
-  credentials: true,
-}))
+// JL-93: strict, dependency-free CORS. Empty allow-list → permissive (dev default).
+app.use(corsAllowList({ allowedOrigins: CORS_ALLOWED_ORIGINS, credentials: true }))
 app.use(express.json({ limit: '25mb' })) // 25mb accommodates base64 file uploads (Theme-1 #3 Attachments)
+
+// JL-93: general in-memory rate limiter, mounted early across all API traffic,
+// keyed by client IP with generous defaults so normal usage never trips it.
+app.use('/api', rateLimit({ windowMs: RATE_LIMIT_WINDOW_MS, max: RATE_LIMIT_MAX }))
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
+
+// JL-93: tighter limiter scoped to auth endpoints to blunt credential stuffing,
+// layered on top of the general limiter above.
+app.use(
+  '/api/auth',
+  rateLimit({ windowMs: RATE_LIMIT_WINDOW_MS, max: AUTH_RATE_LIMIT_MAX }),
+)
 
 // Public routes (no session auth required)
 app.use('/api/auth', authRoutes)

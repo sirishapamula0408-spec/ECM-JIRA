@@ -9,6 +9,14 @@ import { authGuard } from '../middleware/authGuard.js'
 import { loadUserRoles } from '../middleware/authorize.js'
 import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/mailer.js'
 import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
+import { loginLockout } from '../middleware/loginLockout.js'
+
+// Build a lockout key from the submitted identity + client IP so that a single
+// abusive source can't be masked by rotating emails, and vice versa.
+function lockoutKey(email, req) {
+  const ip = req.ip || req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown'
+  return `${email}|${ip}`
+}
 
 function issueToken(user, expiresIn = '1d') {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn })
@@ -115,11 +123,26 @@ router.post('/login', asyncHandler(async (req, res) => {
     return
   }
 
+  // --- JL-93: brute-force lockout gate ---
+  // If this identity+IP has too many recent failures, reject before touching the
+  // DB or verifying credentials.
+  const lockKey = lockoutKey(email, req)
+  if (loginLockout.isLocked(lockKey)) {
+    const retryAfter = loginLockout.retryAfter(lockKey)
+    res.setHeader('Retry-After', String(retryAfter))
+    res.status(429).json({
+      error: 'Too many failed login attempts. Please try again later.',
+      retryAfter,
+    })
+    return
+  }
+
   const user = await get(
     'SELECT id, email, password_hash, created_at, mfa_enabled, mfa_secret FROM users WHERE email = ?',
     [email],
   )
   if (!user || !verifyPassword(password, user.password_hash)) {
+    loginLockout.recordFailure(lockKey)
     res.status(401).json({ error: 'Invalid email or password' })
     return
   }
@@ -131,14 +154,20 @@ router.post('/login', asyncHandler(async (req, res) => {
   if (user.mfa_enabled) {
     const mfaCode = String(req.body?.mfaCode || '').trim()
     if (!mfaCode) {
+      // Password was correct but the second factor is still owed — don't count
+      // this as a brute-force failure (the frontend just needs to reveal the field).
       res.status(401).json({ error: 'MFA code required', mfaRequired: true })
       return
     }
     if (!verifyTOTP(user.mfa_secret, mfaCode, { window: 1 })) {
+      loginLockout.recordFailure(lockKey)
       res.status(401).json({ error: 'Invalid MFA code', mfaRequired: true })
       return
     }
   }
+
+  // Successful authentication — clear any recorded failures for this identity+IP.
+  loginLockout.reset(lockKey)
 
   // "Keep me signed in" → 30 day token; otherwise → 1 day
   const expiresIn = remember ? '30d' : '1d'
