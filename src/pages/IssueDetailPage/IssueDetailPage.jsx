@@ -19,6 +19,7 @@ import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteC
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
+import { SmartText } from '../../components/common/SmartText'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 
@@ -1285,7 +1286,7 @@ export function IssueDetailPage() {
                       <span className="id-comment-time">{entry.time}</span>
                     </div>
                     {entry.type === 'comment' && (
-                      <p className="id-comment-text"><MentionText text={entry.text} /></p>
+                      <p className="id-comment-text"><SmartText text={entry.text} issues={issues} renderText={(t) => <MentionText text={t} />} /></p>
                     )}
                     {entry.type === 'history' && (
                       <p className="id-history-text">{entry.text}</p>
