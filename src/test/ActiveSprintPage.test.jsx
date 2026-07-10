@@ -16,11 +16,25 @@ vi.mock('../context/IssueContext', () => ({
   }),
 }))
 
+const mockHandleUpdateSprint = vi.fn()
+
 vi.mock('../context/SprintContext', () => ({
   useSprints: () => ({
     sprints: mockSprints,
     handleCompleteSprint: mockHandleCompleteSprint,
+    handleUpdateSprint: mockHandleUpdateSprint,
   }),
+}))
+
+// JL-127: page now reads permissions + fetches retro notes — stub both.
+vi.mock('../hooks/usePermissions', () => ({
+  usePermissions: () => ({ canManageSprints: true }),
+}))
+
+vi.mock('../api/sprintApi', () => ({
+  fetchRetros: vi.fn().mockResolvedValue([]),
+  addRetro: vi.fn(),
+  deleteRetro: vi.fn(),
 }))
 
 let mockIssues = []

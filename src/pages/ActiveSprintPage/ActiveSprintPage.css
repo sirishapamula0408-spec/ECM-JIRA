@@ -223,3 +223,113 @@
     transform: none;
   }
 }
+
+/* JL-127: Sprint goal */
+.active-sprint-goal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 20px;
+  padding: 12px 16px;
+  background: var(--color-surface-sunken, #f4f5f7);
+  border-radius: 8px;
+}
+.active-sprint-goal--edit {
+  flex-direction: column;
+  align-items: stretch;
+}
+.active-sprint-goal__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-subtle, #6b778c);
+}
+.active-sprint-goal__text {
+  flex: 1;
+  color: var(--color-text, #172b4d);
+}
+.active-sprint-goal__edit {
+  margin-left: auto;
+}
+.active-sprint-goal__input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 6px;
+  font: inherit;
+  resize: vertical;
+}
+.active-sprint-goal__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* JL-127: Retrospective panel */
+.active-sprint-retro {
+  margin-top: 28px;
+}
+.active-sprint-retro__title {
+  margin: 0 0 12px;
+}
+.active-sprint-retro__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.active-sprint-retro__col {
+  background: var(--color-surface-sunken, #f4f5f7);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.active-sprint-retro__col > header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-subtle, #6b778c);
+}
+.active-sprint-retro__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.active-sprint-retro__note-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.active-sprint-retro__note-del {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-text-subtle, #6b778c);
+}
+.active-sprint-retro__add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+}
+.active-sprint-retro__input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 6px;
+  font: inherit;
+  resize: vertical;
+}
+
+@media (max-width: 768px) {
+  .active-sprint-retro__grid {
+    grid-template-columns: 1fr;
+  }
+}

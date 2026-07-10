@@ -1069,6 +1069,34 @@ export async function initializeDatabase() {
     await pool.query('UPDATE members SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
   }
 
+  // --- JL-127: Sprint templates, goals & retrospectives ---
+  // Sprint goal (nullable free text) for planning.
+  if (!(await columnExists('sprints', 'goal'))) {
+    await pool.query('ALTER TABLE sprints ADD COLUMN goal TEXT')
+  }
+  // Retrospective notes: one row per note, categorized well/improve/action.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sprint_retros (
+      id SERIAL PRIMARY KEY,
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      category TEXT NOT NULL CHECK(category IN ('well', 'improve', 'action')),
+      text TEXT NOT NULL,
+      author TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_sprint_retros_sprint ON sprint_retros(sprint_id)')
+  // Lightweight reusable sprint templates: name + duration + default goal.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sprint_templates (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      duration_days INTEGER NOT NULL DEFAULT 14,
+      default_goal TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
   const { seedDatabase } = await import('./seed.js')
   await seedDatabase()
 }
