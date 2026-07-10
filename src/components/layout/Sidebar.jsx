@@ -75,6 +75,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   const utilityItems = [
     { label: 'Filters', path: '/filters', icon: 'filters' },
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
+    { label: 'Portfolio', path: '/portfolio', icon: 'dashboards' },
     { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
   ]
 

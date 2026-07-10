@@ -11,6 +11,7 @@ import issueRoutes from './routes/issues.js'
 import sprintRoutes, { projectSprintRouter, templatesRouter as sprintTemplateRoutes } from './routes/sprints.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
+import portfolioRoutes from './routes/portfolio.js'
 import roadmapRoutes from './routes/roadmap.js'
 import workflowRoutes from './routes/workflows.js'
 import profileRoutes from './routes/profile.js'
@@ -113,6 +114,7 @@ app.use('/api', ...protect, projectSprintRouter) // JL-124: /api/projects/:id/sp
 app.use('/api/sprint-templates', ...protect, sprintTemplateRoutes)
 app.use('/api/dashboard', ...protect, dashboardRoutes)
 app.use('/api/reports', ...protect, reportRoutes)
+app.use('/api', ...protect, portfolioRoutes)
 app.use('/api/roadmap', ...protect, roadmapRoutes)
 app.use('/api/workflows', ...protect, workflowRoutes)
 app.use('/api/profile', ...protect, profileRoutes)
