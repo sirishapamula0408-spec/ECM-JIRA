@@ -1,0 +1,28 @@
+.portfolio-page .page-header {
+  margin-bottom: var(--space-4, 16px);
+}
+
+.portfolio-page .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-3, 12px);
+}
+
+.portfolio-page .stat {
+  background: var(--jira-surface, #fff);
+  border: 1px solid var(--jira-border, #dfe1e6);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.portfolio-page .stat p {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--jira-text-muted, #6b778c);
+}
+
+.portfolio-page .stat strong {
+  font-size: 22px;
+  font-weight: 600;
+}

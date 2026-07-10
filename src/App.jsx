@@ -52,6 +52,7 @@ import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboa
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
+import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -144,6 +145,7 @@ function AppContent() {
               <Route path="/workflows" element={hasProjects ? <WorkflowsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
               <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
               <Route path="/teams" element={<TeamsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />

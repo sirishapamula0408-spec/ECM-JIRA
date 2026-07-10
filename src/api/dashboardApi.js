@@ -40,6 +40,9 @@ export const setCapacity = ({ sprintId, assignee, capacityPoints }) =>
     body: JSON.stringify({ sprintId, assignee, capacityPoints }),
   })
 
+// JL-154: cross-project portfolio roll-up (per-project KPIs + aggregate).
+export const fetchPortfolioSummary = () => api('/api/portfolio/summary')
+
 export const fetchRoadmap = () => api('/api/roadmap')
 export const fetchWorkflows = () => api('/api/workflows')
 export const fetchActivity = (params = {}) => {
