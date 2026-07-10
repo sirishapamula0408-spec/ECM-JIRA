@@ -5,6 +5,7 @@ import { initializeDatabase } from './db.js'
 import { PORT } from './config.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
+import { securityHeaders } from './middleware/securityHeaders.js'
 import { loadUserRoles } from './middleware/authorize.js'
 import authRoutes from './routes/auth.js'
 import issueRoutes from './routes/issues.js'
@@ -49,6 +50,10 @@ import workspaceRoutes from './routes/workspaces.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 
 const app = express()
+
+// JL-91: apply Content-Security-Policy + hardening headers to every response,
+// mounted before routes so it also covers auth and error responses.
+app.use(securityHeaders)
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
