@@ -19,6 +19,11 @@ const mockSaveBoardConfig = vi.fn()
 vi.mock('../api/boardConfigApi', () => ({
   fetchBoardConfig: (...args) => mockFetchBoardConfig(...args),
   saveBoardConfig: (...args) => mockSaveBoardConfig(...args),
+  ESTIMATION_STATISTIC_OPTIONS: [
+    { value: 'story_points', label: 'Story Points' },
+    { value: 'time_estimate', label: 'Original Time Estimate' },
+    { value: 'issue_count', label: 'Issue Count' },
+  ],
 }))
 
 let mockIssues = []

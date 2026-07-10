@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchBoardConfig, saveBoardConfig } from '../../api/boardConfigApi'
+import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from '../../api/boardConfigApi'
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import './BoardPage.css'
 
@@ -35,6 +35,8 @@ export function BoardPage() {
   // JL-85 board configuration state
   const [swimlaneBy, setSwimlaneBy] = useState('none')
   const [wipLimits, setWipLimits] = useState({})
+  // JL-126: configurable estimation statistic (story points / time / count)
+  const [estimationStatistic, setEstimationStatistic] = useState('story_points')
   const [activeFilters, setActiveFilters] = useState([]) // e.g. ['assignee:Alice', 'type:Bug']
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
@@ -56,6 +58,7 @@ export function BoardPage() {
         if (cancelled || !cfg) return
         setSwimlaneBy(cfg.swimlaneBy || 'none')
         setWipLimits(cfg.wipLimits || {})
+        setEstimationStatistic(cfg.estimationStatistic || 'story_points')
       })
       .catch(() => { /* fall back to defaults */ })
     return () => { cancelled = true }
@@ -95,6 +98,24 @@ export function BoardPage() {
       return true
     })
   }, [filteredIssues, activeFilters])
+
+  // JL-126: board estimation total by the configured statistic.
+  const estimationTotal = useMemo(() => {
+    if (estimationStatistic === 'issue_count') return visibleIssues.length
+    const field = estimationStatistic === 'time_estimate' ? 'originalEstimateMinutes' : 'storyPoints'
+    return visibleIssues.reduce((sum, issue) => {
+      const n = Number(issue[field])
+      return Number.isFinite(n) ? sum + n : sum
+    }, 0)
+  }, [visibleIssues, estimationStatistic])
+
+  const estimationLabel = useMemo(
+    () => ESTIMATION_STATISTIC_OPTIONS.find((o) => o.value === estimationStatistic)?.label || 'Story Points',
+    [estimationStatistic],
+  )
+  const estimationTotalDisplay = estimationStatistic === 'time_estimate'
+    ? `${Math.round((estimationTotal / 60) * 10) / 10}h`
+    : estimationTotal
 
   // Build swimlanes: one labelled row per group (or a single unlabeled lane).
   const swimlanes = useMemo(() => {
@@ -142,7 +163,7 @@ export function BoardPage() {
       if (Number.isInteger(n) && n > 0) cleanLimits[status] = n
     }
     try {
-      await saveBoardConfig(projectId, { swimlaneBy, wipLimits: cleanLimits, quickFilters: [] })
+      await saveBoardConfig(projectId, { swimlaneBy, wipLimits: cleanLimits, quickFilters: [], estimationStatistic })
       setWipLimits(cleanLimits)
       setBoardMessage('Board settings saved.')
       setIsSettingsOpen(false)
@@ -197,6 +218,10 @@ export function BoardPage() {
             {SWIMLANE_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
           </select>
         </div>
+        <div className="board-estimation-total" aria-label={`${estimationLabel} total`}>
+          <span className="board-estimation-total-label">{estimationLabel}</span>
+          <span className="board-estimation-total-value">{estimationTotalDisplay}</span>
+        </div>
       </div>
 
       {/* Board settings panel */}
@@ -207,6 +232,12 @@ export function BoardPage() {
             <label htmlFor="settings-swimlane">Group swimlanes by</label>
             <select id="settings-swimlane" value={swimlaneBy} onChange={(event) => setSwimlaneBy(event.target.value)}>
               {SWIMLANE_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+            </select>
+          </div>
+          <div className="board-settings-row">
+            <label htmlFor="settings-estimation">Estimation statistic</label>
+            <select id="settings-estimation" value={estimationStatistic} onChange={(event) => setEstimationStatistic(event.target.value)}>
+              {ESTIMATION_STATISTIC_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
             </select>
           </div>
           <div className="board-settings-wip">
