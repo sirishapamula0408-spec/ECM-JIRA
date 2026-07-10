@@ -176,6 +176,13 @@ export function getStorageConfig() {
   }
 }
 
+// --- JL-148: Inbound email → issue creation ---
+// Shared secret a mail provider (SendGrid/Mailgun inbound-parse style) must
+// present on the inbound webhook. When set, POST /api/inbound-email requires a
+// matching token (header `x-inbound-token` or body `token`). When unset/blank,
+// the endpoint is open (dev convenience) so local testing works out of the box.
+export const INBOUND_EMAIL_TOKEN = process.env.INBOUND_EMAIL_TOKEN || ''
+
 // --- SMTP / transactional email (JL-83) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587
