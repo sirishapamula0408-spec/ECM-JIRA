@@ -15,19 +15,33 @@ router.get('/', asyncHandler(async (req, res) => {
   // Find the member record for the logged-in user
   const member = await get('SELECT id, name FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
 
+  // JL-96: scope the listing to the resolved workspace. `req.workspaceId` is set
+  // by the resolveWorkspace middleware (verified against workspace_members).
+  // Legacy rows with a NULL workspace_id stay visible under any workspace so
+  // single-tenant/pre-migration installs are unaffected. When no workspace could
+  // be resolved (null), we skip the filter entirely for backward compatibility.
+  // Full per-table isolation for other entities is a follow-on (see workspace.js).
+  const workspaceId = req.workspaceId ?? null
+  const wsClause = workspaceId != null ? ' AND (p.workspace_id = ? OR p.workspace_id IS NULL)' : ''
+
   // Return projects where user is a member or the lead
   let rows
   if (member) {
+    const params = [member.id, member.name]
+    if (workspaceId != null) params.push(workspaceId)
     rows = await all(
       `SELECT DISTINCT p.* FROM projects p
        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
-       WHERE pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?)
+       WHERE (pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?))${wsClause}
        ORDER BY p.id ASC`,
-      [member.id, member.name],
+      params,
     )
   } else {
     // Fallback: no member record yet — show projects where user email matches lead
-    rows = await all('SELECT * FROM projects WHERE LOWER(lead) = LOWER(?) ORDER BY id ASC', [userEmail])
+    const leadClause = workspaceId != null ? ' AND (workspace_id = ? OR workspace_id IS NULL)' : ''
+    const params = [userEmail]
+    if (workspaceId != null) params.push(workspaceId)
+    rows = await all(`SELECT * FROM projects WHERE LOWER(lead) = LOWER(?)${leadClause} ORDER BY id ASC`, params)
   }
 
   res.json(rows)
