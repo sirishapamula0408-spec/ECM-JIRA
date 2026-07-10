@@ -1069,6 +1069,37 @@ export async function initializeDatabase() {
     await pool.query('UPDATE members SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
   }
 
+  // --- JL-130: SCIM 2.0 provisioning ---
+  // Deprovisioning flag + IdP linkage on users, plus a minimal groups model.
+  // All idempotent so repeated boots are safe.
+  if (!(await columnExists('users', 'active'))) {
+    await pool.query('ALTER TABLE users ADD COLUMN active BOOLEAN NOT NULL DEFAULT TRUE')
+  }
+  if (!(await columnExists('users', 'display_name'))) {
+    await pool.query('ALTER TABLE users ADD COLUMN display_name TEXT')
+  }
+  if (!(await columnExists('users', 'scim_external_id'))) {
+    await pool.query('ALTER TABLE users ADD COLUMN scim_external_id TEXT')
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS scim_groups (
+      id SERIAL PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      external_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS scim_group_members (
+      group_id INTEGER NOT NULL REFERENCES scim_groups(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      PRIMARY KEY (group_id, user_id)
+    )
+  `)
+
   const { seedDatabase } = await import('./seed.js')
   await seedDatabase()
 }
