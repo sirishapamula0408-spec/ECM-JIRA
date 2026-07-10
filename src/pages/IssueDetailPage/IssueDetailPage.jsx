@@ -18,6 +18,7 @@ import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useRecentIssues } from '../../hooks/useRecentIssues'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import { SmartText } from '../../components/common/SmartText'
 import { Button } from '@mui/material'
@@ -189,6 +190,13 @@ export function IssueDetailPage() {
 
   const issue = existing || fetchedIssue
   const { isAdmin } = usePermissions(issue?.projectId)
+
+  // JL-163 — record this issue in the recently viewed list
+  const { addRecent } = useRecentIssues()
+  useEffect(() => {
+    if (!issue?.id) return
+    addRecent({ id: issue.id, key: issue.key || `IT-${issue.id}`, title: issue.title })
+  }, [issue?.id, issue?.key, issue?.title, addRecent])
 
   useEffect(() => {
     if (!issue?.projectId) { setProjectName(''); return }

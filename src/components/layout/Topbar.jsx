@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext'
 import { useMembers } from '../../context/MemberContext'
 import { useNotifications } from '../../context/NotificationContext'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useRecentIssues } from '../../hooks/useRecentIssues'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import { searchIssues } from '../../api/issueApi'
@@ -35,6 +36,9 @@ export function Topbar({ onCreate, hasProjects }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searching, setSearching] = useState(false)
   const searchWrapRef = useRef(null)
+
+  // JL-163 — recently viewed issues, shown when the search box is focused and empty
+  const { recentIssues } = useRecentIssues()
 
   useEffect(() => {
     const term = searchTerm.trim()
@@ -143,10 +147,28 @@ export function Topbar({ onCreate, hasProjects }) {
             placeholder="Search issues or JQL (e.g. status = Done AND priority = High)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            onFocus={() => { if (searchResults.length) setSearchOpen(true) }}
+            onFocus={() => { if (searchResults.length || recentIssues.length) setSearchOpen(true) }}
             aria-label="Search issues"
           />
           {searching && <CircularProgress size={16} className="topbar-search-spinner" />}
+          {searchOpen && !searchTerm.trim() && recentIssues.length > 0 && (
+            <div className="topbar-search-results" role="listbox" aria-label="Recently viewed issues">
+              <div className="topbar-search-section-label">Recent</div>
+              {recentIssues.map((issue) => (
+                <button
+                  key={issue.id}
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  className="topbar-search-item"
+                  onClick={() => handleSelectResult(issue)}
+                >
+                  <span className="topbar-search-key">{issue.key}</span>
+                  <span className="topbar-search-title">{issue.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {searchOpen && searchTerm.trim() && (
             <div className="topbar-search-results" role="listbox">
               {searchResults.length === 0 && !searching && (
