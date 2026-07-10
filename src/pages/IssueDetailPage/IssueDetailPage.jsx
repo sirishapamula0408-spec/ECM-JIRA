@@ -584,6 +584,15 @@ export function IssueDetailPage() {
     setIsEditing(true)
   }
 
+  // JL-166: persist the description on save so @mentions reach the backend
+  async function saveDesc() {
+    const next = editDesc.trim()
+    if (next !== (issue.description || '').trim()) {
+      await handleUpdate(issue.id, { description: next })
+    }
+    setIsEditing(false)
+  }
+
   function openField(field) {
     setEditingField(field)
   }
@@ -765,15 +774,15 @@ export function IssueDetailPage() {
             <h3 className="id-section-title">Description</h3>
             {isEditing ? (
               <div className="id-desc-edit">
-                <textarea className="id-desc-textarea" rows={5} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+                <MentionInput rows={5} value={editDesc} onChange={setEditDesc} placeholder="Add a description... Use @email to mention someone" className="id-desc-textarea" />
                 <div className="id-desc-edit-actions">
-                  <button className="btn btn-primary btn-sm" type="button" onClick={() => setIsEditing(false)}>Save</button>
+                  <button className="btn btn-primary btn-sm" type="button" onClick={saveDesc}>Save</button>
                   <button className="btn btn-ghost btn-sm" type="button" onClick={() => setIsEditing(false)}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="id-description" onClick={startEditDesc} title="Click to edit">
-                {issue.description ? <p>{issue.description}</p> : <p className="id-placeholder">Add a description...</p>}
+                {issue.description ? <p><MentionText text={issue.description} /></p> : <p className="id-placeholder">Add a description...</p>}
               </div>
             )}
           </div>

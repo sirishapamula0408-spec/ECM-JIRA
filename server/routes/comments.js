@@ -3,24 +3,11 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
+import { extractMentions, processMentions } from '../services/mentions.js'
 import { runCommentAutomations } from '../services/automation.js'
 import { emitEvent } from '../services/events.js'
 
 const router = Router()
-
-/**
- * Extract @mentions from comment text.
- * Matches @email or @"display name" patterns.
- */
-function extractMentions(text) {
-  const mentions = []
-  const regex = /@([\w.+-]+@[\w.-]+\.\w+)/g
-  let match
-  while ((match = regex.exec(text)) !== null) {
-    mentions.push(match[1])
-  }
-  return [...new Set(mentions)]
-}
 
 // GET /api/issues/:issueId/comments
 router.get('/:issueId/comments', asyncHandler(async (req, res) => {
@@ -50,23 +37,15 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
   )
   const row = await get('SELECT id, issue_id, author, text, created_at FROM comments WHERE id = ?', [created.lastID])
 
-  // Process @mentions
+  // Process @mentions (shared with issue descriptions — see services/mentions.js)
   const mentionedEmails = extractMentions(normalizedText)
-  for (const email of mentionedEmails) {
-    await run('INSERT INTO mentions (comment_id, mentioned_email) VALUES (?, ?)', [created.lastID, email])
-
-    // Get issue info for notification
-    const issue = await get('SELECT issue_key, project_id FROM issues WHERE id = ?', [issueId])
-    await createNotification({
-      recipientEmail: email,
-      type: 'mention',
-      title: `Mentioned in ${issue?.issue_key || 'a comment'}`,
-      message: `${normalizedAuthor} mentioned you: "${normalizedText.slice(0, 100)}"`,
-      issueId,
-      projectId: issue?.project_id || null,
-      actorEmail: req.user.email,
-    })
-  }
+  await processMentions({
+    text: normalizedText,
+    issueId,
+    actorEmail: req.user.email,
+    actorLabel: normalizedAuthor,
+    commentId: created.lastID,
+  })
 
   // Notify issue watchers
   const watchers = await all('SELECT user_email FROM watchers WHERE issue_id = ? AND user_email != ?', [issueId, req.user.email])

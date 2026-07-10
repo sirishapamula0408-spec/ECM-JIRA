@@ -7,6 +7,7 @@ import { runStatusChangeAutomations } from '../services/automation.js'
 import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearch } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
+import { processMentions } from '../services/mentions.js'
 
 const router = Router()
 
@@ -249,6 +250,14 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     [created.lastID, req.user.email],
   )
 
+  // JL-166: notify members @mentioned in the description (skips unknown emails)
+  await processMentions({
+    text: normalizedDescription,
+    issueId: created.lastID,
+    actorEmail: req.user.email,
+    requireMember: true,
+  })
+
   // JL-59: emit issue.created event to subscribed webhooks (fire-and-forget)
   emitEvent('issue.created', mapIssue(row), resolvedProjectId).catch(() => {})
 
@@ -286,6 +295,18 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     sets.push('title = ?')
     params.push(t)
     changes.push({ field: 'title', oldValue: existing.title, newValue: t })
+  }
+
+  // JL-166: allow editing the description; @mentions are processed after UPDATE
+  let descriptionChanged = false
+  let newDescription = null
+  if (fields.description !== undefined) {
+    const d = String(fields.description || '').trim()
+    sets.push('description = ?')
+    params.push(d)
+    changes.push({ field: 'description', oldValue: existing.description, newValue: d })
+    descriptionChanged = d !== String(existing.description || '').trim()
+    newDescription = d
   }
 
   if (fields.priority !== undefined) {
@@ -406,6 +427,16 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   // JL-82: write one audit-log row per field that actually changed
   for (const change of changes) {
     await recordHistory(id, change.field, change.oldValue, change.newValue, req.user?.email)
+  }
+
+  // JL-166: notify members @mentioned in the description when it changes
+  if (descriptionChanged) {
+    await processMentions({
+      text: newDescription,
+      issueId: id,
+      actorEmail: req.user?.email,
+      requireMember: true,
+    })
   }
 
   // JL-36: Auto-watch on assign — subscribe the newly assigned member (by name or email)
