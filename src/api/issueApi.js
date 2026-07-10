@@ -93,3 +93,16 @@ export function addReaction(commentId, emoji) {
     body: JSON.stringify({ emoji }),
   })
 }
+
+export function updateComment(issueId, commentId, payload) {
+  return api(`/api/issues/${issueId}/comments/${commentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteComment(issueId, commentId) {
+  return api(`/api/issues/${issueId}/comments/${commentId}`, {
+    method: 'DELETE',
+  })
+}

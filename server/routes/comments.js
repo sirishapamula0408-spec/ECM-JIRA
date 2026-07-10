@@ -77,7 +77,7 @@ async function resolveAuthorDisplay(author) {
 router.get('/:issueId/comments', asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
-    'SELECT id, issue_id, author, text, created_at FROM comments WHERE issue_id = ? ORDER BY created_at DESC',
+    'SELECT id, issue_id, author, text, created_at, edited_at FROM comments WHERE issue_id = ? ORDER BY created_at DESC',
     [issueId],
   )
   // JL-99: upgrade email-based authors to member display names so the UI
@@ -117,7 +117,7 @@ router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req
     'INSERT INTO comments (issue_id, author, text) VALUES (?, ?, ?)',
     [issueId, resolvedAuthor, normalizedText],
   )
-  const row = await get('SELECT id, issue_id, author, text, created_at FROM comments WHERE id = ?', [created.lastID])
+  const row = await get('SELECT id, issue_id, author, text, created_at, edited_at FROM comments WHERE id = ?', [created.lastID])
 
   // Process @mentions
   const mentionedEmails = extractMentions(normalizedText)
@@ -207,6 +207,76 @@ router.post('/:id/reactions', asyncHandler(async (req, res) => {
 
   const summary = await loadReactions([commentId], req.user.email)
   res.json({ commentId, reactions: summary.get(commentId) || [] })
+}))
+
+/**
+ * JL-160: Determine whether the current user may edit/delete a comment.
+ * Admins (workspace Admin or Owner) always may. Otherwise the user must be
+ * the comment's author, resolved against the same identity the POST path uses
+ * (req.user): match the stored display-name `author` against the caller's
+ * member display name or their email (case-insensitive).
+ */
+async function canModifyComment(req, comment) {
+  if (req.user.isOwner || req.user.workspaceRole === 'Admin') return true
+  const author = String(comment.author || '').trim().toLowerCase()
+  if (!author) return false
+  if (author === String(req.user.email || '').trim().toLowerCase()) return true
+  const me = await get('SELECT name FROM members WHERE LOWER(email) = LOWER(?)', [req.user.email])
+  const myName = String(me?.name || '').trim().toLowerCase()
+  return Boolean(myName) && author === myName
+}
+
+// PATCH /api/issues/:issueId/comments/:commentId — edit comment (author or Admin)
+router.patch('/:issueId/comments/:commentId', requireRole('Member'), asyncHandler(async (req, res) => {
+  const issueId = Number(req.params.issueId)
+  const commentId = Number(req.params.commentId)
+  const normalizedText = String(req.body?.text ?? '').trim()
+
+  if (!normalizedText) {
+    res.status(400).json({ error: 'Comment text is required' })
+    return
+  }
+
+  const comment = await get(
+    'SELECT id, issue_id, author, text, created_at, edited_at FROM comments WHERE id = ? AND issue_id = ?',
+    [commentId, issueId],
+  )
+  if (!comment) {
+    res.status(404).json({ error: 'Comment not found' })
+    return
+  }
+
+  if (!(await canModifyComment(req, comment))) {
+    res.status(403).json({ error: 'You can only edit your own comments' })
+    return
+  }
+
+  await run('UPDATE comments SET text = ?, edited_at = NOW() WHERE id = ?', [normalizedText, commentId])
+  const row = await get('SELECT id, issue_id, author, text, created_at, edited_at FROM comments WHERE id = ?', [commentId])
+  res.json(row)
+}))
+
+// DELETE /api/issues/:issueId/comments/:commentId — delete comment (author or Admin)
+router.delete('/:issueId/comments/:commentId', requireRole('Member'), asyncHandler(async (req, res) => {
+  const issueId = Number(req.params.issueId)
+  const commentId = Number(req.params.commentId)
+
+  const comment = await get(
+    'SELECT id, issue_id, author, text, created_at, edited_at FROM comments WHERE id = ? AND issue_id = ?',
+    [commentId, issueId],
+  )
+  if (!comment) {
+    res.status(404).json({ error: 'Comment not found' })
+    return
+  }
+
+  if (!(await canModifyComment(req, comment))) {
+    res.status(403).json({ error: 'You can only delete your own comments' })
+    return
+  }
+
+  await run('DELETE FROM comments WHERE id = ?', [commentId])
+  res.json({ success: true, id: commentId })
 }))
 
 export default router

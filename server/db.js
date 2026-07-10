@@ -291,6 +291,11 @@ export async function initializeDatabase() {
 
   await pool.query('CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id)')
 
+  // JL-160: track when a comment was last edited
+  if (!(await columnExists('comments', 'edited_at'))) {
+    await pool.query('ALTER TABLE comments ADD COLUMN edited_at TIMESTAMPTZ')
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id SERIAL PRIMARY KEY,

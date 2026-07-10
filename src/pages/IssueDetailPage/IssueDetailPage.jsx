@@ -4,7 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import { fetchIssueById, fetchComments, createComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS, cloneIssue } from '../../api/issueApi'
+import { fetchIssueById, fetchComments, createComment, updateComment, deleteComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS, cloneIssue } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
@@ -78,6 +78,8 @@ export function IssueDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [comments, setComments] = useState([])
   const [, setCommentsLoading] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState(null)
+  const [editingCommentText, setEditingCommentText] = useState('')
   const [activityTab, setActivityTab] = useState('All')
   const [isEditing, setIsEditing] = useState(false)
   const [editDesc, setEditDesc] = useState('')
@@ -710,6 +712,8 @@ export function IssueDetailPage() {
     reactions: Array.isArray(c.reactions) ? c.reactions : [],
     time: c.created_at ? new Date(c.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now',
     sortKey: c.created_at ? new Date(c.created_at).getTime() : 0,
+    edited: Boolean(c.edited_at),
+    canModify: isAdmin || c.author === currentUserName || c.author === authUser?.email,
   }))
 
   const historyEntries = [...changeHistory]
@@ -744,6 +748,39 @@ export function IssueDetailPage() {
       setComments((current) => current.map((c) => (c.id === commentId ? { ...c, reactions } : c)))
     } catch {
       // ignore reaction failure
+    }
+  }
+
+  function startEditComment(entry) {
+    setEditingCommentId(entry.id)
+    setEditingCommentText(entry.text)
+  }
+
+  function cancelEditComment() {
+    setEditingCommentId(null)
+    setEditingCommentText('')
+  }
+
+  async function handleSaveEditComment(commentId) {
+    const trimmed = editingCommentText.trim()
+    if (!trimmed) return
+    try {
+      const updated = await updateComment(issue.id, commentId, { text: trimmed })
+      setComments((current) => current.map((c) => (c.id === commentId ? updated : c)))
+      cancelEditComment()
+    } catch {
+      // keep edit form open on failure
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    if (!window.confirm('Delete this comment? This cannot be undone.')) return
+    try {
+      await deleteComment(issue.id, commentId)
+      setComments((current) => current.filter((c) => c.id !== commentId))
+      if (editingCommentId === commentId) cancelEditComment()
+    } catch {
+      // ignore; comment stays
     }
   }
 
@@ -1331,8 +1368,18 @@ export function IssueDetailPage() {
                       {entry.type === 'history' && <span className="id-history-badge">History</span>}
                       {entry.type === 'worklog' && <span className="id-worklog-badge">Work log</span>}
                       <span className="id-comment-time">{entry.time}</span>
+                      {entry.type === 'comment' && entry.edited && <span className="id-comment-edited">(edited)</span>}
                     </div>
-                    {entry.type === 'comment' && (
+                    {entry.type === 'comment' && editingCommentId === entry.id && (
+                      <div className="id-comment-box id-comment-edit-box">
+                        <MentionInput rows={2} value={editingCommentText} onChange={setEditingCommentText} placeholder="Edit comment..." className="id-comment-textarea" />
+                        <div className="id-comment-actions">
+                          <button className="btn btn-primary btn-sm" type="button" disabled={!editingCommentText.trim()} onClick={() => handleSaveEditComment(entry.id)}>Save</button>
+                          <button className="btn btn-ghost btn-sm" type="button" onClick={cancelEditComment}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                    {entry.type === 'comment' && editingCommentId !== entry.id && (
                       <>
                         <p className="id-comment-text"><SmartText text={entry.text} issues={issues} renderText={(t) => <MentionText text={t} />} /></p>
                         <div className="id-reaction-bar">
@@ -1364,6 +1411,12 @@ export function IssueDetailPage() {
                             </div>
                           </div>
                         </div>
+                        {entry.canModify && (
+                          <div className="id-comment-controls">
+                            <button className="id-comment-action-link" type="button" onClick={() => startEditComment(entry)}>Edit</button>
+                            <button className="id-comment-action-link" type="button" onClick={() => handleDeleteComment(entry.id)}>Delete</button>
+                          </div>
+                        )}
                       </>
                     )}
                     {entry.type === 'history' && (
