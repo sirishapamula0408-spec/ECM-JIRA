@@ -9,6 +9,7 @@ import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
+import { fetchProjectComponents, fetchIssueComponents, setIssueComponents } from '../../api/componentApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
 import { fetchGitLinks, createGitLink, deleteGitLink, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS } from '../../api/gitIntegrationApi'
@@ -119,6 +120,10 @@ export function IssueDetailPage() {
   const [labels, setLabels] = useState([]) // [{id,name,color}] assigned to this issue
   const [projectLabels, setProjectLabels] = useState([]) // catalog for the issue's project
   const [labelInput, setLabelInput] = useState('')
+
+  // Components (JL-111) — structured per-project components assigned to this issue
+  const [issueComponents, setIssueComponents] = useState([]) // [{id,name,...}] assigned
+  const [projectComponents, setProjectComponents] = useState([]) // catalog for the project
   // JL-77: expanded field local state (synced from issue, persisted on edit)
   const [dueDate, setDueDate] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -216,6 +221,22 @@ export function IssueDetailPage() {
     fetchProjectLabels(issue.projectId)
       .then((data) => setProjectLabels(Array.isArray(data) ? data : []))
       .catch(() => setProjectLabels([]))
+  }, [issue?.projectId])
+
+  // Load components assigned to this issue (JL-111)
+  useEffect(() => {
+    if (!issue?.id) return
+    fetchIssueComponents(issue.id)
+      .then((data) => setIssueComponents(Array.isArray(data) ? data : []))
+      .catch(() => setIssueComponents([]))
+  }, [issue?.id])
+
+  // Load the project's component catalog (JL-111)
+  useEffect(() => {
+    if (!issue?.projectId) { setProjectComponents([]); return }
+    fetchProjectComponents(issue.projectId)
+      .then((data) => setProjectComponents(Array.isArray(data) ? data : []))
+      .catch(() => setProjectComponents([]))
   }, [issue?.projectId])
 
   // JL-77: sync expanded fields from the loaded issue
@@ -713,6 +734,29 @@ export function IssueDetailPage() {
 
   function removeLabel(label) {
     persistLabels(labels.filter((l) => l.id !== label.id))
+  }
+
+  async function persistComponents(nextComponents) {
+    const prev = issueComponents
+    setIssueComponents(nextComponents) // optimistic
+    try {
+      const saved = await setIssueComponents(issue.id, nextComponents.map((c) => c.id))
+      setIssueComponents(Array.isArray(saved) ? saved : nextComponents)
+    } catch {
+      setIssueComponents(prev) // rollback
+    }
+  }
+
+  function toggleComponent(component) {
+    if (issueComponents.some((c) => c.id === component.id)) {
+      persistComponents(issueComponents.filter((c) => c.id !== component.id))
+    } else {
+      persistComponents([...issueComponents, component])
+    }
+  }
+
+  function removeComponent(component) {
+    persistComponents(issueComponents.filter((c) => c.id !== component.id))
   }
 
   return (
@@ -1406,7 +1450,7 @@ export function IssueDetailPage() {
             <div className="id-sidebar-section-header"><h4>More details</h4></div>
             <dl className="id-detail-list">
               <div className="id-detail-row">
-                <dt>Components</dt>
+                <dt>Components (text)</dt>
                 <dd>
                   <InlineField
                     editing={editingField === 'components'}
@@ -1429,6 +1473,50 @@ export function IssueDetailPage() {
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveComponents() } }}
                       autoFocus
                     />
+                  </InlineField>
+                </dd>
+              </div>
+              <div className="id-detail-row">
+                <dt>Components</dt>
+                <dd>
+                  <InlineField
+                    editing={editingField === 'structuredComponents'}
+                    onOpen={() => openField('structuredComponents')}
+                    onClose={closeField}
+                    display={
+                      <div className="id-labels-wrap">
+                        {issueComponents.length > 0 ? issueComponents.map((c) => (
+                          <span key={c.id} className="pill">{c.name}</span>
+                        )) : <span className="id-empty-value">None</span>}
+                        <span className="id-edit-pencil">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </span>
+                      </div>
+                    }
+                  >
+                    <div className="id-labels-editor">
+                      <div className="id-labels-list">
+                        {issueComponents.map((c) => (
+                          <span key={c.id} className="id-label-chip">
+                            {c.name}
+                            <button type="button" className="id-label-remove" onClick={() => removeComponent(c)}>&times;</button>
+                          </span>
+                        ))}
+                      </div>
+                      {projectComponents.filter((pc) => !issueComponents.some((c) => c.id === pc.id)).length > 0 ? (
+                        <div className="id-label-suggestions">
+                          {projectComponents.filter((pc) => !issueComponents.some((c) => c.id === pc.id)).map((pc) => (
+                            <button key={pc.id} type="button" className="id-label-suggestion" onClick={() => toggleComponent(pc)}>
+                              + {pc.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        projectComponents.length === 0 && (
+                          <p className="id-empty-text" style={{ fontSize: '12px' }}>No components defined. Add them in Project settings.</p>
+                        )
+                      )}
+                    </div>
                   </InlineField>
                 </dd>
               </div>
