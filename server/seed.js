@@ -1,4 +1,5 @@
 import { all, get, run } from './db.js'
+import { isSeedDemoDataEnabled } from './config.js'
 
 async function seedIssues(defaultSprintId) {
   const row = await get('SELECT COUNT(*) AS count FROM issues')
@@ -34,7 +35,7 @@ async function seedSprints() {
 
   const created = await run(
     'INSERT INTO sprints (name, date_range, is_started) VALUES (?, ?, ?)',
-    ['SCRUM Sprint 1', '19 Jan - 2 Feb', 0],
+    ['SCRUM Sprint 1', '19 Jan - 2 Feb', false],
   )
   return created.lastID
 }
@@ -168,7 +169,7 @@ async function seedProjectMembers() {
     const lead = members.find((m) => m.name === project.lead)
     if (lead) {
       await run(
-        'INSERT OR IGNORE INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
+        'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?) ON CONFLICT (project_id, member_id) DO NOTHING',
         [project.id, lead.id, 'Admin'],
       )
     }
@@ -177,13 +178,28 @@ async function seedProjectMembers() {
 
 export async function seedDatabase() {
   const defaultSprintId = await seedSprints()
+  await seedMembers()
+  await seedProjects()
   await seedIssues(defaultSprintId)
   await seedActivity()
-  await seedMembers()
   await seedRoadmap()
   await seedProfile()
   await seedWorkflows()
-  await seedProjects()
   await seedProjectMembers()
   return defaultSprintId
+}
+
+/**
+ * JL-95: Environment-gated demo seeding. This is the ONLY entry point called at
+ * boot. Seeding NEVER runs unless SEED_DEMO_DATA is explicitly "true", so
+ * production/CI never auto-load fictional demo data. When enabled, the
+ * individual seeders only insert into empty tables (idempotent).
+ * @returns {Promise<{ seeded: boolean, sprintId?: number }>}
+ */
+export async function seedDemoData() {
+  if (!isSeedDemoDataEnabled()) {
+    return { seeded: false }
+  }
+  const sprintId = await seedDatabase()
+  return { seeded: true, sprintId }
 }

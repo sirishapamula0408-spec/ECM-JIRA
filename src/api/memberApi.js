@@ -22,3 +22,30 @@ export function resendMemberInvite(id) {
     method: 'POST',
   })
 }
+
+// --- JL-74: Member invitations ---
+
+export const fetchInvitations = (status) =>
+  api(`/api/invitations${status ? `?status=${encodeURIComponent(status)}` : ''}`)
+
+export function createInvitation(payload) {
+  return api('/api/invitations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export const lookupInvitation = (token) => api(`/api/invitations/${encodeURIComponent(token)}`)
+
+export function acceptInvitation(token, payload = {}) {
+  return api(`/api/invitations/${encodeURIComponent(token)}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function revokeInvitation(id) {
+  return api(`/api/invitations/${id}`, {
+    method: 'DELETE',
+  })
+}

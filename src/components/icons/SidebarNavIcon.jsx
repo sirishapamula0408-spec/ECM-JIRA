@@ -39,5 +39,6 @@ export function SidebarNavIcon({ name }) {
   if (name === 'filters') return <svg {...common}><path d="M2.5 4h11" /><path d="M5 8h6" /><path d="M6.5 12h3" /></svg>
   if (name === 'dashboards') return <svg {...common}><rect x="3" y="3" width="10" height="10" /><path d="M8 3v10M3 8h10" /></svg>
   if (name === 'workflow') return <svg {...common}><circle cx="3.5" cy="8" r="1.8" /><circle cx="12.5" cy="4" r="1.8" /><circle cx="12.5" cy="12" r="1.8" /><path d="M5.3 7.2l5.4-2.4M5.3 8.8l5.4 2.4" /></svg>
+  if (name === 'roadmap') return <svg {...common}><rect x="2.5" y="4" width="6" height="2.5" rx="0.5" /><rect x="6" y="9" width="7.5" height="2.5" rx="0.5" /><path d="M4 6.5v3.75h2" /></svg>
   return <svg {...common}><circle cx="8" cy="8" r="5" /></svg>
 }

@@ -1,0 +1,127 @@
+.shared-dashboards-page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.sd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sd-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.sd-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.sd-form h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+}
+
+.sd-input {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.sd-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sd-section {
+  margin-bottom: 32px;
+}
+
+.sd-section h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.sd-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 24px;
+  font-size: 14px;
+}
+
+.sd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.sd-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.sd-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sd-card-header strong {
+  font-size: 14px;
+}
+
+.sd-visibility-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sd-visibility-badge--private {
+  background: #dfe1e6;
+  color: #42526e;
+}
+
+.sd-visibility-badge--public {
+  background: #e3fcef;
+  color: #006644;
+}
+
+.sd-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.sd-card-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.sd-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sd-delete-btn {
+  color: var(--danger, #ff5630) !important;
+}

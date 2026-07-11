@@ -5,14 +5,17 @@ import { useSprints } from '../../context/SprintContext'
 import { useAppData } from '../../context/AppDataContext'
 import { useAuth } from '../../context/AuthContext'
 import { fetchProjects } from '../../api/projectApi'
+import { fetchProjectIssueTypes } from '../../api/issueTypeSchemeApi'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
 
 const TYPE_META = {
-  Story: { icon: '\u{1F4D7}', label: 'Story' },
-  Bug:   { icon: '\u{1F41B}', label: 'Bug' },
-  Task:  { icon: '\u2705',     label: 'Task' },
+  Epic:       { icon: '\u{1F3F0}', label: 'Epic' },
+  Story:      { icon: '\u{1F4D7}', label: 'Story' },
+  Bug:        { icon: '\u{1F41B}', label: 'Bug' },
+  Task:       { icon: '\u2705',     label: 'Task' },
+  'Sub-task': { icon: '\u{1F517}', label: 'Sub-task' },
 }
 
 const PRIORITY_COLORS = {
@@ -31,6 +34,8 @@ export function CreateIssueModal({ onClose }) {
   const reporterName = authUser?.email || profile?.full_name || 'Current User'
 
   const [projects, setProjects] = useState([])
+  // JL-116: issue-type scheme — the effective allowed types for the selected project.
+  const [allowedTypes, setAllowedTypes] = useState(ISSUE_TYPES)
   const [form, setForm] = useState({
     projectId: '',
     title: '',
@@ -40,6 +45,12 @@ export function CreateIssueModal({ onClose }) {
     status: 'Backlog',
     assignee: profile?.full_name || '',
     sprintId: null,
+    // JL-77: expanded optional fields
+    dueDate: '',
+    startDate: '',
+    components: '',
+    environment: '',
+    storyPoints: '',
   })
   const [createAnother, setCreateAnother] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -55,6 +66,35 @@ export function CreateIssueModal({ onClose }) {
       }
     }).catch(() => {})
   }, [])
+
+  // JL-116: when the selected project changes, load its effective issue-type
+  // scheme and constrain the type picker (defaulting to the scheme's default).
+  useEffect(() => {
+    if (!form.projectId) {
+      setAllowedTypes(ISSUE_TYPES)
+      return
+    }
+    let cancelled = false
+    fetchProjectIssueTypes(form.projectId)
+      .then((data) => {
+        if (cancelled) return
+        const types = Array.isArray(data?.allowedTypes) && data.allowedTypes.length
+          ? data.allowedTypes
+          : ISSUE_TYPES
+        setAllowedTypes(types)
+        // Keep the current type if still allowed, otherwise fall back to the
+        // scheme's default (or the first allowed type).
+        setForm((c) => (
+          types.includes(c.issueType)
+            ? c
+            : { ...c, issueType: data?.defaultType && types.includes(data.defaultType) ? data.defaultType : types[0] }
+        ))
+      })
+      .catch(() => {
+        if (!cancelled) setAllowedTypes(ISSUE_TYPES)
+      })
+    return () => { cancelled = true }
+  }, [form.projectId])
 
   // When profile loads after mount, default assignee
   useEffect(() => {
@@ -93,6 +133,13 @@ export function CreateIssueModal({ onClose }) {
         status: form.status,
         assignee: form.assignee,
         sprintId: form.status === 'Backlog' ? null : form.sprintId,
+        // JL-77: expanded optional fields (omit empties)
+        reporter: reporterName,
+        dueDate: form.dueDate || undefined,
+        startDate: form.startDate || undefined,
+        components: form.components.trim() || undefined,
+        environment: form.environment.trim() || undefined,
+        storyPoints: form.storyPoints === '' ? null : Number(form.storyPoints),
       }
       await handleCreate(payload)
 
@@ -159,7 +206,7 @@ export function CreateIssueModal({ onClose }) {
           <div className="create-issue-field">
             <label>Issue Type</label>
             <div className="create-issue-type-selector">
-              {ISSUE_TYPES.map((type) => {
+              {allowedTypes.map((type) => {
                 const meta = TYPE_META[type] || { icon: '\u{1F4CC}', label: type }
                 const isActive = form.issueType === type
                 return (
@@ -279,6 +326,59 @@ export function CreateIssueModal({ onClose }) {
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* JL-77: Start + Due date */}
+          <div className="create-issue-row">
+            <div className="create-issue-field">
+              <label>Start date</label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => update('startDate', e.target.value)}
+              />
+            </div>
+            <div className="create-issue-field">
+              <label>Due date</label>
+              <input
+                type="date"
+                value={form.dueDate}
+                onChange={(e) => update('dueDate', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* JL-77: Components + Environment */}
+          <div className="create-issue-field">
+            <label>Components</label>
+            <input
+              placeholder="Comma-separated, e.g. API, UI"
+              value={form.components}
+              onChange={(e) => update('components', e.target.value)}
+            />
+          </div>
+          <div className="create-issue-field">
+            <label>Environment</label>
+            <input
+              placeholder="e.g. Production, Chrome 120"
+              value={form.environment}
+              onChange={(e) => update('environment', e.target.value)}
+            />
+          </div>
+
+          {/* Story Points (optional) */}
+          <div className="create-issue-row">
+            <div className="create-issue-field">
+              <label>Story Points</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 5"
+                value={form.storyPoints}
+                onChange={(e) => update('storyPoints', e.target.value)}
+              />
             </div>
           </div>
         </div>

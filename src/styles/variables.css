@@ -17,6 +17,51 @@
   --jira-danger: #de350b;
   --jira-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
   --jira-shadow-soft: 0 2px 10px rgba(9, 30, 66, 0.06);
+  --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
+  --jira-shadow-modal: 0 10px 40px rgba(9, 30, 66, 0.15), 0 0 1px rgba(9, 30, 66, 0.1);
+
+  /* ── Spacing tokens ── */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-xxl: 32px;
+
+  /* ── Z-index scale ──
+     Documented layering order (low → high). Use these tokens instead of
+     hard-coded z-index values so stacking stays predictable across the app. */
+  --z-base: 0;            /* default in-flow content                       */
+  --z-dropdown: 40;       /* menus, autocomplete, popovers                 */
+  --z-sticky: 50;         /* sticky headers / toolbars                     */
+  --z-overlay: 100;       /* generic overlays / scrims                     */
+  --z-modal-backdrop: 190;/* dimmed backdrop behind a modal               */
+  --z-modal: 200;         /* modal / dialog surface                       */
+  --z-toast: 300;         /* transient toasts / snackbars (always on top)  */
+
+  /* ── Motion / transition tokens ──
+     Standard durations + easing curves for consistent micro-interactions. */
+  --transition-fast: 120ms;
+  --transition-base: 200ms;
+  --transition-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);   /* enter/exit, general    */
+  --ease-emphasized: cubic-bezier(0.3, 0, 0.2, 1);
+
+  /* ── Numeric spacing scale (--space-1 .. --space-8) ──
+     4px base step. Complements the named --spacing-* tokens above. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ── Icon sizes ── */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
 
   /* ── Atlassian typography scale ── */
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;

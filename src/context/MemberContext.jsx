@@ -6,9 +6,18 @@ const MemberContext = createContext(null)
 export function MemberProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [members, setMembers] = useState([])
+  const [currentMember, setCurrentMember] = useState(null)
 
   const loadProfile = useCallback((data) => setProfile(data), [])
   const loadMembers = useCallback((data) => setMembers(data), [])
+
+  /**
+   * Load the current user's role data from the /api/auth/me response.
+   * Shape: { id, email, memberId, workspaceRole, isOwner, profile, projectRoles }
+   */
+  const loadCurrentMember = useCallback((data) => {
+    setCurrentMember(data)
+  }, [])
 
   const handleSaveProfile = useCallback(async (nextProfile) => {
     const updated = await updateProfile(nextProfile)
@@ -27,7 +36,17 @@ export function MemberProvider({ children }) {
   }, [])
 
   return (
-    <MemberContext.Provider value={{ profile, members, loadProfile, loadMembers, handleSaveProfile, handleInviteMember, handleResendInvite }}>
+    <MemberContext.Provider value={{
+      profile,
+      members,
+      currentMember,
+      loadProfile,
+      loadMembers,
+      loadCurrentMember,
+      handleSaveProfile,
+      handleInviteMember,
+      handleResendInvite,
+    }}>
       {children}
     </MemberContext.Provider>
   )

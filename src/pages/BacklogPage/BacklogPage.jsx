@@ -1,24 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import Chip from '@mui/material/Chip'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
 import './BacklogPage.css'
-import { ISSUE_STATUSES } from '../../constants'
+import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { TopNavIcon } from '../../components/icons/TopNavIcon'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
+import { ImportExportModal } from '../../components/issues/ImportExportModal'
+import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
+import { fetchProjectDependencies } from '../../api/dependencyApi'
+import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 
 export function BacklogPage() {
-  const { issues, handleMove, handleCreate: onCreateIssue } = useIssues()
+  const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
   const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
-  const { profile } = useMembers()
+  const { profile, members } = useMembers()
   const { projectId } = useParams()
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
   const [expandedPanels, setExpandedPanels] = useState({ backlog: true })
   const [selectedIssueIds, setSelectedIssueIds] = useState([])
-  const [bulkStatus, setBulkStatus] = useState('To Do')
+  const [bulkAction, setBulkAction] = useState('status')
+  const [bulkValue, setBulkValue] = useState('To Do')
   const [searchTerm, setSearchTerm] = useState('')
   const [backlogMessage, setBacklogMessage] = useState('')
   const [dragIssueId, setDragIssueId] = useState(null)
@@ -28,10 +34,22 @@ export function BacklogPage() {
   const [quickCreateBusyBySprint, setQuickCreateBusyBySprint] = useState({})
   const [quickCreateErrorBySprint, setQuickCreateErrorBySprint] = useState({})
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
+  const [showImportExport, setShowImportExport] = useState(false)
+  const [showBulkWizard, setShowBulkWizard] = useState(false)
+  const [dependencies, setDependencies] = useState(null) // JL-128: { byId, edges, cycles, blockedCount }
+  const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)
+
+  // Import/Export is project-scoped: use the route project, else the project of the visible issues
+  const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
-  const allBacklogItems = scopedIssues.filter((issue) => issue.status === 'Backlog')
-  const allSprintItems = scopedIssues.filter((issue) => issue.status !== 'Backlog')
+  // "My open issues" quick filter: only issues assigned to the current user that are not Done
+  const currentUserName = profile?.full_name || ''
+  const visibleIssues = showMyOpenOnly
+    ? scopedIssues.filter((issue) => issue.assignee === currentUserName && issue.status !== 'Done')
+    : scopedIssues
+  const allBacklogItems = visibleIssues.filter((issue) => issue.status === 'Backlog')
+  const allSprintItems = visibleIssues.filter((issue) => issue.status !== 'Backlog')
   const defaultSprintId = sprints[0]?.id
 
   useEffect(() => {
@@ -43,6 +61,25 @@ export function BacklogPage() {
       return next
     })
   }, [sprints])
+
+  // JL-128: load dependency graph / blocked-issue flags for the visible project.
+  useEffect(() => {
+    let cancelled = false
+    if (!exportProjectId) { setDependencies(null); return undefined }
+    fetchProjectDependencies(exportProjectId)
+      .then((data) => {
+        if (cancelled) return
+        const byId = new Map((data.issues || []).map((i) => [i.id, i]))
+        setDependencies({ byId, edges: data.edges || [], cycles: data.cycles || [], summary: data.summary || {} })
+      })
+      .catch(() => { if (!cancelled) setDependencies(null) })
+    return () => { cancelled = true }
+  }, [exportProjectId, issues])
+
+  const blockedFor = (issueId) => {
+    const info = dependencies?.byId.get(issueId)
+    return info ? { isBlocked: info.isBlocked, blockedBy: info.blockedBy } : undefined
+  }
 
   const matchesSearch = (issue) => {
     if (!normalizedSearch) return true
@@ -116,12 +153,56 @@ export function BacklogPage() {
     else setPanelExpanded(targetSprintId || defaultSprintId, true)
   }
 
-  async function applyBulkStatus() {
+  async function applyBulkAction() {
     if (selectedIssueIds.length === 0) return
-    await Promise.all(selectedIssueIds.map((id) => handleMove(id, bulkStatus, bulkStatus === 'Backlog' ? null : defaultSprintId)))
-    if (bulkStatus === 'Backlog') setPanelExpanded('backlog', true)
-    else setPanelExpanded(defaultSprintId, true)
+    const ids = [...selectedIssueIds]
+
+    if (bulkAction === 'delete') {
+      if (!window.confirm(`Delete ${ids.length} issue(s)? This cannot be undone.`)) return
+      await Promise.all(ids.map((id) => handleDelete(id)))
+      setSelectedIssueIds([])
+      setBacklogMessage(`Deleted ${ids.length} issue(s).`)
+      return
+    }
+
+    if (bulkAction === 'watch') {
+      await Promise.all(ids.map((id) => watchIssue(id)))
+      setSelectedIssueIds([])
+      setBacklogMessage(`Now watching ${ids.length} issue(s).`)
+      return
+    }
+
+    if (bulkAction === 'unwatch') {
+      await Promise.all(ids.map((id) => unwatchIssue(id)))
+      setSelectedIssueIds([])
+      setBacklogMessage(`Stopped watching ${ids.length} issue(s).`)
+      return
+    }
+
+    if (bulkAction === 'status') {
+      await Promise.all(ids.map((id) => handleMove(id, bulkValue, bulkValue === 'Backlog' ? null : defaultSprintId)))
+      setPanelExpanded(bulkValue === 'Backlog' ? 'backlog' : defaultSprintId, true)
+    } else if (bulkAction === 'sprint') {
+      const targetSprintId = bulkValue === '' ? null : Number(bulkValue)
+      await Promise.all(ids.map((id) => handleMove(id, targetSprintId ? 'To Do' : 'Backlog', targetSprintId)))
+      setPanelExpanded(targetSprintId || 'backlog', true)
+    } else if (bulkAction === 'assignee') {
+      await Promise.all(ids.map((id) => handleUpdate(id, { assignee: bulkValue })))
+    } else if (bulkAction === 'priority') {
+      await Promise.all(ids.map((id) => handleUpdate(id, { priority: bulkValue })))
+    }
     setSelectedIssueIds([])
+    setBacklogMessage(`Updated ${ids.length} issue(s).`)
+  }
+
+  // Keep the value control in sync with a sensible default when action changes
+  function changeBulkAction(action) {
+    setBulkAction(action)
+    if (action === 'status') setBulkValue('To Do')
+    else if (action === 'priority') setBulkValue('Medium')
+    else if (action === 'assignee') setBulkValue(members[0]?.name || '')
+    else if (action === 'sprint') setBulkValue(String(defaultSprintId ?? ''))
+    else setBulkValue('')
   }
 
   async function createSprintFromSelection() {
@@ -136,7 +217,19 @@ export function BacklogPage() {
     setBacklogMessage(`${newSprint.name} created with ${selectedBacklogIds.length} issue(s).`)
   }
 
-  async function handleStartSprintAction(sprintId) { await onStartSprint(sprintId); setPanelExpanded(sprintId, true) }
+  async function handleStartSprintAction(sprintId) {
+    try {
+      await onStartSprint(sprintId, projectId ? Number(projectId) : undefined)
+      setPanelExpanded(sprintId, true)
+    } catch (err) {
+      // JL-124: single-active-sprint guard returns 409 unless parallel sprints are enabled
+      if (err?.status === 409) {
+        setBacklogMessage(err?.data?.error || 'Another sprint is already active. Enable parallel sprints to start more than one.')
+      } else {
+        throw err
+      }
+    }
+  }
 
   async function handleRenameSprint(sprintPanel) {
     const nextName = window.prompt('Sprint name', sprintPanel.name)
@@ -203,21 +296,97 @@ export function BacklogPage() {
             <span className="filter-glyph" aria-hidden="true"><TopNavIcon name="filter" /></span>
             Filter
           </button>
+          <Chip
+            label="My open issues"
+            size="small"
+            clickable
+            variant={showMyOpenOnly ? 'filled' : 'outlined'}
+            color={showMyOpenOnly ? 'primary' : 'default'}
+            onClick={() => setShowMyOpenOnly((current) => !current)}
+            aria-pressed={showMyOpenOnly}
+          />
         </div>
         <div className="backlog-toolbar-right">
           <div className="backlog-bulk">
             <span className="bulk-count">{selectedCount} selected</span>
-            <select className="bulk-status-select" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={selectedCount === 0}>
-              {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{status.toUpperCase()}</option>))}
+            <select className="bulk-status-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={selectedCount === 0} aria-label="Bulk action">
+              <option value="status">Status</option>
+              <option value="assignee">Assignee</option>
+              <option value="priority">Priority</option>
+              <option value="sprint">Sprint</option>
+              <option value="watch">Watch</option>
+              <option value="unwatch">Unwatch</option>
+              <option value="delete">Delete</option>
             </select>
-            <button className="btn btn-ghost" type="button" onClick={applyBulkStatus} disabled={selectedCount === 0}>Apply</button>
+            {bulkAction === 'status' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Status value">
+                {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{status.toUpperCase()}</option>))}
+              </select>
+            )}
+            {bulkAction === 'priority' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Priority value">
+                {PRIORITIES.map((p) => (<option key={p} value={p}>{p}</option>))}
+              </select>
+            )}
+            {bulkAction === 'assignee' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Assignee value">
+                {members.map((m) => (<option key={m.id} value={m.name}>{m.name}</option>))}
+              </select>
+            )}
+            {bulkAction === 'sprint' && (
+              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Sprint value">
+                <option value="">Backlog</option>
+                {sprints.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+              </select>
+            )}
+            <button className="btn btn-ghost" type="button" onClick={applyBulkAction} disabled={selectedCount === 0}>Apply</button>
+            <button className="btn btn-ghost" type="button" onClick={() => setShowBulkWizard(true)} disabled={selectedCount === 0}>Advanced bulk change</button>
           </div>
+          <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
+            Import / Export
+          </button>
           <button className="icon-btn" type="button" aria-label="Views">chart</button>
           <button className="icon-btn" type="button" aria-label="Display settings">settings</button>
           <button className="icon-btn" type="button" aria-label="More">...</button>
         </div>
       </div>
       {backlogMessage && <p className="backlog-message">{backlogMessage}</p>}
+
+      {dependencies && (dependencies.summary?.blockedCount > 0 || dependencies.cycles.length > 0) && (
+        <div className="backlog-dependency-summary" role="status">
+          <span className="backlog-dependency-summary-item">
+            ⛔ {dependencies.summary.blockedCount} blocked
+          </span>
+          <span className="backlog-dependency-summary-item">
+            {dependencies.edges.length} dependency link{dependencies.edges.length === 1 ? '' : 's'}
+          </span>
+          {dependencies.cycles.length > 0 && (
+            <span
+              className="backlog-dependency-summary-item backlog-dependency-cycle"
+              title={dependencies.cycles.map((c) => c.join(' → ')).join('; ')}
+            >
+              ⚠️ {dependencies.cycles.length} dependency cycle{dependencies.cycles.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      )}
+
+      {showImportExport && exportProjectId && (
+        <ImportExportModal
+          projectId={exportProjectId}
+          onClose={() => setShowImportExport(false)}
+          onImported={() => { reloadIssues(); setBacklogMessage('Issues imported.') }}
+        />
+      )}
+
+      <BulkChangeWizard
+        open={showBulkWizard}
+        onClose={() => setShowBulkWizard(false)}
+        issueIds={selectedIssueIds}
+        members={members}
+        sprints={sprints}
+        onApplied={() => { reloadIssues(); setSelectedIssueIds([]); setBacklogMessage('Bulk change applied.') }}
+      />
 
       <article className="panel jira-backlog-panel">
         {sprintPanels.map((sprintPanel) => {
@@ -269,7 +438,7 @@ export function BacklogPage() {
                 {isExpanded && (
                   <>
                     {sprintPanel.issues.map((issue) => (
-                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
                     ))}
                     {quickCreateBySprint[sprintPanel.id] && (
                       <div className="quick-create-row">
@@ -309,7 +478,7 @@ export function BacklogPage() {
 
         <div className={`sprint-issues${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           {expandedPanels.backlog && backlogItems.map((issue) => (
-            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
           ))}
         </div>
       </article>

@@ -26,6 +26,19 @@ export function AuthProvider({ children }) {
 
     setAuthUser(response.user)
     setIsAuthenticated(true)
+
+    // JL-134: org-wide 2FA nudge. When the org enforces MFA and this user has not
+    // enrolled, the login response carries mfaEnrollmentRequired. Persist a flag so
+    // ProfilePage can steer them to MFA setup. Non-blocking by design.
+    try {
+      if (response.mfaEnrollmentRequired) {
+        window.sessionStorage.setItem('jira_mfa_enrollment_required', '1')
+      } else {
+        window.sessionStorage.removeItem('jira_mfa_enrollment_required')
+      }
+    } catch { /* ignore */ }
+
+    return response
   }, [])
 
   const handleLogout = useCallback(() => {

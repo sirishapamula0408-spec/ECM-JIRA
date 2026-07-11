@@ -44,10 +44,25 @@ export function setToken(token, remember) {
   } catch { /* ignore */ }
 }
 
+// JL-73: active workspace id, mirrors WORKSPACE_STORAGE_KEY in workspaceApi.js.
+// Kept as a literal here to avoid a circular import (workspaceApi imports client).
+const WORKSPACE_KEY = 'jira_active_workspace_id'
+
+function getActiveWorkspace() {
+  try {
+    return window.localStorage.getItem(WORKSPACE_KEY) || null
+  } catch {
+    return null
+  }
+}
+
 function authHeaders() {
   const token = getToken()
   const headers = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // JL-73: forward the selected workspace so the backend can resolve req.workspaceId.
+  const workspaceId = getActiveWorkspace()
+  if (workspaceId) headers['X-Workspace-Id'] = workspaceId
   return headers
 }
 
@@ -55,8 +70,22 @@ async function unwrap(response) {
   if (response.ok) {
     return response.json()
   }
+
   const payload = await response.json().catch(() => null)
-  throw new Error(payload?.error || 'Request failed')
+  const message = payload?.error || 'Request failed'
+
+  // Emit permission denied event for 403 responses
+  if (response.status === 403) {
+    window.dispatchEvent(
+      new CustomEvent('permission-denied', { detail: { message } }),
+    )
+  }
+
+  const error = new Error(message)
+  error.status = response.status
+  // Preserve extra fields (e.g. JL-81 `mfaRequired`) for callers to inspect.
+  if (payload && typeof payload === 'object') error.data = payload
+  throw error
 }
 
 export async function api(path, options = {}) {

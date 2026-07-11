@@ -8,6 +8,10 @@ import { LoginPage } from '../pages/LoginPage/LoginPage'
 vi.mock('../api/authApi', () => ({
   signupWithEmail: vi.fn(),
   loginWithEmail: vi.fn(),
+  // JL-129: SSO discovery — resolve as disabled so no SSO buttons render.
+  fetchSsoStatus: vi.fn(() => Promise.resolve({ oidc: false, saml: false })),
+  startOidcLogin: vi.fn(),
+  startSamlLogin: vi.fn(),
 }))
 
 vi.mock('../api/client', () => ({

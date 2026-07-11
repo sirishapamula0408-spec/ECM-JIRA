@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react'
-import { createIssue, fetchIssues, updateIssue, updateIssueStatus } from '../api/issueApi'
+import { createIssue, fetchIssues, updateIssue, updateIssueStatus, deleteIssue } from '../api/issueApi'
 
 const IssueContext = createContext(null)
 
@@ -31,8 +31,13 @@ export function IssueProvider({ children }) {
     return updated
   }, [])
 
+  const handleDelete = useCallback(async (id) => {
+    await deleteIssue(id)
+    setIssues((current) => current.filter((issue) => issue.id !== id))
+  }, [])
+
   return (
-    <IssueContext.Provider value={{ issues, loadIssues, reloadIssues, handleCreate, handleUpdate, handleMove }}>
+    <IssueContext.Provider value={{ issues, loadIssues, reloadIssues, handleCreate, handleUpdate, handleMove, handleDelete }}>
       {children}
     </IssueContext.Provider>
   )

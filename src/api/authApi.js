@@ -27,3 +27,52 @@ export function resetPassword(token, newPassword) {
     body: JSON.stringify({ token, newPassword }),
   })
 }
+
+export function fetchCurrentUser() {
+  return api('/api/auth/me')
+}
+
+// --- JL-129: Live SSO (OIDC / SAML) ---
+// Reports which SSO methods are configured/live in this deployment.
+export function fetchSsoStatus() {
+  return api('/api/auth/sso/status')
+}
+
+// Fetch the IdP authorization URL to redirect the browser to.
+export function startOidcLogin() {
+  return api('/api/auth/sso/oidc')
+}
+
+export function startSamlLogin() {
+  return api('/api/auth/sso/saml')
+}
+
+// --- JL-81: MFA (TOTP) ---
+export function fetchMfaStatus() {
+  return api('/api/auth/mfa/status')
+}
+
+export function setupMfa() {
+  return api('/api/auth/mfa/setup', { method: 'POST', body: JSON.stringify({}) })
+}
+
+export function enableMfa(code) {
+  return api('/api/auth/mfa/enable', { method: 'POST', body: JSON.stringify({ code }) })
+}
+
+export function disableMfa() {
+  return api('/api/auth/mfa/disable', { method: 'POST', body: JSON.stringify({}) })
+}
+
+// --- JL-133: Session / device management ---
+export function fetchSessions() {
+  return api('/api/sessions')
+}
+
+export function revokeSession(id) {
+  return api(`/api/sessions/${id}`, { method: 'DELETE' })
+}
+
+export function revokeAllSessions() {
+  return api('/api/sessions/revoke-all', { method: 'POST', body: JSON.stringify({}) })
+}

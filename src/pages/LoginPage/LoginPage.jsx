@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { forgotPassword, resetPassword } from '../../api/authApi'
+import { forgotPassword, resetPassword, fetchSsoStatus, startOidcLogin, startSamlLogin } from '../../api/authApi'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import sedinLogoFull from '../../assets/sedin-logo-full.svg'
 import './LoginPage.css'
@@ -17,6 +17,10 @@ export function LoginPage() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
 
+  // JL-81: MFA — when the backend replies mfaRequired, reveal a code field.
+  const [mfaRequired, setMfaRequired] = useState(false)
+  const [mfaCode, setMfaCode] = useState('')
+
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -28,11 +32,40 @@ export function LoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [resetSuccess, setResetSuccess] = useState('')
 
+  // JL-129: Live SSO — reveal buttons only when the backend reports a method configured.
+  const [sso, setSso] = useState({ oidc: false, saml: false })
+  const [ssoError, setSsoError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    if (typeof fetchSsoStatus !== 'function') return undefined
+    Promise.resolve()
+      .then(() => fetchSsoStatus())
+      .then((status) => {
+        if (active && status) setSso({ oidc: Boolean(status.oidc), saml: Boolean(status.saml) })
+      })
+      .catch(() => { /* SSO discovery is best-effort — keep buttons hidden on failure */ })
+    return () => { active = false }
+  }, [])
+
+  async function startSso(kind) {
+    setSsoError('')
+    try {
+      const start = kind === 'saml' ? startSamlLogin : startOidcLogin
+      const { authorizeUrl } = await start()
+      if (authorizeUrl) window.location.href = authorizeUrl
+    } catch (error) {
+      setSsoError(error?.message || 'Unable to start single sign-on')
+    }
+  }
+
   const canSubmit = form.email.trim() && form.password.trim()
 
   function switchMode(newMode) {
     setMode(newMode)
     setAuthError('')
+    setMfaRequired(false)
+    setMfaCode('')
   }
 
   function openForgotPassword(e) {
@@ -98,9 +131,21 @@ export function LoginPage() {
     setAuthError('')
     setAuthLoading(true)
     try {
-      await handleAuth(mode, { email: form.email.trim(), password: form.password, remember: form.remember })
+      const credentials = { email: form.email.trim(), password: form.password, remember: form.remember }
+      // Include the MFA code once the field is shown.
+      if (mfaRequired && mfaCode.trim()) credentials.mfaCode = mfaCode.trim()
+      await handleAuth(mode, credentials)
+      // Success — reset any MFA prompt state.
+      setMfaRequired(false)
+      setMfaCode('')
     } catch (error) {
-      setAuthError(error?.message || 'Authentication failed')
+      // Backend signals a second factor is needed via { mfaRequired: true }.
+      if (error?.data?.mfaRequired) {
+        setMfaRequired(true)
+        setAuthError(mfaCode ? (error?.message || 'Invalid MFA code') : '')
+      } else {
+        setAuthError(error?.message || 'Authentication failed')
+      }
     } finally {
       setAuthLoading(false)
     }
@@ -319,6 +364,27 @@ export function LoginPage() {
                   </label>
                 )}
 
+                {mode === 'login' && mfaRequired && (
+                  <div className="login-field">
+                    <label htmlFor="login-mfa">Authentication code</label>
+                    <div className="login-input-wrap">
+                      <span className="login-input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      </span>
+                      <input
+                        id="login-mfa"
+                        value={mfaCode}
+                        onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="6-digit code"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        autoFocus
+                      />
+                    </div>
+                    <small className="login-hint">Enter the code from your authenticator app.</small>
+                  </div>
+                )}
+
                 {authError && (
                   <div className="login-error">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -329,7 +395,7 @@ export function LoginPage() {
                 <button
                   className="login-submit-btn"
                   type="submit"
-                  disabled={!canSubmit || authLoading}
+                  disabled={!canSubmit || authLoading || (mfaRequired && mfaCode.length !== 6)}
                 >
                   {authLoading ? (
                     <span className="login-spinner" />
@@ -337,6 +403,36 @@ export function LoginPage() {
                   {authLoading ? 'Please wait...' : mode === 'login' ? 'Log In \u2192' : 'Create Account \u2192'}
                 </button>
               </form>
+
+              {mode === 'login' && (sso.oidc || sso.saml) && (
+                <div className="login-sso-options">
+                  <div className="login-sso-separator"><span>or</span></div>
+                  {sso.oidc && (
+                    <button
+                      type="button"
+                      className="login-sso-action"
+                      onClick={() => startSso('oidc')}
+                    >
+                      Sign in with SSO
+                    </button>
+                  )}
+                  {sso.saml && (
+                    <button
+                      type="button"
+                      className="login-sso-action"
+                      onClick={() => startSso('saml')}
+                    >
+                      Sign in with SAML
+                    </button>
+                  )}
+                  {ssoError && (
+                    <div className="login-error">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                      <span>{ssoError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <p className="login-toggle-link">
                 {mode === 'login' ? (
