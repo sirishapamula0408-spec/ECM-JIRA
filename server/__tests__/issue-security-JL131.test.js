@@ -334,3 +334,149 @@ describe('JL-131 — GET /api/issues list filtering', () => {
     expect(res.body).toHaveLength(3)
   })
 })
+
+// ---------------------------------------------------------------------------
+// JL-185 — enforcement on JQL / search / ai-search (filters.js)
+// ---------------------------------------------------------------------------
+describe('JL-185 — filters JQL/search/ai-search enforcement', () => {
+  let mod
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mod = await import('../routes/filters.js')
+  })
+
+  function searchRow(id, overrides = {}) {
+    return {
+      id,
+      issue_key: `PROJ-${id}`,
+      title: `t${id}`,
+      description: 'd',
+      priority: 'Low',
+      assignee: 'alice@test.com',
+      status: 'To Do',
+      issue_type: 'Task',
+      sprint_id: null,
+      project_id: null,
+      created_at: '2026-01-01',
+      reporter: 'bob@test.com',
+      security_level_id: null,
+      ...overrides,
+    }
+  }
+
+  // Public + restricted-hidden + restricted-assignee-visible mix.
+  const mixedRows = [
+    searchRow(1), // public
+    searchRow(2, { security_level_id: 9, assignee: 'someone@else.com', reporter: 'x@else.com' }), // hidden
+    searchRow(3, { security_level_id: 9, assignee: 'viewer@test.com' }), // assignee match → visible
+  ]
+
+  it('POST /api/filters/jql excludes restricted issues a non-viewer cannot see', async () => {
+    all.mockResolvedValueOnce(mixedRows)
+    const app = createApp(mod, viewerUser, '/api/filters')
+    const res = await request(app).post('/api/filters/jql').send({ jql: 'status = "To Do"' })
+    expect(res.status).toBe(200)
+    const keys = res.body.map((i) => i.key)
+    expect(keys).toEqual(['PROJ-1', 'PROJ-3'])
+    expect(keys).not.toContain('PROJ-2')
+  })
+
+  it('POST /api/filters/jql returns the restricted issue to an Admin', async () => {
+    all.mockResolvedValueOnce(mixedRows)
+    const app = createApp(mod, adminUser, '/api/filters')
+    const res = await request(app).post('/api/filters/jql').send({ jql: 'status = "To Do"' })
+    expect(res.status).toBe(200)
+    expect(res.body.map((i) => i.key)).toEqual(['PROJ-1', 'PROJ-2', 'PROJ-3'])
+  })
+
+  it('POST /api/filters/search excludes restricted issues for a non-viewer', async () => {
+    all.mockResolvedValueOnce(mixedRows)
+    const app = createApp(mod, viewerUser, '/api/filters')
+    const res = await request(app).post('/api/filters/search').send({ status: 'To Do' })
+    expect(res.status).toBe(200)
+    const keys = res.body.map((i) => i.key)
+    expect(keys).toContain('PROJ-1')
+    expect(keys).toContain('PROJ-3')
+    expect(keys).not.toContain('PROJ-2')
+  })
+
+  it('POST /api/filters/ai-search excludes restricted issues for a non-viewer', async () => {
+    all.mockResolvedValueOnce(mixedRows)
+    const app = createApp(mod, viewerUser, '/api/filters')
+    const res = await request(app).post('/api/filters/ai-search').send({ query: 'to do tasks' })
+    expect(res.status).toBe(200)
+    const keys = res.body.issues.map((i) => i.key)
+    expect(keys).toContain('PROJ-1')
+    expect(keys).toContain('PROJ-3')
+    expect(keys).not.toContain('PROJ-2')
+  })
+
+  it('leaves results unchanged when no issue is secured (backward compatible)', async () => {
+    all.mockResolvedValue([searchRow(1), searchRow(2), searchRow(3)])
+    const app = createApp(mod, viewerUser, '/api/filters')
+    const jql = await request(app).post('/api/filters/jql').send({ jql: 'status = "To Do"' })
+    expect(jql.body).toHaveLength(3)
+    const search = await request(app).post('/api/filters/search').send({ status: 'To Do' })
+    expect(search.body).toHaveLength(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// JL-185 — enforcement on attachment list / download (attachments.js)
+// ---------------------------------------------------------------------------
+describe('JL-185 — attachment access enforcement', () => {
+  let mod
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mod = await import('../routes/attachments.js')
+  })
+
+  const restrictedIssue = { id: 1, assignee: 'alice@test.com', reporter: 'bob@test.com', security_level_id: 9 }
+  const publicIssue = { id: 1, assignee: 'alice@test.com', reporter: 'bob@test.com', security_level_id: null }
+  const attachmentRow = { id: 7, issue_id: 1, filename: 'secret.png', mime_type: 'image/png', size_bytes: 10, storage_path: 'k', thumbnail_key: null }
+
+  it('GET issue attachments → 403 for a non-viewer of a restricted issue', async () => {
+    get.mockResolvedValueOnce(restrictedIssue) // parent issue lookup
+    const app = createApp(mod, viewerUser, '/api')
+    const res = await request(app).get('/api/issues/1/attachments')
+    expect(res.status).toBe(403)
+    expect(all).not.toHaveBeenCalled()
+  })
+
+  it('GET issue attachments → 200 for an Admin on a restricted issue', async () => {
+    get.mockResolvedValueOnce(restrictedIssue)
+    all.mockResolvedValueOnce([attachmentRow])
+    const app = createApp(mod, adminUser, '/api')
+    const res = await request(app).get('/api/issues/1/attachments')
+    expect(res.status).toBe(200)
+    expect(res.body[0].filename).toBe('secret.png')
+  })
+
+  it('GET issue attachments → 200 unchanged for a non-restricted issue', async () => {
+    get.mockResolvedValueOnce(publicIssue)
+    all.mockResolvedValueOnce([attachmentRow])
+    const app = createApp(mod, viewerUser, '/api')
+    const res = await request(app).get('/api/issues/1/attachments')
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(1)
+  })
+
+  it('GET download → 403 for a non-viewer of a restricted issue (IDOR blocked)', async () => {
+    get
+      .mockResolvedValueOnce(attachmentRow) // attachment lookup
+      .mockResolvedValueOnce(restrictedIssue) // parent issue lookup
+    const app = createApp(mod, viewerUser, '/api')
+    const res = await request(app).get('/api/attachments/7/download')
+    expect(res.status).toBe(403)
+  })
+
+  it('GET download → 403 for the issue assignee is allowed (200)', async () => {
+    get
+      .mockResolvedValueOnce(attachmentRow)
+      .mockResolvedValueOnce(restrictedIssue)
+    const app = createApp(mod, { email: 'alice@test.com', workspaceRole: 'Member', isOwner: false }, '/api')
+    const res = await request(app).get('/api/attachments/7/download')
+    // Assignee may view → passes the guard (storage.get then resolves/404s on missing data, not 403).
+    expect(res.status).not.toBe(403)
+  })
+})

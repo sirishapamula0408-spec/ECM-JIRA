@@ -7,8 +7,22 @@ import { requireRole } from '../middleware/authorize.js'
 import { getStorage } from '../services/storage.js'
 import { generateThumbnail } from '../services/thumbnails.js'
 import { scanBuffer } from '../services/virusScan.js'
+import { canViewIssue } from '../services/issueSecurity.js'
 
 const router = Router()
+
+// JL-185: load an attachment's parent issue (with the fields canViewIssue needs)
+// and confirm the caller may view it. Returns true when access is allowed.
+// A missing parent issue (orphan / FK-less) carries no security level and is
+// treated as public, so non-restricted issues stay visible → unchanged behaviour.
+// Only issues with a security_level_id are ever blocked.
+async function canAccessIssueAttachments(issueId, user) {
+  const issue = await get(
+    'SELECT id, assignee, reporter, security_level_id FROM issues WHERE id = ?',
+    [Number(issueId)],
+  )
+  return canViewIssue(issue || {}, user)
+}
 
 function mapAttachment(row) {
   return {
@@ -27,6 +41,11 @@ function mapAttachment(row) {
 
 // GET /api/issues/:issueId/attachments — list metadata
 router.get('/issues/:issueId/attachments', asyncHandler(async (req, res) => {
+  // JL-185: block listing attachments of an issue the caller cannot view.
+  if (!(await canAccessIssueAttachments(req.params.issueId, req.user))) {
+    res.status(403).json({ error: 'Not authorized to view this issue' })
+    return
+  }
   const rows = await all(
     'SELECT * FROM attachments WHERE issue_id = ? ORDER BY created_at DESC',
     [Number(req.params.issueId)],
@@ -86,6 +105,11 @@ router.post('/issues/:issueId/attachments', requireRole('Member'), asyncHandler(
 router.get('/attachments/:id/download', asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM attachments WHERE id = ?', [Number(req.params.id)])
   if (!row) { res.status(404).json({ error: 'Attachment not found' }); return }
+  // JL-185: prevent IDOR — the caller must be able to view the parent issue.
+  if (!(await canAccessIssueAttachments(row.issue_id, req.user))) {
+    res.status(403).json({ error: 'Not authorized to view this issue' })
+    return
+  }
   const storage = getStorage()
   try {
     const buffer = await storage.get(path.basename(row.storage_path))
@@ -101,6 +125,11 @@ router.get('/attachments/:id/download', asyncHandler(async (req, res) => {
 router.get('/attachments/:id/thumbnail', asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM attachments WHERE id = ?', [Number(req.params.id)])
   if (!row || !row.thumbnail_key) { res.status(404).json({ error: 'Thumbnail not found' }); return }
+  // JL-185: prevent IDOR — the caller must be able to view the parent issue.
+  if (!(await canAccessIssueAttachments(row.issue_id, req.user))) {
+    res.status(403).json({ error: 'Not authorized to view this issue' })
+    return
+  }
   const storage = getStorage()
   try {
     const buffer = await storage.get(path.basename(row.thumbnail_key))
