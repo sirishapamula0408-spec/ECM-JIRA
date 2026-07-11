@@ -110,8 +110,8 @@ router.get('/assets/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-// POST /api/assets — create an asset
-router.post('/assets', asyncHandler(async (req, res) => {
+// POST /api/assets — create an asset (Admin)
+router.post('/assets', requireRole('Admin'), asyncHandler(async (req, res) => {
   const typeIds = (await all('SELECT id FROM asset_types')).map((r) => r.id)
   const { ok, errors } = validateAssetPayload(req.body || {}, typeIds)
   if (!ok) {
@@ -133,8 +133,8 @@ router.post('/assets', asyncHandler(async (req, res) => {
   res.status(201).json(row)
 }))
 
-// PATCH /api/assets/:id — update an asset
-router.patch('/assets/:id', asyncHandler(async (req, res) => {
+// PATCH /api/assets/:id — update an asset (Admin)
+router.patch('/assets/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM assets WHERE id = ?', [id])
   if (!existing) {
@@ -193,8 +193,8 @@ router.patch('/assets/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-// DELETE /api/assets/:id — delete an asset (cascades issue_assets)
-router.delete('/assets/:id', asyncHandler(async (req, res) => {
+// DELETE /api/assets/:id — delete an asset (cascades issue_assets) (Admin)
+router.delete('/assets/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await run('DELETE FROM assets WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 }))

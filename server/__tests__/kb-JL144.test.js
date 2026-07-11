@@ -112,6 +112,20 @@ describe('POST /api/kb/articles', () => {
     expect(res.status).toBe(400)
   })
 
+  it('non-admin (Viewer) is rejected with 403 (JL-183)', async () => {
+    const app = createApp({ workspaceRole: 'Viewer' })
+    const res = await request(app).post('/api/kb/articles').send({ title: 'How to reset' })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('non-admin (Member) is rejected with 403 (JL-183)', async () => {
+    const app = createApp({ workspaceRole: 'Member' })
+    const res = await request(app).post('/api/kb/articles').send({ title: 'How to reset' })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('list passes ILIKE params for ?search', async () => {
     const app = createApp()
     all.mockResolvedValueOnce([])
@@ -178,6 +192,47 @@ describe('PATCH /api/kb/articles/:id', () => {
     get.mockResolvedValueOnce({ id: 10, status: 'draft' })
     const res = await request(app).patch('/api/kb/articles/10').send({ status: 'archived' })
     expect(res.status).toBe(400)
+  })
+
+  it('non-admin (Viewer) cannot publish/update — 403 (JL-183)', async () => {
+    const app = createApp({ workspaceRole: 'Viewer' })
+    const res = await request(app).patch('/api/kb/articles/10').send({ status: 'published' })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('non-admin (Member) cannot publish/update — 403 (JL-183)', async () => {
+    const app = createApp({ workspaceRole: 'Member' })
+    const res = await request(app).patch('/api/kb/articles/10').send({ status: 'published' })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+})
+
+/* ================================================================
+   Article delete RBAC (JL-183)
+   ================================================================ */
+describe('DELETE /api/kb/articles/:id — RBAC (JL-183)', () => {
+  it('non-admin (Viewer) is rejected with 403', async () => {
+    const app = createApp({ workspaceRole: 'Viewer' })
+    const res = await request(app).delete('/api/kb/articles/10')
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('non-admin (Member) is rejected with 403', async () => {
+    const app = createApp({ workspaceRole: 'Member' })
+    const res = await request(app).delete('/api/kb/articles/10')
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('admin can delete an article', async () => {
+    const app = createApp({ workspaceRole: 'Admin' })
+    run.mockResolvedValueOnce({ changes: 1 })
+    const res = await request(app).delete('/api/kb/articles/10')
+    expect(res.status).toBe(200)
+    expect(run).toHaveBeenCalledWith(expect.stringMatching(/DELETE FROM kb_articles/i), [10])
   })
 })
 

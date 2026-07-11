@@ -196,8 +196,8 @@ router.get('/kb/articles/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-// POST /api/kb/articles — create article (generated slug, default draft)
-router.post('/kb/articles', asyncHandler(async (req, res) => {
+// POST /api/kb/articles — create article (generated slug, default draft) (Admin only)
+router.post('/kb/articles', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { title, body = '', categoryId = null, status = 'draft' } = req.body
   if (!title?.trim()) {
     res.status(400).json({ error: 'title is required' })
@@ -216,8 +216,8 @@ router.post('/kb/articles', asyncHandler(async (req, res) => {
   res.status(201).json(row)
 }))
 
-// PATCH /api/kb/articles/:id — update article (publish = set status)
-router.patch('/kb/articles/:id', asyncHandler(async (req, res) => {
+// PATCH /api/kb/articles/:id — update article (publish = set status) (Admin only)
+router.patch('/kb/articles/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM kb_articles WHERE id = ?', [id])
   if (!existing) {
@@ -251,8 +251,8 @@ router.patch('/kb/articles/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-// DELETE /api/kb/articles/:id — delete article
-router.delete('/kb/articles/:id', asyncHandler(async (req, res) => {
+// DELETE /api/kb/articles/:id — delete article (Admin only)
+router.delete('/kb/articles/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await run('DELETE FROM kb_articles WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 }))
