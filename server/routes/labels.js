@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
 
@@ -35,12 +36,10 @@ router.post('/projects/:projectId/labels', asyncHandler(async (req, res) => {
   const name = String(req.body?.name || '').trim()
   const color = String(req.body?.color || '#42526E').trim()
   if (!name) {
-    res.status(400).json({ error: 'Label name is required' })
-    return
+    return sendError(res, 400, 'Label name is required')
   }
   if (!HEX.test(color)) {
-    res.status(400).json({ error: 'color must be a hex value like #FF5630' })
-    return
+    return sendError(res, 400, 'color must be a hex value like #FF5630')
   }
   const existing = await get(
     'SELECT id, name, color FROM labels WHERE project_id = ? AND LOWER(name) = LOWER(?)',
