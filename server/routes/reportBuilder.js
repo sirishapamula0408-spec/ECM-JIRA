@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { loadAccessibleProjectIds } from '../services/projectAccess.js'
 
 const router = Router()
 
@@ -209,10 +210,25 @@ function normalizeFilters(filters) {
   return pairs
 }
 
-async function loadIssues(filters, needsLabels) {
+// JL-187: `projectScope` is the list of project ids the caller may access.
+// It is ALWAYS applied so a report never aggregates over issues from projects
+// (or tenants) the caller cannot see. `null` means "no scoping" and is reserved
+// for trusted internal callers — the /run route always passes an explicit list.
+async function loadIssues(filters, needsLabels, projectScope = null) {
+  // No accessible projects → nothing to aggregate. Short-circuit so we never
+  // emit an unscoped `IN ()` that a DB might treat as "match everything".
+  if (Array.isArray(projectScope) && projectScope.length === 0) return []
+
   const pairs = normalizeFilters(filters)
   const conditions = pairs.map((p) => `${p.column} = ?`)
   const params = pairs.map((p) => p.value)
+
+  if (Array.isArray(projectScope)) {
+    const placeholders = projectScope.map(() => '?').join(', ')
+    conditions.push(`i.project_id IN (${placeholders})`)
+    params.push(...projectScope)
+  }
+
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   const issues = await all(
@@ -270,7 +286,11 @@ router.post(
       return res.status(400).json({ error: 'Invalid report definition', errors: check.errors })
     }
     const needsLabels = definition.dimension === 'label'
-    const issues = await loadIssues(filters, needsLabels)
+    // JL-173/JL-187: scope the aggregation to the caller's accessible projects
+    // (workspace-aware) so any authenticated user can no longer pull
+    // cross-tenant aggregate counts + project names.
+    const projectScope = await loadAccessibleProjectIds(req.user, req.workspaceId ?? null)
+    const issues = await loadIssues(filters, needsLabels, projectScope)
     const result = computeReport(issues, definition)
     res.json(result)
   }),

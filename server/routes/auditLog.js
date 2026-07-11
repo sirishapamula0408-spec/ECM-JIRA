@@ -14,6 +14,17 @@ router.use(requireRole('Admin'))
 
 const EXPORT_FIELDS = ['seq', 'actor', 'action', 'target', 'metadata', 'prev_hash', 'hash', 'created_at']
 
+// JL-187: hard upper bound on how many audit rows a single export/verify request
+// may pull into memory. Without this, `/export` and `/verify` load the entire
+// audit_log table at once, which is unbounded and can exhaust memory on large,
+// long-lived installs.
+//   * /export streams at most MAX_AUDIT_EXPORT_ROWS rows (oldest first). Consumers
+//     that need the full history should page via GET /api/audit-log?limit=&offset=.
+//   * /verify recomputes the hash chain over at most MAX_AUDIT_EXPORT_ROWS rows.
+//     NOTE: on chains longer than the cap this verifies only the oldest prefix;
+//     `count` in the response reflects how many rows were actually checked.
+const MAX_AUDIT_EXPORT_ROWS = 50000
+
 /** Build a WHERE clause + params from the shared filter query params. */
 function buildFilters(query) {
   const clauses = []
@@ -44,10 +55,13 @@ router.get('/audit-log', asyncHandler(async (req, res) => {
 
 /* ---------- GET /api/audit-log/verify — recompute the hash chain ---------- */
 router.get('/audit-log/verify', asyncHandler(async (_req, res) => {
-  // Verify over the full chain in ascending seq order.
+  // JL-187: verify the chain in ascending seq order, but bound the number of
+  // rows loaded so this endpoint cannot exhaust memory on a huge audit_log.
+  // On chains longer than the cap only the oldest prefix is verified; `count`
+  // reflects how many rows were checked.
   const rows = await all(
     `SELECT seq, actor, action, target, metadata, prev_hash, hash, created_at
-     FROM audit_log ORDER BY seq ASC`,
+     FROM audit_log ORDER BY seq ASC LIMIT ${MAX_AUDIT_EXPORT_ROWS}`,
     [],
   )
   const result = verifyChain(rows)
@@ -58,9 +72,11 @@ router.get('/audit-log/verify', asyncHandler(async (_req, res) => {
 router.get('/audit-log/export', asyncHandler(async (req, res) => {
   const format = String(req.query.format || 'csv').toLowerCase()
   const { where, params } = buildFilters(req.query)
+  // JL-187: cap the export so an unbounded table cannot be pulled into memory in
+  // one shot. Oldest-first, at most MAX_AUDIT_EXPORT_ROWS rows.
   const rows = await all(
     `SELECT seq, actor, action, target, metadata, prev_hash, hash, created_at
-     FROM audit_log ${where} ORDER BY seq ASC`,
+     FROM audit_log ${where} ORDER BY seq ASC LIMIT ${MAX_AUDIT_EXPORT_ROWS}`,
     params,
   )
 

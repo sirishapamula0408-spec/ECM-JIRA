@@ -15,6 +15,13 @@ import { canViewIssue } from '../services/issueSecurity.js'
 
 const router = Router()
 
+// JL-187: hard safety cap on the default (unpaginated) issues list so a very
+// large issues table cannot be loaded wholesale into memory / serialized in one
+// response. Callers that need to walk the full set must page explicitly via
+// ?limit/?offset/?page (see JL-100). The value is a constant baked into the SQL
+// (not user input), so there is no injection surface.
+const DEFAULT_ISSUE_LIST_CAP = 5000
+
 // JL-77: helper to normalize an optional string field ('' → null, trimmed).
 function optText(v) {
   if (v === undefined || v === null) return undefined
@@ -245,7 +252,10 @@ router.get('/', asyncHandler(async (req, res) => {
     return
   }
 
-  const rows = await all(sql, built.params)
+  // JL-187: even the legacy (unpaginated) path is bounded by a hard cap so the
+  // whole table is never materialized at once. The shape (a plain array) is
+  // unchanged.
+  const rows = await all(`${sql} LIMIT ${DEFAULT_ISSUE_LIST_CAP}`, built.params)
   // JL-131: hide issues the caller may not view (no-op when none are secured).
   res.json(rows.map(mapIssue).filter((issue) => canViewIssue(issue, req.user)))
 }))

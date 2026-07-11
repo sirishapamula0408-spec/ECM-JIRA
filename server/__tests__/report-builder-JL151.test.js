@@ -162,11 +162,14 @@ describe('computeReport', () => {
    ================================================================ */
 describe('POST /api/report-builder/run', () => {
   it('returns rows for a count-by-status definition', async () => {
-    all.mockResolvedValueOnce([
-      { id: 1, status: 'Done', project_name: 'P' },
-      { id: 2, status: 'Done', project_name: 'P' },
-      { id: 3, status: 'To Do', project_name: 'P' },
-    ])
+    get.mockResolvedValueOnce({ id: 1, name: 'Owner' }) // member lookup (JL-187 scoping)
+    all
+      .mockResolvedValueOnce([{ id: 100 }]) // accessible project ids
+      .mockResolvedValueOnce([
+        { id: 1, status: 'Done', project_name: 'P', project_id: 100 },
+        { id: 2, status: 'Done', project_name: 'P', project_id: 100 },
+        { id: 3, status: 'To Do', project_name: 'P', project_id: 100 },
+      ])
     const app = createApp()
     const res = await request(app)
       .post('/api/report-builder/run')
@@ -183,6 +186,59 @@ describe('POST /api/report-builder/run', () => {
       .post('/api/report-builder/run')
       .send({ definition: { dimension: 'bad', measure: 'count', chartType: 'bar' } })
     expect(res.status).toBe(400)
+  })
+})
+
+/* ================================================================
+   JL-187: /run is scoped to the caller's accessible projects.
+   A user only aggregates over projects they can access — no
+   cross-tenant leakage.
+   ================================================================ */
+describe('POST /api/report-builder/run — project scoping (JL-187)', () => {
+  const validDef = { dimension: 'status', measure: 'count', chartType: 'bar' }
+
+  it('constrains the issues query to the caller\'s accessible project ids', async () => {
+    get.mockResolvedValueOnce({ id: 7, name: 'Member' }) // member lookup
+    all
+      .mockResolvedValueOnce([{ id: 42 }]) // caller can access only project 42
+      .mockResolvedValueOnce([{ id: 1, status: 'Done', project_id: 42 }]) // issues in-scope
+    const app = createApp('member@test.com')
+    const res = await request(app).post('/api/report-builder/run').send({ definition: validDef })
+    expect(res.status).toBe(200)
+
+    // The issues load is the SECOND all() call. It must be scoped by project id.
+    const [issuesSql, issuesParams] = all.mock.calls[1]
+    expect(issuesSql).toMatch(/i\.project_id IN \(\?\)/)
+    expect(issuesParams).toEqual([42])
+  })
+
+  it('returns an empty report (and never queries issues) when the caller has no accessible projects', async () => {
+    get.mockResolvedValueOnce({ id: 9, name: 'Nobody' }) // member lookup
+    all.mockResolvedValueOnce([]) // no accessible projects — another tenant's issues excluded
+    const app = createApp('outsider@test.com')
+    const res = await request(app).post('/api/report-builder/run').send({ definition: validDef })
+    expect(res.status).toBe(200)
+    expect(res.body.rows).toEqual([])
+    expect(res.body.meta.totalIssues).toBe(0)
+    // Only the accessible-projects query ran; the issues table was never loaded.
+    expect(all).toHaveBeenCalledTimes(1)
+  })
+
+  it('AND-combines the caller\'s scope with an explicit project filter', async () => {
+    get.mockResolvedValueOnce({ id: 3, name: 'Lead' })
+    all
+      .mockResolvedValueOnce([{ id: 10 }, { id: 20 }]) // accessible projects
+      .mockResolvedValueOnce([{ id: 5, status: 'Done', project_id: 10 }])
+    const app = createApp('lead@test.com')
+    const res = await request(app)
+      .post('/api/report-builder/run')
+      .send({ definition: validDef, filters: { project: 10 } })
+    expect(res.status).toBe(200)
+
+    const [issuesSql, issuesParams] = all.mock.calls[1]
+    // filter column first, then the scope IN-list
+    expect(issuesSql).toMatch(/i\.project_id = \? AND i\.project_id IN \(\?, \?\)/)
+    expect(issuesParams).toEqual([10, 10, 20])
   })
 })
 
