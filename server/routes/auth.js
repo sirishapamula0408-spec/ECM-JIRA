@@ -19,11 +19,25 @@ import { authGuard } from '../middleware/authGuard.js'
 import { loadUserRoles } from '../middleware/authorize.js'
 import { sendMail, buildPasswordResetEmail, isSmtpConfigured } from '../utils/mailer.js'
 import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
-import { loginLockout } from '../middleware/loginLockout.js'
+import { loginLockout as defaultLoginLockout } from '../middleware/loginLockout.js'
 import { upsertSsoUser } from '../services/sso.js'
 import { safeAppendAudit } from '../services/auditLog.js'
 import { validatePassword } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
+
+// The brute-force lockout tracker used by the login route. Defaults to the
+// shared, process-wide singleton. It is intentionally swappable so tests can
+// inject a fresh, fully isolated instance (see setLoginLockout below) — this
+// keeps the login-lockout integration test immune to any in-memory state that
+// other suites might leave on the shared singleton when they run in the same
+// worker. Production code always uses the default.
+let loginLockout = defaultLoginLockout
+
+// Test/ops seam: swap the active lockout tracker. Call with no args (or a
+// falsy value) to restore the shared default. Never used by production paths.
+export function setLoginLockout(instance) {
+  loginLockout = instance || defaultLoginLockout
+}
 
 // Build a lockout key from the submitted identity + client IP so that a single
 // abusive source can't be masked by rotating emails, and vice versa.
