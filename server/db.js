@@ -1889,6 +1889,44 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_notifications_project_id ON notifications(project_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_project_members_member_id ON project_members(member_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_wiki_page_id ON issue_wiki_links(wiki_page_id)')
+  // --- JL-189: Add missing foreign keys (installed_apps.workspace_id, automation_logs.issue_id) ---
+  // These two columns were historically bare INTEGERs with no REFERENCES, unlike
+  // every other such reference column, so orphan rows were possible and a
+  // workspace/issue delete left dangling references. Both columns are NULLABLE,
+  // so the safe fix is: (1) null out any pre-existing orphan rows, then (2) add
+  // the FK with ON DELETE SET NULL, guarded so re-running (or an install where
+  // the constraint already exists) never errors. ADD CONSTRAINT is not
+  // IF NOT EXISTS in older PostgreSQL, so we check information_schema first —
+  // matching the fk_projects_lead_member pattern above.
+  await pool.query(
+    'UPDATE installed_apps SET workspace_id = NULL WHERE workspace_id IS NOT NULL AND workspace_id NOT IN (SELECT id FROM workspaces)',
+  )
+  const installedAppsFkExists = await get(
+    `SELECT 1 FROM information_schema.table_constraints
+     WHERE constraint_name = 'fk_installed_apps_workspace' AND table_name = 'installed_apps'`,
+  )
+  if (!installedAppsFkExists) {
+    await pool.query(`
+      ALTER TABLE installed_apps
+      ADD CONSTRAINT fk_installed_apps_workspace
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+    `).catch(() => {}) // Ignore if already exists (race / older catalog)
+  }
+
+  await pool.query(
+    'UPDATE automation_logs SET issue_id = NULL WHERE issue_id IS NOT NULL AND issue_id NOT IN (SELECT id FROM issues)',
+  )
+  const automationLogsFkExists = await get(
+    `SELECT 1 FROM information_schema.table_constraints
+     WHERE constraint_name = 'fk_automation_logs_issue' AND table_name = 'automation_logs'`,
+  )
+  if (!automationLogsFkExists) {
+    await pool.query(`
+      ALTER TABLE automation_logs
+      ADD CONSTRAINT fk_automation_logs_issue
+      FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE SET NULL
+    `).catch(() => {}) // Ignore if already exists (race / older catalog)
+  }
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
