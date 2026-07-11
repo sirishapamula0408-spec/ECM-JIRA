@@ -3,13 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 
-// Mock the db module — no real database is touched.
-vi.mock('../db.js', () => ({
-  run: vi.fn(),
-  all: vi.fn(),
-  get: vi.fn(),
-  withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
-}))
+// Mock the db module — no real database is touched (shared helper, JL-178).
+import { makeDbMock } from './helpers/mockDb.js'
+vi.mock('../db.js', () => makeDbMock())
 
 import { run, all, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
