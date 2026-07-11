@@ -85,6 +85,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
     { label: 'Portfolio', path: '/portfolio', icon: 'dashboards' },
     { label: 'Report Builder', path: '/report-builder', icon: 'dashboards' },
+    { label: 'Advanced Roadmap', path: '/advanced-roadmap', icon: 'roadmap' },
     { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
     { label: 'Cross-Project Boards', path: '/cross-project-boards', icon: 'dashboards' },
   ]
