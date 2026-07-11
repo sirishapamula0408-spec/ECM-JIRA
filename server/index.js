@@ -57,6 +57,7 @@ import schemeRoutes from './routes/schemes.js'
 import screenSchemeRoutes from './routes/screenSchemes.js'
 import fieldConfigRoutes from './routes/fieldConfig.js'
 import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
+import marketplaceRoutes from './routes/marketplace.js'
 import listViewRoutes from './routes/listViews.js'
 import securityLevelRoutes from './routes/securityLevels.js'
 import workspaceRoutes from './routes/workspaces.js'
@@ -193,6 +194,7 @@ app.use('/api', ...protect, fieldConfigRoutes)
 app.use('/api', ...protect, issueTypeSchemeRoutes)
 app.use('/api', ...protect, securityLevelRoutes) // JL-131: issue-level security schemes
 app.use('/api', ...protect, assetRoutes) // JL-142: Asset / CMDB management
+app.use('/api', ...protect, marketplaceRoutes)
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so

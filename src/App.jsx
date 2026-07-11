@@ -57,6 +57,7 @@ import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 import { AssetsPage } from './pages/AssetsPage/AssetsPage'
 import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
 import { KnowledgeBasePage } from './pages/KnowledgeBasePage/KnowledgeBasePage'
+import { MarketplacePage } from './pages/MarketplacePage/MarketplacePage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -174,6 +175,7 @@ function AppContent() {
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
               <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
               <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
