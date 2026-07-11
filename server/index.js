@@ -64,6 +64,7 @@ import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
 import assetRoutes from './routes/assets.js'
 import sessionRoutes from './routes/sessions.js'
+import inboundEmailRoutes, { settingsRouter as inboundEmailSettingsRoutes } from './routes/inboundEmail.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -124,6 +125,11 @@ app.use('/api/auth', authRoutes)
 
 // Public REST API (JL-84): authenticated by user-generated API tokens, not JWT sessions
 app.use('/api/public', publicApiRoutes)
+
+// JL-148: inbound-email provider webhook. Public (no JWT) — a mail provider
+// POSTs a parsed email here; gated by the shared INBOUND_EMAIL_TOKEN. Mounted
+// before the protect block; the Admin-only settings CRUD is mounted below.
+app.use('/api/inbound-email', inboundEmailRoutes)
 
 // SCIM 2.0 provisioning (JL-130): IdP-facing, guarded by its own shared bearer
 // token (SCIM_TOKEN) rather than JWT sessions. Mounted outside the /api tree.
@@ -195,6 +201,7 @@ app.use('/api', ...protect, issueTypeSchemeRoutes)
 app.use('/api', ...protect, securityLevelRoutes) // JL-131: issue-level security schemes
 app.use('/api', ...protect, assetRoutes) // JL-142: Asset / CMDB management
 app.use('/api', ...protect, marketplaceRoutes)
+app.use('/api/inbound-email', ...protect, inboundEmailSettingsRoutes) // JL-148: Admin-only mailbox→project settings
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so

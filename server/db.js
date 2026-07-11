@@ -700,6 +700,35 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_history_issue ON issue_history(issue_id)')
 
+  // --- JL-148: Inbound email → issue creation ---
+  // Maps an inbound mailbox address to a target project. An email to that
+  // mailbox creates a new issue (or, when its subject carries an issue key,
+  // appends a comment). `inbound_email_log` audits every processed message.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS inbound_email_settings (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      mailbox_address TEXT NOT NULL,
+      default_issue_type TEXT NOT NULL DEFAULT 'Task',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS idx_inbound_email_settings_mailbox ON inbound_email_settings(mailbox_address)',
+  )
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS inbound_email_log (
+      id SERIAL PRIMARY KEY,
+      from_address TEXT,
+      subject TEXT,
+      matched_issue_key TEXT,
+      action TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
   // --- JL-52: SLA Tracking & Alerts ---
   // Per-project SLA targets keyed by issue priority. `target_hours` is the
   // budget an issue has before it breaches; `applies_to` distinguishes a

@@ -1,0 +1,158 @@
+.inbound-email-page {
+  max-width: 900px;
+}
+
+.ie-header {
+  margin-bottom: var(--space-4, 16px);
+}
+
+.ie-subtitle {
+  color: var(--color-text-subtle, #6b778c);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.ie-create-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: var(--color-surface-sunken, #f4f5f7);
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: var(--space-4, 16px);
+}
+
+.ie-create-form h3 {
+  flex-basis: 100%;
+  margin: 0 0 4px;
+}
+
+.ie-input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  min-width: 180px;
+}
+
+.ie-error {
+  flex-basis: 100%;
+  color: #de350b;
+  font-size: 0.85rem;
+}
+
+.ie-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: var(--space-6, 24px);
+}
+
+.ie-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: var(--color-surface, #fff);
+}
+
+.ie-card--inactive {
+  opacity: 0.6;
+}
+
+.ie-card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ie-arrow {
+  color: var(--color-text-subtle, #6b778c);
+}
+
+.ie-project {
+  color: var(--color-text, #172b4d);
+}
+
+.ie-type-tag {
+  background: var(--color-surface-sunken, #f4f5f7);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  color: var(--color-text-subtle, #6b778c);
+}
+
+.ie-delete-btn {
+  color: #de350b;
+}
+
+.ie-log-panel {
+  border-top: 1px solid var(--color-border, #dfe1e6);
+  padding-top: 16px;
+}
+
+.ie-empty {
+  color: var(--color-text-subtle, #6b778c);
+  font-size: 0.9rem;
+}
+
+.ie-log-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-subtle, #ebecf0);
+  font-size: 0.85rem;
+}
+
+.ie-log-action {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+.ie-log-action--created {
+  background: #e3fcef;
+  color: #006644;
+}
+
+.ie-log-action--commented {
+  background: #deebff;
+  color: #0747a6;
+}
+
+.ie-log-action--ignored,
+.ie-log-action--nomatch {
+  background: #ffebe6;
+  color: #bf2600;
+}
+
+.ie-log-from {
+  color: var(--color-text, #172b4d);
+  font-weight: 500;
+}
+
+.ie-log-subject {
+  color: var(--color-text-subtle, #6b778c);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ie-log-key {
+  font-family: monospace;
+  color: #0747a6;
+}
+
+.ie-log-time {
+  color: var(--color-text-subtle, #6b778c);
+  font-size: 0.75rem;
+}

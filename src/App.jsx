@@ -50,6 +50,7 @@ import { ProjectSummaryPage } from './pages/ProjectSummaryPage/ProjectSummaryPag
 import { ActivityFeedPage } from './pages/ActivityFeedPage/ActivityFeedPage'
 import { WikiPage } from './pages/WikiPage/WikiPage'
 import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
+import { InboundEmailPage } from './pages/InboundEmailPage/InboundEmailPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
@@ -176,6 +177,7 @@ function AppContent() {
               <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
               <Route path="/marketplace" element={<MarketplacePage />} />
+              <Route path="/inbound-email" element={hasProjects ? <InboundEmailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
               <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
