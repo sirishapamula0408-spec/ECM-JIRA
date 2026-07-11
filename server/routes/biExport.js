@@ -3,6 +3,10 @@ import { all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { parsePagination } from '../utils/pagination.js'
+import { csvCell, toCsv, toNdjson } from '../utils/tabular.js'
+
+// Re-exported so existing importers (and the JL-156 test) keep working.
+export { csvCell, toCsv, toNdjson }
 
 const router = Router()
 
@@ -66,29 +70,6 @@ export function toFactRow(issueRow) {
     // resolved_at is derived where a dedicated column is absent.
     resolved_at: r.resolved_at ?? null,
   }
-}
-
-/** Escape a single CSV cell (quotes, commas, newlines, carriage returns). */
-export function csvCell(val) {
-  const s = val === null || val === undefined ? '' : String(val)
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-
-/**
- * Serialize rows to a CSV string with a header row.
- * @param {object[]} rows
- * @param {string[]} columns column order / header names
- */
-export function toCsv(rows, columns) {
-  const cols = columns && columns.length ? columns : (rows[0] ? Object.keys(rows[0]) : [])
-  const header = cols.map(csvCell).join(',')
-  const body = (rows || []).map((row) => cols.map((c) => csvCell(row[c])).join(','))
-  return [header, ...body].join('\n')
-}
-
-/** Serialize rows to newline-delimited JSON (one JSON object per line). */
-export function toNdjson(rows) {
-  return (rows || []).map((r) => JSON.stringify(r)).join('\n')
 }
 
 /**
