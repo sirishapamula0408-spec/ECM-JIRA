@@ -82,6 +82,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Queues', path: '/queues', icon: 'filters' },
     { label: 'Incidents', path: '/incidents', icon: 'workflow' },
     { label: 'Apps', path: '/plugins', icon: 'dashboards' },
+    { label: 'BI Export', path: '/bi-export', icon: 'dashboards' },
   ]
 
   const utilityItems = [

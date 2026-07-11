@@ -41,6 +41,7 @@ import wikiRoutes from './routes/wiki.js'
 import kbRoutes from './routes/kb.js'
 import labelRoutes from './routes/labels.js'
 import importExportRoutes from './routes/importExport.js'
+import biExportRoutes from './routes/biExport.js'
 import attachmentRoutes from './routes/attachments.js'
 import issueLinkRoutes from './routes/issueLinks.js'
 import dependencyRoutes from './routes/dependencies.js'
@@ -202,6 +203,7 @@ app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, kbRoutes) // JL-144: knowledge base (/api/kb/*)
 app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)
+app.use('/api', ...protect, biExportRoutes) // JL-156: BI / data-warehouse export
 app.use('/api', ...protect, attachmentRoutes)
 app.use('/api', ...protect, issueLinkRoutes)
 app.use('/api', ...protect, dependencyRoutes)

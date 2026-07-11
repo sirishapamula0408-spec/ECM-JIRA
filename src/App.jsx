@@ -56,6 +56,7 @@ import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboa
 import { CrossProjectBoardPage } from './pages/CrossProjectBoardPage/CrossProjectBoardPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { AuditLogPage } from './pages/AuditLogPage/AuditLogPage'
+import { BiExportPage } from './pages/BiExportPage/BiExportPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 import { AssetsPage } from './pages/AssetsPage/AssetsPage'
@@ -190,6 +191,7 @@ function AppContent() {
               <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/inbound-email" element={hasProjects ? <InboundEmailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/audit-log" element={<AuditLogPage />} />
+              <Route path="/bi-export" element={<BiExportPage />} />
               <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
               <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
