@@ -4,20 +4,12 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { verifyChain, entriesToPurge } from '../services/auditLog.js'
 import { AUDIT_RETENTION_DAYS } from '../config.js'
+import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
 
 // All audit-log endpoints are Admin (or Owner) only.
 router.use(requireRole('Admin'))
-
-/* ---------- CSV helpers ---------- */
-function csvEscape(val) {
-  const s = val === null || val === undefined ? '' : String(val)
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-function toCsv(rows, fields) {
-  return [fields.join(','), ...rows.map((r) => fields.map((f) => csvEscape(r[f])).join(','))].join('\n')
-}
 
 const EXPORT_FIELDS = ['seq', 'actor', 'action', 'target', 'metadata', 'prev_hash', 'hash', 'created_at']
 
