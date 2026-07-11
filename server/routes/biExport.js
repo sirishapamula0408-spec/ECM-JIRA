@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { parsePagination } from '../utils/pagination.js'
 
 const router = Router()
 
@@ -211,8 +212,7 @@ function sendFormatted(res, format, rows, columns, filenameBase) {
 router.get('/bi/export/issues', requireRole('Admin'), asyncHandler(async (req, res) => {
   const format = String(req.query.format || 'json').toLowerCase()
   const since = parseSince(req.query.since)
-  const limit = Math.min(Math.max(Number(req.query.limit) || 10000, 1), 50000)
-  const offset = Math.max(Number(req.query.offset) || 0, 0)
+  const { limit, offset } = parsePagination(req.query, { defaultLimit: 10000, maxLimit: 50000 })
 
   // Scope to the resolved workspace's projects. Legacy NULL-workspace rows stay
   // visible so single-tenant installs are unaffected (mirrors projects.js).

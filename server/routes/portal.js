@@ -2,12 +2,9 @@ import { Router } from 'express'
 import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { isEmail } from '../utils/validation.js'
 
 const router = Router()
-
-// Simple, permissive email shape check — good enough to reject obviously
-// malformed addresses without pulling in a dependency.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * JL-140: pure, db-free validation for a customer portal submission.
@@ -27,7 +24,7 @@ export function validateRequestSubmission(body, requestType) {
   const email = String(b.requesterEmail || '').trim()
   if (!email) {
     errors.push('requesterEmail is required')
-  } else if (!EMAIL_RE.test(email)) {
+  } else if (!isEmail(email)) {
     errors.push('requesterEmail must be a valid email address')
   }
 

@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { verifyChain, entriesToPurge } from '../services/auditLog.js'
 import { AUDIT_RETENTION_DAYS } from '../config.js'
+import { parsePagination } from '../utils/pagination.js'
 
 const router = Router()
 
@@ -36,8 +37,7 @@ function buildFilters(query) {
 /* ---------- GET /api/audit-log — list + filters + pagination ---------- */
 router.get('/audit-log', asyncHandler(async (req, res) => {
   const { where, params } = buildFilters(req.query)
-  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 500)
-  const offset = Math.max(Number(req.query.offset) || 0, 0)
+  const { limit, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 500 })
 
   const rows = await all(
     `SELECT id, seq, actor, action, target, metadata, prev_hash, hash, created_at

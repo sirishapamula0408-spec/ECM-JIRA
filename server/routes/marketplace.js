@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { requireFields } from '../utils/validation.js'
 
 /**
  * Pure, unit-testable validator for an app listing payload.
@@ -9,13 +10,12 @@ import { requireRole } from '../middleware/authorize.js'
  * @returns {{ ok: boolean, errors: string[] }}
  */
 export function validateAppListing(body) {
-  const errors = []
   const b = body || {}
+  const errors = []
   const key = typeof b.key === 'string' ? b.key.trim() : ''
-  const name = typeof b.name === 'string' ? b.name.trim() : ''
   if (!key) errors.push('key is required')
   else if (!/^[a-z0-9-]+$/.test(key)) errors.push('key must be slug-like (lowercase letters, numbers, hyphens)')
-  if (!name) errors.push('name is required')
+  errors.push(...requireFields(b, ['name']).errors)
   return { ok: errors.length === 0, errors }
 }
 
