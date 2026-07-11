@@ -4,7 +4,7 @@
 // Pure middleware unit tests with an injectable clock (no real timers) plus a
 // db-mocked integration check that the login route enforces the lockout gate.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { rateLimit } from '../middleware/rateLimit.js'
 import { createLoginLockout } from '../middleware/loginLockout.js'
@@ -256,17 +256,28 @@ vi.mock('../db.js', () => ({
 }))
 
 describe('POST /api/auth/login lockout gate', () => {
-  let request, express, get, authRoutes, errorHandler, loginLockout
+  let request, express, get, authRoutes, errorHandler, createLoginLockout, setLoginLockout
 
   beforeEach(async () => {
     vi.clearAllMocks()
     request = (await import('supertest')).default
     express = (await import('express')).default
     ;({ get } = await import('../db.js'))
-    authRoutes = (await import('../routes/auth.js')).default
+    ;({ default: authRoutes, setLoginLockout } = await import('../routes/auth.js'))
     ;({ errorHandler } = await import('../middleware/errorHandler.js'))
-    ;({ loginLockout } = await import('../middleware/loginLockout.js'))
-    loginLockout.clear()
+    ;({ createLoginLockout } = await import('../middleware/loginLockout.js'))
+    // Inject a FRESH, fully isolated lockout instance into the auth route for
+    // the duration of this test. This makes the assertion deterministic under
+    // the full parallel suite: the shared, process-wide `loginLockout`
+    // singleton can accumulate state from other auth-touching suites that run
+    // in the same worker, but here the route counts failures against a Map that
+    // no other suite can see. Same default config (5 attempts) → same behaviour.
+    setLoginLockout(createLoginLockout())
+  })
+
+  afterEach(() => {
+    // Restore the shared default so we don't leak our test instance onward.
+    setLoginLockout()
   })
 
   function makeApp() {
@@ -301,5 +312,9 @@ describe('POST /api/auth/login lockout gate', () => {
     expect(locked.status).toBe(429)
     expect(locked.headers['retry-after']).toBeDefined()
     expect(locked.body.error).toMatch(/too many failed login/i)
-  })
+    // This test performs 6 sequential supertest round-trips (each spins up a
+    // real HTTP server). Under the full parallel suite that can take several
+    // seconds on a busy CI box, so give it explicit headroom over the default
+    // per-test timeout rather than letting contention turn it flaky.
+  }, 30000)
 })
