@@ -4,6 +4,7 @@ import {
   deleteSharedDashboard, cloneSharedDashboard,
 } from '../../api/sharedDashboardApi'
 import { useAuth } from '../../context/AuthContext'
+import { GadgetBoard } from '../../components/dashboard/GadgetBoard'
 import './SharedDashboardsPage.css'
 
 export function SharedDashboardsPage() {
@@ -12,6 +13,7 @@ export function SharedDashboardsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', visibility: 'private' })
   const [editing, setEditing] = useState(null)
+  const [viewing, setViewing] = useState(null)
 
   const load = useCallback(() => {
     fetchSharedDashboards()
@@ -20,6 +22,12 @@ export function SharedDashboardsPage() {
   }, [])
 
   useEffect(load, [load])
+
+  const saveLayout = useCallback(async (id, layout) => {
+    const updated = await updateSharedDashboard(id, { layout })
+    setDashboards((prev) => prev.map((d) => (d.id === id ? updated : d)))
+    setViewing((v) => (v && v.id === id ? updated : v))
+  }, [])
 
   async function handleCreate() {
     if (!form.name.trim()) return
@@ -67,6 +75,28 @@ export function SharedDashboardsPage() {
   const myDashboards = dashboards.filter((d) => d.owner_email === authUser?.email)
   const sharedWithMe = dashboards.filter((d) => d.owner_email !== authUser?.email)
 
+  if (viewing) {
+    const isOwner = viewing.owner_email === authUser?.email
+    return (
+      <section className="page shared-dashboards-page">
+        <div className="sd-header">
+          <div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setViewing(null); load() }}>
+              ← Back to dashboards
+            </button>
+            <h1>{viewing.name}</h1>
+          </div>
+        </div>
+        {viewing.description && <p className="sd-card-desc">{viewing.description}</p>}
+        <GadgetBoard
+          layout={Array.isArray(viewing.layout) ? viewing.layout : []}
+          readOnly={!isOwner}
+          onSave={(layout) => saveLayout(viewing.id, layout)}
+        />
+      </section>
+    )
+  }
+
   return (
     <section className="page shared-dashboards-page">
       <div className="sd-header">
@@ -111,6 +141,7 @@ export function SharedDashboardsPage() {
                   Updated {new Date(d.updated_at).toLocaleDateString()}
                 </div>
                 <div className="sd-card-actions">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setViewing(d)}>Open</button>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => startEdit(d)}>Edit</button>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleClone(d.id)}>Clone</button>
                   <button type="button" className="btn btn-ghost btn-sm sd-delete-btn" onClick={() => handleDelete(d.id)}>Delete</button>
@@ -136,6 +167,7 @@ export function SharedDashboardsPage() {
                   By {d.owner_email} &middot; Updated {new Date(d.updated_at).toLocaleDateString()}
                 </div>
                 <div className="sd-card-actions">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setViewing(d)}>Open</button>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleClone(d.id)}>Clone</button>
                 </div>
               </div>
