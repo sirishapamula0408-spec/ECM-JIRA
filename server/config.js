@@ -161,14 +161,22 @@ export function isSamlConfigured(cfg = getSamlConfig()) {
   return Boolean(cfg && cfg.entryPoint && cfg.issuer && cfg.cert && cfg.callbackUrl)
 }
 
-// --- SCIM 2.0 provisioning (JL-130) ---
+// --- SCIM 2.0 provisioning (JL-130, hardened JL-184) ---
 // Shared bearer token that an enterprise IdP (Okta/Azure AD) presents on every
-// /scim/v2 request. Defaults to a dev value so local/testing works out of the
-// box; ALWAYS override with a strong secret in production.
-export const SCIM_TOKEN = process.env.SCIM_TOKEN || 'dev-scim-token-change-me'
+// /scim/v2 request. NO in-code default (JL-184): a repo-visible default token
+// would leave the provisioning/deprovisioning API live behind a known
+// credential. When unset, SCIM is treated as NOT configured and every
+// /scim/v2 request is rejected with 501 (mirrors the JL-81/JL-129 config-gated
+// pattern). Read via `getScimToken()` at request time so it can be toggled
+// per-test without re-importing this module.
+export const SCIM_TOKEN = process.env.SCIM_TOKEN || ''
+
+export function getScimToken() {
+  return process.env.SCIM_TOKEN || ''
+}
 
 export function isScimConfigured() {
-  return Boolean(SCIM_TOKEN)
+  return Boolean(getScimToken())
 }
 
 // --- JL-137: Cloud attachment storage (S3-compatible, config-gated) ---

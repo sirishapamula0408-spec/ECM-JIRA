@@ -3,6 +3,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { INBOUND_EMAIL_TOKEN } from '../config.js'
+import { safeEqual } from '../utils/safeEqual.js'
 
 /**
  * JL-148 — Inbound email → issue creation.
@@ -77,7 +78,8 @@ export function parseInboundEmail(payload = {}) {
 function tokenAllowed(req) {
   if (!INBOUND_EMAIL_TOKEN) return true
   const provided = req.get('x-inbound-token') || req.body?.token
-  return String(provided || '') === String(INBOUND_EMAIL_TOKEN)
+  // Constant-time compare (JL-184) so a timing side-channel can't reveal the token.
+  return safeEqual(provided, INBOUND_EMAIL_TOKEN)
 }
 
 async function logInbound(fromAddress, subject, matchedKey, action) {
