@@ -616,36 +616,6 @@ export async function initializeDatabase() {
     )
   `)
 
-  // --- JL-144: Customer-facing Knowledge Base ---
-  // A JSM-style help-article store, workspace/global scoped and SEPARATE from
-  // the project wiki (JL-48). Articles have draft/published states plus a
-  // public read view; categories are optional grouping.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS kb_categories (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      description TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS kb_articles (
-      id SERIAL PRIMARY KEY,
-      category_id INTEGER REFERENCES kb_categories(id) ON DELETE SET NULL,
-      title TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      body TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
-      author_email TEXT,
-      views INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_kb_articles_status ON kb_articles(status)')
-
   // --- Theme-1 #1: Sub-tasks ---
   // Nullable self-referencing parent; deleting a parent cascades to its sub-tasks.
   if (!(await columnExists('issues', 'parent_id'))) {
@@ -700,53 +670,6 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_history_issue ON issue_history(issue_id)')
 
-  // --- JL-148: Inbound email → issue creation ---
-  // Maps an inbound mailbox address to a target project. An email to that
-  // mailbox creates a new issue (or, when its subject carries an issue key,
-  // appends a comment). `inbound_email_log` audits every processed message.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS inbound_email_settings (
-      id SERIAL PRIMARY KEY,
-      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-      mailbox_address TEXT NOT NULL,
-      default_issue_type TEXT NOT NULL DEFAULT 'Task',
-      enabled BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  await pool.query(
-    'CREATE INDEX IF NOT EXISTS idx_inbound_email_settings_mailbox ON inbound_email_settings(mailbox_address)',
-  )
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS inbound_email_log (
-      id SERIAL PRIMARY KEY,
-      from_address TEXT,
-      subject TEXT,
-      matched_issue_key TEXT,
-      action TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  // --- JL-132: Tamper-evident audit log (append-only, hash-chained) ---
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS audit_log (
-      id BIGSERIAL PRIMARY KEY,
-      seq INTEGER NOT NULL,
-      actor TEXT,
-      action TEXT NOT NULL,
-      target TEXT,
-      metadata JSONB,
-      prev_hash TEXT,
-      hash TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq ON audit_log(seq)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)')
-
   // --- JL-52: SLA Tracking & Alerts ---
   // Per-project SLA targets keyed by issue priority. `target_hours` is the
   // budget an issue has before it breaches; `applies_to` distinguishes a
@@ -763,24 +686,6 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_sla_policies_project ON sla_policies(project_id)')
-
-  // --- JL-141: Queues & SLAs-as-a-product ---
-  // A queue is a named, ordered, filtered list of issues a support team works
-  // from. `filter` is a JSONB criteria object (statuses[], priorities[],
-  // assignee, labels[]). `order_by` names a whitelisted sort column.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS queues (
-      id SERIAL PRIMARY KEY,
-      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      description TEXT,
-      filter JSONB NOT NULL DEFAULT '{}'::jsonb,
-      order_by TEXT NOT NULL DEFAULT 'created_at',
-      position INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_queues_project ON queues(project_id)')
 
   // --- Theme-1 #5: Time Tracking ---
   if (!(await columnExists('issues', 'original_estimate_minutes'))) {
@@ -1198,24 +1103,6 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_email)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)')
 
-  // --- JL-133: Session / device management ---
-  // One row per issued login token, keyed by the JWT's `jti`. Lets a user list
-  // and revoke active sessions/devices; authGuard best-effort checks `revoked`.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS user_sessions (
-      id SERIAL PRIMARY KEY,
-      user_email TEXT NOT NULL,
-      jti TEXT UNIQUE,
-      user_agent TEXT,
-      ip TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      revoked BOOLEAN NOT NULL DEFAULT FALSE
-    )
-  `)
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_email ON user_sessions(user_email)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_jti ON user_sessions(jti)')
-
   // --- JL-85: Board configuration (swimlanes, quick filters, WIP limits) ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS board_configs (
@@ -1256,30 +1143,6 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_git_links_issue ON git_links(issue_id)')
-
-  // --- JL-147: Deep Git integration (PR state, deployments, provider webhooks) ---
-  // Extend git_links with pull-request state tracking (open/merged/closed).
-  if (!(await columnExists('git_links', 'state'))) {
-    await pool.query("ALTER TABLE git_links ADD COLUMN state TEXT DEFAULT ''")
-  }
-  if (!(await columnExists('git_links', 'merged_at'))) {
-    await pool.query('ALTER TABLE git_links ADD COLUMN merged_at TIMESTAMPTZ')
-  }
-  // Deployment records surfaced against an issue (issue_id nullable — a deploy
-  // may reference no known key). Populated by the provider webhook.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS deployments (
-      id SERIAL PRIMARY KEY,
-      issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
-      environment TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT '',
-      version TEXT DEFAULT '',
-      url TEXT DEFAULT '',
-      deployed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_deployments_issue ON deployments(issue_id, deployed_at DESC)')
 
   // --- JL-56: CI/CD Pipeline Status ---
   await pool.query(`
@@ -1602,6 +1465,7 @@ export async function initializeDatabase() {
       'ALTER TABLE issues ADD COLUMN security_level_id INTEGER REFERENCES security_levels(id) ON DELETE SET NULL',
     )
   }
+
   // --- JL-142: Asset / CMDB management ---
   // Lightweight Configuration Management Database. Asset types describe a class
   // of thing (Server, Laptop, Service, License...); assets are concrete
@@ -1612,18 +1476,6 @@ export async function initializeDatabase() {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       icon TEXT DEFAULT '',
-  // --- JL-146: App registry / marketplace (catalog + per-workspace install state) ---
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS marketplace_apps (
-      id SERIAL PRIMARY KEY,
-      key TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      vendor TEXT DEFAULT '',
-      description TEXT DEFAULT '',
-      category TEXT DEFAULT '',
-      icon TEXT DEFAULT '',
-      version TEXT DEFAULT '1.0.0',
-      config_schema JSONB NOT NULL DEFAULT '{}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
@@ -1649,6 +1501,71 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_assets_asset ON issue_assets(asset_id)')
+
+  // --- JL-144: Customer-facing Knowledge Base ---
+  // A JSM-style help-article store, workspace/global scoped and SEPARATE from
+  // the project wiki (JL-48). Articles have draft/published states plus a
+  // public read view; categories are optional grouping.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kb_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kb_articles (
+      id SERIAL PRIMARY KEY,
+      category_id INTEGER REFERENCES kb_categories(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      body TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      author_email TEXT,
+      views INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_kb_articles_status ON kb_articles(status)')
+
+  // --- JL-133: Session / device management ---
+  // One row per issued login token, keyed by the JWT's `jti`. Lets a user list
+  // and revoke active sessions/devices; authGuard best-effort checks `revoked`.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      jti TEXT UNIQUE,
+      user_agent TEXT,
+      ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revoked BOOLEAN NOT NULL DEFAULT FALSE
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_email ON user_sessions(user_email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_jti ON user_sessions(jti)')
+
+  // --- JL-146: App registry / marketplace (catalog + per-workspace install state) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS marketplace_apps (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      vendor TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      category TEXT DEFAULT '',
+      icon TEXT DEFAULT '',
+      version TEXT DEFAULT '1.0.0',
+      config_schema JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS installed_apps (
       id SERIAL PRIMARY KEY,
       app_id INTEGER NOT NULL REFERENCES marketplace_apps(id) ON DELETE CASCADE,
@@ -1661,6 +1578,36 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_installed_apps_workspace ON installed_apps(workspace_id)')
+
+  // --- JL-148: Inbound email → issue creation ---
+  // Maps an inbound mailbox address to a target project. An email to that
+  // mailbox creates a new issue (or, when its subject carries an issue key,
+  // appends a comment). `inbound_email_log` audits every processed message.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS inbound_email_settings (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      mailbox_address TEXT NOT NULL,
+      default_issue_type TEXT NOT NULL DEFAULT 'Task',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS idx_inbound_email_settings_mailbox ON inbound_email_settings(mailbox_address)',
+  )
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS inbound_email_log (
+      id SERIAL PRIMARY KEY,
+      from_address TEXT,
+      subject TEXT,
+      matched_issue_key TEXT,
+      action TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
   // --- JL-140: Customer request portal (external-facing) ---
   // request_types: the catalog of request types customers can pick from, each
   // scoped to a target project. `fields` is a JSONB array describing the form
@@ -1674,14 +1621,6 @@ export async function initializeDatabase() {
       icon TEXT DEFAULT '',
       fields JSONB NOT NULL DEFAULT '[]'::jsonb,
       default_issue_type TEXT NOT NULL DEFAULT 'Task',
-  // --- JL-145: Plugin/app framework — declarative extension-point manifests. ---
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS plugin_manifests (
-      id SERIAL PRIMARY KEY,
-      app_key TEXT,
-      name TEXT NOT NULL,
-      version TEXT NOT NULL DEFAULT '1.0.0',
-      contributions JSONB NOT NULL DEFAULT '[]',
       enabled BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -1699,6 +1638,26 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_requests_email ON portal_requests(requester_email)')
+
+  // --- JL-132: Tamper-evident audit log (append-only, hash-chained) ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id BIGSERIAL PRIMARY KEY,
+      seq INTEGER NOT NULL,
+      actor TEXT,
+      action TEXT NOT NULL,
+      target TEXT,
+      metadata JSONB,
+      prev_hash TEXT,
+      hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq ON audit_log(seq)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)')
+
   // --- JL-134: Org-wide security policy (single-row) + password rotation ---
   // A single row (id = 1) holds the org's enforced 2FA + password-complexity
   // rules. Defaults are intentionally PERMISSIVE (min length 8, no other
@@ -1724,6 +1683,25 @@ export async function initializeDatabase() {
   `)
   // Track when each user last changed their password, for rotation enforcement.
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ')
+
+  // --- JL-141: Queues & SLAs-as-a-product ---
+  // A queue is a named, ordered, filtered list of issues a support team works
+  // from. `filter` is a JSONB criteria object (statuses[], priorities[],
+  // assignee, labels[]). `order_by` names a whitelisted sort column.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS queues (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      filter JSONB NOT NULL DEFAULT '{}'::jsonb,
+      order_by TEXT NOT NULL DEFAULT 'created_at',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_queues_project ON queues(project_id)')
+
   // --- JL-143: Incident & on-call management ---
   // Operational incidents (optionally tied to an issue) with a timeline, plus
   // on-call schedules and their shifts so the current responder is always known.
@@ -1772,6 +1750,31 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_oncall_shifts_schedule ON oncall_shifts(schedule_id)')
+
+  // --- JL-147: Deep Git integration (PR state, deployments, provider webhooks) ---
+  // Extend git_links with pull-request state tracking (open/merged/closed).
+  if (!(await columnExists('git_links', 'state'))) {
+    await pool.query("ALTER TABLE git_links ADD COLUMN state TEXT DEFAULT ''")
+  }
+  if (!(await columnExists('git_links', 'merged_at'))) {
+    await pool.query('ALTER TABLE git_links ADD COLUMN merged_at TIMESTAMPTZ')
+  }
+  // Deployment records surfaced against an issue (issue_id nullable — a deploy
+  // may reference no known key). Populated by the provider webhook.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS deployments (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
+      environment TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT '',
+      version TEXT DEFAULT '',
+      url TEXT DEFAULT '',
+      deployed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_deployments_issue ON deployments(issue_id, deployed_at DESC)')
+
   // --- JL-151: Custom report builder — saved report definitions. ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS saved_reports (
@@ -1783,6 +1786,7 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_saved_reports_owner ON saved_reports(owner_email)')
+
   // --- JL-123: Cross-project boards ---
   // A saved board definition that aggregates issues from multiple projects into
   // one Kanban view. project_ids is a JSON array of project ids; swimlane_by
@@ -1800,6 +1804,7 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_cross_project_boards_owner ON cross_project_boards(owner_email)')
+
   // --- JL-125: Advanced Roadmaps (multi-team, dependency- & capacity-aware) ---
   // Dependencies between epics (issues with issue_type='Epic'). Default type is
   // finish_to_start: the to-epic must not start before the from-epic finishes.
@@ -1831,6 +1836,19 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_team_capacity_project ON team_capacity(project_id)')
+
+  // --- JL-145: Plugin/app framework — declarative extension-point manifests. ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS plugin_manifests (
+      id SERIAL PRIMARY KEY,
+      app_key TEXT,
+      name TEXT NOT NULL,
+      version TEXT NOT NULL DEFAULT '1.0.0',
+      contributions JSONB NOT NULL DEFAULT '[]',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_plugin_manifests_enabled ON plugin_manifests(enabled)')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
