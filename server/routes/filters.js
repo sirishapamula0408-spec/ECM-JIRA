@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { canViewIssue } from '../services/issueSecurity.js'
 
 const router = Router()
 
@@ -432,12 +433,14 @@ router.post('/ai-search', asyncHandler(async (req, res) => {
   try {
     const { conditions, params, orderBy, interpreted } = parseNaturalLanguage(query.trim())
     const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
-    const sql = `SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues${where} ORDER BY ${orderBy}`
+    const sql = `SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at, reporter, security_level_id FROM issues${where} ORDER BY ${orderBy}`
 
     const rows = await all(sql, params)
+    // JL-185: enforce issue-level security — drop restricted issues the caller can't view.
+    const visible = rows.filter((row) => canViewIssue(row, req.user))
     res.json({
       interpreted,
-      issues: rows.map((row) => ({
+      issues: visible.map((row) => ({
         id: row.id,
         key: row.issue_key,
         title: row.title,
@@ -468,10 +471,11 @@ router.post('/jql', asyncHandler(async (req, res) => {
     const { conditions, params, orderBy } = parseJql(jql.trim())
     const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
     const order = orderBy || 'id DESC'
-    const sql = `SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues${where} ORDER BY ${order}`
+    const sql = `SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at, reporter, security_level_id FROM issues${where} ORDER BY ${order}`
 
     const rows = await all(sql, params)
-    res.json(rows.map((row) => ({
+    // JL-185: enforce issue-level security — drop restricted issues the caller can't view.
+    res.json(rows.filter((row) => canViewIssue(row, req.user)).map((row) => ({
       id: row.id,
       key: row.issue_key,
       title: row.title,
@@ -523,10 +527,11 @@ router.post('/search', asyncHandler(async (req, res) => {
   }
 
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
-  const sql = `SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at FROM issues${where} ORDER BY id DESC`
+  const sql = `SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, created_at, reporter, security_level_id FROM issues${where} ORDER BY id DESC`
 
   const rows = await all(sql, params)
-  res.json(rows.map((row) => ({
+  // JL-185: enforce issue-level security — drop restricted issues the caller can't view.
+  res.json(rows.filter((row) => canViewIssue(row, req.user)).map((row) => ({
     id: row.id,
     key: row.issue_key,
     title: row.title,
