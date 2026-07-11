@@ -33,6 +33,7 @@ import favoriteRoutes from './routes/favorites.js'
 import approvalRoutes from './routes/approvals.js'
 import sharedDashboardRoutes from './routes/shared-dashboards.js'
 import dashboardGadgetRoutes from './routes/dashboardGadgets.js'
+import crossProjectBoardRoutes from './routes/crossProjectBoards.js'
 import webhookRoutes from './routes/webhooks.js'
 import eventRoutes from './routes/events.js'
 import wikiRoutes from './routes/wiki.js'
@@ -189,6 +190,7 @@ app.use('/api', ...protect, favoriteRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
 app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api', ...protect, dashboardGadgetRoutes) // JL-152: /api/dashboards/gadgets/*
+app.use('/api/cross-project-boards', ...protect, crossProjectBoardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)
 app.use('/api/events', ...protect, eventRoutes)
 app.use('/api', ...protect, auditLogRoutes)

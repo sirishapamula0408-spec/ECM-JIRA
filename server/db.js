@@ -1775,6 +1775,23 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_saved_reports_owner ON saved_reports(owner_email)')
+  // --- JL-123: Cross-project boards ---
+  // A saved board definition that aggregates issues from multiple projects into
+  // one Kanban view. project_ids is a JSON array of project ids; swimlane_by
+  // controls grouping ('project' | 'assignee' | 'none'); filter holds optional
+  // status/assignee filters. Owner-scoped.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cross_project_boards (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_email TEXT NOT NULL,
+      project_ids JSONB NOT NULL DEFAULT '[]',
+      swimlane_by TEXT NOT NULL DEFAULT 'project',
+      filter JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_cross_project_boards_owner ON cross_project_boards(owner_email)')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so

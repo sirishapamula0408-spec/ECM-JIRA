@@ -53,6 +53,7 @@ import { WikiPage } from './pages/WikiPage/WikiPage'
 import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
 import { InboundEmailPage } from './pages/InboundEmailPage/InboundEmailPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
+import { CrossProjectBoardPage } from './pages/CrossProjectBoardPage/CrossProjectBoardPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { AuditLogPage } from './pages/AuditLogPage/AuditLogPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
@@ -181,6 +182,7 @@ function AppContent() {
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
               <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/cross-project-boards" element={hasProjects ? <CrossProjectBoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
               <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/inbound-email" element={hasProjects ? <InboundEmailPage /> : <Navigate to="/projects" replace />} />
