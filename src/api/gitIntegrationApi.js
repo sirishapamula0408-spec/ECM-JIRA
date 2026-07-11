@@ -22,3 +22,14 @@ export const deleteGitLink = (linkId) =>
 
 export const ingestGitEvent = (payload) =>
   api('/api/git/ingest', { method: 'POST', body: JSON.stringify(payload) })
+
+// JL-147: deployments recorded against an issue via the provider webhook.
+export const fetchDeployments = (issueId) =>
+  api(`/api/issues/${issueId}/deployments`)
+
+// JL-147: pull-request state → chip label / css-modifier.
+export const PR_STATE_LABELS = {
+  open: 'Open',
+  merged: 'Merged',
+  closed: 'Closed',
+}

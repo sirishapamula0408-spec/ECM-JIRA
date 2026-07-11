@@ -81,6 +81,11 @@ export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 // and existing tests are entirely unaffected. Set it in production to restrict
 // API access to an org's known network ranges.
 export const IP_ALLOWLIST = process.env.IP_ALLOWLIST || ''
+// JL-147: shared secret gating the Git provider webhook (/api/git/webhook).
+// When unset the endpoint is open (dev convenience); when set, requests must
+// present a matching shared token or a valid HMAC-SHA256 signature.
+// Read via process.env at request time so it can be toggled per-test.
+export const GIT_WEBHOOK_SECRET = process.env.GIT_WEBHOOK_SECRET || ''
 
 // General API rate limiter (applied early, all /api traffic). Generous defaults
 // so normal usage — and multi-request test suites — never trip it.

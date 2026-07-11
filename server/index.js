@@ -53,6 +53,7 @@ import boardConfigRoutes from './routes/boardConfig.js'
 import slaRoutes from './routes/sla.js'
 import queueRoutes from './routes/queues.js'
 import gitIntegrationRoutes from './routes/gitIntegration.js'
+import gitIntegrationRoutes, { gitWebhookRouter } from './routes/gitIntegration.js'
 import cicdRoutes from './routes/cicd.js'
 import publicApiRoutes from './routes/publicApi.js'
 import apiTokenRoutes from './routes/apiTokens.js'
@@ -145,6 +146,10 @@ app.use('/scim/v2', scimRoutes)
 // API documentation (JL-58) — public, mounted before auth-protected routes
 // GET /api/openapi.json (raw OpenAPI 3.0 spec) and GET /api/docs (HTML viewer)
 app.use('/api', docsRoutes)
+
+// JL-147: Git provider webhook — external providers can't carry a JWT session,
+// so it's mounted publicly here and gated by GIT_WEBHOOK_SECRET (when set).
+app.use('/api', gitWebhookRouter)
 
 // Protected routes (JWT + role loading)
 // authGuard verifies JWT and sets req.user = { id, email }
