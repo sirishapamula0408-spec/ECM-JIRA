@@ -78,10 +78,16 @@ function normalizeEntry(row) {
  * Returns { ok, brokenAt } where brokenAt is the seq of the first entry whose
  * stored hash does not match the recomputed hash (or whose prev_hash does not
  * link to the previous entry). UNIT-TESTABLE with plain arrays.
+ *
+ * `startPrevHash` (JL-188) is the hash the EARLIEST entry's prev_hash must link
+ * to. It defaults to GENESIS_HASH for a full, un-purged chain. After a retention
+ * purge, callers pass the recorded checkpoint hash (the hash of the last purged
+ * entry) so the surviving-but-purged chain still verifies ok, while any tamper
+ * of a surviving entry — or an un-recorded deletion — is still detected.
  */
-export function verifyChain(entries) {
+export function verifyChain(entries, startPrevHash = GENESIS_HASH) {
   const list = (entries || []).map((e) => (e && e.prev_hash !== undefined ? normalizeEntry(e) : e))
-  let prevHash = GENESIS_HASH
+  let prevHash = startPrevHash ?? GENESIS_HASH
   for (const entry of list) {
     const expectedPrev = entry.prevHash ?? GENESIS_HASH
     // The stored prev_hash must link to the actual previous entry's hash.
@@ -128,8 +134,12 @@ export function entriesToPurge(entries, now, retentionDays) {
  */
 export async function appendAudit({ actor, action, target = null, metadata = null }) {
   const last = await get('SELECT seq, hash FROM audit_log ORDER BY seq DESC LIMIT 1', [])
-  const seq = (last?.seq ?? 0) + 1
-  const prevHash = last?.hash ?? GENESIS_HASH
+  // JL-188: if the table is currently empty (e.g. a retention purge removed
+  // every row) chain onto the recorded checkpoint so seq keeps advancing and the
+  // new entry's prev_hash links to the last purged hash — verify stays ok.
+  const checkpoint = last ? null : await getCheckpoint()
+  const seq = (last?.seq ?? checkpoint?.purged_through_seq ?? 0) + 1
+  const prevHash = last?.hash ?? checkpoint?.last_hash ?? GENESIS_HASH
   const createdAt = new Date().toISOString()
   const metaJson = metadata === null || metadata === undefined ? null : JSON.stringify(metadata)
   const hash = computeEntryHash({ seq, actor, action, target, metadata, prevHash, createdAt })
@@ -140,6 +150,30 @@ export async function appendAudit({ actor, action, target = null, metadata = nul
     [seq, actor, action, target, metaJson, prevHash, hash, createdAt],
   )
   return { seq, prevHash, hash, createdAt }
+}
+
+/**
+ * JL-188: read the most recent retention checkpoint, or null if none.
+ * The checkpoint records the hash + seq of the last entry removed by a purge,
+ * which verify uses as the expected genesis boundary for the surviving chain.
+ */
+export async function getCheckpoint() {
+  const row = await get(
+    'SELECT purged_through_seq, last_hash FROM audit_checkpoint ORDER BY id DESC LIMIT 1',
+    [],
+  )
+  return row || null
+}
+
+/**
+ * JL-188: record a retention checkpoint for the last purged entry. Called after
+ * a purge removes rows so the chain can be re-anchored on the surviving entries.
+ */
+export async function recordCheckpoint({ purgedThroughSeq, lastHash }) {
+  await run(
+    'INSERT INTO audit_checkpoint (purged_through_seq, last_hash) VALUES (?, ?)',
+    [purgedThroughSeq, lastHash],
+  )
 }
 
 /** Best-effort wrapper: log an audit event, never throwing to the caller. */

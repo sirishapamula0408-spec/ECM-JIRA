@@ -275,13 +275,24 @@ export function verifyWebhookSecret(req) {
 
   const sig = req.get('x-hub-signature-256') || ''
   if (sig) {
+    // JL-188: sign over the RAW request bytes (captured on req.rawBody by the
+    // express.json verify hook) so a real GitHub-style signature — computed over
+    // the exact bytes the provider sent — matches. Only fall back to a
+    // re-serialization of the parsed body when rawBody is unavailable (internal
+    // callers / tests that don't wire the verify hook); note that fallback path
+    // won't match a genuine provider signature.
+    const payload = (req.rawBody && req.rawBody.length)
+      ? req.rawBody
+      : Buffer.from(JSON.stringify(req.body || {}))
     const expected = 'sha256=' + crypto
       .createHmac('sha256', secret)
-      .update(JSON.stringify(req.body || {}))
+      .update(payload)
       .digest('hex')
+    const sigBuf = Buffer.from(sig)
+    const expBuf = Buffer.from(expected)
     // Length check guards timingSafeEqual against a throw on mismatched sizes.
-    if (sig.length === expected.length &&
-        crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    if (sigBuf.length === expBuf.length &&
+        crypto.timingSafeEqual(sigBuf, expBuf)) {
       return true
     }
   }

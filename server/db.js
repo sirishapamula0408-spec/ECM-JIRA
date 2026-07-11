@@ -1658,6 +1658,20 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)')
 
+  // JL-188: retention checkpoint. When a retention purge removes the oldest
+  // entries, we record the hash + seq of the LAST purged entry here. Chain
+  // verification then treats that hash as the expected genesis boundary for the
+  // earliest surviving entry, so a legitimate purge no longer looks like
+  // tampering — while a purge/edit of a SURVIVING entry is still detected.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_checkpoint (
+      id BIGSERIAL PRIMARY KEY,
+      purged_through_seq INTEGER NOT NULL,
+      last_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
   // --- JL-134: Org-wide security policy (single-row) + password rotation ---
   // A single row (id = 1) holds the org's enforced 2FA + password-complexity
   // rules. Defaults are intentionally PERMISSIVE (min length 8, no other

@@ -1,8 +1,14 @@
 import { Router } from 'express'
-import { all, run } from '../db.js'
+import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
-import { verifyChain, entriesToPurge } from '../services/auditLog.js'
+import {
+  verifyChain,
+  entriesToPurge,
+  getCheckpoint,
+  recordCheckpoint,
+  GENESIS_HASH,
+} from '../services/auditLog.js'
 import { AUDIT_RETENTION_DAYS } from '../config.js'
 import { parsePagination } from '../utils/pagination.js'
 import { toCsv } from '../utils/tabular.js'
@@ -50,7 +56,11 @@ router.get('/audit-log/verify', asyncHandler(async (_req, res) => {
      FROM audit_log ORDER BY seq ASC`,
     [],
   )
-  const result = verifyChain(rows)
+  // JL-188: re-anchor on the retention checkpoint (if any) so a legitimately
+  // purged chain still verifies ok, while tampering is still detected.
+  const checkpoint = await getCheckpoint()
+  const startPrevHash = checkpoint?.last_hash ?? GENESIS_HASH
+  const result = verifyChain(rows, startPrevHash)
   res.json({ ok: result.ok, brokenAt: result.brokenAt, count: rows.length })
 }))
 
@@ -90,7 +100,16 @@ router.post('/audit-log/retention', asyncHandler(async (req, res) => {
     return
   }
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString()
+  // JL-188: capture the boundary (last entry that will be purged) BEFORE deleting
+  // so we can re-anchor the surviving chain on its hash.
+  const boundary = await get(
+    'SELECT seq, hash FROM audit_log WHERE created_at < ? ORDER BY seq DESC LIMIT 1',
+    [cutoff],
+  )
   const result = await run('DELETE FROM audit_log WHERE created_at < ?', [cutoff])
+  if (boundary) {
+    await recordCheckpoint({ purgedThroughSeq: boundary.seq, lastHash: boundary.hash })
+  }
   res.json({ purged: result?.changes ?? 0, retentionDays, cutoff })
 }))
 
