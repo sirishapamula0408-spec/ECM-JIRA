@@ -2,21 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 
-// Mock the db module (no live DB — matches the collaboration-modules.test.js pattern)
-vi.mock('../db.js', () => {
-  const run = vi.fn()
-  const all = vi.fn()
-  const get = vi.fn()
-  return {
-    run,
-    all,
-    get,
-    columnExists: vi.fn(),
-    tableExists: vi.fn(),
-    // JL-94: run the callback with the same mocked helpers so run/get assertions still see writes.
-    withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
-  }
-})
+// Mock the db module via the shared helper (JL-178; matches the collaboration-modules.test.js pattern)
+import { makeDbMock } from './helpers/mockDb.js'
+vi.mock('../db.js', () => makeDbMock())
 
 // Automation service pulls from db too; stub the status-change hook to a no-op.
 vi.mock('../services/automation.js', () => ({
