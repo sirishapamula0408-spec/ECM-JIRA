@@ -116,7 +116,15 @@ app.use(corsAllowList({ allowedOrigins: CORS_ALLOWED_ORIGINS, credentials: true 
 // set, clients outside the configured IPs/CIDRs get a 403.
 app.use(ipAllowlist({ allowlist: IP_ALLOWLIST }))
 
-app.use(express.json({ limit: '25mb' })) // 25mb accommodates base64 file uploads (Theme-1 #3 Attachments)
+// 25mb accommodates base64 file uploads (Theme-1 #3 Attachments).
+// JL-188: capture the raw request bytes on req.rawBody so webhook HMAC signatures
+// (git provider webhook) can be verified over the EXACT bytes the provider signed,
+// not a re-serialization of the parsed body. Storing the buffer reference is cheap
+// and does not affect any other route.
+app.use(express.json({
+  limit: '25mb',
+  verify: (req, _res, buf) => { req.rawBody = buf },
+}))
 
 // JL-93: general in-memory rate limiter, mounted early across all API traffic,
 // keyed by client IP with generous defaults so normal usage never trips it.

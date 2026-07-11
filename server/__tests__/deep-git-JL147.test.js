@@ -13,6 +13,7 @@ vi.mock('../db.js', () => ({
   withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
 }))
 
+import crypto from 'node:crypto'
 import { run, all, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import gitRoutes, {
@@ -24,7 +25,9 @@ import gitRoutes, {
 
 function createApp() {
   const app = express()
-  app.use(express.json())
+  // JL-188: mirror production — capture raw bytes so webhook HMAC verifies over
+  // the exact signed payload rather than a re-serialization of the parsed body.
+  app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf } }))
   app.use((req, _res, next) => {
     req.user = { id: 1, email: 'dev@test.com', memberId: 1, workspaceRole: 'Admin', isOwner: false }
     next()
@@ -327,5 +330,51 @@ describe('webhook secret gate', () => {
       .post('/api/git/webhook')
       .send({ event: 'deployment', deployment: { environment: 'prod', status: 'ok' } })
     expect(res.status).toBe(201)
+  })
+
+  /* --- JL-188: HMAC computed over the RAW request bytes --- */
+  it('accepts a signature computed over the RAW body bytes', async () => {
+    process.env.GIT_WEBHOOK_SECRET = 'topsecret'
+    get.mockResolvedValue(null)
+    run.mockResolvedValue({ lastID: 1 })
+    // Raw payload with non-canonical spacing — a re-serialization of the parsed
+    // body would differ, so this only passes if the HMAC is over the raw bytes.
+    const raw = '{ "event": "deployment", "deployment": { "environment": "prod", "status": "ok" } }'
+    const sig = 'sha256=' + crypto.createHmac('sha256', 'topsecret').update(raw).digest('hex')
+    const res = await request(createApp())
+      .post('/api/git/webhook')
+      .set('Content-Type', 'application/json')
+      .set('X-Hub-Signature-256', sig)
+      .send(raw)
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects a signature computed over the RE-SERIALIZED body (not the raw bytes)', async () => {
+    process.env.GIT_WEBHOOK_SECRET = 'topsecret'
+    get.mockResolvedValue(null)
+    run.mockResolvedValue({ lastID: 1 })
+    const raw = '{ "event": "deployment", "deployment": { "environment": "prod", "status": "ok" } }'
+    // Sign the COMPACT re-serialization (what the old buggy code hashed).
+    const reserialized = JSON.stringify(JSON.parse(raw))
+    const badSig = 'sha256=' + crypto.createHmac('sha256', 'topsecret').update(reserialized).digest('hex')
+    expect(reserialized).not.toBe(raw) // the two byte streams genuinely differ
+    const res = await request(createApp())
+      .post('/api/git/webhook')
+      .set('Content-Type', 'application/json')
+      .set('X-Hub-Signature-256', badSig)
+      .send(raw)
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a wrong HMAC signature', async () => {
+    process.env.GIT_WEBHOOK_SECRET = 'topsecret'
+    const raw = '{"event":"deployment","deployment":{"environment":"prod","status":"ok"}}'
+    const wrongSig = 'sha256=' + crypto.createHmac('sha256', 'not-the-secret').update(raw).digest('hex')
+    const res = await request(createApp())
+      .post('/api/git/webhook')
+      .set('Content-Type', 'application/json')
+      .set('X-Hub-Signature-256', wrongSig)
+      .send(raw)
+    expect(res.status).toBe(401)
   })
 })

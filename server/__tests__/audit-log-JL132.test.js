@@ -147,6 +147,35 @@ describe('verifyChain', () => {
     expect(res.ok).toBe(false)
     expect(res.brokenAt).toBe(3)
   })
+
+  /* --- JL-188: chain survives a legitimate retention purge --- */
+  it('verifies ok for a surviving-but-purged chain when re-anchored on the checkpoint', () => {
+    // Simulate a purge that removed the first entry: the surviving entries are
+    // [seq2, seq3], and the recorded checkpoint hash is the purged entry's hash.
+    const survivors = [chain[1], chain[2]]
+    const checkpointHash = chain[0].hash
+    const res = verifyChain(survivors, checkpointHash)
+    expect(res).toEqual({ ok: true, brokenAt: null })
+  })
+
+  it('still flags a tampered SURVIVING entry after a purge (re-anchored)', () => {
+    const survivors = [chain[1], chain[2]].map((e) => ({ ...e }))
+    survivors[1] = { ...survivors[1], action: 'HACKED' } // tamper the surviving tail
+    const checkpointHash = chain[0].hash
+    const res = verifyChain(survivors, checkpointHash)
+    expect(res.ok).toBe(false)
+    expect(res.brokenAt).toBe(3)
+  })
+
+  it('flags an un-recorded deletion — earliest survivor prev_hash != checkpoint', () => {
+    // Purge recorded seq1 as the checkpoint, but an attacker also deleted seq2.
+    // The new earliest survivor (seq3) links to seq2's hash, not the checkpoint.
+    const survivors = [chain[2]]
+    const checkpointHash = chain[0].hash
+    const res = verifyChain(survivors, checkpointHash)
+    expect(res.ok).toBe(false)
+    expect(res.brokenAt).toBe(3)
+  })
 })
 
 /* ================================================================
@@ -215,6 +244,22 @@ describe('appendAudit', () => {
     const [, params] = run.mock.calls[0]
     expect(params[5]).toBe(GENESIS_HASH)
   })
+
+  // JL-188: after a full purge the table is empty but a checkpoint exists —
+  // the next entry must chain onto the checkpoint hash and continue the seq.
+  it('chains onto the checkpoint when the table is empty after a full purge', async () => {
+    get
+      .mockResolvedValueOnce(undefined) // no latest entry (table emptied by purge)
+      .mockResolvedValueOnce({ purged_through_seq: 9, last_hash: 'checkpointhash' })
+    run.mockResolvedValueOnce({ lastID: 1, changes: 1 })
+
+    const result = await appendAudit({ actor: 'admin@test.com', action: 'login' })
+    expect(result.seq).toBe(10) // continues from purged_through_seq
+    expect(result.prevHash).toBe('checkpointhash')
+    const [, params] = run.mock.calls[0]
+    expect(params[0]).toBe(10)
+    expect(params[5]).toBe('checkpointhash')
+  })
 })
 
 /* ================================================================
@@ -250,6 +295,40 @@ describe('GET /api/audit-log/verify', () => {
     expect(res.status).toBe(200)
     expect(res.body.ok).toBe(false)
     expect(res.body.brokenAt).toBe(2)
+  })
+
+  /* --- JL-188: verify is robust to a legitimate retention purge --- */
+  it('returns ok for a purged chain re-anchored on the stored checkpoint', async () => {
+    const chain = buildChain([
+      { actor: 'a@t.com', action: 'login', createdAt: '2026-07-01T00:00:00.000Z' },
+      { actor: 'b@t.com', action: 'role.change', createdAt: '2026-07-02T00:00:00.000Z' },
+      { actor: 'c@t.com', action: 'webhook.create', createdAt: '2026-07-03T00:00:00.000Z' },
+    ])
+    // Purge removed seq 1; only seq 2 + 3 survive, checkpoint = seq1's hash.
+    all.mockResolvedValueOnce([chain[1], chain[2]])
+    get.mockResolvedValueOnce({ purged_through_seq: 1, last_hash: chain[0].hash })
+
+    const app = await createApp('Admin')
+    const res = await request(app).get('/api/audit-log/verify')
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ ok: true, brokenAt: null, count: 2 })
+  })
+
+  it('still detects tampering of a surviving entry after a purge', async () => {
+    const chain = buildChain([
+      { actor: 'a@t.com', action: 'login', createdAt: '2026-07-01T00:00:00.000Z' },
+      { actor: 'b@t.com', action: 'role.change', createdAt: '2026-07-02T00:00:00.000Z' },
+      { actor: 'c@t.com', action: 'webhook.create', createdAt: '2026-07-03T00:00:00.000Z' },
+    ])
+    const survivors = [{ ...chain[1] }, { ...chain[2], action: 'HACKED' }]
+    all.mockResolvedValueOnce(survivors)
+    get.mockResolvedValueOnce({ purged_through_seq: 1, last_hash: chain[0].hash })
+
+    const app = await createApp('Admin')
+    const res = await request(app).get('/api/audit-log/verify')
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(false)
+    expect(res.body.brokenAt).toBe(3)
   })
 })
 
@@ -315,6 +394,34 @@ describe('POST /api/audit-log/retention', () => {
     expect(res.body.retentionDays).toBe(30)
     const [sql] = run.mock.calls[0]
     expect(sql).toMatch(/DELETE FROM audit_log WHERE created_at < \?/)
+  })
+
+  /* --- JL-188: a purge records a re-anchor checkpoint --- */
+  it('records a checkpoint (last purged seq + hash) when entries are purged', async () => {
+    get.mockResolvedValueOnce({ seq: 7, hash: 'lastpurgedhash' }) // boundary lookup
+    run
+      .mockResolvedValueOnce({ changes: 4 }) // DELETE
+      .mockResolvedValueOnce({ lastID: 1 }) // INSERT checkpoint
+    const app = await createApp('Admin')
+    const res = await request(app).post('/api/audit-log/retention').send({ retentionDays: 30 })
+    expect(res.status).toBe(200)
+    expect(res.body.purged).toBe(4)
+
+    // The second run() must insert the checkpoint with the boundary seq + hash.
+    expect(run).toHaveBeenCalledTimes(2)
+    const [ckSql, ckParams] = run.mock.calls[1]
+    expect(ckSql).toMatch(/INSERT INTO audit_checkpoint/i)
+    expect(ckParams).toEqual([7, 'lastpurgedhash'])
+  })
+
+  it('does not record a checkpoint when nothing was purged', async () => {
+    get.mockResolvedValueOnce(undefined) // no boundary → nothing old enough
+    run.mockResolvedValueOnce({ changes: 0 }) // DELETE
+    const app = await createApp('Admin')
+    const res = await request(app).post('/api/audit-log/retention').send({ retentionDays: 30 })
+    expect(res.status).toBe(200)
+    expect(res.body.purged).toBe(0)
+    expect(run).toHaveBeenCalledTimes(1) // only the DELETE, no checkpoint insert
   })
 })
 
