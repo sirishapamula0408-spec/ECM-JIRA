@@ -211,7 +211,9 @@ describe('GET /api/issues — search endpoint', () => {
     )
     expect(res.status).toBe(200)
     const [sql] = all.mock.calls[0]
-    expect(sql).toMatch(/ORDER BY priority DESC$/)
+    // JL-187: the default list is now bounded by a trailing LIMIT, so the
+    // ORDER BY is no longer the end of the statement.
+    expect(sql).toMatch(/ORDER BY priority DESC LIMIT 5000$/)
   })
 
   it('returns 400 for unknown JQL field and does not hit the db', async () => {

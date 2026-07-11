@@ -122,14 +122,18 @@ describe('isPaginationRequested', () => {
    Endpoint: GET /api/issues honors pagination
    ================================================================== */
 describe('GET /api/issues — pagination behavior', () => {
-  it('does NOT append LIMIT/OFFSET by default (legacy shape preserved)', async () => {
+  it('applies a hard safety cap (JL-187) by default but keeps the legacy array shape + no OFFSET/params', async () => {
     const res = await request(app).get('/api/issues')
     expect(res.status).toBe(200)
     expect(Array.isArray(res.body)).toBe(true)
     const [sql, params] = all.mock.calls[0]
-    expect(sql).not.toMatch(/LIMIT/i)
+    // JL-187: the default path is now bounded by a constant LIMIT (baked into the
+    // SQL, not a bound param) so the whole table is never materialized at once.
+    expect(sql).toMatch(/LIMIT 5000$/)
+    expect(sql).not.toMatch(/OFFSET/i)
+    // The cap is a literal, so no extra bound params are introduced.
     expect(params).toEqual([])
-    // no count query fired
+    // no count query fired (no explicit pagination requested)
     expect(get).not.toHaveBeenCalled()
   })
 

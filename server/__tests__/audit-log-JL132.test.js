@@ -232,6 +232,9 @@ describe('GET /api/audit-log/verify', () => {
     const res = await request(app).get('/api/audit-log/verify')
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ ok: true, brokenAt: null, count: 2 })
+    // JL-187: the chain load is bounded so it cannot exhaust memory.
+    const [sql] = all.mock.calls[0]
+    expect(sql).toMatch(/LIMIT 50000/)
   })
 
   it('reports a tampered chain', async () => {
@@ -291,6 +294,14 @@ describe('GET /api/audit-log/export', () => {
     expect(res.headers['content-disposition']).toMatch(/audit-log\.csv/)
     expect(res.text.split('\n')[0]).toBe('seq,actor,action,target,metadata,prev_hash,hash,created_at')
     expect(res.text).toMatch(/a@t\.com/)
+  })
+
+  it('bounds the export query with a hard row cap (JL-187)', async () => {
+    all.mockResolvedValueOnce(rows)
+    const app = await createApp('Admin')
+    await request(app).get('/api/audit-log/export?format=json')
+    const [sql] = all.mock.calls[0]
+    expect(sql).toMatch(/LIMIT 50000/)
   })
 })
 
