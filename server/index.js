@@ -66,6 +66,7 @@ import scimRoutes from './routes/scim.js'
 import assetRoutes from './routes/assets.js'
 import sessionRoutes from './routes/sessions.js'
 import inboundEmailRoutes, { settingsRouter as inboundEmailSettingsRoutes } from './routes/inboundEmail.js'
+import portalRoutes from './routes/portal.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -204,6 +205,7 @@ app.use('/api', ...protect, securityLevelRoutes) // JL-131: issue-level security
 app.use('/api', ...protect, assetRoutes) // JL-142: Asset / CMDB management
 app.use('/api', ...protect, marketplaceRoutes)
 app.use('/api/inbound-email', ...protect, inboundEmailSettingsRoutes) // JL-148: Admin-only mailbox→project settings
+app.use('/api', ...protect, portalRoutes) // JL-140: customer request portal
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so

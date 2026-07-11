@@ -1,0 +1,35 @@
+.portal-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-4, 24px);
+}
+
+.portal-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.portal-type-card {
+  height: 100%;
+  transition: box-shadow var(--transition-base, 0.2s) var(--ease-standard, ease);
+}
+
+.portal-type-card.selected {
+  border-color: var(--color-primary, #0052cc);
+  box-shadow: 0 0 0 2px var(--color-primary, #0052cc);
+}
+
+.portal-form {
+  max-width: 640px;
+}
+
+.portal-request-row {
+  transition: background var(--transition-fast, 0.15s);
+}
+
+.portal-admin {
+  background: var(--color-surface-sunken, rgba(0, 0, 0, 0.02));
+  border-radius: 8px;
+  padding: var(--space-4, 24px);
+}

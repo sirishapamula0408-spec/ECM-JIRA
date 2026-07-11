@@ -74,6 +74,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Goals', path: '/goals', icon: 'dashboards' },
     { label: 'Assets', path: '/assets', icon: 'spaces' },
     { label: 'Knowledge Base', path: '/knowledge-base', icon: 'dashboards' },
+    { label: 'Help Center', path: '/portal', icon: 'dashboards' },
   ]
 
   const utilityItems = [

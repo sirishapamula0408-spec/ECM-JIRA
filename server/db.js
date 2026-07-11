@@ -1601,6 +1601,36 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_installed_apps_workspace ON installed_apps(workspace_id)')
+  // --- JL-140: Customer request portal (external-facing) ---
+  // request_types: the catalog of request types customers can pick from, each
+  // scoped to a target project. `fields` is a JSONB array describing the form
+  // fields shown on the portal submission form.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS request_types (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      icon TEXT DEFAULT '',
+      fields JSONB NOT NULL DEFAULT '[]'::jsonb,
+      default_issue_type TEXT NOT NULL DEFAULT 'Task',
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_request_types_project ON request_types(project_id)')
+
+  // portal_requests: links a customer submission to the issue it created.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS portal_requests (
+      id SERIAL PRIMARY KEY,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      requester_email TEXT NOT NULL,
+      request_type_id INTEGER REFERENCES request_types(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_requests_email ON portal_requests(requester_email)')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
