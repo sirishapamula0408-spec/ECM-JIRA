@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../context/MemberContext'
 import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
-import { fetchMfaStatus, setupMfa, enableMfa, disableMfa } from '../../api/authApi'
+import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions } from '../../api/authApi'
 import './ProfilePage.css'
 
 function MfaSection() {
@@ -111,6 +111,81 @@ function MfaSection() {
       {enabled && (
         <button className="btn btn-ghost" type="button" onClick={handleDisable} disabled={busy} style={{ color: 'var(--danger, #de350b)' }}>
           {busy ? 'Please wait...' : 'Disable 2FA'}
+        </button>
+      )}
+    </article>
+  )
+}
+
+function SessionsSection() {
+  const [sessions, setSessions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function load() {
+    try {
+      setSessions(await fetchSessions())
+    } catch (err) {
+      setError(err?.message || 'Failed to load sessions')
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => { load() }, [])
+
+  async function handleRevoke(id) {
+    setBusy(true); setError('')
+    try { await revokeSession(id); await load() }
+    catch (err) { setError(err?.message || 'Failed to revoke session') }
+    finally { setBusy(false) }
+  }
+
+  async function handleRevokeAll() {
+    setBusy(true); setError('')
+    try { await revokeAllSessions(); await load() }
+    catch (err) { setError(err?.message || 'Failed to sign out other sessions') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <article className="panel profile-form-panel" style={{ marginTop: 24 }}>
+      <h3>Active Sessions & Devices</h3>
+      <p>Review where you're signed in. Revoke any session you don't recognize, or sign out everywhere except this device.</p>
+
+      {error && <p style={{ color: 'var(--danger, #de350b)' }}>{error}</p>}
+
+      <table className="sessions-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+        <thead>
+          <tr style={{ textAlign: 'left' }}>
+            <th>Device</th><th>IP address</th><th>Last seen</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {!loading && sessions.length === 0 && (
+            <tr><td colSpan={4} style={{ padding: 12, color: 'var(--text-subtle, #6b778c)' }}>No active sessions.</td></tr>
+          )}
+          {sessions.map((s) => (
+            <tr key={s.id} style={{ borderTop: '1px solid var(--border, #ebecf0)' }}>
+              <td style={{ padding: '8px 4px' }}>
+                {s.browser} on {s.os}
+                {s.current && <span style={{ marginLeft: 8, color: 'var(--success, #00875a)', fontWeight: 600 }}>(this device)</span>}
+              </td>
+              <td><code>{s.ip || '—'}</code></td>
+              <td>{s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : '—'}</td>
+              <td>
+                {!s.current && (
+                  <button className="btn btn-ghost" type="button" onClick={() => handleRevoke(s.id)} disabled={busy}>Revoke</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {sessions.length > 1 && (
+        <button className="btn btn-ghost" type="button" onClick={handleRevokeAll} disabled={busy} style={{ marginTop: 12, color: 'var(--danger, #de350b)' }}>
+          {busy ? 'Please wait...' : 'Sign out everywhere else'}
         </button>
       )}
     </article>
@@ -296,6 +371,8 @@ export function ProfilePage() {
       </section>
 
       <MfaSection />
+
+      <SessionsSection />
 
       <ApiTokensSection />
     </section>

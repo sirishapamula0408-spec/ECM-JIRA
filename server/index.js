@@ -1,8 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
 import { initializeDatabase } from './db.js'
-import { PORT, assertRequiredEnv, assertValidConfig, CORS_ALLOWED_ORIGINS, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX, AUTH_RATE_LIMIT_MAX } from './config.js'
+import { PORT, assertRequiredEnv, assertValidConfig, CORS_ALLOWED_ORIGINS, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX, AUTH_RATE_LIMIT_MAX, IP_ALLOWLIST } from './config.js'
 import { corsAllowList } from './middleware/corsAllowList.js'
+import { ipAllowlist } from './middleware/ipAllowlist.js'
 import { rateLimit } from './middleware/rateLimit.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authGuard } from './middleware/authGuard.js'
@@ -61,6 +62,7 @@ import securityLevelRoutes from './routes/securityLevels.js'
 import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
 import assetRoutes from './routes/assets.js'
+import sessionRoutes from './routes/sessions.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -94,6 +96,12 @@ app.use(securityHeaders)
 
 // JL-93: strict, dependency-free CORS. Empty allow-list → permissive (dev default).
 app.use(corsAllowList({ allowedOrigins: CORS_ALLOWED_ORIGINS, credentials: true }))
+
+// JL-133: IP allow-listing, mounted early (before routes). No-op when
+// IP_ALLOWLIST is empty (dev/test default) so normal usage is unaffected; when
+// set, clients outside the configured IPs/CIDRs get a 403.
+app.use(ipAllowlist({ allowlist: IP_ALLOWLIST }))
+
 app.use(express.json({ limit: '25mb' })) // 25mb accommodates base64 file uploads (Theme-1 #3 Attachments)
 
 // JL-93: general in-memory rate limiter, mounted early across all API traffic,
@@ -133,6 +141,7 @@ app.use('/api', docsRoutes)
 const protect = [authGuard, loadUserRoles, resolveWorkspace]
 
 app.use('/api/workspaces', ...protect, workspaceRoutes)
+app.use('/api/sessions', ...protect, sessionRoutes) // JL-133: session/device management
 app.use('/api/issues', ...protect, issueRoutes)
 app.use('/api/sprints', ...protect, sprintRoutes)
 app.use('/api', ...protect, projectSprintRouter) // JL-124: /api/projects/:id/sprints/*

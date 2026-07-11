@@ -72,6 +72,13 @@ export function isOAuthConfigured(name) {
 // production to lock cross-origin access down to known frontends.
 export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 
+// --- JL-133: IP allowlisting ---
+// Comma-separated allow-list of client IPs / CIDR ranges permitted to reach the
+// API (e.g. "10.0.0.0/8, 203.0.113.5"). EMPTY/unset → allow ALL, so local dev
+// and existing tests are entirely unaffected. Set it in production to restrict
+// API access to an org's known network ranges.
+export const IP_ALLOWLIST = process.env.IP_ALLOWLIST || ''
+
 // General API rate limiter (applied early, all /api traffic). Generous defaults
 // so normal usage — and multi-request test suites — never trip it.
 export const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000

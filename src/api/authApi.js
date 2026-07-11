@@ -63,3 +63,16 @@ export function enableMfa(code) {
 export function disableMfa() {
   return api('/api/auth/mfa/disable', { method: 'POST', body: JSON.stringify({}) })
 }
+
+// --- JL-133: Session / device management ---
+export function fetchSessions() {
+  return api('/api/sessions')
+}
+
+export function revokeSession(id) {
+  return api(`/api/sessions/${id}`, { method: 'DELETE' })
+}
+
+export function revokeAllSessions() {
+  return api('/api/sessions/revoke-all', { method: 'POST', body: JSON.stringify({}) })
+}

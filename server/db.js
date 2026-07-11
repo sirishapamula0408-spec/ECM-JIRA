@@ -1133,6 +1133,24 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_email)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)')
 
+  // --- JL-133: Session / device management ---
+  // One row per issued login token, keyed by the JWT's `jti`. Lets a user list
+  // and revoke active sessions/devices; authGuard best-effort checks `revoked`.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      jti TEXT UNIQUE,
+      user_agent TEXT,
+      ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revoked BOOLEAN NOT NULL DEFAULT FALSE
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_email ON user_sessions(user_email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_jti ON user_sessions(jti)')
+
   // --- JL-85: Board configuration (swimlanes, quick filters, WIP limits) ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS board_configs (
