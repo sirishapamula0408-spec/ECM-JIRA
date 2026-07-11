@@ -764,6 +764,24 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_sla_policies_project ON sla_policies(project_id)')
 
+  // --- JL-141: Queues & SLAs-as-a-product ---
+  // A queue is a named, ordered, filtered list of issues a support team works
+  // from. `filter` is a JSONB criteria object (statuses[], priorities[],
+  // assignee, labels[]). `order_by` names a whitelisted sort column.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS queues (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      filter JSONB NOT NULL DEFAULT '{}'::jsonb,
+      order_by TEXT NOT NULL DEFAULT 'created_at',
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_queues_project ON queues(project_id)')
+
   // --- Theme-1 #5: Time Tracking ---
   if (!(await columnExists('issues', 'original_estimate_minutes'))) {
     await pool.query('ALTER TABLE issues ADD COLUMN original_estimate_minutes INTEGER')

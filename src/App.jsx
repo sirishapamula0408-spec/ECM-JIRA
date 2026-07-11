@@ -57,6 +57,7 @@ import { AuditLogPage } from './pages/AuditLogPage/AuditLogPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 import { AssetsPage } from './pages/AssetsPage/AssetsPage'
+import { QueuesPage } from './pages/QueuesPage/QueuesPage'
 import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
 import { KnowledgeBasePage } from './pages/KnowledgeBasePage/KnowledgeBasePage'
 import { MarketplacePage } from './pages/MarketplacePage/MarketplacePage'
@@ -186,6 +187,8 @@ function AppContent() {
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/assets" element={<AssetsPage />} />
