@@ -56,8 +56,10 @@ vi.mock('../api/gitIntegrationApi', () => ({
   fetchGitLinks: vi.fn().mockResolvedValue([]),
   createGitLink: vi.fn().mockResolvedValue({}),
   deleteGitLink: vi.fn().mockResolvedValue({}),
+  fetchDeployments: vi.fn().mockResolvedValue([]),
   GIT_LINK_TYPES: ['branch', 'commit', 'pull_request'],
   GIT_LINK_TYPE_LABELS: { branch: 'Branch', commit: 'Commit', pull_request: 'Pull request' },
+  PR_STATE_LABELS: { open: 'Open', merged: 'Merged', closed: 'Closed' },
 }))
 vi.mock('../api/worklogApi', () => ({
   fetchWorklogs: vi.fn().mockResolvedValue({
