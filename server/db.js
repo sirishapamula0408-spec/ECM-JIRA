@@ -1692,6 +1692,54 @@ export async function initializeDatabase() {
   `)
   // Track when each user last changed their password, for rotation enforcement.
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ')
+  // --- JL-143: Incident & on-call management ---
+  // Operational incidents (optionally tied to an issue) with a timeline, plus
+  // on-call schedules and their shifts so the current responder is always known.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS incidents (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      severity TEXT NOT NULL DEFAULT 'SEV3' CHECK (severity IN ('SEV1', 'SEV2', 'SEV3', 'SEV4')),
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'investigating', 'identified', 'monitoring', 'resolved')),
+      issue_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
+      commander_email TEXT,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status)')
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS incident_timeline (
+      id SERIAL PRIMARY KEY,
+      incident_id INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL DEFAULT 'note',
+      note TEXT NOT NULL DEFAULT '',
+      actor TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_incident_timeline_incident ON incident_timeline(incident_id)')
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS oncall_schedules (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      rotation_type TEXT NOT NULL DEFAULT 'weekly',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS oncall_shifts (
+      id SERIAL PRIMARY KEY,
+      schedule_id INTEGER NOT NULL REFERENCES oncall_schedules(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      starts_at TIMESTAMPTZ NOT NULL,
+      ends_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_oncall_shifts_schedule ON oncall_shifts(schedule_id)')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so

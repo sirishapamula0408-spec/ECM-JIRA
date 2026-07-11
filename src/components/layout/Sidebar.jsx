@@ -77,6 +77,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Knowledge Base', path: '/knowledge-base', icon: 'dashboards' },
     { label: 'Help Center', path: '/portal', icon: 'dashboards' },
     { label: 'Queues', path: '/queues', icon: 'filters' },
+    { label: 'Incidents', path: '/incidents', icon: 'workflow' },
   ]
 
   const utilityItems = [
