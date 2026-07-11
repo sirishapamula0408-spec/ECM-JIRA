@@ -68,6 +68,7 @@ import assetRoutes from './routes/assets.js'
 import sessionRoutes from './routes/sessions.js'
 import inboundEmailRoutes, { settingsRouter as inboundEmailSettingsRoutes } from './routes/inboundEmail.js'
 import portalRoutes from './routes/portal.js'
+import auditLogRoutes from './routes/auditLog.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -179,6 +180,7 @@ app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api', ...protect, dashboardGadgetRoutes) // JL-152: /api/dashboards/gadgets/*
 app.use('/api/webhooks', ...protect, webhookRoutes)
 app.use('/api/events', ...protect, eventRoutes)
+app.use('/api', ...protect, auditLogRoutes)
 app.use('/api/api-tokens', ...protect, apiTokenRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
 app.use('/api', ...protect, kbRoutes) // JL-144: knowledge base (/api/kb/*)

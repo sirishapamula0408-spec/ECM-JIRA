@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { safeAppendAudit } from '../services/auditLog.js'
 
 /** Compute HMAC-SHA256 signature for webhook payload verification */
 function signPayload(payload, secret) {
@@ -196,6 +197,8 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     [name.trim(), url.trim(), secret, JSON.stringify(events), projectId, req.user.email],
   )
   const row = await get('SELECT * FROM webhooks WHERE id = ?', [result.lastID])
+  // JL-132: record webhook creation in the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'webhook.create', target: `webhook:${row.id}`, metadata: { name: row.name, url: row.url } })
   res.status(201).json(row)
 }))
 
