@@ -84,6 +84,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Filters', path: '/filters', icon: 'filters' },
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
     { label: 'Portfolio', path: '/portfolio', icon: 'dashboards' },
+    { label: 'Report Builder', path: '/report-builder', icon: 'dashboards' },
     { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
   ]
 

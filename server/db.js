@@ -1764,6 +1764,17 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_oncall_shifts_schedule ON oncall_shifts(schedule_id)')
+  // --- JL-151: Custom report builder — saved report definitions. ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS saved_reports (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_email TEXT NOT NULL,
+      definition JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_saved_reports_owner ON saved_reports(owner_email)')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
