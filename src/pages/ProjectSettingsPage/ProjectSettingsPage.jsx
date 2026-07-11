@@ -14,6 +14,7 @@ import { fetchProjectComponents, createComponent, deleteComponent } from '../../
 import { fetchResolvedScreen, saveScreenScheme } from '../../api/screenSchemeApi'
 import { fetchProjectCustomFields } from '../../api/customFieldApi'
 import { fetchFieldConfig, saveFieldConfig } from '../../api/fieldConfigApi'
+import { fetchSecurityLevels, createSecurityLevel, deleteSecurityLevel } from '../../api/securityLevelApi'
 import { ISSUE_TYPES } from '../../constants'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSettingsPage.css'
@@ -58,6 +59,12 @@ export function ProjectSettingsPage() {
   const [addMemberId, setAddMemberId] = useState('')
   const [addRole, setAddRole] = useState('Member')
   const [accessBusy, setAccessBusy] = useState(false)
+
+  // JL-131: issue security-levels catalog (workspace-wide)
+  const [securityLevels, setSecurityLevels] = useState([])
+  const [newLevelName, setNewLevelName] = useState('')
+  const [newLevelDesc, setNewLevelDesc] = useState('')
+  const [levelBusy, setLevelBusy] = useState(false)
 
   // Statuses & Priorities tab state
   const [priorities, setPriorities] = useState([])
@@ -313,6 +320,39 @@ export function ProjectSettingsPage() {
 
   // A row is a global default (not project-specific) when project_id is null.
   const isGlobal = (row) => row.project_id === null || row.project_id === undefined
+
+  // ── JL-131: Security levels catalog ──
+  useEffect(() => {
+    fetchSecurityLevels()
+      .then((data) => setSecurityLevels(Array.isArray(data) ? data : []))
+      .catch(() => setSecurityLevels([]))
+  }, [])
+
+  async function handleCreateSecurityLevel() {
+    const name = newLevelName.trim()
+    if (!name) return
+    setLevelBusy(true)
+    try {
+      const created = await createSecurityLevel({ name, description: newLevelDesc.trim() || undefined })
+      setSecurityLevels((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+      setNewLevelName('')
+      setNewLevelDesc('')
+    } catch {
+      // ignore — non-Admins are blocked server-side
+    }
+    setLevelBusy(false)
+  }
+
+  async function handleDeleteSecurityLevel(id) {
+    setLevelBusy(true)
+    try {
+      await deleteSecurityLevel(id)
+      setSecurityLevels((prev) => prev.filter((l) => l.id !== id))
+    } catch {
+      // ignore
+    }
+    setLevelBusy(false)
+  }
 
   // ── Permissions tab handlers ──
   async function handleAssignScheme(schemeId) {
@@ -724,6 +764,66 @@ export function ProjectSettingsPage() {
                   )}
                 </tbody>
               </table>
+            </article>
+
+            {/* JL-131: Issue security levels */}
+            <article className="ps-card" style={{ marginTop: 24 }}>
+              <h3>Issue Security Levels</h3>
+              <p className="muted">
+                A named security level restricts an issue to workspace Admins/Owners plus its
+                assignee and reporter. Issues with no level stay visible to everyone.
+              </p>
+              <table className="table" style={{ marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th style={{ width: 80 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {securityLevels.length > 0 ? securityLevels.map((l) => (
+                    <tr key={l.id}>
+                      <td><span className="pill">🔒 {l.name}</span></td>
+                      <td>{l.description || <span className="muted">—</span>}</td>
+                      <td>
+                        <button
+                          className="btn btn-ghost btn-sm ps-remove-btn"
+                          type="button"
+                          onClick={() => handleDeleteSecurityLevel(l.id)}
+                          disabled={levelBusy}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="3" className="muted">No security levels defined.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  placeholder="Level name (e.g. Confidential)"
+                  value={newLevelName}
+                  onChange={(e) => setNewLevelName(e.target.value)}
+                />
+                <input
+                  className="input"
+                  placeholder="Description (optional)"
+                  value={newLevelDesc}
+                  onChange={(e) => setNewLevelDesc(e.target.value)}
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  type="button"
+                  onClick={handleCreateSecurityLevel}
+                  disabled={levelBusy || !newLevelName.trim()}
+                >
+                  Add level
+                </button>
+              </div>
             </article>
           </>
         )}
