@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { requireFields, oneOf } from '../utils/validation.js'
 
 const router = Router()
 
@@ -16,9 +17,7 @@ export const ASSET_STATUSES = ['active', 'inactive', 'maintenance', 'retired']
  * @returns {{ ok: boolean, errors: string[] }}
  */
 export function validateAssetPayload(body = {}, knownTypeIds = []) {
-  const errors = []
-  const name = typeof body.name === 'string' ? body.name.trim() : ''
-  if (!name) errors.push('name is required')
+  const { errors } = requireFields(body, ['name'])
 
   const typeId = Number(body.asset_type_id ?? body.assetTypeId)
   if (!Number.isInteger(typeId) || !knownTypeIds.map(Number).includes(typeId)) {
@@ -26,7 +25,7 @@ export function validateAssetPayload(body = {}, knownTypeIds = []) {
   }
 
   if (body.status !== undefined && body.status !== null && body.status !== '') {
-    if (!ASSET_STATUSES.includes(String(body.status))) {
+    if (!oneOf(String(body.status), ASSET_STATUSES)) {
       errors.push(`status must be one of: ${ASSET_STATUSES.join(', ')}`)
     }
   }
