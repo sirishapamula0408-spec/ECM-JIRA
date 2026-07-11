@@ -31,6 +31,7 @@ import approvalRoutes from './routes/approvals.js'
 import sharedDashboardRoutes from './routes/shared-dashboards.js'
 import webhookRoutes from './routes/webhooks.js'
 import wikiRoutes from './routes/wiki.js'
+import kbRoutes from './routes/kb.js'
 import labelRoutes from './routes/labels.js'
 import importExportRoutes from './routes/importExport.js'
 import attachmentRoutes from './routes/attachments.js'
@@ -159,6 +160,7 @@ app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)
 app.use('/api/webhooks', ...protect, webhookRoutes)
 app.use('/api/api-tokens', ...protect, apiTokenRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
+app.use('/api', ...protect, kbRoutes) // JL-144: knowledge base (/api/kb/*)
 app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)
 app.use('/api', ...protect, attachmentRoutes)

@@ -616,6 +616,36 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-144: Customer-facing Knowledge Base ---
+  // A JSM-style help-article store, workspace/global scoped and SEPARATE from
+  // the project wiki (JL-48). Articles have draft/published states plus a
+  // public read view; categories are optional grouping.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kb_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kb_articles (
+      id SERIAL PRIMARY KEY,
+      category_id INTEGER REFERENCES kb_categories(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      body TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      author_email TEXT,
+      views INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_kb_articles_status ON kb_articles(status)')
+
   // --- Theme-1 #1: Sub-tasks ---
   // Nullable self-referencing parent; deleting a parent cascades to its sub-tasks.
   if (!(await columnExists('issues', 'parent_id'))) {

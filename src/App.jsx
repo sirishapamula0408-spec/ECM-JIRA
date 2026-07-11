@@ -56,6 +56,7 @@ import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
 import { GoalsPage } from './pages/GoalsPage/GoalsPage'
 import { AssetsPage } from './pages/AssetsPage/AssetsPage'
 import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
+import { KnowledgeBasePage } from './pages/KnowledgeBasePage/KnowledgeBasePage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -166,6 +167,7 @@ function AppContent() {
               <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
               <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
               <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/teams" element={<TeamsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
