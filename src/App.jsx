@@ -66,6 +66,7 @@ import { KnowledgeBasePage } from './pages/KnowledgeBasePage/KnowledgeBasePage'
 import { MarketplacePage } from './pages/MarketplacePage/MarketplacePage'
 import { PortalPage } from './pages/PortalPage/PortalPage'
 import { AdvancedRoadmapPage } from './pages/AdvancedRoadmapPage/AdvancedRoadmapPage'
+import { PluginsPage } from './pages/PluginsPage/PluginsPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -198,6 +199,7 @@ function AppContent() {
               <Route path="/projects/:projectId/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
               <Route path="/incidents" element={<IncidentsPage />} />
               <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/plugins" element={<PluginsPage />} />
               <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/assets" element={<AssetsPage />} />
               <Route path="/portal" element={<PortalPage />} />

@@ -68,6 +68,7 @@ import issueTypeSchemeRoutes from './routes/issueTypeSchemes.js'
 import marketplaceRoutes from './routes/marketplace.js'
 import listViewRoutes from './routes/listViews.js'
 import securityLevelRoutes from './routes/securityLevels.js'
+import pluginRoutes from './routes/plugins.js'
 import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
 import assetRoutes from './routes/assets.js'
@@ -227,6 +228,7 @@ app.use('/api', ...protect, marketplaceRoutes)
 app.use('/api/inbound-email', ...protect, inboundEmailSettingsRoutes) // JL-148: Admin-only mailbox→project settings
 app.use('/api', ...protect, portalRoutes) // JL-140: customer request portal
 app.use('/api', ...protect, incidentRoutes)
+app.use('/api/plugins', ...protect, pluginRoutes)
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so

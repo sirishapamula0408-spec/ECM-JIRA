@@ -3,11 +3,14 @@ import { NavLink, useNavigate, useLocation, matchPath } from 'react-router-dom'
 import { SidebarNavIcon } from '../icons/SidebarNavIcon'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { usePluginContributions } from '../../hooks/usePluginContributions'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
   const { canCreateProject } = usePermissions()
+  // JL-145: declarative plugin nav-item contributions, rendered as safe links.
+  const { contributions: pluginNavItems } = usePluginContributions('nav-item')
   const navigate = useNavigate()
   const location = useLocation()
   const [isSpacesMenuOpen, setIsSpacesMenuOpen] = useState(false)
@@ -78,6 +81,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Help Center', path: '/portal', icon: 'dashboards' },
     { label: 'Queues', path: '/queues', icon: 'filters' },
     { label: 'Incidents', path: '/incidents', icon: 'workflow' },
+    { label: 'Apps', path: '/plugins', icon: 'dashboards' },
   ]
 
   const utilityItems = [
@@ -312,6 +316,46 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
           ))}
         </nav>
       </div>
+
+      {/* JL-145: plugin-contributed nav items (declarative, safe links only) */}
+      {pluginNavItems.length > 0 && (
+        <>
+          <div className="sidebar-divider" />
+          <nav aria-label="App navigation">
+            {pluginNavItems.map((item) => {
+              const isExternal = typeof item.url === 'string' && /^https?:\/\//i.test(item.url)
+              const href = item.url || item.target || '#'
+              const content = (
+                <>
+                  <span className="nav-icon" aria-hidden="true">{item.icon || '🧩'}</span>
+                  {!collapsed && <span className="nav-label">{item.label}</span>}
+                </>
+              )
+              return isExternal ? (
+                <a
+                  key={item.manifestId ? `${item.manifestId}-${item.id}` : item.id}
+                  className="nav"
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={collapsed ? item.label : undefined}
+                >
+                  {content}
+                </a>
+              ) : (
+                <NavLink
+                  key={item.manifestId ? `${item.manifestId}-${item.id}` : item.id}
+                  className={({ isActive }) => (isActive ? 'nav active' : 'nav')}
+                  to={href}
+                  title={collapsed ? item.label : undefined}
+                >
+                  {content}
+                </NavLink>
+              )
+            })}
+          </nav>
+        </>
+      )}
 
     </aside>
   )
