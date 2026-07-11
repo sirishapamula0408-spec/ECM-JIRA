@@ -1465,6 +1465,41 @@ export async function initializeDatabase() {
       'ALTER TABLE issues ADD COLUMN security_level_id INTEGER REFERENCES security_levels(id) ON DELETE SET NULL',
     )
   }
+  // --- JL-142: Asset / CMDB management ---
+  // Lightweight Configuration Management Database. Asset types describe a class
+  // of thing (Server, Laptop, Service, License...); assets are concrete
+  // instances with typed attributes stored as JSONB. issue_assets links issues
+  // to the assets they affect (JSM-style). All idempotent.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS asset_types (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS assets (
+      id SERIAL PRIMARY KEY,
+      asset_type_id INTEGER NOT NULL REFERENCES asset_types(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      attributes JSONB NOT NULL DEFAULT '{}',
+      owner_email TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(asset_type_id)')
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_assets (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      asset_id INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (issue_id, asset_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_assets_asset ON issue_assets(asset_id)')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so

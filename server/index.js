@@ -59,6 +59,7 @@ import listViewRoutes from './routes/listViews.js'
 import securityLevelRoutes from './routes/securityLevels.js'
 import workspaceRoutes from './routes/workspaces.js'
 import scimRoutes from './routes/scim.js'
+import assetRoutes from './routes/assets.js'
 import { resolveWorkspace } from './middleware/workspace.js'
 import { shouldServeStatic, setupStaticServing } from './serveStatic.js'
 import { requestLogger } from './middleware/requestLogger.js'
@@ -180,6 +181,7 @@ app.use('/api', ...protect, screenSchemeRoutes)
 app.use('/api', ...protect, fieldConfigRoutes)
 app.use('/api', ...protect, issueTypeSchemeRoutes)
 app.use('/api', ...protect, securityLevelRoutes) // JL-131: issue-level security schemes
+app.use('/api', ...protect, assetRoutes) // JL-142: Asset / CMDB management
 
 // JL-97: In production (or when SERVE_STATIC is set) serve the built frontend
 // from /dist with an SPA history-fallback. Registered AFTER all /api routes so
