@@ -151,6 +151,54 @@ describe('Assets CRUD', () => {
   })
 })
 
+/* ===================== Asset mutation RBAC (JL-183) ===================== */
+describe('Assets mutations require Admin (JL-183)', () => {
+  it('POST /api/assets → 403 for a Viewer', async () => {
+    const res = await request(createApp('Viewer')).post('/api/assets').send({ name: 'Web-01', asset_type_id: 1 })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('POST /api/assets → 403 for a Member', async () => {
+    const res = await request(createApp('Member')).post('/api/assets').send({ name: 'Web-01', asset_type_id: 1 })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('PATCH /api/assets/:id → 403 for a Viewer', async () => {
+    const res = await request(createApp('Viewer')).patch('/api/assets/10').send({ status: 'retired' })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('PATCH /api/assets/:id → 403 for a Member', async () => {
+    const res = await request(createApp('Member')).patch('/api/assets/10').send({ status: 'retired' })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('DELETE /api/assets/:id → 403 for a Viewer', async () => {
+    const res = await request(createApp('Viewer')).delete('/api/assets/10')
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('DELETE /api/assets/:id → 403 for a Member', async () => {
+    const res = await request(createApp('Member')).delete('/api/assets/10')
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('Admin still succeeds on POST /api/assets', async () => {
+    all.mockResolvedValue([{ id: 1 }, { id: 2 }]) // known asset types
+    run.mockResolvedValue({ lastID: 11 })
+    get.mockResolvedValue({ id: 11, name: 'Web-02', asset_type_id: 1, status: 'active', attributes: {} })
+    const res = await request(createApp('Admin')).post('/api/assets').send({ name: 'Web-02', asset_type_id: 1 })
+    expect(res.status).toBe(201)
+    expect(run).toHaveBeenCalled()
+  })
+})
+
 /* ==================== Issue <-> Asset linking ====================== */
 describe('Issue-asset linking', () => {
   it('POST /api/issues/:id/assets links an asset (insert)', async () => {
