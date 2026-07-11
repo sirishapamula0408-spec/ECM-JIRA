@@ -375,6 +375,25 @@ describe('Webhooks API', () => {
       expect(res.status).toBe(201)
     })
 
+    // JL-184: create response must never echo the webhook secret.
+    it('never returns the secret in the create response', async () => {
+      run.mockResolvedValue({ lastID: 1 })
+      // If the route used SELECT *, the mock's secret would leak through.
+      get.mockResolvedValue({
+        id: 1, name: 'Slack', url: 'https://hooks.slack.com/test', secret: 'super-secret',
+      })
+
+      const res = await request(app).post('/api').send({
+        name: 'Slack', url: 'https://hooks.slack.com/test', secret: 'super-secret', events: ['*'],
+      })
+      expect(res.status).toBe(201)
+      // The row-fetch SQL must select explicit columns, not SELECT * / secret.
+      const fetchCall = get.mock.calls.find((c) => /FROM webhooks WHERE id/i.test(c[0]))
+      expect(fetchCall).toBeTruthy()
+      expect(fetchCall[0]).not.toMatch(/SELECT\s+\*/i)
+      expect(fetchCall[0]).not.toMatch(/\bsecret\b/i)
+    })
+
     it('rejects missing url', async () => {
       const res = await request(app).post('/api').send({ name: 'Test' })
       expect(res.status).toBe(400)
@@ -383,6 +402,25 @@ describe('Webhooks API', () => {
     it('rejects missing name', async () => {
       const res = await request(app).post('/api').send({ url: 'https://test.com' })
       expect(res.status).toBe(400)
+    })
+  })
+
+  describe('PATCH /api/:id — update webhook', () => {
+    // JL-184: update response must never echo the webhook secret.
+    it('never returns the secret in the update response', async () => {
+      // 1) existence check, 2) final row-fetch after update.
+      get
+        .mockResolvedValueOnce({ id: 1, name: 'Slack', secret: 'super-secret' })
+        .mockResolvedValueOnce({ id: 1, name: 'Renamed', url: 'https://hooks.slack.com/test' })
+      run.mockResolvedValue({ changes: 1 })
+
+      const res = await request(app).patch('/api/1').send({ name: 'Renamed' })
+      expect(res.status).toBe(200)
+      expect(res.body.secret).toBeUndefined()
+      // The post-update fetch must not select the secret column.
+      const fetchCall = get.mock.calls.find((c) => /FROM webhooks WHERE id/i.test(c[0]) && /^SELECT (?!\*)/i.test(c[0]))
+      expect(fetchCall).toBeTruthy()
+      expect(fetchCall[0]).not.toMatch(/\bsecret\b/i)
     })
   })
 

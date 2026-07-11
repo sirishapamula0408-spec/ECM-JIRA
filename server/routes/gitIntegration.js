@@ -4,6 +4,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { parseTimeToMinutes } from './worklogs.js'
+import { safeEqual } from '../utils/safeEqual.js'
 
 const router = Router()
 
@@ -271,7 +272,8 @@ export function verifyWebhookSecret(req) {
   if (!secret) return true // open in dev when unset
 
   const token = req.get('x-webhook-token') || req.get('x-gitlab-token') || ''
-  if (token && token === secret) return true
+  // Constant-time compare (JL-184) to avoid leaking the secret via timing.
+  if (token && safeEqual(token, secret)) return true
 
   const sig = req.get('x-hub-signature-256') || ''
   if (sig) {
@@ -279,9 +281,8 @@ export function verifyWebhookSecret(req) {
       .createHmac('sha256', secret)
       .update(JSON.stringify(req.body || {}))
       .digest('hex')
-    // Length check guards timingSafeEqual against a throw on mismatched sizes.
-    if (sig.length === expected.length &&
-        crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    // safeEqual guards the length so timingSafeEqual can't throw on mismatch.
+    if (safeEqual(sig, expected)) {
       return true
     }
   }

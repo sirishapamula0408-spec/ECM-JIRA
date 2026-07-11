@@ -72,6 +72,11 @@ function formatTeamsPayload(event, data) {
 
 const MAX_RETRIES = 3
 
+// JL-184: columns safe to return to clients — the `secret` is NEVER included so
+// create/update responses match the list/GET behaviour and don't echo secrets.
+const PUBLIC_WEBHOOK_COLUMNS =
+  'id, name, url, events, project_id, is_active, created_by, created_at, updated_at'
+
 const router = Router()
 
 // GET /api/webhooks — list webhooks (Admin only, exclude secrets)
@@ -196,7 +201,7 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     'INSERT INTO webhooks (name, url, secret, events, project_id, created_by) VALUES (?, ?, ?, ?::jsonb, ?, ?)',
     [name.trim(), url.trim(), secret, JSON.stringify(events), projectId, req.user.email],
   )
-  const row = await get('SELECT * FROM webhooks WHERE id = ?', [result.lastID])
+  const row = await get(`SELECT ${PUBLIC_WEBHOOK_COLUMNS} FROM webhooks WHERE id = ?`, [result.lastID])
   // JL-132: record webhook creation in the tamper-evident audit log.
   safeAppendAudit({ actor: req.user.email, action: 'webhook.create', target: `webhook:${row.id}`, metadata: { name: row.name, url: row.url } })
   res.status(201).json(row)
@@ -222,14 +227,16 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   if (isActive !== undefined) { sets.push('is_active = ?'); params.push(isActive) }
 
   if (sets.length === 0) {
-    res.json(existing)
+    // JL-184: re-read without the secret rather than echoing `existing` (SELECT *).
+    const unchanged = await get(`SELECT ${PUBLIC_WEBHOOK_COLUMNS} FROM webhooks WHERE id = ?`, [id])
+    res.json(unchanged)
     return
   }
 
   sets.push('updated_at = NOW()')
   params.push(id)
   await run(`UPDATE webhooks SET ${sets.join(', ')} WHERE id = ?`, params)
-  const row = await get('SELECT * FROM webhooks WHERE id = ?', [id])
+  const row = await get(`SELECT ${PUBLIC_WEBHOOK_COLUMNS} FROM webhooks WHERE id = ?`, [id])
   res.json(row)
 }))
 

@@ -299,6 +299,16 @@ describe('webhook secret gate', () => {
     expect(res.status).toBe(401)
   })
 
+  // JL-184: constant-time compare must still reject a same-length wrong token.
+  it('rejects a same-length wrong token (constant-time compare)', async () => {
+    process.env.GIT_WEBHOOK_SECRET = 'topsecret'
+    const res = await request(createApp())
+      .post('/api/git/webhook')
+      .set('X-Webhook-Token', 'topsecre7')
+      .send({ event: 'deployment', deployment: { environment: 'prod', status: 'ok' } })
+    expect(res.status).toBe(401)
+  })
+
   it('accepts a matching shared token when GIT_WEBHOOK_SECRET is set', async () => {
     process.env.GIT_WEBHOOK_SECRET = 'topsecret'
     get.mockResolvedValue(null)

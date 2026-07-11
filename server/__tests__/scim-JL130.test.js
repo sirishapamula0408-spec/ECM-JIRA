@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 
@@ -12,9 +12,12 @@ vi.mock('../db.js', () => ({
 }))
 
 import { run, all, get } from '../db.js'
-import { SCIM_TOKEN } from '../config.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import scimRoutes, { toScimUser, toScimGroup, parseScimFilter, buildListResponse } from '../routes/scim.js'
+
+// JL-184: SCIM has no in-code default token. scimAuth reads process.env.SCIM_TOKEN
+// at request time, so these suites configure a token before each test.
+const TEST_SCIM_TOKEN = 'test-scim-token-abc123'
 
 function makeApp() {
   const app = express()
@@ -24,7 +27,7 @@ function makeApp() {
   return app
 }
 
-const auth = (token = SCIM_TOKEN) => `Bearer ${token}`
+const auth = (token = TEST_SCIM_TOKEN) => `Bearer ${token}`
 
 const userRow = (over = {}) => ({
   id: 1,
@@ -38,6 +41,11 @@ const userRow = (over = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  process.env.SCIM_TOKEN = TEST_SCIM_TOKEN
+})
+
+afterEach(() => {
+  delete process.env.SCIM_TOKEN
 })
 
 /* ================================================================
@@ -137,6 +145,32 @@ describe('SCIM bearer auth', () => {
     all.mockResolvedValueOnce([])
     const res = await request(makeApp()).get('/scim/v2/Users').set('Authorization', auth())
     expect(res.status).toBe(200)
+  })
+
+  // JL-184: config-gated. With SCIM_TOKEN unset, SCIM is disabled entirely.
+  it('returns 501 for every request when SCIM_TOKEN is not configured', async () => {
+    delete process.env.SCIM_TOKEN
+    const res = await request(makeApp()).get('/scim/v2/Users').set('Authorization', auth())
+    expect(res.status).toBe(501)
+    expect(res.body.schemas).toEqual(['urn:ietf:params:scim:api:messages:2.0:Error'])
+    // No DB access should occur when SCIM is not configured.
+    expect(get).not.toHaveBeenCalled()
+    expect(all).not.toHaveBeenCalled()
+  })
+
+  it('rejects the old repo-visible default token once configured (401)', async () => {
+    const res = await request(makeApp())
+      .get('/scim/v2/Users')
+      .set('Authorization', auth('dev-scim-token-change-me'))
+    expect(res.status).toBe(401)
+  })
+
+  // JL-184: safeEqual must reject a wrong-length token without throwing.
+  it('rejects a wrong-length token (401)', async () => {
+    const res = await request(makeApp())
+      .get('/scim/v2/Users')
+      .set('Authorization', auth('short'))
+    expect(res.status).toBe(401)
   })
 })
 

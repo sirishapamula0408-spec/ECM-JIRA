@@ -1,7 +1,8 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
 import { get, all, run } from '../db.js'
-import { SCIM_TOKEN } from '../config.js'
+import { getScimToken } from '../config.js'
+import { safeEqual } from '../utils/safeEqual.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { hashPassword } from '../middleware/validate.js'
 
@@ -137,14 +138,24 @@ function sendScim(res, status, body) {
 /* ---------------------- auth middleware ---------------------- */
 
 /**
- * Guard every SCIM route with the shared bearer token. Responds 401 with a
- * SCIM-shaped error when the token is missing, malformed, or incorrect.
+ * Guard every SCIM route with the shared bearer token.
+ *
+ * JL-184: when SCIM_TOKEN is not configured, SCIM provisioning is disabled —
+ * respond 501 for every request rather than accepting a hard-coded default
+ * (mirrors the JL-81/JL-129 config-gated SSO pattern). When configured, the
+ * bearer token must match, compared in constant time via `safeEqual` to avoid
+ * leaking the secret through response timing. Responds 401 when the token is
+ * missing, malformed, or incorrect.
  */
 export function scimAuth(req, res, next) {
+  const scimToken = getScimToken()
+  if (!scimToken) {
+    return scimError(res, 501, 'SCIM provisioning is not configured on this server')
+  }
   const header = req.headers.authorization || ''
   const match = /^Bearer\s+(.+)$/i.exec(header)
   const token = match ? match[1].trim() : ''
-  if (!SCIM_TOKEN || !token || token !== SCIM_TOKEN) {
+  if (!safeEqual(token, scimToken)) {
     return scimError(res, 401, 'Unauthorized: a valid SCIM bearer token is required')
   }
   return next()
