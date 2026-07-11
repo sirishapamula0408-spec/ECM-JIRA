@@ -1851,6 +1851,31 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_plugin_manifests_enabled ON plugin_manifests(enabled)')
 
+  // --- JL-186: Performance indexes (from JL-177 review). ---
+  // Purely additive + idempotent (CREATE INDEX IF NOT EXISTS) — no behavior change.
+  // Backs hot equality lookups (issue_key), dashboard/queue/report filters
+  // (status/assignee/priority), BI-export sort (updated_at), and unindexed
+  // join/FK columns flagged as full-scan hotspots. All target columns verified
+  // to exist in the schema above. installed_apps.workspace_id was already
+  // indexed (idx_installed_apps_workspace), so it is intentionally omitted here.
+  // issues: issue_key is a constant equality lookup (git webhooks, JQL links,
+  // releases). A UNIQUE index also enforces key uniqueness at no extra cost.
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_issues_issue_key ON issues(issue_key)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_priority ON issues(priority)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issues_updated_at ON issues(updated_at)')
+  // FK / filter columns flagged in the review as unindexed join hotspots.
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_automation_logs_rule_id ON automation_logs(rule_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_automation_logs_issue_id ON automation_logs(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_incidents_issue_id ON incidents(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_requests_issue_id ON portal_requests(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_requests_request_type_id ON portal_requests(request_type_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_notifications_issue_id ON notifications(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_notifications_project_id ON notifications(project_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_project_members_member_id ON project_members(member_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_wiki_page_id ON issue_wiki_links(wiki_page_id)')
+
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
   // production/CI never auto-seed fictional data. The seeders themselves only
