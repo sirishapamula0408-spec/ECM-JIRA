@@ -1649,6 +1649,31 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_portal_requests_email ON portal_requests(requester_email)')
+  // --- JL-134: Org-wide security policy (single-row) + password rotation ---
+  // A single row (id = 1) holds the org's enforced 2FA + password-complexity
+  // rules. Defaults are intentionally PERMISSIVE (min length 8, no other
+  // requirements) so existing users/tests with valid passwords keep working.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS security_policy (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      require_mfa BOOLEAN NOT NULL DEFAULT FALSE,
+      min_password_length INTEGER NOT NULL DEFAULT 8,
+      require_uppercase BOOLEAN NOT NULL DEFAULT FALSE,
+      require_number BOOLEAN NOT NULL DEFAULT FALSE,
+      require_symbol BOOLEAN NOT NULL DEFAULT FALSE,
+      password_max_age_days INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT,
+      CONSTRAINT security_policy_singleton CHECK (id = 1)
+    )
+  `)
+  // Ensure the singleton row always exists (idempotent seed of defaults).
+  await pool.query(`
+    INSERT INTO security_policy (id) VALUES (1)
+    ON CONFLICT (id) DO NOTHING
+  `)
+  // Track when each user last changed their password, for rotation enforcement.
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ')
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so

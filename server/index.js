@@ -19,6 +19,7 @@ import timeInStatusReportRoutes from './routes/timeInStatusReports.js'
 import roadmapRoutes from './routes/roadmap.js'
 import workflowRoutes from './routes/workflows.js'
 import profileRoutes from './routes/profile.js'
+import securityPolicyRoutes from './routes/securityPolicy.js'
 import memberRoutes from './routes/members.js'
 import invitationRoutes from './routes/invitations.js'
 import activityRoutes from './routes/activity.js'
@@ -164,6 +165,7 @@ app.use('/api', ...protect, timeInStatusReportRoutes)
 app.use('/api/roadmap', ...protect, roadmapRoutes)
 app.use('/api/workflows', ...protect, workflowRoutes)
 app.use('/api/profile', ...protect, profileRoutes)
+app.use('/api', ...protect, securityPolicyRoutes) // JL-134: /api/security-policy
 app.use('/api/members', ...protect, memberRoutes)
 app.use('/api/invitations', ...protect, invitationRoutes)
 app.use('/api/activity', ...protect, activityRoutes)

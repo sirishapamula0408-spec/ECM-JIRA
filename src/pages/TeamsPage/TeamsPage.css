@@ -89,6 +89,33 @@
   padding-bottom: 1px;
 }
 
+/* JL-134: security policy form */
+.teams-security-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.teams-security-form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--jira-text-muted);
+}
+
+.teams-security-form > label input[type='number'] {
+  max-width: 160px;
+}
+
+.teams-security-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
 .teams-table-shell {
   border: 1px solid var(--jira-border);
   border-radius: 8px;

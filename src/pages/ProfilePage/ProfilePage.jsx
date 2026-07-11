@@ -14,6 +14,10 @@ function MfaSection() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  // JL-134: set when the org enforces MFA and this user hasn't enrolled (flag
+  // written by AuthContext from the login response).
+  const [enrollmentRequired, setEnrollmentRequired] = useState(false)
+
   async function loadStatus() {
     try {
       const res = await fetchMfaStatus()
@@ -22,7 +26,20 @@ function MfaSection() {
       setLoading(false)
     }
   }
-  useEffect(() => { loadStatus() }, [])
+  useEffect(() => {
+    loadStatus()
+    try {
+      setEnrollmentRequired(window.sessionStorage.getItem('jira_mfa_enrollment_required') === '1')
+    } catch { /* ignore */ }
+  }, [])
+
+  // Once MFA is enabled, clear the org nudge.
+  useEffect(() => {
+    if (enabled) {
+      setEnrollmentRequired(false)
+      try { window.sessionStorage.removeItem('jira_mfa_enrollment_required') } catch { /* ignore */ }
+    }
+  }, [enabled])
 
   async function handleSetup() {
     setBusy(true); setError(''); setMessage('')
@@ -64,6 +81,12 @@ function MfaSection() {
     <article className="panel profile-form-panel" style={{ marginTop: 24 }}>
       <h3>Two-Factor Authentication (2FA)</h3>
       <p>Add an extra layer of security by requiring a time-based code from an authenticator app (Google Authenticator, Authy, 1Password) at sign-in.</p>
+
+      {enrollmentRequired && !enabled && (
+        <p className="banner" style={{ background: 'var(--warning-bg, #fffae6)', color: 'var(--warning-text, #974f0c)', padding: 8, borderRadius: 4 }}>
+          Your organization requires two-factor authentication. Please set it up now to keep your account compliant.
+        </p>
+      )}
 
       {!loading && (
         <p style={{ margin: '8px 0' }}>
