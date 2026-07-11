@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
 
@@ -71,8 +72,7 @@ router.post('/issues/:issueId/worklogs', requireRole('Member'), asyncHandler(asy
 
   const minutes = parseTimeToMinutes(req.body?.timeSpent)
   if (minutes == null || minutes <= 0) {
-    res.status(400).json({ error: 'timeSpent must be like "2h 30m", "45m", or a number of minutes' })
-    return
+    return sendError(res, 400, 'timeSpent must be like "2h 30m", "45m", or a number of minutes')
   }
   const author = req.user.email
   const description = String(req.body?.description || '').trim()
