@@ -353,6 +353,65 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(updated)
 }))
 
+// JL-207: bulk-delete members in one request. Applies the same guards as the
+// single delete per id, skipping (not failing) any protected/missing id, and
+// returns a { deleted, skipped } summary. Must be declared before '/:id' — it
+// is a distinct POST path, but keep it grouped with the delete logic.
+router.post('/bulk-delete', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const { ids } = req.body || {}
+  if (!Array.isArray(ids) || ids.length === 0 || !ids.every((n) => Number.isInteger(n))) {
+    res.status(400).json({ error: 'ids must be a non-empty array of integers' })
+    return
+  }
+
+  const deleted = []
+  const skipped = []
+  const selfId = req.user?.memberId
+  // Track the admin count across the batch so the last-admin guard stays correct
+  // as admins are removed one by one (countAdmins() includes the Owner).
+  let adminCount = await countAdmins()
+
+  for (const id of ids) {
+    const member = await get(
+      'SELECT id, name, email, role, is_owner FROM members WHERE id = ?',
+      [id],
+    )
+    if (!member) {
+      skipped.push({ id, reason: 'not found' })
+      continue
+    }
+    if (member.is_owner) {
+      skipped.push({ id, reason: 'workspace Owner cannot be deleted' })
+      continue
+    }
+    if (member.role === 'Admin' && adminCount <= 1) {
+      skipped.push({
+        id,
+        reason: id === selfId
+          ? 'cannot remove yourself as the last remaining Admin'
+          : 'cannot delete the last remaining Admin',
+      })
+      continue
+    }
+
+    await run('DELETE FROM project_members WHERE member_id = ?', [id])
+    await run('DELETE FROM members WHERE id = ?', [id])
+    if (member.role === 'Admin') adminCount -= 1
+
+    await recordActivity(req.user?.email, `removed member ${member.email}`)
+    await recordAudit({
+      actor: req.user?.email,
+      targetMemberId: id,
+      targetEmail: member.email,
+      action: 'deleted',
+      before: member.role,
+    })
+    deleted.push(id)
+  }
+
+  res.json({ deleted, skipped })
+}))
+
 router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
