@@ -22,3 +22,14 @@ export function resendMemberInvite(id) {
     method: 'POST',
   })
 }
+
+// JL-197: fetch the user-administration audit trail (Admin only).
+// Optional filters: { target, action, limit }.
+export function fetchUserAuditLog({ target, action, limit } = {}) {
+  const params = new URLSearchParams()
+  if (target) params.set('target', target)
+  if (action) params.set('action', action)
+  if (limit) params.set('limit', String(limit))
+  const qs = params.toString()
+  return api(`/api/members/audit${qs ? `?${qs}` : ''}`)
+}

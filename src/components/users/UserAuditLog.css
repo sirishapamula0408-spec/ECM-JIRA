@@ -1,0 +1,7 @@
+.user-audit-log {
+  width: 100%;
+}
+
+.user-audit-log .MuiTableCell-root {
+  white-space: nowrap;
+}
