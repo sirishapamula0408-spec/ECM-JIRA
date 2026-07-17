@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../context/MemberContext'
 import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
 import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions } from '../../api/authApi'
+import { NotificationPreferencesSection } from '../../components/notifications/NotificationPreferencesSection'
 import './ProfilePage.css'
 
 function MfaSection() {
@@ -392,6 +393,8 @@ export function ProfilePage() {
           </div>
         </article>
       </section>
+
+      <NotificationPreferencesSection />
 
       <MfaSection />
 
