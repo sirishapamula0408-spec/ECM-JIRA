@@ -176,13 +176,31 @@ router.post('/login', asyncHandler(async (req, res) => {
     return
   }
 
+  // JL-192: `status` is selected alongside MFA columns so the deactivated-account
+  // gate below can run before any JWT is issued.
   const user = await get(
-    'SELECT id, email, password_hash, created_at, mfa_enabled, mfa_secret FROM users WHERE email = ?',
+    'SELECT id, email, password_hash, status, created_at, mfa_enabled, mfa_secret FROM users WHERE email = ?',
     [email],
   )
   if (!user || !verifyPassword(password, user.password_hash)) {
     loginLockout.recordFailure(lockKey)
     res.status(401).json({ error: 'Invalid email or password' })
+    return
+  }
+
+  // JL-192: block deactivated accounts before issuing the JWT
+  if (user.status === 'Deactivated') {
+    // JL-197: record the blocked login attempt (non-fatal)
+    try {
+      await run(
+        `INSERT INTO user_audit_log (actor, target_email, action, created_at)
+         VALUES (?, ?, ?, NOW())`,
+        [user.email, user.email, 'login_blocked'],
+      )
+    } catch (auditErr) {
+      console.error('[Auth] Failed to record login_blocked audit:', auditErr.message)
+    }
+    res.status(403).json({ error: 'This account has been deactivated. Please contact your workspace admin.' })
     return
   }
 

@@ -204,6 +204,13 @@ export async function initializeDatabase() {
 
   await pool.query('CREATE INDEX IF NOT EXISTS idx_members_email ON members(email)')
 
+  // --- JL-192: account status for login gating (Active / Invited / Deactivated) ---
+  // Mirrors members.status onto the auth `users` table so login can block
+  // Deactivated accounts before issuing a JWT. Uses the ADD COLUMN migration style.
+  if (!(await columnExists('users', 'status'))) {
+    await pool.query("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'Active'")
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS projects (
       id SERIAL PRIMARY KEY,
@@ -903,6 +910,24 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label_id)')
+
+  // --- JL-197: append-only audit trail for user-administration actions ---
+  // Records who did what to which member (role change, create, invite,
+  // deactivate/reactivate, delete, login block). No update/delete routes exist.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_audit_log (
+      id SERIAL PRIMARY KEY,
+      actor TEXT,
+      target_member_id INTEGER,
+      target_email TEXT,
+      action TEXT NOT NULL,
+      before_value TEXT,
+      after_value TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_audit_target_email ON user_audit_log(target_email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_audit_action ON user_audit_log(action)')
 
   // --- JL-111: First-class Components ---
   // Per-project component objects; issues link to components via issue_components.

@@ -24,6 +24,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
 import { MobileBottomNav } from './components/layout/MobileBottomNav'
 import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
+import { RequireRole } from './components/auth/RequireRole'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
 import { KeyboardShortcutsDialog } from './components/shortcuts/KeyboardShortcutsDialog'
@@ -55,6 +56,7 @@ import { InboundEmailPage } from './pages/InboundEmailPage/InboundEmailPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
 import { CrossProjectBoardPage } from './pages/CrossProjectBoardPage/CrossProjectBoardPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
+import { UserManagementPage } from './pages/UserManagementPage/UserManagementPage'
 import { AuditLogPage } from './pages/AuditLogPage/AuditLogPage'
 import { BiExportPage } from './pages/BiExportPage/BiExportPage'
 import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
@@ -182,6 +184,14 @@ function AppContent() {
               <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/advanced-roadmap" element={hasProjects ? <AdvancedRoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/teams" element={<TeamsPage />} />
+              <Route
+                path="/users"
+                element={(
+                  <RequireRole permission="canManageUsers" fallback={<Navigate to="/" replace />}>
+                    <UserManagementPage />
+                  </RequireRole>
+                )}
+              />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
