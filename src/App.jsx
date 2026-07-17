@@ -23,6 +23,7 @@ import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
 import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
+import { RequireRole } from './components/auth/RequireRole'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
 
@@ -143,7 +144,14 @@ function AppContent() {
               <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
               <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
               <Route path="/teams" element={<TeamsPage />} />
-              <Route path="/users" element={<UserManagementPage />} />
+              <Route
+                path="/users"
+                element={(
+                  <RequireRole permission="canManageUsers" fallback={<Navigate to="/" replace />}>
+                    <UserManagementPage />
+                  </RequireRole>
+                )}
+              />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />

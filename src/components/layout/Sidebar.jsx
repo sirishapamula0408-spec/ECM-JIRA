@@ -7,7 +7,7 @@ import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
-  const { canCreateProject } = usePermissions()
+  const { canCreateProject, canManageUsers } = usePermissions()
   const navigate = useNavigate()
   const location = useLocation()
   const [isSpacesMenuOpen, setIsSpacesMenuOpen] = useState(false)
@@ -64,7 +64,8 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
   const productItems = [
     { label: 'Teams', path: '/teams', icon: 'teams' },
-    { label: 'Users', path: '/users', icon: 'teams' },
+    // User Management is Admin/Owner-only (JL-195)
+    ...(canManageUsers ? [{ label: 'Users', path: '/users', icon: 'teams' }] : []),
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
     { label: 'Activity', path: '/activity', icon: 'recent' },
     { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
