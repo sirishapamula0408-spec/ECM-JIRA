@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react'
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../api/notificationApi'
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, clearReadNotifications } from '../api/notificationApi'
 
 const NotificationContext = createContext(null)
 
@@ -37,8 +37,30 @@ export function NotificationProvider({ children }) {
     }
   }, [])
 
+  const dismiss = useCallback(async (id) => {
+    const target = notifications.find((n) => n.id === id)
+    try {
+      await deleteNotification(id)
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+      if (target && !target.is_read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      }
+    } catch {
+      // ignore
+    }
+  }, [notifications])
+
+  const clearRead = useCallback(async () => {
+    try {
+      await clearReadNotifications()
+      setNotifications((prev) => prev.filter((n) => !n.is_read))
+    } catch {
+      // ignore
+    }
+  }, [])
+
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, loadNotifications, markRead, markAllRead }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, loadNotifications, markRead, markAllRead, dismiss, clearRead }}>
       {children}
     </NotificationContext.Provider>
   )

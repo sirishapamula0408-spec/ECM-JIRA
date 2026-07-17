@@ -45,6 +45,13 @@ router.patch('/read-all', asyncHandler(async (req, res) => {
   res.json({ success: true })
 }))
 
+// DELETE /api/notifications/read — bulk-clear the current user's read notifications
+// NOTE: must be registered before DELETE /:id so 'read' isn't captured as an id.
+router.delete('/read', asyncHandler(async (req, res) => {
+  const result = await run('DELETE FROM notifications WHERE recipient_email = ? AND is_read = TRUE', [req.user.email])
+  res.json({ success: true, deleted: result.changes })
+}))
+
 // DELETE /api/notifications/:id — delete a notification
 router.delete('/:id', asyncHandler(async (req, res) => {
   await run('DELETE FROM notifications WHERE id = ? AND recipient_email = ?', [Number(req.params.id), req.user.email])
