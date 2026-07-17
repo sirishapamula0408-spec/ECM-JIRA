@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../context/MemberContext'
 import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
 import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions, changePassword } from '../../api/authApi'
+import { NotificationPreferencesSection } from '../../components/notifications/NotificationPreferencesSection'
 import './ProfilePage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -476,6 +477,8 @@ export function ProfilePage() {
       </section>
 
       <ChangePasswordSection />
+
+      <NotificationPreferencesSection />
 
       <MfaSection />
 
