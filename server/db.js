@@ -126,6 +126,13 @@ export async function initializeDatabase() {
 
   await pool.query('CREATE INDEX IF NOT EXISTS idx_members_email ON members(email)')
 
+  // --- JL-192: account status for login gating (Active / Invited / Deactivated) ---
+  // Mirrors members.status onto the auth `users` table so login can block
+  // Deactivated accounts before issuing a JWT. Uses the ADD COLUMN migration style.
+  if (!(await columnExists('users', 'status'))) {
+    await pool.query("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'Active'")
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS projects (
       id SERIAL PRIMARY KEY,
