@@ -8,6 +8,7 @@ import { loadTransitions, isTransitionAllowed, findTransition, runValidators, ap
 import { buildIssueSearchAsync } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
 import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
+import { maxLengthError, ISSUE_TITLE_MAX, ISSUE_DESCRIPTION_MAX } from '../utils/validation.js'
 import { validateRequiredFields } from './fieldConfig.js'
 import { processMentions } from '../services/mentions.js'
 import { publish } from '../services/realtime.js'
@@ -328,6 +329,15 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     return
   }
 
+  // JL-204: server-side length caps (checked after trim)
+  const lengthErr =
+    maxLengthError('title', normalizedTitle, ISSUE_TITLE_MAX) ||
+    maxLengthError('description', normalizedDescription, ISSUE_DESCRIPTION_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
   if (!validPriorities.includes(priority)) {
     res.status(400).json({ error: 'priority must be Low, Medium, or High' })
     return
@@ -499,6 +509,12 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
       res.status(400).json({ error: 'title cannot be empty' })
       return
     }
+    // JL-204: length cap (checked after trim)
+    const titleErr = maxLengthError('title', t, ISSUE_TITLE_MAX)
+    if (titleErr) {
+      res.status(400).json({ error: titleErr })
+      return
+    }
     sets.push('title = ?')
     params.push(t)
     changes.push({ field: 'title', oldValue: existing.title, newValue: t })
@@ -509,6 +525,12 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   let newDescription = null
   if (fields.description !== undefined) {
     const d = String(fields.description || '').trim()
+    // JL-204: length cap (checked after trim)
+    const descErr = maxLengthError('description', d, ISSUE_DESCRIPTION_MAX)
+    if (descErr) {
+      res.status(400).json({ error: descErr })
+      return
+    }
     sets.push('description = ?')
     params.push(d)
     changes.push({ field: 'description', oldValue: existing.description, newValue: d })
@@ -877,6 +899,15 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
   const status = validStatuses.includes(req.body?.status) ? req.body.status : 'To Do'
   const assignee = String(req.body?.assignee || parent.assignee || 'Unassigned').trim()
   const description = String(req.body?.description || '').trim()
+
+  // JL-204: length caps for sub-task text fields (checked after trim)
+  const subtaskLengthErr =
+    maxLengthError('title', title, ISSUE_TITLE_MAX) ||
+    maxLengthError('description', description, ISSUE_DESCRIPTION_MAX)
+  if (subtaskLengthErr) {
+    res.status(400).json({ error: subtaskLengthErr })
+    return
+  }
   const projectId = parent.project_id
   const sprintId = status === 'Backlog' ? null : parent.sprint_id
 

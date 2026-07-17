@@ -6,6 +6,7 @@ import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from 
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import './BoardPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const SWIMLANE_OPTIONS = [
   { value: 'none', label: 'No swimlanes' },
@@ -23,6 +24,7 @@ function swimlaneValueFor(issue, mode) {
 }
 
 export function BoardPage() {
+  usePageTitle('Board')
   const { issues, handleMove } = useIssues()
   const { projectId } = useParams()
   const navigate = useNavigate()

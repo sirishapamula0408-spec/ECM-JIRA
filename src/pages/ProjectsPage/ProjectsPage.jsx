@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { fetchProjects, deleteProject } from '../../api/projectApi'
 import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/favoriteApi'
 import './ProjectsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
+  usePageTitle('Projects')
   const navigate = useNavigate()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)

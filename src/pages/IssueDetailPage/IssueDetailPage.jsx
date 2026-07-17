@@ -9,6 +9,7 @@ import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
+import LabelPicker from '../../components/issues/LabelPicker'
 import { fetchProjectComponents, fetchIssueComponents, setIssueComponents } from '../../api/componentApi'
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
@@ -1115,6 +1116,17 @@ export function IssueDetailPage() {
     persistLabels(labels.filter((l) => l.id !== label.id))
   }
 
+  // JL-199: reflect an inline catalog rename/recolor in the catalog + assigned chips
+  function handleCatalogLabelUpdated(updated) {
+    if (!updated?.id) return
+    setProjectLabels((prev) =>
+      prev
+        .map((l) => (l.id === updated.id ? { ...l, name: updated.name, color: updated.color } : l))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    )
+    setLabels((prev) => prev.map((l) => (l.id === updated.id ? { ...l, name: updated.name, color: updated.color } : l)))
+  }
+
   async function persistComponents(nextComponents) {
     const prev = issueComponents
     setIssueComponents(nextComponents) // optimistic
@@ -1886,35 +1898,17 @@ export function IssueDetailPage() {
                       </div>
                     }
                   >
-                    <div className="id-labels-editor">
-                      <div className="id-labels-list">
-                        {labels.map((l) => (
-                          <span key={l.id} className="id-label-chip" style={{ background: `${l.color}22`, color: l.color }}>
-                            {l.name}
-                            <button type="button" className="id-label-remove" onClick={() => removeLabel(l)}>&times;</button>
-                          </span>
-                        ))}
-                      </div>
-                      {projectLabels.filter((pl) => !labels.some((l) => l.id === pl.id)).length > 0 && (
-                        <div className="id-label-suggestions">
-                          {projectLabels.filter((pl) => !labels.some((l) => l.id === pl.id)).map((pl) => (
-                            <button key={pl.id} type="button" className="id-label-suggestion" style={{ color: pl.color }} onClick={() => toggleLabel(pl)}>
-                              + {pl.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <div className="id-label-add-row">
-                        <input
-                          className="id-inline-input"
-                          value={labelInput}
-                          onChange={(e) => setLabelInput(e.target.value)}
-                          placeholder="Add or create label..."
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLabel() } }}
-                        />
-                        <button className="id-label-add-btn" type="button" onClick={addLabel}>Add</button>
-                      </div>
-                    </div>
+                    <LabelPicker
+                      labels={labels}
+                      projectLabels={projectLabels}
+                      projectId={issue.projectId}
+                      labelInput={labelInput}
+                      onLabelInputChange={setLabelInput}
+                      onAdd={addLabel}
+                      onToggle={toggleLabel}
+                      onRemove={removeLabel}
+                      onCatalogLabelUpdated={handleCatalogLabelUpdated}
+                    />
                   </InlineField>
                 </dd>
               </div>

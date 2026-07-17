@@ -18,6 +18,9 @@ export const markAllNotificationsRead = () =>
 export const deleteNotification = (id) =>
   api(`/api/notifications/${id}`, { method: 'DELETE' })
 
+export const clearReadNotifications = () =>
+  api('/api/notifications/read', { method: 'DELETE' })
+
 export const fetchNotificationPreferences = () =>
   api('/api/notifications/preferences')
 

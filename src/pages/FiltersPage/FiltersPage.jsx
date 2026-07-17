@@ -7,6 +7,7 @@ import { ListViewControls } from '../../components/listViews/ListViewControls'
 import { DEFAULT_COLUMNS, COLUMN_LABELS } from '../../api/listViewApi'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './FiltersPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const EMPTY_CRITERIA = { status: 'All', priority: 'All', issueType: 'All', assignee: '', text: '', projectId: 'All' }
 
@@ -54,6 +55,7 @@ function renderCell(issue, key) {
 }
 
 export function FiltersPage() {
+  usePageTitle('Filters')
   const navigate = useNavigate()
   const [filters, setFilters] = useState([])
   const [loading, setLoading] = useState(true)

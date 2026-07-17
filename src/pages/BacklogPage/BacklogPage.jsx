@@ -12,8 +12,10 @@ import { ImportExportModal } from '../../components/issues/ImportExportModal'
 import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function BacklogPage() {
+  usePageTitle('Backlog')
   const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
   const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
   const { profile, members } = useMembers()

@@ -2,8 +2,90 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../context/MemberContext'
 import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
-import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions } from '../../api/authApi'
+import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions, changePassword } from '../../api/authApi'
+import { NotificationPreferencesSection } from '../../components/notifications/NotificationPreferencesSection'
 import './ProfilePage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
+
+export function ChangePasswordSection() {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    setError(''); setMessage('')
+
+    if (!currentPassword || !newPassword) {
+      setError('Please fill in all password fields.')
+      return
+    }
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('New password and confirmation do not match.')
+      return
+    }
+
+    setBusy(true)
+    try {
+      await changePassword(currentPassword, newPassword)
+      setMessage('Your password has been changed successfully.')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      setError(err?.message || 'Failed to change password')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <article className="panel profile-form-panel" style={{ marginTop: 24 }}>
+      <h3>Change Password</h3>
+      <p>Update the password you use to sign in. You'll need your current password to confirm the change.</p>
+
+      {message && <p style={{ color: 'var(--success, #00875a)' }}>{message}</p>}
+      {error && <p style={{ color: 'var(--danger, #de350b)' }}>{error}</p>}
+
+      <form onSubmit={handleSubmit} style={{ maxWidth: 420 }}>
+        <label style={{ display: 'block', marginBottom: 12 }}>Current password
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+        </label>
+        <label style={{ display: 'block', marginBottom: 12 }}>New password
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+        </label>
+        <label style={{ display: 'block', marginBottom: 12 }}>Confirm new password
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        </label>
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          {busy ? 'Changing...' : 'Change password'}
+        </button>
+      </form>
+    </article>
+  )
+}
 
 function MfaSection() {
   const [enabled, setEnabled] = useState(false)
@@ -309,6 +391,7 @@ function ApiTokensSection() {
 }
 
 export function ProfilePage() {
+  usePageTitle('Profile')
   const { authUser } = useAuth()
   const { profile, handleSaveProfile: onSave } = useMembers()
   const [form, setForm] = useState(null)
@@ -392,6 +475,10 @@ export function ProfilePage() {
           </div>
         </article>
       </section>
+
+      <ChangePasswordSection />
+
+      <NotificationPreferencesSection />
 
       <MfaSection />
 

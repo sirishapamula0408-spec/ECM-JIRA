@@ -1138,6 +1138,22 @@
 }
 .id-label-suggestion:hover { opacity: 1; background: rgba(0,0,0,0.03); }
 
+/* JL-199: catalog list with inline edit */
+.id-label-catalog { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.id-label-catalog-item { display: inline-flex; align-items: center; gap: 2px; }
+.id-label-edit-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: inherit; cursor: pointer;
+  padding: 2px; border-radius: 4px; opacity: 0.6;
+}
+.id-label-edit-btn:hover { opacity: 1; background: rgba(0,0,0,0.06); }
+.id-label-edit-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.id-label-color-input {
+  width: 26px; height: 26px; padding: 0; border: 1px solid #dfe1e6;
+  border-radius: 4px; background: none; cursor: pointer;
+}
+.id-label-edit-error { color: #de350b; font-size: 12px; }
+
 /* Theme-1 #1: sub-tasks */
 .id-subtask-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .id-subtask-progress { display: flex; align-items: center; gap: 8px; }

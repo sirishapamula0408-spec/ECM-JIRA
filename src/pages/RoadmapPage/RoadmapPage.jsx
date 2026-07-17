@@ -5,6 +5,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { ISSUE_STATUSES } from '../../constants'
 import './RoadmapPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 /* ── helpers ── */
 
@@ -85,6 +86,7 @@ function statusLabel(status) {
 /* ── component ── */
 
 export function RoadmapPage() {
+  usePageTitle('Roadmap')
   const { roadmap } = useAppData()
   const { issues } = useIssues()
   const { sprints } = useSprints()

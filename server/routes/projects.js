@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole, loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
+import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -68,6 +69,15 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     return
   }
 
+  // JL-204: server-side length caps (checked after trim)
+  const lengthErr =
+    maxLengthError('name', trimmedName, PROJECT_NAME_MAX) ||
+    maxLengthError('key', trimmedKey, PROJECT_KEY_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
   // Resolve lead to member_id
   const userEmail = req.user?.email
   const member = userEmail
@@ -118,6 +128,16 @@ router.put('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(as
   const updatedKey = key !== undefined ? String(key).trim() : project.key
   const updatedType = type !== undefined ? String(type).trim() : project.type
   const updatedLead = lead !== undefined ? String(lead).trim() : project.lead
+
+  // JL-204: length caps — only validate fields the caller actually sent, so a
+  // legacy over-cap row can still be updated on unrelated fields.
+  const lengthErr =
+    (name !== undefined ? maxLengthError('name', updatedName, PROJECT_NAME_MAX) : null) ||
+    (key !== undefined ? maxLengthError('key', updatedKey, PROJECT_KEY_MAX) : null)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
 
   // Resolve lead_member_id when lead changes
   let updatedLeadMemberId = project.lead_member_id

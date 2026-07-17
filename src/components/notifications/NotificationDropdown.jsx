@@ -14,7 +14,7 @@ const TYPE_ICONS = {
 }
 
 export function NotificationDropdown({ open, onClose }) {
-  const { notifications, unreadCount, markRead, markAllRead, loadNotifications } = useNotifications()
+  const { notifications, unreadCount, markRead, markAllRead, dismiss, clearRead, loadNotifications } = useNotifications()
   const navigate = useNavigate()
   const ref = useRef(null)
 
@@ -46,31 +46,51 @@ export function NotificationDropdown({ open, onClose }) {
     <div className="notif-dropdown" ref={ref}>
       <div className="notif-header">
         <h3>Notifications</h3>
-        {unreadCount > 0 && (
-          <button type="button" className="notif-mark-all" onClick={markAllRead}>
-            Mark all read
-          </button>
-        )}
+        <div className="notif-header-actions">
+          {unreadCount > 0 && (
+            <button type="button" className="notif-mark-all" onClick={markAllRead}>
+              Mark all read
+            </button>
+          )}
+          {notifications.some((n) => n.is_read) && (
+            <button type="button" className="notif-clear-read" onClick={clearRead}>
+              Clear read
+            </button>
+          )}
+        </div>
       </div>
       <div className="notif-list">
         {notifications.length === 0 ? (
           <p className="notif-empty">No notifications</p>
         ) : (
           notifications.map((n) => (
-            <button
+            <div
               key={n.id}
-              type="button"
               className={`notif-item${n.is_read ? '' : ' notif-item--unread'}`}
-              onClick={() => handleClick(n)}
             >
-              <span className="notif-icon">{TYPE_ICONS[n.type] || '\uD83D\uDD14'}</span>
-              <div className="notif-content">
-                <span className="notif-title">{n.title}</span>
-                {n.message && <span className="notif-message">{n.message}</span>}
-                <span className="notif-time">{timeAgo(n.created_at)}</span>
-              </div>
-              {!n.is_read && <span className="notif-unread-dot" />}
-            </button>
+              <button
+                type="button"
+                className="notif-item-main"
+                onClick={() => handleClick(n)}
+              >
+                <span className="notif-icon">{TYPE_ICONS[n.type] || '\uD83D\uDD14'}</span>
+                <div className="notif-content">
+                  <span className="notif-title">{n.title}</span>
+                  {n.message && <span className="notif-message">{n.message}</span>}
+                  <span className="notif-time">{timeAgo(n.created_at)}</span>
+                </div>
+                {!n.is_read && <span className="notif-unread-dot" />}
+              </button>
+              <button
+                type="button"
+                className="notif-dismiss"
+                title="Dismiss"
+                aria-label={`Dismiss notification: ${n.title}`}
+                onClick={() => dismiss(n.id)}
+              >
+                &times;
+              </button>
+            </div>
           ))
         )}
       </div>
