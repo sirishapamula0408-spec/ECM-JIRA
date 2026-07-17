@@ -57,6 +57,62 @@ router.post('/projects/:projectId/labels', asyncHandler(async (req, res) => {
   res.status(201).json({ ...row, issueCount: 0 })
 }))
 
+// PUT /api/projects/:projectId/labels/:labelId — rename and/or recolor a label (JL-199)
+router.put('/projects/:projectId/labels/:labelId', asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.projectId)
+  const labelId = Number(req.params.labelId)
+
+  const label = await get(
+    'SELECT id, project_id, name, color FROM labels WHERE id = ? AND project_id = ?',
+    [labelId, projectId],
+  )
+  if (!label) {
+    return sendError(res, 404, 'Label not found')
+  }
+
+  const hasName = req.body?.name !== undefined
+  const hasColor = req.body?.color !== undefined
+  if (!hasName && !hasColor) {
+    return sendError(res, 400, 'Provide a name and/or color to update')
+  }
+
+  let name = label.name
+  if (hasName) {
+    name = String(req.body.name || '').trim()
+    if (!name) {
+      return sendError(res, 400, 'Label name is required')
+    }
+    // Duplicate-name guard within the project (excluding this label)
+    const clash = await get(
+      'SELECT id FROM labels WHERE project_id = ? AND LOWER(name) = LOWER(?) AND id <> ?',
+      [projectId, name, labelId],
+    )
+    if (clash) {
+      return sendError(res, 409, 'A label with that name already exists in this project')
+    }
+  }
+
+  let color = label.color
+  if (hasColor) {
+    color = String(req.body.color || '').trim()
+    if (!HEX.test(color)) {
+      return sendError(res, 400, 'color must be a hex value like #FF5630')
+    }
+  }
+
+  await run('UPDATE labels SET name = ?, color = ? WHERE id = ? AND project_id = ?', [name, color, labelId, projectId])
+  const row = await get(
+    `SELECT l.id, l.project_id, l.name, l.color,
+            COALESCE(COUNT(il.issue_id), 0)::int AS "issueCount"
+     FROM labels l
+     LEFT JOIN issue_labels il ON il.label_id = l.id
+     WHERE l.id = ?
+     GROUP BY l.id`,
+    [labelId],
+  )
+  res.json(row)
+}))
+
 // DELETE /api/projects/:projectId/labels/:labelId — delete a label (cascades issue_labels)
 router.delete('/projects/:projectId/labels/:labelId', asyncHandler(async (req, res) => {
   const labelId = Number(req.params.labelId)
