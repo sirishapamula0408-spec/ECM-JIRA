@@ -1,13 +1,36 @@
 import { Router } from 'express'
-import { all, get, run } from '../db.js'
+import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
+import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
+import { buildIssueSearchAsync } from '../services/jqlSearch.js'
+import { emitEvent } from '../services/events.js'
+import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
+import { validateRequiredFields } from './fieldConfig.js'
+import { processMentions } from '../services/mentions.js'
+import { publish } from '../services/realtime.js'
+import { canViewIssue } from '../services/issueSecurity.js'
 
 const router = Router()
 
+// JL-187: hard safety cap on the default (unpaginated) issues list so a very
+// large issues table cannot be loaded wholesale into memory / serialized in one
+// response. Callers that need to walk the full set must page explicitly via
+// ?limit/?offset/?page (see JL-100). The value is a constant baked into the SQL
+// (not user input), so there is no injection surface.
+const DEFAULT_ISSUE_LIST_CAP = 5000
+
+// JL-77: helper to normalize an optional string field ('' → null, trimmed).
+function optText(v) {
+  if (v === undefined || v === null) return undefined
+  const s = String(v).trim()
+  return s === '' ? null : s
+}
+
 function mapIssue(row) {
+  if (!row) return null
   return {
     id: row.id,
     key: row.issue_key,
@@ -20,8 +43,51 @@ function mapIssue(row) {
     sprintId: row.sprint_id ?? null,
     projectId: row.project_id ?? null,
     parentId: row.parent_id ?? null,
+    epicId: row.epic_id ?? null,
+    storyPoints: row.story_points ?? null,
     createdAt: row.created_at,
+    reporter: row.reporter ?? null,
+    dueDate: row.due_date ?? null,
+    startDate: row.start_date ?? null,
+    resolution: row.resolution ?? null,
+    environment: row.environment ?? null,
+    components: row.components ?? null,
+    updatedAt: row.updated_at ?? null,
+    securityLevelId: row.security_level_id ?? null,
+    ...(row.watcher_count !== undefined
+      ? { watcherCount: Number(row.watcher_count) || 0 }
+      : {}),
   }
+}
+
+// JL-86: normalize a story-points input to a non-negative integer or null.
+// Returns `undefined` when the value is invalid so callers can reject it.
+function normalizeStoryPoints(value) {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) return undefined
+  return parsed
+}
+
+// JL-76: normalize an epic_id input. Returns null for empty, undefined for invalid,
+// or an integer id. Callers reject `undefined` as a 400.
+function normalizeEpicId(value) {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) return undefined
+  return parsed
+}
+
+// JL-76: validate that `epicId` references an existing Epic. Resolves to an
+// error string (for 400) or null when OK.
+async function validateEpicRef(epicId, issueType) {
+  if (epicId === null) return null
+  if (issueType === 'Epic') return 'An Epic cannot belong to another Epic'
+  if (issueType === 'Sub-task') return 'A Sub-task cannot belong to an Epic directly'
+  const epic = await get('SELECT id, issue_type FROM issues WHERE id = ?', [epicId])
+  if (!epic) return 'Epic not found'
+  if (epic.issue_type !== 'Epic') return 'Referenced issue is not an Epic'
+  return null
 }
 
 async function getDefaultSprintId() {
@@ -29,20 +95,169 @@ async function getDefaultSprintId() {
   return sprint?.id ?? null
 }
 
-router.get('/', asyncHandler(async (req, res) => {
-  const status = req.query.status
-  const params = []
-  let sql =
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues'
+// JL-92: allocate the next issue-key number for a project using a monotonic
+// per-project counter (never reuses numbers after a delete; concurrency-safe
+// because the increment happens atomically inside the UPDATE). Falls back to
+// COUNT(*)+1 only for the legacy path where an issue has no project.
+async function nextIssueKey(projectKey, resolvedProjectId) {
+  if (resolvedProjectId) {
+    const row = await get(
+      'UPDATE projects SET issue_counter = issue_counter + 1 WHERE id = ? RETURNING issue_counter',
+      [resolvedProjectId],
+    )
+    return `${projectKey}-${row.issue_counter}`
+  }
+  const count = await get('SELECT COUNT(*) AS count FROM issues')
+  return `${projectKey}-${Number(count.count) + 1}`
+}
 
-  if (status) {
-    sql += ' WHERE status = ?'
-    params.push(status)
+// JL-82: record a field-level change into the per-issue audit log.
+// Only writes a row when the value actually changed (compared as strings).
+async function recordHistory(issueId, field, oldValue, newValue, actor) {
+  const from = oldValue === null || oldValue === undefined ? '' : String(oldValue)
+  const to = newValue === null || newValue === undefined ? '' : String(newValue)
+  if (from === to) return
+  await run(
+    'INSERT INTO issue_history (issue_id, field, old_value, new_value, actor) VALUES (?, ?, ?, ?, ?)',
+    [issueId, field, from, to, actor || 'system'],
+  )
+}
+
+// JL-121: pure, db-free preview builder for a bulk change.
+// Given the currently-loaded `issues` (mapped shape: { id, key, status,
+// priority, assignee, sprintId, labels? }) and an `operations` object,
+// returns a per-issue diff describing only the fields that would actually
+// change, whether the row would change at all, and any value-level validation
+// error (invalid status / priority). Existence checks (assignee, sprint) are
+// left to the endpoint because they need the database.
+export function buildBulkPreview(issues, operations = {}, options = {}) {
+  const allowedStatuses = options.allowedStatuses || validStatuses
+  const allowedPriorities = options.allowedPriorities || validPriorities
+  const ops = operations || {}
+  const isDelete = ops.delete === true
+
+  return (issues || []).map((issue) => {
+    if (isDelete) {
+      return {
+        issueId: issue.id,
+        key: issue.key ?? null,
+        delete: true,
+        willChange: true,
+        changes: [],
+        error: null,
+      }
+    }
+
+    const changes = []
+    let error = null
+
+    if (ops.status !== undefined && ops.status !== null && ops.status !== '') {
+      if (!allowedStatuses.includes(ops.status)) {
+        error = error || `Invalid status "${ops.status}"`
+      } else if ((issue.status ?? null) !== ops.status) {
+        changes.push({ field: 'status', from: issue.status ?? null, to: ops.status })
+      }
+    }
+
+    if (ops.priority !== undefined && ops.priority !== null && ops.priority !== '') {
+      if (!allowedPriorities.includes(ops.priority)) {
+        error = error || `Invalid priority "${ops.priority}"`
+      } else if ((issue.priority ?? null) !== ops.priority) {
+        changes.push({ field: 'priority', from: issue.priority ?? null, to: ops.priority })
+      }
+    }
+
+    if (ops.assignee !== undefined && ops.assignee !== null && String(ops.assignee).trim() !== '') {
+      const target = String(ops.assignee).trim()
+      if ((issue.assignee ?? null) !== target) {
+        changes.push({ field: 'assignee', from: issue.assignee ?? null, to: target })
+      }
+    }
+
+    if (ops.sprintId !== undefined) {
+      const target = ops.sprintId === null || ops.sprintId === '' ? null : Number(ops.sprintId)
+      const current = issue.sprintId ?? null
+      if (current !== target) {
+        changes.push({ field: 'sprintId', from: current, to: target })
+      }
+    }
+
+    if (Array.isArray(ops.addLabels) && ops.addLabels.length > 0) {
+      const existing = Array.isArray(issue.labels) ? issue.labels : []
+      const existingLower = new Set(existing.map((l) => String(l).toLowerCase()))
+      const toAdd = ops.addLabels
+        .map((l) => String(l).trim())
+        .filter((l) => l && !existingLower.has(l.toLowerCase()))
+      if (toAdd.length > 0) {
+        changes.push({ field: 'labels', from: existing, to: [...existing, ...toAdd], added: toAdd })
+      }
+    }
+
+    return {
+      issueId: issue.id,
+      key: issue.key ?? null,
+      delete: false,
+      willChange: changes.length > 0,
+      changes,
+      error,
+    }
+  })
+}
+
+router.get('/', asyncHandler(async (req, res) => {
+  const { status, q, jql } = req.query
+
+  let built
+  try {
+    // Whitelisted fields + bound params only — see server/services/jqlSearch.js.
+    // currentUser() resolves to the requesting user (JL-117); membersOf/
+    // linkedIssues are resolved via DB and bound as params.
+    built = await buildIssueSearchAsync({
+      status,
+      q,
+      jql,
+      currentUser: req.user?.email,
+    })
+  } catch (err) {
+    if (err.status === 400) {
+      res.status(400).json({ error: err.message })
+      return
+    }
+    throw err
   }
 
-  sql += ' ORDER BY id DESC'
-  const rows = await all(sql, params)
-  res.json(rows.map(mapIssue))
+  const sql =
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, i.security_level_id, ' +
+    '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
+    (built.where ? ` ${built.where}` : '') +
+    ` ORDER BY ${built.orderBy}`
+
+  // JL-100: opt-in pagination. Default (no limit/offset/page) keeps the legacy
+  // unbounded array response shape. When a paging param is present, cap the
+  // result set with LIMIT/OFFSET and expose totals via response headers.
+  if (isPaginationRequested(req.query)) {
+    const { limit, offset } = parsePagination(req.query)
+
+    const countSql =
+      'SELECT COUNT(*) AS total FROM issues i' + (built.where ? ` ${built.where}` : '')
+    const countRow = await get(countSql, built.params)
+    const total = Number(countRow?.total) || 0
+
+    const rows = await all(`${sql} LIMIT ? OFFSET ?`, [...built.params, limit, offset])
+    res.set('X-Total-Count', String(total))
+    res.set('X-Limit', String(limit))
+    res.set('X-Offset', String(offset))
+    // JL-131: hide issues the caller may not view (no-op when none are secured).
+    res.json(rows.map(mapIssue).filter((issue) => canViewIssue(issue, req.user)))
+    return
+  }
+
+  // JL-187: even the legacy (unpaginated) path is bounded by a hard cap so the
+  // whole table is never materialized at once. The shape (a plain array) is
+  // unchanged.
+  const rows = await all(`${sql} LIMIT ${DEFAULT_ISSUE_LIST_CAP}`, built.params)
+  // JL-131: hide issues the caller may not view (no-op when none are secured).
+  res.json(rows.map(mapIssue).filter((issue) => canViewIssue(issue, req.user)))
 }))
 
 router.get('/:id', asyncHandler(async (req, res) => {
@@ -53,7 +268,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, security_level_id FROM issues WHERE id = ?',
     [id],
   )
 
@@ -62,11 +277,48 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return
   }
 
-  res.json(mapIssue(row))
+  const issue = mapIssue(row)
+
+  // JL-131: enforce issue-level security. A null level stays public (backward
+  // compatible); otherwise only Admins/Owner + assignee/reporter may view it.
+  if (!canViewIssue(issue, req.user)) {
+    res.status(403).json({ error: 'You do not have permission to view this issue' })
+    return
+  }
+
+  // JL-112: include fix/affects versions in the issue detail (best-effort).
+  issue.fixVersions = []
+  issue.affectsVersions = []
+  try {
+    const versionRows = await all(
+      `SELECT iv.type, r.id, r.name, r.status, r.release_date
+       FROM issue_versions iv
+       JOIN releases r ON r.id = iv.version_id
+       WHERE iv.issue_id = ?
+       ORDER BY r.release_date DESC NULLS LAST, r.id ASC`,
+      [id],
+    )
+    for (const v of Array.isArray(versionRows) ? versionRows : []) {
+      const item = { id: v.id, name: v.name, status: v.status, releaseDate: v.release_date }
+      if (v.type === 'fix') issue.fixVersions.push(item)
+      else if (v.type === 'affects') issue.affectsVersions.push(item)
+    }
+  } catch {
+    // leave versions empty if the query fails
+  }
+
+  res.json(issue)
 }))
 
 router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
-  const { title, description, priority, assignee, status, issueType, sprintId, projectId } = req.body
+  const { title, description, priority, assignee, status, issueType, sprintId, projectId, storyPoints } = req.body
+  // JL-77: expanded, optional issue fields
+  const reporter = optText(req.body.reporter) ?? (req.user?.email || null)
+  const dueDate = optText(req.body.dueDate)
+  const startDate = optText(req.body.startDate)
+  const resolution = optText(req.body.resolution)
+  const environment = optText(req.body.environment)
+  const components = optText(req.body.components)
   const normalizedTitle = String(title || '').trim()
   const normalizedDescription = String(description || '').trim()
   const normalizedAssignee = String(assignee || '').trim()
@@ -123,32 +375,98 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     }
   }
 
-  // Generate issue key scoped to project
-  const count = resolvedProjectId
-    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [resolvedProjectId])
-    : await get('SELECT COUNT(*) AS count FROM issues')
-  const issueKey = `${projectKey}-${count.count + 1}`
-  const created = await run(
-    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId],
-  )
+  // JL-92: allocate a monotonic issue key scoped to the project. The atomic
+  // increment happens here (in the same spot the old COUNT query lived) so the
+  // db-mock call order in existing tests is preserved.
+  const issueKey = await nextIssueKey(projectKey, resolvedProjectId)
 
-  const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
-    [created.lastID],
-  )
+  const normalizedStoryPoints = normalizeStoryPoints(storyPoints)
+  if (normalizedStoryPoints === undefined) {
+    res.status(400).json({ error: 'storyPoints must be a non-negative integer' })
+    return
+  }
 
-  await run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
-    normalizedAssignee,
-    `created ${issueKey} (${normalizedTitle})`,
-    'Just now',
-  ])
+  // JL-76: optional parent Epic assignment
+  const normalizedEpicId = normalizeEpicId(req.body.epicId)
+  if (normalizedEpicId === undefined) {
+    res.status(400).json({ error: 'epicId must be a positive integer' })
+    return
+  }
+  const epicError = await validateEpicRef(normalizedEpicId, issueType)
+  if (epicError) {
+    res.status(400).json({ error: epicError })
+    return
+  }
 
-  // JL-43: Auto-watch on issue create for the creator
-  await run(
-    'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
-    [created.lastID, req.user.email],
-  )
+  // JL-115: enforce project field-configuration required fields. No-op (and no
+  // extra query) when the issue has no project or the project has no config rows,
+  // so existing create behavior is unchanged.
+  const providedFields = {
+    title: normalizedTitle,
+    description: normalizedDescription,
+    assignee: normalizedAssignee,
+    priority,
+    status,
+    issueType,
+    reporter,
+    dueDate,
+    startDate,
+    resolution,
+    environment,
+    components,
+    storyPoints: normalizedStoryPoints,
+    sprintId: nextSprintId,
+    epicId: normalizedEpicId,
+    ...(req.body?.customFields && typeof req.body.customFields === 'object'
+      ? Object.fromEntries(
+          Object.entries(req.body.customFields).map(([k, v]) => [`custom:${k}`, v]),
+        )
+      : {}),
+  }
+  const missingRequired = await validateRequiredFields(resolvedProjectId, issueType, providedFields)
+  if (missingRequired.length > 0) {
+    res.status(400).json({ error: 'Missing required fields', missingFields: missingRequired })
+    return
+  }
+
+  // JL-94: the issue insert, its activity-log row, and the creator auto-watch
+  // must all land together or not at all — wrap them in a single transaction.
+  const row = await withTransaction(async (tx) => {
+    const created = await tx.run(
+      'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+      [issueKey, normalizedTitle, normalizedDescription, priority, normalizedAssignee, status, issueType, nextSprintId, resolvedProjectId, normalizedStoryPoints, normalizedEpicId, reporter, dueDate ?? null, startDate ?? null, resolution ?? null, environment ?? null, components ?? null],
+    )
+
+    const inserted = await tx.get(
+      'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+      [created.lastID],
+    )
+
+    await tx.run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
+      normalizedAssignee,
+      `created ${issueKey} (${normalizedTitle})`,
+      'Just now',
+    ])
+
+    // JL-43: Auto-watch on issue create for the creator
+    await tx.run(
+      'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+      [created.lastID, req.user.email],
+    )
+
+    return inserted
+  })
+
+  // JL-166: notify members @mentioned in the description (skips unknown emails)
+  await processMentions({
+    text: normalizedDescription,
+    issueId: row.id,
+    actorEmail: req.user.email,
+    requireMember: true,
+  })
+
+  // JL-59: emit issue.created event to subscribed webhooks (fire-and-forget)
+  emitEvent('issue.created', mapIssue(row), resolvedProjectId).catch(() => {})
 
   res.status(201).json(mapIssue(row))
 }))
@@ -161,7 +479,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const existing = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
   if (!existing) {
@@ -172,6 +490,31 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const fields = req.body
   const sets = []
   const params = []
+  // JL-82: collect field-level changes to write to the audit log after UPDATE
+  const changes = []
+
+  if (fields.title !== undefined) {
+    const t = String(fields.title || '').trim()
+    if (!t) {
+      res.status(400).json({ error: 'title cannot be empty' })
+      return
+    }
+    sets.push('title = ?')
+    params.push(t)
+    changes.push({ field: 'title', oldValue: existing.title, newValue: t })
+  }
+
+  // JL-166: allow editing the description; @mentions are processed after UPDATE
+  let descriptionChanged = false
+  let newDescription = null
+  if (fields.description !== undefined) {
+    const d = String(fields.description || '').trim()
+    sets.push('description = ?')
+    params.push(d)
+    changes.push({ field: 'description', oldValue: existing.description, newValue: d })
+    descriptionChanged = d !== String(existing.description || '').trim()
+    newDescription = d
+  }
 
   if (fields.priority !== undefined) {
     if (!validPriorities.includes(fields.priority)) {
@@ -180,8 +523,10 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('priority = ?')
     params.push(fields.priority)
+    changes.push({ field: 'priority', oldValue: existing.priority, newValue: fields.priority })
   }
 
+  let newAssignee = null
   if (fields.assignee !== undefined) {
     const a = String(fields.assignee || '').trim()
     if (!a) {
@@ -190,6 +535,8 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('assignee = ?')
     params.push(a)
+    changes.push({ field: 'assignee', oldValue: existing.assignee, newValue: a })
+    newAssignee = a
   }
 
   if (fields.issueType !== undefined) {
@@ -199,12 +546,14 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     }
     sets.push('issue_type = ?')
     params.push(fields.issueType)
+    changes.push({ field: 'type', oldValue: existing.issue_type, newValue: fields.issueType })
   }
 
   if (fields.sprintId !== undefined) {
     if (fields.sprintId === null || fields.sprintId === '') {
       sets.push('sprint_id = ?')
       params.push(null)
+      changes.push({ field: 'sprint', oldValue: existing.sprint_id, newValue: null })
     } else {
       const parsed = Number(fields.sprintId)
       if (!Number.isInteger(parsed)) {
@@ -218,7 +567,57 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
       }
       sets.push('sprint_id = ?')
       params.push(parsed)
+      changes.push({ field: 'sprint', oldValue: existing.sprint_id, newValue: parsed })
     }
+  }
+
+  // JL-77: expanded optional fields (nullable text/date columns)
+  const optionalColumns = {
+    reporter: 'reporter',
+    dueDate: 'due_date',
+    startDate: 'start_date',
+    resolution: 'resolution',
+    environment: 'environment',
+    components: 'components',
+  }
+  for (const [field, column] of Object.entries(optionalColumns)) {
+    if (fields[field] !== undefined) {
+      sets.push(`${column} = ?`)
+      params.push(optText(fields[field]) ?? null)
+    }
+  }
+
+  if (fields.storyPoints !== undefined) {
+    const normalized = normalizeStoryPoints(fields.storyPoints)
+    if (normalized === undefined) {
+      res.status(400).json({ error: 'storyPoints must be a non-negative integer' })
+      return
+    }
+    sets.push('story_points = ?')
+    params.push(normalized)
+  }
+
+  // JL-76: (re)assign parent Epic. Validated against the effective issue type
+  // (a type change in the same PATCH is respected).
+  if (fields.epicId !== undefined) {
+    const normalizedEpicId = normalizeEpicId(fields.epicId)
+    if (normalizedEpicId === undefined) {
+      res.status(400).json({ error: 'epicId must be a positive integer' })
+      return
+    }
+    const effectiveType = fields.issueType !== undefined ? fields.issueType : existing.issue_type
+    if (normalizedEpicId !== null && normalizedEpicId === id) {
+      res.status(400).json({ error: 'An issue cannot be its own Epic' })
+      return
+    }
+    const epicError = await validateEpicRef(normalizedEpicId, effectiveType)
+    if (epicError) {
+      res.status(400).json({ error: epicError })
+      return
+    }
+    sets.push('epic_id = ?')
+    params.push(normalizedEpicId)
+    changes.push({ field: 'epic', oldValue: existing.epic_id, newValue: normalizedEpicId })
   }
 
   if (sets.length === 0) {
@@ -226,13 +625,53 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     return
   }
 
+  // JL-77: always bump updated_at on any edit
+  sets.push('updated_at = NOW()')
+
   params.push(id)
   await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
 
+  // JL-82: write one audit-log row per field that actually changed
+  for (const change of changes) {
+    await recordHistory(id, change.field, change.oldValue, change.newValue, req.user?.email)
+  }
+
+  // JL-166: notify members @mentioned in the description when it changes
+  if (descriptionChanged) {
+    await processMentions({
+      text: newDescription,
+      issueId: id,
+      actorEmail: req.user?.email,
+      requireMember: true,
+    })
+  }
+
+  // JL-36: Auto-watch on assign — subscribe the newly assigned member (by name or email)
+  if (newAssignee && newAssignee !== existing.assignee) {
+    const member = await get(
+      'SELECT email FROM members WHERE email = ? OR name = ? LIMIT 1',
+      [newAssignee, newAssignee],
+    )
+    const watcherEmail = member?.email || newAssignee
+    if (watcherEmail) {
+      await run(
+        'INSERT INTO watchers (issue_id, user_email) VALUES (?, ?) ON CONFLICT (issue_id, user_email) DO NOTHING',
+        [id, watcherEmail],
+      )
+    }
+  }
+
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
+
+  // JL-59: emit issue.updated event to subscribed webhooks (fire-and-forget)
+  emitEvent('issue.updated', mapIssue(row), row?.project_id ?? null).catch(() => {})
+
+  // JL-136: live-push the change to viewers of this issue (no-op if realtime off)
+  publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'updated' })
+
   res.json(mapIssue(row))
 }))
 
@@ -250,9 +689,28 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
     return
   }
 
-  const existing = await get('SELECT id, sprint_id FROM issues WHERE id = ?', [id])
+  const existing = await get(
+    'SELECT id, sprint_id, status, project_id, assignee, priority, resolution, reporter, environment, components FROM issues WHERE id = ?',
+    [id],
+  )
   if (!existing) {
     res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+
+  // JL-79: enforce the project's configurable workflow. Backward compatible —
+  // a project with no transitions configured allows every status change.
+  const transitions = await loadTransitions(existing.project_id)
+  if (!isTransitionAllowed(transitions, existing.status, status)) {
+    res.status(409).json({
+      error: `Transition from "${existing.status}" to "${status}" is not allowed by the workflow`,
+    })
+    return
+  }
+  const workflowTransition = findTransition(transitions, existing.status, status)
+  const validationErrors = runValidators(workflowTransition, existing, req.body)
+  if (validationErrors.length > 0) {
+    res.status(400).json({ error: validationErrors[0], errors: validationErrors })
     return
   }
 
@@ -289,8 +747,17 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   await run('UPDATE issues SET status = ?, sprint_id = ? WHERE id = ?', [status, nextSprintId, id])
 
+  // JL-82: record the status transition in the per-issue audit log
+  await recordHistory(id, 'status', existing.status, status, req.user?.email)
+
+  // JL-79: apply workflow post-functions directly to the DB (loop-safe — never
+  // re-invokes the engine, mirroring the automation.js pattern)
+  if (workflowTransition) {
+    await applyPostFunctions(workflowTransition, id, { run }).catch(() => {})
+  }
+
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
 
@@ -305,10 +772,65 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // Re-read in case an automation action mutated the issue (e.g. transition/assign)
   const finalRow = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [id],
   )
+
+  // JL-59: emit issue.status_changed event to subscribed webhooks (fire-and-forget)
+  emitEvent('issue.status_changed', { ...mapIssue(finalRow), status }, finalRow.project_id ?? null).catch(() => {})
+
+  // JL-136: live-push the status change to viewers of this issue (no-op if realtime off)
+  publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'status_changed' })
+
   res.json(mapIssue(finalRow))
+}))
+
+// JL-82: GET /api/issues/:id/history — per-issue field change log, newest-first
+router.get('/:id/history', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+  const rows = await all(
+    'SELECT id, issue_id, field, old_value, new_value, actor, changed_at FROM issue_history WHERE issue_id = ? ORDER BY changed_at DESC, id DESC',
+    [id],
+  )
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      issueId: r.issue_id,
+      field: r.field,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+      actor: r.actor,
+      changedAt: r.changed_at,
+    })),
+  )
+}))
+
+// JL-76: GET /api/issues/:id/epic-children — child issues of an Epic + rollup
+router.get('/:id/epic-children', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+  const epic = await get('SELECT id, issue_type FROM issues WHERE id = ?', [id])
+  if (!epic) {
+    res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+  const rows = await all(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE epic_id = ? ORDER BY id ASC',
+    [id],
+  )
+  const total = rows.length
+  const done = rows.filter((r) => r.status === 'Done').length
+  res.json({
+    children: rows.map(mapIssue),
+    rollup: { total, done, percent: total ? Math.round((done / total) * 100) : 0 },
+  })
 }))
 
 // GET /api/issues/:parentId/subtasks — list sub-tasks + progress summary
@@ -319,7 +841,7 @@ router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
     return
   }
   const rows = await all(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
     [parentId],
   )
   const total = rows.length
@@ -360,20 +882,202 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
 
   const projectRow = projectId ? await get('SELECT key FROM projects WHERE id = ?', [projectId]) : null
   const projectKey = projectRow?.key || 'PROJ'
-  const count = projectId
-    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [projectId])
-    : await get('SELECT COUNT(*) AS count FROM issues')
-  const issueKey = `${projectKey}-${Number(count.count) + 1}`
+  // JL-92: use the monotonic per-project counter (same as the main create path)
+  const issueKey = await nextIssueKey(projectKey, projectId)
 
   const created = await run(
     'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [issueKey, title, description, priority, assignee, status, 'Sub-task', sprintId, projectId, parentId],
   )
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, created_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
     [created.lastID],
   )
   res.status(201).json(mapIssue(row))
+}))
+
+// JL-121: resolve a label name to an id within a project, creating it if needed.
+async function resolveLabelId(projectId, name) {
+  if (!projectId) return null
+  const existing = await get(
+    'SELECT id FROM labels WHERE project_id = ? AND LOWER(name) = LOWER(?)',
+    [projectId, name],
+  )
+  if (existing) return existing.id
+  const created = await run(
+    'INSERT INTO labels (project_id, name, color) VALUES (?, ?, ?)',
+    [projectId, name, '#42526E'],
+  )
+  return created.lastID
+}
+
+// POST /api/issues/bulk — multi-issue change wizard backend.
+// Body: { issueIds:[], operations:{ status?, assignee?, priority?, sprintId?, addLabels?, delete? }, dryRun?:bool }
+// dryRun=true → return a per-issue preview and write nothing.
+// dryRun=false → apply to valid issues, skipping/reporting invalid ones, and
+// return a { updated, skipped, errors, results } summary. Applied sequentially,
+// each guarded so one failure does not abort the batch.
+router.post('/bulk', requireRole('Member'), asyncHandler(async (req, res) => {
+  const body = req.body || {}
+  const operations = body.operations || {}
+  const dryRun = body.dryRun === true
+
+  if (!Array.isArray(body.issueIds) || body.issueIds.length === 0) {
+    res.status(400).json({ error: 'issueIds must be a non-empty array' })
+    return
+  }
+  const ids = body.issueIds.map(Number).filter((n) => Number.isInteger(n))
+  if (ids.length === 0) {
+    res.status(400).json({ error: 'issueIds must contain valid integer ids' })
+    return
+  }
+
+  const placeholders = ids.map(() => '?').join(', ')
+  const rows = await all(
+    `SELECT id, issue_key, title, priority, assignee, status, sprint_id, project_id FROM issues WHERE id IN (${placeholders})`,
+    ids,
+  )
+  const issues = rows.map((r) => ({
+    id: r.id,
+    key: r.issue_key,
+    title: r.title,
+    priority: r.priority,
+    assignee: r.assignee,
+    status: r.status,
+    sprintId: r.sprint_id ?? null,
+    projectId: r.project_id ?? null,
+  }))
+
+  const preview = buildBulkPreview(issues, operations)
+
+  // Flag ids that were requested but not found in the database.
+  const foundIds = new Set(issues.map((i) => i.id))
+  for (const id of ids) {
+    if (!foundIds.has(id)) {
+      preview.push({ issueId: id, key: null, delete: false, willChange: false, changes: [], error: 'Issue not found' })
+    }
+  }
+
+  // Existence validation for value operations that need the db. A failure here
+  // becomes a per-issue error (only for the issues whose row would change).
+  let sprintError = null
+  if (operations.sprintId !== undefined && operations.sprintId !== null && operations.sprintId !== '') {
+    const parsed = Number(operations.sprintId)
+    if (!Number.isInteger(parsed)) sprintError = 'Invalid sprint id'
+    else {
+      const sprintRow = await get('SELECT id FROM sprints WHERE id = ?', [parsed])
+      if (!sprintRow) sprintError = 'Sprint not found'
+    }
+  }
+  let assigneeError = null
+  if (operations.assignee !== undefined && operations.assignee !== null && String(operations.assignee).trim() !== '') {
+    const a = String(operations.assignee).trim()
+    const member = await get('SELECT email FROM members WHERE email = ? OR name = ? LIMIT 1', [a, a])
+    if (!member) assigneeError = 'Assignee not found'
+  }
+
+  if (dryRun) {
+    // Surface op-level existence errors in the preview for changed issues.
+    for (const item of preview) {
+      if (item.error || !item.willChange) continue
+      const changed = new Set(item.changes.map((c) => c.field))
+      if (sprintError && changed.has('sprintId')) item.error = sprintError
+      else if (assigneeError && changed.has('assignee')) item.error = assigneeError
+    }
+    res.json({ dryRun: true, preview })
+    return
+  }
+
+  const isDelete = operations.delete === true
+  const columnByField = {
+    status: 'status',
+    priority: 'priority',
+    assignee: 'assignee',
+    sprintId: 'sprint_id',
+  }
+
+  let updated = 0
+  let skipped = 0
+  const errors = []
+  const results = []
+
+  for (const item of preview) {
+    if (item.error) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: item.error })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: item.error })
+      continue
+    }
+
+    const changedFields = new Set(item.changes.map((c) => c.field))
+    // Apply op-level existence errors as per-issue failures.
+    if (sprintError && changedFields.has('sprintId')) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: sprintError })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: sprintError })
+      continue
+    }
+    if (assigneeError && changedFields.has('assignee')) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: assigneeError })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: assigneeError })
+      continue
+    }
+
+    if (!item.willChange) {
+      skipped += 1
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: null, noop: true })
+      continue
+    }
+
+    try {
+      if (isDelete) {
+        await run('DELETE FROM issues WHERE id = ?', [item.issueId])
+        updated += 1
+        results.push({ issueId: item.issueId, key: item.key, applied: true, deleted: true })
+        continue
+      }
+
+      const sets = []
+      const params = []
+      for (const change of item.changes) {
+        const column = columnByField[change.field]
+        if (!column) continue
+        sets.push(`${column} = ?`)
+        params.push(change.to)
+        await recordHistory(item.issueId, change.field === 'sprintId' ? 'sprint' : change.field, change.from, change.to, req.user?.email)
+      }
+      if (sets.length > 0) {
+        sets.push('updated_at = NOW()')
+        params.push(item.issueId)
+        await run(`UPDATE issues SET ${sets.join(', ')} WHERE id = ?`, params)
+      }
+
+      // Labels are applied as a separate additive step (never removes).
+      const labelChange = item.changes.find((c) => c.field === 'labels')
+      if (labelChange) {
+        const issueRow = issues.find((i) => i.id === item.issueId)
+        for (const name of labelChange.added || []) {
+          const labelId = await resolveLabelId(issueRow?.projectId, name)
+          if (labelId) {
+            await run(
+              'INSERT INTO issue_labels (issue_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING label_id',
+              [item.issueId, labelId],
+            )
+          }
+        }
+      }
+
+      updated += 1
+      results.push({ issueId: item.issueId, key: item.key, applied: true })
+    } catch (err) {
+      skipped += 1
+      errors.push({ issueId: item.issueId, error: err.message })
+      results.push({ issueId: item.issueId, key: item.key, applied: false, error: err.message })
+    }
+  }
+
+  res.json({ updated, skipped, errors, results })
 }))
 
 // DELETE /api/issues/:id — delete an issue (dependent rows cascade via FKs)
@@ -390,6 +1094,92 @@ router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
   await run('DELETE FROM issues WHERE id = ?', [id])
   res.json({ success: true, id })
+}))
+
+// JL-158: POST /api/issues/:id/clone — duplicate an issue into a new one.
+// Copies core + expanded fields, allocates a fresh key via the same
+// project-scoped counter used by the create handler, prefixes the title with
+// "CLONE - ", optionally copies labels, and records a create activity row.
+router.post('/:id/clone', requireRole('Member'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+
+  const source = await get(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, epic_id, story_points, reporter, due_date, start_date, resolution, environment, components FROM issues WHERE id = ?',
+    [id],
+  )
+  if (!source) {
+    res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+
+  // Resolve project key for the fresh issue key (same path as create handler)
+  let projectKey = 'PROJ'
+  if (source.project_id) {
+    const project = await get('SELECT key FROM projects WHERE id = ?', [source.project_id])
+    if (project?.key) projectKey = project.key
+  }
+  const count = source.project_id
+    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [source.project_id])
+    : await get('SELECT COUNT(*) AS count FROM issues')
+  const issueKey = `${projectKey}-${Number(count.count) + 1}`
+
+  const clonedTitle = `CLONE - ${source.title}`
+  const reporter = req.user?.email || source.reporter || null
+
+  const created = await run(
+    'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, story_points, epic_id, reporter, due_date, start_date, resolution, environment, components, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+    [
+      issueKey,
+      clonedTitle,
+      source.description,
+      source.priority,
+      source.assignee,
+      source.status,
+      source.issue_type,
+      source.sprint_id,
+      source.project_id,
+      source.story_points,
+      source.epic_id,
+      reporter,
+      source.due_date,
+      source.start_date,
+      source.resolution,
+      source.environment,
+      source.components,
+    ],
+  )
+
+  // Optionally copy labels (JL-32). Best-effort — ignore if the table is absent.
+  try {
+    const sourceLabels = await all('SELECT label_id FROM issue_labels WHERE issue_id = ?', [id])
+    for (const { label_id } of sourceLabels) {
+      await run(
+        'INSERT INTO issue_labels (issue_id, label_id) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING label_id',
+        [created.lastID, label_id],
+      )
+    }
+  } catch {
+    // labels are optional — do not fail the clone if issue_labels is unavailable
+  }
+
+  const row = await get(
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    [created.lastID],
+  )
+
+  await run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
+    source.assignee,
+    `created ${issueKey} (${clonedTitle})`,
+    'Just now',
+  ])
+
+  emitEvent('issue.created', mapIssue(row), source.project_id ?? null).catch(() => {})
+
+  res.status(201).json(mapIssue(row))
 }))
 
 export default router

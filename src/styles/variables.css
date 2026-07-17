@@ -28,12 +28,35 @@
   --spacing-xl: 24px;
   --spacing-xxl: 32px;
 
-  /* ── Z-index scale ── */
-  --z-dropdown: 40;
-  --z-sticky: 50;
-  --z-overlay: 100;
-  --z-modal: 200;
-  --z-toast: 300;
+  /* ── Z-index scale ──
+     Documented layering order (low → high). Use these tokens instead of
+     hard-coded z-index values so stacking stays predictable across the app. */
+  --z-base: 0;            /* default in-flow content                       */
+  --z-dropdown: 40;       /* menus, autocomplete, popovers                 */
+  --z-sticky: 50;         /* sticky headers / toolbars                     */
+  --z-overlay: 100;       /* generic overlays / scrims                     */
+  --z-modal-backdrop: 190;/* dimmed backdrop behind a modal               */
+  --z-modal: 200;         /* modal / dialog surface                       */
+  --z-toast: 300;         /* transient toasts / snackbars (always on top)  */
+
+  /* ── Motion / transition tokens ──
+     Standard durations + easing curves for consistent micro-interactions. */
+  --transition-fast: 120ms;
+  --transition-base: 200ms;
+  --transition-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);   /* enter/exit, general    */
+  --ease-emphasized: cubic-bezier(0.3, 0, 0.2, 1);
+
+  /* ── Numeric spacing scale (--space-1 .. --space-8) ──
+     4px base step. Complements the named --spacing-* tokens above. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
 
   /* ── Icon sizes ── */
   --icon-sm: 16px;

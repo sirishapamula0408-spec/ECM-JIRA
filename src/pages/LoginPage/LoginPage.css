@@ -523,60 +523,6 @@
   to { transform: rotate(360deg); }
 }
 
-/* ---------- Divider ---------- */
-.login-divider {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 22px 0;
-}
-
-.login-divider::before,
-.login-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #e1e4e8;
-}
-
-.login-divider span {
-  font-size: var(--font-size-sm);
-  color: #97a0af;
-  white-space: nowrap;
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* ---------- SSO buttons ---------- */
-.login-sso-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.login-sso-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 40px;
-  border: 1px solid #dfe1e6;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #42526e;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.login-sso-btn:hover {
-  background: #f4f5f7;
-  border-color: #c1c7d0;
-  box-shadow: 0 1px 4px rgba(9, 30, 66, 0.08);
-}
-
 /* ---------- Toggle link ---------- */
 .login-toggle-link {
   margin-top: 22px;
@@ -631,8 +577,47 @@
   .login-form-panel {
     padding: 24px 16px;
   }
+}
 
-  .login-sso-row {
-    grid-template-columns: 1fr;
-  }
+/* JL-129: Live SSO options */
+.login-sso-options {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.login-sso-separator {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-muted, #6b778c);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.login-sso-separator::before,
+.login-sso-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color, #dfe1e6);
+}
+.login-sso-separator span {
+  padding: 0 12px;
+}
+.login-sso-action {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--border-color, #dfe1e6);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-color, #172b4d);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.login-sso-action:hover {
+  background: var(--hover-bg, #f4f5f7);
+  border-color: var(--primary-color, #0052cc);
 }

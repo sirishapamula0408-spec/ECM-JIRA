@@ -1,0 +1,8 @@
+.report-builder-page {
+  padding: var(--space-4, 24px);
+  max-width: 1200px;
+}
+
+.report-builder-page .svg-chart {
+  margin-top: var(--space-2, 12px);
+}

@@ -3,11 +3,14 @@ import { NavLink, useNavigate, useLocation, matchPath } from 'react-router-dom'
 import { SidebarNavIcon } from '../icons/SidebarNavIcon'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { usePluginContributions } from '../../hooks/usePluginContributions'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
   const { canCreateProject, canManageUsers } = usePermissions()
+  // JL-145: declarative plugin nav-item contributions, rendered as safe links.
+  const { contributions: pluginNavItems } = usePluginContributions('nav-item')
   const navigate = useNavigate()
   const location = useLocation()
   const [isSpacesMenuOpen, setIsSpacesMenuOpen] = useState(false)
@@ -69,13 +72,29 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
     { label: 'Activity', path: '/activity', icon: 'recent' },
     { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
+    { label: 'Inbound Email', path: '/inbound-email', icon: 'workflow' },
+    { label: 'Audit Log', path: '/audit-log', icon: 'recent' },
     { label: 'Automation', path: '/automation', icon: 'workflow' },
+    { label: 'Marketplace', path: '/marketplace', icon: 'dashboards' },
+    { label: 'Releases', path: '/releases', icon: 'recent' },
+    { label: 'Goals', path: '/goals', icon: 'dashboards' },
+    { label: 'Assets', path: '/assets', icon: 'spaces' },
+    { label: 'Knowledge Base', path: '/knowledge-base', icon: 'dashboards' },
+    { label: 'Help Center', path: '/portal', icon: 'dashboards' },
+    { label: 'Queues', path: '/queues', icon: 'filters' },
+    { label: 'Incidents', path: '/incidents', icon: 'workflow' },
+    { label: 'Apps', path: '/plugins', icon: 'dashboards' },
+    { label: 'BI Export', path: '/bi-export', icon: 'dashboards' },
   ]
 
   const utilityItems = [
     { label: 'Filters', path: '/filters', icon: 'filters' },
     { label: 'Dashboards', path: '/dashboard', icon: 'dashboards' },
+    { label: 'Portfolio', path: '/portfolio', icon: 'dashboards' },
+    { label: 'Report Builder', path: '/report-builder', icon: 'dashboards' },
+    { label: 'Advanced Roadmap', path: '/advanced-roadmap', icon: 'roadmap' },
     { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
+    { label: 'Cross-Project Boards', path: '/cross-project-boards', icon: 'dashboards' },
   ]
 
   return (
@@ -300,6 +319,46 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
           ))}
         </nav>
       </div>
+
+      {/* JL-145: plugin-contributed nav items (declarative, safe links only) */}
+      {pluginNavItems.length > 0 && (
+        <>
+          <div className="sidebar-divider" />
+          <nav aria-label="App navigation">
+            {pluginNavItems.map((item) => {
+              const isExternal = typeof item.url === 'string' && /^https?:\/\//i.test(item.url)
+              const href = item.url || item.target || '#'
+              const content = (
+                <>
+                  <span className="nav-icon" aria-hidden="true">{item.icon || '🧩'}</span>
+                  {!collapsed && <span className="nav-label">{item.label}</span>}
+                </>
+              )
+              return isExternal ? (
+                <a
+                  key={item.manifestId ? `${item.manifestId}-${item.id}` : item.id}
+                  className="nav"
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={collapsed ? item.label : undefined}
+                >
+                  {content}
+                </a>
+              ) : (
+                <NavLink
+                  key={item.manifestId ? `${item.manifestId}-${item.id}` : item.id}
+                  className={({ isActive }) => (isActive ? 'nav active' : 'nav')}
+                  to={href}
+                  title={collapsed ? item.label : undefined}
+                >
+                  {content}
+                </NavLink>
+              )
+            })}
+          </nav>
+        </>
+      )}
 
     </aside>
   )

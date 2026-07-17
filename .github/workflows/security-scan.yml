@@ -1,0 +1,63 @@
+name: Security Scan
+
+# JL-102: Supply-chain & secret-handling hardening.
+# Runs dependency vulnerability (SCA) scanning and secret scanning on every
+# push/PR to main, plus a weekly scheduled sweep to catch newly-disclosed CVEs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Dependency vulnerability scan (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Fail the job on High/Critical advisories. Uses the lockfile only, no
+      # install, so it stays fast and does not run project code.
+      - name: Run npm audit (high severity and above)
+        run: npm audit --audit-level=high
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # In-repo, dependency-free scanner (scripts/scan-secrets.mjs). Runs first
+      # so the workflow is self-contained even if the external action is
+      # unavailable.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run in-repo secret scan
+        run: node scripts/scan-secrets.mjs
+
+      # Defense in depth: gitleaks scans full git history for committed secrets.
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

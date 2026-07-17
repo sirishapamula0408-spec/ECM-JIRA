@@ -1,0 +1,32 @@
+# JL-102: gitleaks configuration for ECM JIRA Clone.
+# Extends the upstream default ruleset and adds an allowlist so known,
+# non-sensitive placeholder values do not trip the scanner.
+
+title = "ECM JIRA Clone gitleaks config"
+
+# Inherit gitleaks' built-in rules (AWS keys, private keys, provider tokens...).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for placeholders and non-secret files"
+
+# Files that legitimately contain placeholder credentials / templates.
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)\.env\.sample$''',
+  '''(^|/)README\.md$''',
+  '''(^|/)CLAUDE\.md$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)scripts/scan-secrets\.mjs$''',
+  '''(^|/)server/__tests__/.*JL102\.test\.js$''',
+]
+
+# Known non-secret literals used across the codebase as dev defaults / fixtures.
+regexes = [
+  '''ecm-jira-dev-secret-change-in-production''',
+  '''jira_lite_dev''',
+  '''replace-with-a-long-random-secret''',
+  '''your-app-password''',
+  '''your-smtp-password''',
+]

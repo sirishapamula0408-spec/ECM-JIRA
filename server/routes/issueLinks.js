@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
 
@@ -59,8 +60,7 @@ router.post('/issues/:issueId/links', requireRole('Member'), asyncHandler(async 
     return
   }
   if (!Number.isInteger(targetIssueId) || targetIssueId === sourceId) {
-    res.status(400).json({ error: 'A valid target issue (other than this one) is required' })
-    return
+    return sendError(res, 400, 'A valid target issue (other than this one) is required')
   }
   const target = await get('SELECT id FROM issues WHERE id = ?', [targetIssueId])
   if (!target) { res.status(404).json({ error: 'Target issue not found' }); return }

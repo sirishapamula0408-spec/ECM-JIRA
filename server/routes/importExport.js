@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
 
@@ -13,14 +14,7 @@ const VALID = {
 }
 const DEFAULTS = { description: '', priority: 'Medium', status: 'To Do', issue_type: 'Task', assignee: 'Unassigned' }
 
-/* ---------- CSV helpers ---------- */
-function csvEscape(val) {
-  const s = val === null || val === undefined ? '' : String(val)
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-function toCsv(rows, fields) {
-  return [fields.join(','), ...rows.map((r) => fields.map((f) => csvEscape(r[f])).join(','))].join('\n')
-}
+/* ---------- CSV import parser ---------- */
 function parseCsv(text) {
   const rows = []
   let cur = [], field = '', inQ = false

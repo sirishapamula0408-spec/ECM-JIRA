@@ -11,6 +11,7 @@ import './AutomationPage.css'
 const TRIGGERS = [
   { value: 'status_changed', label: 'When status changes' },
   { value: 'comment_added', label: 'When a comment is added' },
+  { value: 'scheduled', label: 'On a schedule (every N minutes)' },
 ]
 const ACTIONS = [
   { value: 'assign', label: 'Assign to' },
@@ -18,7 +19,7 @@ const ACTIONS = [
   { value: 'comment', label: 'Add comment' },
   { value: 'notify', label: 'Notify assignee' },
 ]
-const EMPTY = { name: '', triggerType: 'status_changed', conditionValue: '', actionType: 'assign', actionValue: '' }
+const EMPTY = { name: '', triggerType: 'status_changed', conditionValue: '', actionType: 'assign', actionValue: '', scheduleIntervalMinutes: 60 }
 
 export function AutomationPage() {
   const { projectId: routeProjectId } = useParams()
@@ -103,13 +104,25 @@ export function AutomationPage() {
             <select className="au-input" value={form.triggerType} onChange={(e) => setForm((f) => ({ ...f, triggerType: e.target.value }))}>
               {TRIGGERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
-            {form.triggerType === 'status_changed' ? (
+            {form.triggerType === 'status_changed' && (
               <select className="au-input" value={form.conditionValue} onChange={(e) => setForm((f) => ({ ...f, conditionValue: e.target.value }))}>
                 <option value="">any status</option>
                 {ISSUE_STATUSES.map((s) => <option key={s} value={s}>to {s}</option>)}
               </select>
-            ) : (
+            )}
+            {form.triggerType === 'comment_added' && (
               <input className="au-input" placeholder="text contains… (optional)" value={form.conditionValue} onChange={(e) => setForm((f) => ({ ...f, conditionValue: e.target.value }))} />
+            )}
+            {form.triggerType === 'scheduled' && (
+              <>
+                <span className="au-when">every</span>
+                <input className="au-input au-interval" type="number" min="1" value={form.scheduleIntervalMinutes} onChange={(e) => setForm((f) => ({ ...f, scheduleIntervalMinutes: e.target.value }))} />
+                <span className="au-when">min, for issues in</span>
+                <select className="au-input" value={form.conditionValue} onChange={(e) => setForm((f) => ({ ...f, conditionValue: e.target.value }))}>
+                  <option value="">any status</option>
+                  {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </>
             )}
           </div>
           <div className="au-row">
@@ -133,6 +146,7 @@ export function AutomationPage() {
               <strong>{r.name}</strong>
               <span className="au-rule-desc">
                 WHEN {TRIGGERS.find((t) => t.value === r.triggerType)?.label.toLowerCase()}
+                {r.triggerType === 'scheduled' && r.scheduleIntervalMinutes ? ` (every ${r.scheduleIntervalMinutes} min)` : ''}
                 {r.conditionValue ? ` (${r.conditionValue})` : ''} → {ACTIONS.find((a) => a.value === r.actionType)?.label} {r.actionValue}
               </span>
             </div>

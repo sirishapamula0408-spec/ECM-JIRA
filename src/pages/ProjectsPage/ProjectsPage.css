@@ -265,3 +265,28 @@
   color: var(--jira-text-muted);
   max-width: 380px;
 }
+
+/* JL-159: Star / favorite projects */
+.projects-star-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--jira-text-muted, #6b778c);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.projects-star-btn:hover {
+  background: var(--jira-hover, rgba(9, 30, 66, 0.08));
+  color: var(--jira-text, #172b4d);
+}
+
+.projects-star-btn.is-favorite {
+  color: #f5b800;
+}

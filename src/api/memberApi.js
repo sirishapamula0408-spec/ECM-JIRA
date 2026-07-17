@@ -43,6 +43,18 @@ export function createMember(payload) {
   })
 }
 
+// --- JL-74: Member invitations ---
+
+export const fetchInvitations = (status) =>
+  api(`/api/invitations${status ? `?status=${encodeURIComponent(status)}` : ''}`)
+
+export function createInvitation(payload) {
+  return api('/api/invitations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 // JL-194: change a member's workspace role. PATCH /api/members/:id (JL-191).
 export function updateMemberRole(id, role) {
   return api(`/api/members/${id}`, {
@@ -69,5 +81,20 @@ export function deactivateMember(id) {
 export function reactivateMember(id) {
   return api(`/api/members/${id}/reactivate`, {
     method: 'PATCH',
+  })
+}
+
+export const lookupInvitation = (token) => api(`/api/invitations/${encodeURIComponent(token)}`)
+
+export function acceptInvitation(token, payload = {}) {
+  return api(`/api/invitations/${encodeURIComponent(token)}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function revokeInvitation(id) {
+  return api(`/api/invitations/${id}`, {
+    method: 'DELETE',
   })
 }

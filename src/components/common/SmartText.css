@@ -1,0 +1,16 @@
+/* Smart issue-key links (JL-138) */
+.smart-issue-link {
+  color: var(--color-primary, #0052cc);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 2px;
+  white-space: nowrap;
+  transition: background var(--transition-fast, 120ms) var(--ease-standard, ease);
+}
+
+.smart-issue-link:hover,
+.smart-issue-link:focus-visible {
+  text-decoration: underline;
+  background: var(--color-primary-subtle, rgba(0, 82, 204, 0.1));
+}

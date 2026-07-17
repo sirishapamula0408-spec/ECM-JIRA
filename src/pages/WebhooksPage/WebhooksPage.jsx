@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
-import { fetchWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook, fetchWebhookLogs } from '../../api/webhookApi'
+import { fetchWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook, fetchWebhookLogs, fetchEventCatalog, fetchDeliveries, fetchDelivery, replayDelivery } from '../../api/webhookApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { EmptyState } from '../../components/common/EmptyState'
 import './WebhooksPage.css'
 
 const EVENT_OPTIONS = [
@@ -17,6 +18,12 @@ export function WebhooksPage() {
   const [selectedLogs, setSelectedLogs] = useState(null)
   const [logs, setLogs] = useState([])
   const [testResult, setTestResult] = useState(null)
+  // JL-150: tabs + delivery console + event catalog
+  const [tab, setTab] = useState('webhooks')
+  const [deliveries, setDeliveries] = useState([])
+  const [deliveryFilters, setDeliveryFilters] = useState({ webhookId: '', status: '', event: '' })
+  const [deliveryDetail, setDeliveryDetail] = useState(null)
+  const [catalog, setCatalog] = useState([])
 
   const load = useCallback(() => {
     fetchWebhooks()
@@ -25,6 +32,37 @@ export function WebhooksPage() {
   }, [])
 
   useEffect(load, [load])
+
+  const loadDeliveries = useCallback(() => {
+    fetchDeliveries(deliveryFilters)
+      .then((data) => setDeliveries(Array.isArray(data) ? data : []))
+      .catch(() => setDeliveries([]))
+  }, [deliveryFilters])
+
+  useEffect(() => {
+    if (tab === 'deliveries') loadDeliveries()
+    if (tab === 'catalog' && catalog.length === 0) {
+      fetchEventCatalog().then((d) => setCatalog(Array.isArray(d) ? d : [])).catch(() => setCatalog([]))
+    }
+  }, [tab, loadDeliveries, catalog.length])
+
+  async function handleReplay(id) {
+    try {
+      await replayDelivery(id)
+      loadDeliveries()
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleShowDelivery(id) {
+    try {
+      const data = await fetchDelivery(id)
+      setDeliveryDetail(data)
+    } catch {
+      setDeliveryDetail(null)
+    }
+  }
 
   async function handleCreate() {
     if (!form.name.trim() || !form.url.trim()) return
@@ -81,13 +119,110 @@ export function WebhooksPage() {
     <section className="page webhooks-page">
       <div className="wh-header">
         <h1>Webhook Integrations</h1>
-        {isAdmin && (
+        {isAdmin && tab === 'webhooks' && (
           <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
             + Create Webhook
           </button>
         )}
       </div>
 
+      <div className="wh-tabs" role="tablist">
+        {[['webhooks', 'Webhooks'], ['deliveries', 'Deliveries'], ['catalog', 'Event Catalog']].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={`wh-tab${tab === key ? ' wh-tab--active' : ''}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'deliveries' && (
+        <div className="wh-deliveries">
+          <div className="wh-delivery-filters">
+            <input
+              className="wh-input wh-input--sm"
+              placeholder="Filter by event…"
+              value={deliveryFilters.event}
+              onChange={(e) => setDeliveryFilters((f) => ({ ...f, event: e.target.value }))}
+            />
+            <select
+              className="wh-input wh-input--sm"
+              value={deliveryFilters.status}
+              onChange={(e) => setDeliveryFilters((f) => ({ ...f, status: e.target.value }))}
+            >
+              <option value="">All statuses</option>
+              <option value="success">Success</option>
+              <option value="failed">Failed</option>
+            </select>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={loadDeliveries}>Refresh</button>
+          </div>
+          <table className="wh-delivery-table">
+            <thead>
+              <tr>
+                <th>Event</th><th>Webhook</th><th>Status</th><th>Time</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {deliveries.length === 0 && (
+                <tr><td colSpan={5} className="wh-empty">No deliveries found.</td></tr>
+              )}
+              {deliveries.map((d) => (
+                <tr key={d.id} className={d.success ? '' : 'wh-log-item--fail'}>
+                  <td>{d.event}</td>
+                  <td>{d.webhook_name || `#${d.webhook_id}`}</td>
+                  <td>
+                    <span className={`wh-log-status${d.success ? ' wh-log-status--ok' : ''}`}>
+                      {d.success ? `${d.response_status} OK` : `${d.response_status || 'ERR'} Failed`}
+                    </span>
+                  </td>
+                  <td>{new Date(d.created_at).toLocaleString()}</td>
+                  <td className="wh-delivery-actions">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleShowDelivery(d.id)}>Detail</button>
+                    {isAdmin && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleReplay(d.id)}>Replay</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {deliveryDetail && (
+            <div className="wh-detail-drawer">
+              <div className="wh-logs-header">
+                <h3>Delivery #{deliveryDetail.id} — {deliveryDetail.event}</h3>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDeliveryDetail(null)}>Close</button>
+              </div>
+              <h4>Request payload</h4>
+              <pre className="wh-detail-json">{JSON.stringify(deliveryDetail.payload, null, 2)}</pre>
+              <h4>Response ({deliveryDetail.response_status ?? 'n/a'})</h4>
+              <pre className="wh-detail-json">{deliveryDetail.response_body || '(empty)'}</pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'catalog' && (
+        <div className="wh-catalog">
+          {catalog.length === 0 && <p className="wh-empty">No events in catalog.</p>}
+          {catalog.map((ev) => (
+            <div key={ev.type} className="wh-catalog-item">
+              <div className="wh-catalog-head">
+                <code className="wh-event-tag">{ev.type}</code>
+                <span className="wh-catalog-category">{ev.category}</span>
+              </div>
+              <p className="wh-catalog-desc">{ev.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'webhooks' && (<>
       {showCreate && (
         <div className="wh-create-form">
           <h3>New Webhook</h3>
@@ -124,7 +259,13 @@ export function WebhooksPage() {
       )}
 
       <div className="wh-list">
-        {webhooks.length === 0 && <p className="wh-empty">No webhooks configured.</p>}
+        {webhooks.length === 0 && (
+          <EmptyState
+            icon="🔗"
+            title="No webhooks configured"
+            description="Webhooks let external services react to issue, sprint, and comment events in real time."
+          />
+        )}
         {webhooks.map((hook) => (
           <div key={hook.id} className={`wh-card${hook.is_active ? '' : ' wh-card--inactive'}`}>
             <div className="wh-card-header">
@@ -175,6 +316,7 @@ export function WebhooksPage() {
           </div>
         </div>
       )}
+      </>)}
     </section>
   )
 }

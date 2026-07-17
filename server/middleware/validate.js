@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 
 export const validStatuses = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
 export const validPriorities = ['Low', 'Medium', 'High']
-export const validIssueTypes = ['Story', 'Bug', 'Task', 'Sub-task']
+export const validIssueTypes = ['Epic', 'Story', 'Bug', 'Task', 'Sub-task']
 
 export function isAllowedEmail(email) {
   const normalized = String(email || '').trim().toLowerCase()

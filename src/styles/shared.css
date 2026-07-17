@@ -500,6 +500,41 @@ textarea:focus {
   line-height: var(--line-height-xs);
 }
 
+.issue-watcher-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #6b778c;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+}
+
+.due-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.due-badge-overdue {
+  background: #ffebe6;
+  color: #bf2600;
+}
+
+.due-badge-soon {
+  background: #fff0b3;
+  color: #974f0c;
+}
+
+.due-badge-later {
+  background: #ebecf0;
+  color: #42526e;
+}
+
 .quick-create-row {
   display: flex;
   align-items: center;

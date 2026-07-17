@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react'
+import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import './RichTextEditor.css'
 
 const TOOLBAR_ACTIONS = [
@@ -104,7 +105,10 @@ export function RichTextEditor({ value, onChange, placeholder, rows = 6, require
       .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
       // Line breaks
       .replace(/\n/g, '<br/>')
-    return html
+    // JL-91: sanitize the generated HTML (allow-list) before it is injected
+    // via dangerouslySetInnerHTML, so any raw HTML in the user's markdown
+    // (e.g. <script>, on* handlers, javascript: URIs) cannot execute.
+    return sanitizeHtml(html)
   }, [])
 
   return (

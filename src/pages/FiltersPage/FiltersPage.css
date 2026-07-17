@@ -123,6 +123,11 @@
 
 .filters-results-header {
   padding: 12px 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .filters-results-header h3 { margin: 0; }
@@ -658,4 +663,45 @@
 .ai-example-btn:hover {
   background: #ede9fe;
   border-color: #7c3aed;
+}
+
+/* --- JL-120: shared & favourited filters --- */
+.filters-group-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.filters-visibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filters-visibility-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5e6c84;
+}
+.filters-owner-cell {
+  font-size: 13px;
+  color: #5e6c84;
+  white-space: nowrap;
+}
+.filters-visibility-select {
+  padding: 4px 8px;
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
+  font-size: 13px;
+  background: #fff;
+  cursor: pointer;
+}
+.filters-visibility-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e9f2ff;
+  color: #0052cc;
+  font-size: 12px;
+  font-weight: 600;
 }

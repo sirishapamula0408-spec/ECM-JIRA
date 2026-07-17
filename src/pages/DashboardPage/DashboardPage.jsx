@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import Chip from '@mui/material/Chip'
 import { useIssues } from '../../context/IssueContext'
 import { useAppData } from '../../context/AppDataContext'
+import { useMembers } from '../../context/MemberContext'
 import { fetchProjects } from '../../api/projectApi'
 import { FilterChip } from '../../components/filters/FilterChip'
 import { GadgetWrapper } from '../../components/dashboard/GadgetWrapper'
@@ -28,6 +30,8 @@ const GADGET_COMPONENTS = {
 export function DashboardPage() {
   const { issues } = useIssues()
   const { activity } = useAppData()
+  const { profile } = useMembers()
+  const currentUserName = profile?.full_name || ''
   const issueList = Array.isArray(issues) ? issues : []
   const activityList = Array.isArray(activity) ? activity : []
 
@@ -70,6 +74,9 @@ export function DashboardPage() {
     sprint: 'All',
   })
 
+  // "My open issues" quick filter: issues assigned to the current user that are not Done
+  const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)
+
   const setFilter = (key, value) => {
     if (key === 'project') {
       setFilters((f) => ({ ...f, project: value, assignee: 'All', sprint: 'All' }))
@@ -97,6 +104,7 @@ export function DashboardPage() {
     if (filters.status !== 'All' && item.status !== filters.status) return false
     if (filters.assignee !== 'All' && item.assignee !== filters.assignee) return false
     if (filters.sprint !== 'All' && item.sprint !== filters.sprint) return false
+    if (showMyOpenOnly && (item.assignee !== currentUserName || item.status === 'Done')) return false
     return true
   })
 
@@ -167,7 +175,7 @@ export function DashboardPage() {
     return <Component {...props} />
   }
 
-  const hasActiveFilters = Object.entries(filters).some(([key, v]) => key !== 'project' && v !== 'All')
+  const hasActiveFilters = showMyOpenOnly || Object.entries(filters).some(([key, v]) => key !== 'project' && v !== 'All')
 
   return (
     <section className="page dashboard-page">
@@ -203,6 +211,15 @@ export function DashboardPage() {
 
       {/* Global filter bar */}
       <div className="dashboard-filters">
+        <Chip
+          label="My open issues"
+          size="small"
+          clickable
+          variant={showMyOpenOnly ? 'filled' : 'outlined'}
+          color={showMyOpenOnly ? 'primary' : 'default'}
+          onClick={() => setShowMyOpenOnly((current) => !current)}
+          aria-pressed={showMyOpenOnly}
+        />
         <FilterChip
           label="Project"
           value={filters.project}
@@ -247,7 +264,7 @@ export function DashboardPage() {
           onClear={() => clearFilter('sprint')}
         />
         {hasActiveFilters && (
-          <button className="btn btn-ghost dashboard-clear-filters" onClick={() => setFilters((f) => ({ ...f, issueType: 'All', priority: 'All', status: 'All', assignee: 'All', sprint: 'All' }))}>
+          <button className="btn btn-ghost dashboard-clear-filters" onClick={() => { setShowMyOpenOnly(false); setFilters((f) => ({ ...f, issueType: 'All', priority: 'All', status: 'All', assignee: 'All', sprint: 'All' })) }}>
             Clear all
           </button>
         )}

@@ -175,7 +175,7 @@ describe('WebhooksPage', () => {
   it('shows empty state when no webhooks', async () => {
     renderWithRouter(<WebhooksPage />)
     await waitFor(() => {
-      expect(screen.getByText('No webhooks configured.')).toBeInTheDocument()
+      expect(screen.getByText('No webhooks configured')).toBeInTheDocument()
     })
   })
 

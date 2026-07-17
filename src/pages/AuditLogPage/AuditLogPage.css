@@ -1,0 +1,18 @@
+.audit-log-page .audit-hash {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8em;
+  color: var(--color-text-subtle, #6b778c);
+}
+
+.audit-log-page .audit-meta {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85em;
+  color: var(--color-text-subtle, #6b778c);
+}
+
+.audit-log-table code {
+  cursor: help;
+}

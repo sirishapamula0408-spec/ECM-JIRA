@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 
@@ -18,20 +18,24 @@ import { AppDataProvider, useAppData } from './context/AppDataContext'
 import { MemberProvider, useMembers } from './context/MemberContext'
 import { NotificationProvider, useNotifications } from './context/NotificationContext'
 
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
+import { MobileBottomNav } from './components/layout/MobileBottomNav'
 import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
 import { RequireRole } from './components/auth/RequireRole'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
+import { KeyboardShortcutsDialog } from './components/shortcuts/KeyboardShortcutsDialog'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
 import { BacklogPage } from './pages/BacklogPage/BacklogPage'
 import { BoardPage } from './pages/BoardPage/BoardPage'
 import { ReportsPage } from './pages/ReportsPage/ReportsPage'
+import { ReportBuilderPage } from './pages/ReportBuilderPage/ReportBuilderPage'
 import { RoadmapPage } from './pages/RoadmapPage/RoadmapPage'
 import { WorkflowsPage } from './pages/WorkflowsPage/WorkflowsPage'
 import { ProfilePage } from './pages/ProfilePage/ProfilePage'
@@ -48,14 +52,30 @@ import { ProjectSummaryPage } from './pages/ProjectSummaryPage/ProjectSummaryPag
 import { ActivityFeedPage } from './pages/ActivityFeedPage/ActivityFeedPage'
 import { WikiPage } from './pages/WikiPage/WikiPage'
 import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
+import { InboundEmailPage } from './pages/InboundEmailPage/InboundEmailPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
+import { CrossProjectBoardPage } from './pages/CrossProjectBoardPage/CrossProjectBoardPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
 import { UserManagementPage } from './pages/UserManagementPage/UserManagementPage'
+import { AuditLogPage } from './pages/AuditLogPage/AuditLogPage'
+import { BiExportPage } from './pages/BiExportPage/BiExportPage'
+import { ReleasesPage } from './pages/ReleasesPage/ReleasesPage'
+import { GoalsPage } from './pages/GoalsPage/GoalsPage'
+import { AssetsPage } from './pages/AssetsPage/AssetsPage'
+import { QueuesPage } from './pages/QueuesPage/QueuesPage'
+import { IncidentsPage } from './pages/IncidentsPage/IncidentsPage'
+import { PortfolioPage } from './pages/PortfolioPage/PortfolioPage'
+import { KnowledgeBasePage } from './pages/KnowledgeBasePage/KnowledgeBasePage'
+import { MarketplacePage } from './pages/MarketplacePage/MarketplacePage'
+import { PortalPage } from './pages/PortalPage/PortalPage'
+import { AdvancedRoadmapPage } from './pages/AdvancedRoadmapPage/AdvancedRoadmapPage'
+import { PluginsPage } from './pages/PluginsPage/PluginsPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
 import './styles/layout.css'
 import './styles/shared.css'
+import './styles/interactions.css'
 import './pages/NotFoundPage/NotFoundPage.css'
 
 function AppContent() {
@@ -65,8 +85,10 @@ function AppContent() {
   const { loadAppData, setAppLoading, setAppError, loading, error } = useAppData()
   const { loadProfile, loadMembers, loadCurrentMember } = useMembers()
   const { loadNotifications } = useNotifications()
+  const navigate = useNavigate()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projectRefreshKey, setProjectRefreshKey] = useState(0)
   const [hasProjects, setHasProjects] = useState(true)
@@ -87,6 +109,20 @@ function AppContent() {
   const handleCloseSnackbar = useCallback(() => {
     setPermissionSnackbar((prev) => ({ ...prev, open: false }))
   }, [])
+
+  // JL-164 — global keyboard shortcuts (power-user navigation)
+  const focusGlobalSearch = useCallback(() => {
+    const searchInput = document.querySelector('input.search')
+    if (searchInput) searchInput.focus()
+  }, [])
+
+  useKeyboardShortcuts({
+    enabled: isAuthenticated,
+    onCreate: () => setShowCreate(true),
+    onFocusSearch: focusGlobalSearch,
+    onNavigate: navigate,
+    onShowHelp: () => setShowShortcuts(true),
+  })
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -130,6 +166,7 @@ function AppContent() {
               <Route path="/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
               <Route path="/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/report-builder" element={hasProjects ? <ReportBuilderPage /> : <Navigate to="/projects" replace />} />
               <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
               <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />
@@ -143,6 +180,9 @@ function AppContent() {
               <Route path="/workflows" element={hasProjects ? <WorkflowsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
               <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+              <Route path="/advanced-roadmap" element={hasProjects ? <AdvancedRoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/teams" element={<TeamsPage />} />
               <Route
                 path="/users"
@@ -156,16 +196,33 @@ function AppContent() {
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
               <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/cross-project-boards" element={hasProjects ? <CrossProjectBoardPage /> : <Navigate to="/projects" replace />} />
               <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/marketplace" element={<MarketplacePage />} />
+              <Route path="/inbound-email" element={hasProjects ? <InboundEmailPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/audit-log" element={<AuditLogPage />} />
+              <Route path="/bi-export" element={<BiExportPage />} />
               <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
               <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/incidents" element={<IncidentsPage />} />
+              <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/plugins" element={<PluginsPage />} />
+              <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/assets" element={<AssetsPage />} />
+              <Route path="/portal" element={<PortalPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
         )}
       </main>
+      <MobileBottomNav onCreate={() => setShowCreate(true)} />
       {showCreate && <CreateIssueModal onClose={() => setShowCreate(false)} />}
+      <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
       {showCreateProject && <CreateProjectModal onClose={() => setShowCreateProject(false)} onProjectCreated={() => { setProjectRefreshKey((k) => k + 1); setHasProjects(true) }} />}
       <Snackbar
         open={permissionSnackbar.open}

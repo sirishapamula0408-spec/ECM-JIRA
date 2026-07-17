@@ -1,5 +1,11 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { ISSUE_STATUSES } from '../../constants'
+import { fetchProjects } from '../../api/projectApi'
+import {
+  fetchWorkflowTransitions,
+  createWorkflowTransition,
+  deleteWorkflowTransition,
+} from '../../api/workflowTransitionApi'
 import './WorkflowEditorPage.css'
 
 const NODE_WIDTH = 180
@@ -442,6 +448,9 @@ export function WorkflowEditorPage() {
         </div>
       </div>
 
+      {/* JL-79: Configurable workflow transition rules (persisted per project) */}
+      <WorkflowRulesPanel />
+
       {/* Add Status Modal */}
       {showAddStatus && (
         <div className="overlay" onClick={() => setShowAddStatus(false)}>
@@ -519,5 +528,174 @@ export function WorkflowEditorPage() {
         </div>
       )}
     </section>
+  )
+}
+
+// JL-79: Panel to list/add/remove configurable workflow transitions for a project.
+// Backend enforces these on issue status changes (deny -> 409, validator -> 400,
+// allow -> apply post-functions). No transitions configured = all changes allowed.
+function WorkflowRulesPanel() {
+  const [projects, setProjects] = useState([])
+  const [projectId, setProjectId] = useState('')
+  const [transitions, setTransitions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const [fromStatus, setFromStatus] = useState('')
+  const [toStatus, setToStatus] = useState('')
+  const [requiredField, setRequiredField] = useState('')
+  const [setField, setSetField] = useState('')
+  const [setValue, setSetValue] = useState('')
+  const [commentText, setCommentText] = useState('')
+
+  useEffect(() => {
+    fetchProjects()
+      .then((list) => {
+        setProjects(list || [])
+        if (list && list.length > 0) setProjectId(String(list[0].id))
+      })
+      .catch(() => setProjects([]))
+  }, [])
+
+  const loadTransitions = useCallback((pid) => {
+    if (!pid) { setTransitions([]); return }
+    setLoading(true)
+    fetchWorkflowTransitions(pid)
+      .then((rows) => setTransitions(rows || []))
+      .catch((e) => setError(e.message || 'Failed to load transitions'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { loadTransitions(projectId) }, [projectId, loadTransitions])
+
+  const handleAdd = async () => {
+    setError('')
+    if (!projectId || !fromStatus || !toStatus || fromStatus === toStatus) return
+    const validators = requiredField ? [{ type: 'required_field', field: requiredField }] : []
+    const postFunctions = []
+    if (setField) postFunctions.push({ type: 'set_field', field: setField, value: setValue })
+    if (commentText.trim()) postFunctions.push({ type: 'add_comment', text: commentText.trim() })
+    try {
+      await createWorkflowTransition(projectId, { fromStatus, toStatus, validators, postFunctions })
+      setFromStatus(''); setToStatus(''); setRequiredField(''); setSetField(''); setSetValue(''); setCommentText('')
+      loadTransitions(projectId)
+    } catch (e) {
+      setError(e.message || 'Failed to add transition')
+    }
+  }
+
+  const handleDelete = async (id) => {
+    setError('')
+    try {
+      await deleteWorkflowTransition(id)
+      loadTransitions(projectId)
+    } catch (e) {
+      setError(e.message || 'Failed to delete transition')
+    }
+  }
+
+  return (
+    <div className="wfe-rules-panel" style={{ padding: '16px 24px', borderTop: '1px solid var(--border, #dfe1e6)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <h3 style={{ margin: 0 }}>Transition Rules</h3>
+        <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <option value="">Select project…</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name || p.key || `Project ${p.id}`}</option>
+          ))}
+        </select>
+      </div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        When no transitions are configured for a project, all status changes are allowed.
+      </p>
+
+      {error && <div className="alert alert-error" style={{ color: '#bf2600', marginBottom: 8 }}>{error}</div>}
+
+      {loading ? (
+        <p className="muted">Loading…</p>
+      ) : transitions.length === 0 ? (
+        <p className="muted">No transitions configured — all status changes are currently allowed.</p>
+      ) : (
+        <table className="wfe-rules-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+          <thead>
+            <tr style={{ textAlign: 'left' }}>
+              <th style={{ padding: 6 }}>From</th>
+              <th style={{ padding: 6 }}>To</th>
+              <th style={{ padding: 6 }}>Validators</th>
+              <th style={{ padding: 6 }}>Post-functions</th>
+              <th style={{ padding: 6 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {transitions.map((t) => (
+              <tr key={t.id} style={{ borderTop: '1px solid #eee' }}>
+                <td style={{ padding: 6 }}>{t.fromStatus}</td>
+                <td style={{ padding: 6 }}>{t.toStatus}</td>
+                <td style={{ padding: 6 }}>
+                  {(t.validators || []).map((v, i) => (
+                    <span key={i} className="chip">required: {v.field}</span>
+                  ))}
+                  {(!t.validators || t.validators.length === 0) && <span className="muted">—</span>}
+                </td>
+                <td style={{ padding: 6 }}>
+                  {(t.postFunctions || []).map((f, i) => (
+                    <span key={i} className="chip">
+                      {f.type === 'set_field' ? `set ${f.field}=${f.value}` : `comment: ${f.text}`}
+                    </span>
+                  ))}
+                  {(!t.postFunctions || t.postFunctions.length === 0) && <span className="muted">—</span>}
+                </td>
+                <td style={{ padding: 6 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => handleDelete(t.id)}>Remove</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {projectId && (
+        <div className="wfe-rules-add" style={{ display: 'grid', gap: 8, maxWidth: 520 }}>
+          <strong>Add transition</strong>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select value={fromStatus} onChange={(e) => setFromStatus(e.target.value)}>
+              <option value="">From status…</option>
+              {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={toStatus} onChange={(e) => setToStatus(e.target.value)}>
+              <option value="">To status…</option>
+              {ISSUE_STATUSES.filter((s) => s !== fromStatus).map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <label>Validator — require field before transition (optional)
+            <select value={requiredField} onChange={(e) => setRequiredField(e.target.value)}>
+              <option value="">None</option>
+              <option value="assignee">assignee</option>
+              <option value="resolution">resolution</option>
+              <option value="priority">priority</option>
+            </select>
+          </label>
+          <label>Post-function — set field (optional)
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select value={setField} onChange={(e) => setSetField(e.target.value)}>
+                <option value="">None</option>
+                <option value="assignee">assignee</option>
+                <option value="resolution">resolution</option>
+                <option value="priority">priority</option>
+              </select>
+              <input type="text" value={setValue} onChange={(e) => setSetValue(e.target.value)} placeholder="value" disabled={!setField} />
+            </div>
+          </label>
+          <label>Post-function — add comment (optional)
+            <input type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Comment text" />
+          </label>
+          <div>
+            <button type="button" className="btn btn-primary" onClick={handleAdd} disabled={!fromStatus || !toStatus || fromStatus === toStatus}>
+              Add transition
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
