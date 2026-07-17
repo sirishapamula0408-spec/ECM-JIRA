@@ -3,6 +3,7 @@ import { get, run, all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { emitEvent } from '../services/events.js'
+import { maxLengthError, SPRINT_NAME_MAX, SPRINT_GOAL_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -66,6 +67,15 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   const nextName = String(name || '').trim() || fallbackName
   const nextDateRange = String(dateRange || '').trim() || 'Upcoming'
   const nextGoal = goal == null ? null : String(goal).trim() || null
+
+  // JL-204: server-side length caps (checked after trim)
+  const lengthErr =
+    maxLengthError('name', nextName, SPRINT_NAME_MAX) ||
+    maxLengthError('goal', nextGoal, SPRINT_GOAL_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
 
   const created = await run('INSERT INTO sprints (name, date_range, is_started, goal) VALUES (?, ?, ?, ?)', [
     nextName,
@@ -146,11 +156,24 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     return
   }
 
+  // JL-204: length cap (checked after trim)
+  const nameErr = maxLengthError('name', nextName, SPRINT_NAME_MAX)
+  if (nameErr) {
+    res.status(400).json({ error: nameErr })
+    return
+  }
+
   // JL-127: goal is optional on patch — only update it when the key is present.
   const setClauses = ['name = ?', 'date_range = ?']
   const params = [nextName, nextDateRange || 'Upcoming']
   if (Object.prototype.hasOwnProperty.call(body, 'goal')) {
     const nextGoal = body.goal == null ? null : String(body.goal).trim() || null
+    // JL-204: length cap (checked after trim)
+    const goalErr = maxLengthError('goal', nextGoal, SPRINT_GOAL_MAX)
+    if (goalErr) {
+      res.status(400).json({ error: goalErr })
+      return
+    }
     setClauses.push('goal = ?')
     params.push(nextGoal)
   }

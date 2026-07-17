@@ -64,4 +64,35 @@ export function isEmail(str) {
   return typeof str === 'string' && EMAIL_RE.test(str)
 }
 
-export default { isPresent, requireFields, oneOf, isEmail }
+/* ================================================================
+   JL-204 — server-side length caps for user-facing text fields.
+   Named constants keep the limits consistent across the routes
+   (issues.js / projects.js / sprints.js). Values are checked AFTER
+   trimming, so surrounding whitespace never pushes a value over cap.
+   ================================================================ */
+export const ISSUE_TITLE_MAX = 255
+export const ISSUE_DESCRIPTION_MAX = 20000
+export const PROJECT_NAME_MAX = 120
+export const PROJECT_KEY_MAX = 10
+export const SPRINT_NAME_MAX = 120
+export const SPRINT_GOAL_MAX = 1000
+
+/**
+ * JL-204 — build a 400-ready error message when a string exceeds its cap.
+ * Pure helper: returns `null` when the value is within the limit (or not a
+ * string), otherwise a message naming the field and the limit. Callers chain
+ * these with `||` and return the first non-null message with HTTP 400.
+ *
+ * @param {string} field  user-facing field name for the error message
+ * @param {*} value       the (already-trimmed) candidate value
+ * @param {number} max    maximum allowed length in characters
+ * @returns {string|null}
+ */
+export function maxLengthError(field, value, max) {
+  if (typeof value === 'string' && value.length > max) {
+    return `${field} must be at most ${max} characters`
+  }
+  return null
+}
+
+export default { isPresent, requireFields, oneOf, isEmail, maxLengthError }
