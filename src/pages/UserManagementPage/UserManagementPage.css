@@ -1,0 +1,69 @@
+.user-management-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.user-management-header h1 {
+  margin: 0 0 4px;
+}
+
+.user-management-subtitle {
+  margin: 0;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-base, 13px);
+}
+
+.user-management-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-management-search {
+  min-width: 260px;
+  flex: 0 1 320px;
+}
+
+.user-management-filter {
+  min-width: 140px;
+}
+
+.user-management-count {
+  margin-left: auto;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm, 12px);
+  white-space: nowrap;
+}
+
+.user-management-table-shell {
+  padding: 0;
+  overflow: hidden;
+}
+
+.user-management-table-container {
+  overflow-x: auto;
+}
+
+.user-management-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 16px;
+  color: var(--jira-text-muted);
+}
+
+.user-management-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-management-avatar.MuiAvatar-root {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  background: var(--jira-blue, #0052cc);
+}
