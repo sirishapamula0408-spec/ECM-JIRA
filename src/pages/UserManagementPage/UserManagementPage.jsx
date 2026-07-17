@@ -21,9 +21,15 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContentText from '@mui/material/DialogContentText'
 import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
+import Accordion from '@mui/material/Accordion'
+import AccordionSummary from '@mui/material/AccordionSummary'
+import AccordionDetails from '@mui/material/AccordionDetails'
 import SearchIcon from '@mui/icons-material/Search'
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt'
+import HistoryIcon from '@mui/icons-material/History'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 
 import {
   fetchMembers,
@@ -34,6 +40,8 @@ import {
   reactivateMember,
 } from '../../api/memberApi'
 import { EmptyState } from '../../components/common/EmptyState'
+import { usePermissions } from '../../hooks/usePermissions'
+import UserAuditLog from '../../components/users/UserAuditLog.jsx'
 import './UserManagementPage.css'
 
 const ROLE_ORDER = ['Owner', 'Admin', 'Member', 'Viewer']
@@ -82,6 +90,9 @@ export function UserManagementPage() {
   // Confirm dialog for destructive/status actions: { type, user }.
   const [confirm, setConfirm] = useState(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+
+  // JL-195/JL-197: the audit trail is only surfaced to workspace Admins/Owners.
+  const { canManageUsers } = usePermissions()
 
   const showToast = (message, severity = 'success') =>
     setToast({ open: true, message, severity })
@@ -476,6 +487,26 @@ export function UserManagementPage() {
           </TableContainer>
         )}
       </article>
+
+      {/* JL-197: collapsible audit trail of user-administration actions.
+          Rendered only for workspace Admins/Owners (canManageUsers). */}
+      {canManageUsers && (
+        <Accordion className="user-management-audit" disableGutters>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="user-management-audit-content"
+            id="user-management-audit-header"
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <HistoryIcon fontSize="small" />
+              <Typography component="span">Audit log</Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails id="user-management-audit-content">
+            <UserAuditLog />
+          </AccordionDetails>
+        </Accordion>
+      )}
 
       {/* Add-user dialog */}
       <Dialog open={addOpen} onClose={closeAddDialog} fullWidth maxWidth="xs">

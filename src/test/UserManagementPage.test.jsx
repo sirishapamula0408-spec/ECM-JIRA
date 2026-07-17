@@ -4,9 +4,14 @@ import { BrowserRouter } from 'react-router-dom'
 
 vi.mock('../api/memberApi', () => ({
   fetchMembers: vi.fn(),
+  fetchUserAuditLog: vi.fn(() => Promise.resolve([])),
+  inviteMember: vi.fn(),
+  resendMemberInvite: vi.fn(),
+  updateProfile: vi.fn(),
 }))
 
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
+import { MemberProvider } from '../context/MemberContext'
 import { fetchMembers } from '../api/memberApi'
 
 const MEMBERS = [
@@ -18,7 +23,9 @@ const MEMBERS = [
 function renderPage() {
   return render(
     <BrowserRouter>
-      <UserManagementPage />
+      <MemberProvider>
+        <UserManagementPage />
+      </MemberProvider>
     </BrowserRouter>,
   )
 }

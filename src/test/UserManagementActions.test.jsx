@@ -9,9 +9,14 @@ vi.mock('../api/memberApi', () => ({
   deleteMember: vi.fn(),
   deactivateMember: vi.fn(),
   reactivateMember: vi.fn(),
+  fetchUserAuditLog: vi.fn(() => Promise.resolve([])),
+  inviteMember: vi.fn(),
+  resendMemberInvite: vi.fn(),
+  updateProfile: vi.fn(),
 }))
 
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
+import { MemberProvider } from '../context/MemberContext'
 import {
   fetchMembers,
   createMember,
@@ -28,7 +33,9 @@ const MEMBERS = [
 function renderPage() {
   return render(
     <BrowserRouter>
-      <UserManagementPage />
+      <MemberProvider>
+        <UserManagementPage />
+      </MemberProvider>
     </BrowserRouter>,
   )
 }
