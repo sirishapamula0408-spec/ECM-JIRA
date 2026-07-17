@@ -400,6 +400,59 @@ router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
   })
 }))
 
+// --- JL-198: Change password for a signed-in user ---
+// Verifies the current password against the stored hash, validates the new one
+// against the org password policy, then rotates the stored hash. Reuses the same
+// hashPassword/verifyPassword helpers as login + reset-password so hashes stay
+// interoperable. No token is reissued — the existing JWT remains valid.
+router.post('/change-password', authGuard, asyncHandler(async (req, res) => {
+  const currentPassword = String(req.body?.currentPassword || '')
+  const newPassword = String(req.body?.newPassword || '')
+
+  if (!currentPassword) {
+    res.status(400).json({ error: 'Current password is required' })
+    return
+  }
+  if (!newPassword) {
+    res.status(400).json({ error: 'New password is required' })
+    return
+  }
+
+  const user = await get('SELECT id, password_hash FROM users WHERE id = ?', [req.user.id])
+  if (!user) {
+    res.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  // Wrong current password — do not reveal anything beyond the mismatch.
+  if (!verifyPassword(currentPassword, user.password_hash)) {
+    res.status(401).json({ error: 'Current password is incorrect' })
+    return
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).json({ error: 'New password must be at least 6 characters' })
+    return
+  }
+  if (newPassword === currentPassword) {
+    res.status(400).json({ error: 'New password must be different from the current password' })
+    return
+  }
+
+  // --- JL-134: enforce the org password policy on password change ---
+  const policy = await getSecurityPolicy()
+  const pwCheck = validatePassword(newPassword, policy)
+  if (!pwCheck.ok) {
+    res.status(400).json({ error: pwCheck.errors[0], errors: pwCheck.errors })
+    return
+  }
+
+  const passwordHash = hashPassword(newPassword)
+  await run('UPDATE users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?', [passwordHash, user.id])
+
+  res.json({ message: 'Password changed successfully.' })
+}))
+
 /* ============================================================
    JL-81: Multi-Factor Authentication (TOTP / RFC 6238)
    ============================================================ */

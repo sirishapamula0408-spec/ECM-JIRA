@@ -32,6 +32,14 @@ export function fetchCurrentUser() {
   return api('/api/auth/me')
 }
 
+// --- JL-198: Change password for the signed-in user ---
+export function changePassword(currentPassword, newPassword) {
+  return api('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+}
+
 // --- JL-129: Live SSO (OIDC / SAML) ---
 // Reports which SSO methods are configured/live in this deployment.
 export function fetchSsoStatus() {
