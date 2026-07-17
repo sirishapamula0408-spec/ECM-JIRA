@@ -176,6 +176,23 @@ router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler
 
 // ── Project Members ──
 
+// Project roles allowed on a project membership. Lead/Admin form the "admin tier"
+// that holds administrative control over the project.
+const PROJECT_ROLES = ['Lead', 'Admin', 'Member', 'Viewer']
+const ADMIN_TIER_ROLES = ['Lead', 'Admin']
+const isAdminTier = (role) => ADMIN_TIER_ROLES.includes(role)
+
+// Count the members that currently hold an admin-tier role (Admin or Lead) on a
+// project. Used to block orphaning a project of its last administrator.
+async function countProjectAdmins(projectId) {
+  const row = await get(
+    `SELECT COUNT(*) AS count FROM project_members
+     WHERE project_id = ? AND role IN ('Admin', 'Lead')`,
+    [projectId],
+  )
+  return Number(row?.count || 0)
+}
+
 router.get('/:id/members', asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const rows = await all(
@@ -218,9 +235,68 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
   res.status(201).json(row)
 }))
 
+router.patch('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.id)
+  const memberId = Number(req.params.memberId)
+  const { role } = req.body
+
+  if (!PROJECT_ROLES.includes(role)) {
+    res.status(400).json({ error: `role must be one of: ${PROJECT_ROLES.join(', ')}` })
+    return
+  }
+
+  const existing = await get(
+    'SELECT role FROM project_members WHERE project_id = ? AND member_id = ?',
+    [projectId, memberId],
+  )
+  if (!existing) {
+    res.status(404).json({ error: 'Project member not found' })
+    return
+  }
+
+  // Guard: block demoting the last admin-tier member out of the admin tier.
+  if (isAdminTier(existing.role) && !isAdminTier(role)) {
+    const admins = await countProjectAdmins(projectId)
+    if (admins <= 1) {
+      res.status(409).json({ error: 'Cannot demote the last remaining project admin' })
+      return
+    }
+  }
+
+  await run(
+    'UPDATE project_members SET role = ? WHERE project_id = ? AND member_id = ?',
+    [role, projectId, memberId],
+  )
+
+  const row = await get(
+    `SELECT pm.id AS pm_id, pm.role AS project_role, pm.assigned_at,
+            m.id, m.name, m.email, m.role AS global_role, m.status
+     FROM project_members pm
+     JOIN members m ON m.id = pm.member_id
+     WHERE pm.project_id = ? AND pm.member_id = ?`,
+    [projectId, memberId],
+  )
+  res.json(row)
+}))
+
 router.delete('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const memberId = Number(req.params.memberId)
+
+  const existing = await get(
+    'SELECT role FROM project_members WHERE project_id = ? AND member_id = ?',
+    [projectId, memberId],
+  )
+
+  // Guard: block removing the last admin-tier member, orphaning admin control.
+  if (existing && isAdminTier(existing.role)) {
+    const admins = await countProjectAdmins(projectId)
+    if (admins <= 1) {
+      res.status(409).json({ error: 'Cannot remove the last remaining project admin' })
+      return
+    }
+  }
+
   await run(
     'DELETE FROM project_members WHERE project_id = ? AND member_id = ?',
     [projectId, memberId],

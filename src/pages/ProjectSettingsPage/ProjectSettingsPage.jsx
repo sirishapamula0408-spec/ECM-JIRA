@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember } from '../../api/projectApi'
+import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember, updateProjectMemberRole } from '../../api/projectApi'
 import {
   fetchProjectPriorities, createPriority, deletePriority,
   fetchProjectStatuses, createStatus, deleteStatus,
@@ -59,6 +59,7 @@ export function ProjectSettingsPage() {
   const [addMemberId, setAddMemberId] = useState('')
   const [addRole, setAddRole] = useState('Member')
   const [accessBusy, setAccessBusy] = useState(false)
+  const [accessError, setAccessError] = useState('')
 
   // JL-131: issue security-levels catalog (workspace-wide)
   const [securityLevels, setSecurityLevels] = useState([])
@@ -184,6 +185,15 @@ export function ProjectSettingsPage() {
     if (activeSection === SECTIONS.SCREENS) loadScreen(screenIssueType)
   }, [activeSection, screenIssueType, loadScreen])
 
+  // ── JL-131: Security levels catalog ──
+  // Kept with the other hooks (before the early returns) so hook order stays
+  // stable across the loading → loaded transition (Rules of Hooks).
+  useEffect(() => {
+    fetchSecurityLevels()
+      .then((data) => setSecurityLevels(Array.isArray(data) ? data : []))
+      .catch(() => setSecurityLevels([]))
+  }, [])
+
   if (loading) return <div className="page ps-layout"><p style={{ padding: 24 }}>Loading...</p></div>
   if (!project || !form) return <div className="page ps-layout"><p style={{ padding: 24 }}>Project not found.</p></div>
 
@@ -233,10 +243,27 @@ export function ProjectSettingsPage() {
 
   async function handleRemoveMember(memberId) {
     setAccessBusy(true)
+    setAccessError('')
     try {
       await removeProjectMember(projectId, memberId)
       setProjectMembers((prev) => prev.filter((pm) => pm.id !== memberId))
-    } catch { /* ignore */ }
+    } catch (err) {
+      setAccessError(err.message || 'Failed to remove member.')
+    }
+    setAccessBusy(false)
+  }
+
+  async function handleChangeMemberRole(memberId, role) {
+    setAccessBusy(true)
+    setAccessError('')
+    try {
+      const updated = await updateProjectMemberRole(projectId, memberId, role)
+      setProjectMembers((prev) =>
+        prev.map((pm) => (pm.id === memberId ? { ...pm, project_role: updated.project_role } : pm)),
+      )
+    } catch (err) {
+      setAccessError(err.message || 'Failed to change role.')
+    }
     setAccessBusy(false)
   }
 
@@ -320,13 +347,6 @@ export function ProjectSettingsPage() {
 
   // A row is a global default (not project-specific) when project_id is null.
   const isGlobal = (row) => row.project_id === null || row.project_id === undefined
-
-  // ── JL-131: Security levels catalog ──
-  useEffect(() => {
-    fetchSecurityLevels()
-      .then((data) => setSecurityLevels(Array.isArray(data) ? data : []))
-      .catch(() => setSecurityLevels([]))
-  }, [])
 
   async function handleCreateSecurityLevel() {
     const name = newLevelName.trim()
@@ -724,6 +744,7 @@ export function ProjectSettingsPage() {
 
             <article className="panel" style={{ marginTop: 16 }}>
               <h3>Project Members</h3>
+              {accessError && <p className="banner error">{accessError}</p>}
               <table className="table" style={{ marginTop: 12 }}>
                 <thead>
                   <tr>
@@ -745,7 +766,24 @@ export function ProjectSettingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td><span className="pill">{pm.project_role}</span></td>
+                      <td>
+                        {isLead(pm.name) ? (
+                          <span className="pill">{pm.project_role}</span>
+                        ) : (
+                          <select
+                            className="ps-role-select"
+                            value={pm.project_role}
+                            onChange={(e) => handleChangeMemberRole(pm.id, e.target.value)}
+                            disabled={accessBusy}
+                            aria-label={`Role for ${pm.name}`}
+                          >
+                            <option>Lead</option>
+                            <option>Admin</option>
+                            <option>Member</option>
+                            <option>Viewer</option>
+                          </select>
+                        )}
+                      </td>
                       <td>
                         {!isLead(pm.name) && (
                           <button

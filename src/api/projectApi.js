@@ -32,6 +32,13 @@ export function addProjectMember(projectId, { memberId, role }) {
   })
 }
 
+export function updateProjectMemberRole(projectId, memberId, role) {
+  return api(`/api/projects/${projectId}/members/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  })
+}
+
 export function removeProjectMember(projectId, memberId) {
   return api(`/api/projects/${projectId}/members/${memberId}`, {
     method: 'DELETE',
