@@ -4,6 +4,7 @@ import { fetchProjects } from '../../api/projectApi'
 import { fetchMembers } from '../../api/memberApi'
 import { timeAgo } from '../../utils/timeAgo'
 import './ActivityFeedPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const ACTIVITY_TYPES = [
   { value: '', label: 'All types' },
@@ -14,6 +15,7 @@ const ACTIVITY_TYPES = [
 ]
 
 export function ActivityFeedPage() {
+  usePageTitle('Activity')
   const [activities, setActivities] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)

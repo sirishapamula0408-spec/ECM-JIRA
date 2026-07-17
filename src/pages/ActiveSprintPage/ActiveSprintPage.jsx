@@ -6,6 +6,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { fetchParallelSprintSetting, setParallelSprintSetting, addRetro, deleteRetro, fetchRetros } from '../../api/sprintApi'
 import { STATUS_COLUMNS } from '../../constants'
 import './ActiveSprintPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const RETRO_COLUMNS = [
   { key: 'well', label: 'What went well' },
@@ -14,6 +15,7 @@ const RETRO_COLUMNS = [
 ]
 
 export function ActiveSprintPage() {
+  usePageTitle('Active Sprint')
   const { issues, handleMove, reloadIssues } = useIssues()
   const { sprints, handleCompleteSprint, handleUpdateSprint } = useSprints()
   const navigate = useNavigate()

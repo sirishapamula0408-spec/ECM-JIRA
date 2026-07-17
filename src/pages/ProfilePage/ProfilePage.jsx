@@ -4,6 +4,7 @@ import { useMembers } from '../../context/MemberContext'
 import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTokenApi'
 import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions } from '../../api/authApi'
 import './ProfilePage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 function MfaSection() {
   const [enabled, setEnabled] = useState(false)
@@ -309,6 +310,7 @@ function ApiTokensSection() {
 }
 
 export function ProfilePage() {
+  usePageTitle('Profile')
   const { authUser } = useAuth()
   const { profile, handleSaveProfile: onSave } = useMembers()
   const [form, setForm] = useState(null)
