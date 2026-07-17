@@ -49,6 +49,7 @@ import { WikiPage } from './pages/WikiPage/WikiPage'
 import { WebhooksPage } from './pages/WebhooksPage/WebhooksPage'
 import { SharedDashboardsPage } from './pages/SharedDashboardsPage/SharedDashboardsPage'
 import { AutomationPage } from './pages/AutomationPage/AutomationPage'
+import { UserManagementPage } from './pages/UserManagementPage/UserManagementPage'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -142,6 +143,7 @@ function AppContent() {
               <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
               <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
               <Route path="/teams" element={<TeamsPage />} />
+              <Route path="/users" element={<UserManagementPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />

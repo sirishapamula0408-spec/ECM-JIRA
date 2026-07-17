@@ -64,6 +64,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
   const productItems = [
     { label: 'Teams', path: '/teams', icon: 'teams' },
+    { label: 'Users', path: '/users', icon: 'teams' },
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
     { label: 'Activity', path: '/activity', icon: 'recent' },
     { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
@@ -250,7 +251,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
       <nav>
         {productItems.map((item) => {
-          const isAllowed = hasProjects || item.label === 'Teams'
+          const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Users'
           return isAllowed ? (
             <NavLink
               key={`${item.label}-${item.path}`}
