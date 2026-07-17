@@ -33,6 +33,8 @@ export function usePermissions(projectId) {
         canManageProjectSettings: false,
         canManageMembers: false,
         canInviteMembers: false,
+        canManageUsers: false,
+        canDeleteUser: false,
         canDeleteProject: false,
         canCreateProject: false,
         canEditWorkflows: false,
@@ -86,6 +88,10 @@ export function usePermissions(projectId) {
       // Member permissions
       canManageMembers: isAdmin,
       canInviteMembers: isAdmin,
+
+      // User management permissions (JL-195) — workspace Admin/Owner only
+      canManageUsers: isAdmin,
+      canDeleteUser: isAdmin,
 
       // Workflow permissions
       canEditWorkflows: isAdmin,
