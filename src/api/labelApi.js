@@ -7,6 +7,10 @@ export const fetchProjectLabels = (projectId, search = '') =>
 export const createLabel = (projectId, { name, color }) =>
   api(`/api/projects/${projectId}/labels`, { method: 'POST', body: JSON.stringify({ name, color }) })
 
+// JL-199: rename and/or recolor a catalog label definition
+export const updateLabel = (projectId, labelId, { name, color }) =>
+  api(`/api/projects/${projectId}/labels/${labelId}`, { method: 'PUT', body: JSON.stringify({ name, color }) })
+
 export const deleteLabel = (projectId, labelId) =>
   api(`/api/projects/${projectId}/labels/${labelId}`, { method: 'DELETE' })
 
