@@ -40,6 +40,76 @@ async function recordActivity(actor, action) {
   }
 }
 
+/**
+ * JL-197: appends an immutable entry to the user_audit_log table. Non-fatal —
+ * an audit failure (missing table, bad column) never breaks the member action.
+ */
+async function recordAudit({
+  actor,
+  targetMemberId = null,
+  targetEmail = null,
+  action,
+  before = null,
+  after = null,
+}) {
+  try {
+    await run(
+      `INSERT INTO user_audit_log
+        (actor, target_member_id, target_email, action, before_value, after_value, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        actor || 'System',
+        targetMemberId,
+        targetEmail,
+        action,
+        before == null ? null : String(before),
+        after == null ? null : String(after),
+      ],
+    )
+  } catch (err) {
+    console.error('[Members] Failed to record audit entry:', err.message)
+  }
+}
+
+// JL-197: expose the user-administration audit trail (Admin only). Filterable
+// by target (email or member id) and action; newest-first with a sane limit.
+router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const clauses = []
+  const params = []
+
+  const target = String(req.query.target || '').trim()
+  if (target) {
+    if (/^\d+$/.test(target)) {
+      clauses.push('target_member_id = ?')
+      params.push(Number(target))
+    } else {
+      clauses.push('LOWER(target_email) = LOWER(?)')
+      params.push(target)
+    }
+  }
+
+  const action = String(req.query.action || '').trim()
+  if (action) {
+    clauses.push('action = ?')
+    params.push(action)
+  }
+
+  let limit = Number(req.query.limit)
+  if (!Number.isInteger(limit) || limit <= 0) limit = 100
+  if (limit > 500) limit = 500
+
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+  const rows = await all(
+    `SELECT id, actor, target_member_id, target_email, action, before_value, after_value, created_at
+       FROM user_audit_log
+       ${where}
+       ORDER BY id DESC
+       LIMIT ?`,
+    [...params, limit],
+  )
+  res.json(rows)
+}))
+
 router.get('/', asyncHandler(async (_req, res) => {
   const rows = await all(
     'SELECT id, name, email, role, status, task_count, invited_by FROM members ORDER BY id ASC',
@@ -114,6 +184,14 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     [created.lastID],
   )
 
+  await recordAudit({
+    actor: req.user?.email,
+    targetMemberId: row.id,
+    targetEmail: normalizedEmail,
+    action: createdLogin ? 'member_created' : 'member_invited',
+    after: `${normalizedRole} / ${status}`,
+  })
+
   // Send invitation email (skip when a temp password activated the account directly)
   if (!createdLogin) {
     try {
@@ -146,6 +224,14 @@ router.patch('/:id/deactivate', requireRole('Admin'), asyncHandler(async (req, r
   await run('UPDATE members SET status = ? WHERE id = ?', ['Deactivated', id])
   // Sync the auth user (if any) so login is blocked
   await run('UPDATE users SET status = ? WHERE email = ?', ['Deactivated', member.email])
+  await recordAudit({
+    actor: req.user?.email,
+    targetMemberId: id,
+    targetEmail: member.email,
+    action: 'deactivated',
+    before: member.status,
+    after: 'Deactivated',
+  })
   res.json({ ...member, status: 'Deactivated' })
 }))
 
@@ -163,6 +249,14 @@ router.patch('/:id/reactivate', requireRole('Admin'), asyncHandler(async (req, r
   }
   await run('UPDATE members SET status = ? WHERE id = ?', ['Active', id])
   await run('UPDATE users SET status = ? WHERE email = ?', ['Active', member.email])
+  await recordAudit({
+    actor: req.user?.email,
+    targetMemberId: id,
+    targetEmail: member.email,
+    action: 'reactivated',
+    before: member.status,
+    after: 'Active',
+  })
   res.json({ ...member, status: 'Active' })
 }))
 
@@ -247,6 +341,14 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     req.user?.email,
     `changed ${member.email} role from ${member.role} to ${role}`,
   )
+  await recordAudit({
+    actor: req.user?.email,
+    targetMemberId: id,
+    targetEmail: member.email,
+    action: 'role_changed',
+    before: member.role,
+    after: role,
+  })
 
   res.json(updated)
 }))
@@ -290,6 +392,13 @@ router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await run('DELETE FROM members WHERE id = ?', [id])
 
   await recordActivity(req.user?.email, `removed member ${member.email}`)
+  await recordAudit({
+    actor: req.user?.email,
+    targetMemberId: id,
+    targetEmail: member.email,
+    action: 'deleted',
+    before: member.role,
+  })
 
   res.json({ ok: true, id })
 }))

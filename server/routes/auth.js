@@ -62,6 +62,16 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   // JL-192: block deactivated accounts before issuing the JWT
   if (user.status === 'Deactivated') {
+    // JL-197: record the blocked login attempt (non-fatal)
+    try {
+      await run(
+        `INSERT INTO user_audit_log (actor, target_email, action, created_at)
+         VALUES (?, ?, ?, NOW())`,
+        [user.email, user.email, 'login_blocked'],
+      )
+    } catch (auditErr) {
+      console.error('[Auth] Failed to record login_blocked audit:', auditErr.message)
+    }
     res.status(403).json({ error: 'This account has been deactivated. Please contact your workspace admin.' })
     return
   }

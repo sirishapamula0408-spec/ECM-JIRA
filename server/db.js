@@ -567,6 +567,24 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label_id)')
 
+  // --- JL-197: append-only audit trail for user-administration actions ---
+  // Records who did what to which member (role change, create, invite,
+  // deactivate/reactivate, delete, login block). No update/delete routes exist.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_audit_log (
+      id SERIAL PRIMARY KEY,
+      actor TEXT,
+      target_member_id INTEGER,
+      target_email TEXT,
+      action TEXT NOT NULL,
+      before_value TEXT,
+      after_value TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_audit_target_email ON user_audit_log(target_email)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_user_audit_action ON user_audit_log(action)')
+
   // Add FK from projects to members (can't add inline due to table creation order)
   const fkExists = await get(
     `SELECT 1 FROM information_schema.table_constraints
