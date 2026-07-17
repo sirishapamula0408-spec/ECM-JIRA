@@ -4,8 +4,10 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import './TeamsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function TeamsPage() {
+  usePageTitle('Teams')
   const { profile, members, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
   const { canInviteMembers, isAdmin } = usePermissions()
 

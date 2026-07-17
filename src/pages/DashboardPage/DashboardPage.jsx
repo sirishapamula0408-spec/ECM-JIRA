@@ -17,6 +17,7 @@ import { SprintHealthGadget } from '../../components/dashboard/gadgets/SprintHea
 import { useDashboardLayout } from '../../hooks/useDashboardLayout'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './DashboardPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const GADGET_COMPONENTS = {
   pie: PieChartGadget,
@@ -28,6 +29,7 @@ const GADGET_COMPONENTS = {
 }
 
 export function DashboardPage() {
+  usePageTitle('Dashboard')
   const { issues } = useIssues()
   const { activity } = useAppData()
   const { profile } = useMembers()

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import {
   Button,
   MenuItem,
@@ -58,6 +59,7 @@ function buildHistogram(cycleValues) {
 }
 
 export function ReportsPage() {
+  usePageTitle('Reports')
   const { issues } = useIssues()
   const { sprints } = useSprints()
   const { projectId } = useParams()

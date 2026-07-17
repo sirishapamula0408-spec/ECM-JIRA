@@ -5,6 +5,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSummaryPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const STATUS_COLORS = {
   'Backlog':     { bg: '#f4f5f7', border: '#c1c7d0', text: '#6b778c' },
@@ -27,6 +28,7 @@ const TYPE_ICONS = {
 }
 
 export function ProjectSummaryPage() {
+  usePageTitle('Project Summary')
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { issues } = useIssues()

@@ -32,6 +32,7 @@ import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt'
 import HistoryIcon from '@mui/icons-material/History'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 import {
   fetchMembers,
@@ -74,6 +75,7 @@ function isOwnerRow(user) {
 const EMPTY_ADD_FORM = { name: '', email: '', role: 'Viewer', password: '' }
 
 export function UserManagementPage() {
+  usePageTitle('User Management')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
