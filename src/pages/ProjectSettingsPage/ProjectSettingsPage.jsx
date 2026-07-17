@@ -707,6 +707,7 @@ export function ProjectSettingsPage() {
                   disabled={accessBusy}
                   className="ps-role-select"
                 >
+                  <option>Lead</option>
                   <option>Admin</option>
                   <option>Member</option>
                   <option>Viewer</option>

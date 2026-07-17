@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
 import { useMembers } from '../context/MemberContext'
 
+// Project "Lead" is the highest project tier (>= Admin), so a project Lead
+// gets full project-admin capabilities. Workspace roles top out at Admin.
 const ROLE_RANK = {
   Viewer: 1,
   Member: 2,
   Admin: 3,
+  Lead: 4,
 }
 
 /**

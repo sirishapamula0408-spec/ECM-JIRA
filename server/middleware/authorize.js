@@ -1,13 +1,16 @@
 import { get } from '../db.js'
 
 /**
- * Role hierarchy: Owner > Admin > Member > Viewer
+ * Role hierarchy: Owner > Admin > Member > Viewer (workspace),
+ * with the project-level "Lead" role as the highest project tier
+ * (ranked at/above Admin so a project Lead has full project-admin rights).
  * Higher numeric value = higher privilege.
  */
 const ROLE_RANK = {
   Viewer: 1,
   Member: 2,
   Admin: 3,
+  Lead: 4,
 }
 
 /**
