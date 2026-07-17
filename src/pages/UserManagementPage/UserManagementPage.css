@@ -4,6 +4,14 @@
   gap: 16px;
 }
 
+.user-management-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .user-management-header h1 {
   margin: 0 0 4px;
 }
@@ -66,4 +74,9 @@
   height: 28px;
   font-size: 12px;
   background: var(--jira-blue, #0052cc);
+}
+
+.user-management-role-select {
+  min-width: 96px;
+  font-size: 13px;
 }

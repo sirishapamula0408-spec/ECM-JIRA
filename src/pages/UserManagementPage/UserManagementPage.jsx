@@ -11,14 +11,36 @@ import Chip from '@mui/material/Chip'
 import Avatar from '@mui/material/Avatar'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContentText from '@mui/material/DialogContentText'
+import Snackbar from '@mui/material/Snackbar'
+import Stack from '@mui/material/Stack'
 import SearchIcon from '@mui/icons-material/Search'
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
+import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt'
 
-import { fetchMembers } from '../../api/memberApi'
+import {
+  fetchMembers,
+  createMember,
+  updateMemberRole,
+  deleteMember,
+  deactivateMember,
+  reactivateMember,
+} from '../../api/memberApi'
 import { EmptyState } from '../../components/common/EmptyState'
 import './UserManagementPage.css'
 
 const ROLE_ORDER = ['Owner', 'Admin', 'Member', 'Viewer']
+
+// Roles an Admin may assign from the UI. The workspace Owner is protected and
+// never offered as a selectable option.
+const ASSIGNABLE_ROLES = ['Admin', 'Member', 'Viewer']
 
 const ROLE_CHIP_COLOR = {
   Owner: 'secondary',
@@ -34,6 +56,12 @@ function formatLastActivity(value) {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+function isOwnerRow(user) {
+  return Boolean(user.is_owner) || user.role === 'Owner'
+}
+
+const EMPTY_ADD_FORM = { name: '', email: '', role: 'Viewer', password: '' }
+
 export function UserManagementPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +69,23 @@ export function UserManagementPage() {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  // Toast for success/guard-failure feedback.
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+
+  // Add-user dialog state.
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState(EMPTY_ADD_FORM)
+  const [addError, setAddError] = useState('')
+  const [addSubmitting, setAddSubmitting] = useState(false)
+
+  // Confirm dialog for destructive/status actions: { type, user }.
+  const [confirm, setConfirm] = useState(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
+
+  const showToast = (message, severity = 'success') =>
+    setToast({ open: true, message, severity })
+  const closeToast = () => setToast((prev) => ({ ...prev, open: false }))
 
   useEffect(() => {
     let cancelled = false
@@ -91,6 +136,140 @@ export function UserManagementPage() {
 
   const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
 
+  // --- Inline role edit (optimistic with rollback) -------------------------
+  async function handleRoleChange(user, nextRole) {
+    if (!nextRole || nextRole === user.role) return
+    const previousRole = user.role
+    // Optimistically reflect the new role.
+    setUsers((current) =>
+      current.map((u) => (u.id === user.id ? { ...u, role: nextRole } : u)),
+    )
+    try {
+      const updated = await updateMemberRole(user.id, nextRole)
+      setUsers((current) =>
+        current.map((u) => (u.id === user.id ? { ...u, ...updated } : u)),
+      )
+      showToast(`Updated ${user.name || user.email} to ${nextRole}.`)
+    } catch (err) {
+      // Roll back to the previous role and surface the guard failure.
+      setUsers((current) =>
+        current.map((u) => (u.id === user.id ? { ...u, role: previousRole } : u)),
+      )
+      showToast(err?.message || 'Failed to update role.', 'error')
+    }
+  }
+
+  // --- Add user ------------------------------------------------------------
+  function openAddDialog() {
+    setAddForm(EMPTY_ADD_FORM)
+    setAddError('')
+    setAddOpen(true)
+  }
+
+  function closeAddDialog() {
+    if (addSubmitting) return
+    setAddOpen(false)
+  }
+
+  async function handleAddSubmit(event) {
+    event.preventDefault()
+    const name = addForm.name.trim()
+    const email = addForm.email.trim()
+    if (!name || !email) {
+      setAddError('Name and email are required.')
+      return
+    }
+    const payload = { name, email, role: addForm.role }
+    if (addForm.password.trim()) payload.password = addForm.password
+    setAddSubmitting(true)
+    setAddError('')
+    try {
+      const created = await createMember(payload)
+      setUsers((current) => [...current, created])
+      setAddOpen(false)
+      setAddForm(EMPTY_ADD_FORM)
+      showToast(
+        payload.password
+          ? `Created account for ${created.name || email}.`
+          : `Invited ${created.name || email}.`,
+      )
+    } catch (err) {
+      setAddError(err?.message || 'Failed to add user.')
+      showToast(err?.message || 'Failed to add user.', 'error')
+    } finally {
+      setAddSubmitting(false)
+    }
+  }
+
+  // --- Delete / deactivate / reactivate ------------------------------------
+  function requestAction(type, user) {
+    setConfirm({ type, user })
+  }
+
+  function closeConfirm() {
+    if (confirmBusy) return
+    setConfirm(null)
+  }
+
+  async function runConfirmedAction() {
+    if (!confirm) return
+    const { type, user } = confirm
+    setConfirmBusy(true)
+    try {
+      if (type === 'delete') {
+        await deleteMember(user.id)
+        setUsers((current) => current.filter((u) => u.id !== user.id))
+        showToast(`Removed ${user.name || user.email}.`)
+      } else if (type === 'deactivate') {
+        const updated = await deactivateMember(user.id)
+        setUsers((current) =>
+          current.map((u) =>
+            u.id === user.id ? { ...u, ...updated, status: updated?.status || 'Deactivated' } : u,
+          ),
+        )
+        showToast(`Deactivated ${user.name || user.email}.`)
+      } else if (type === 'reactivate') {
+        const updated = await reactivateMember(user.id)
+        setUsers((current) =>
+          current.map((u) =>
+            u.id === user.id ? { ...u, ...updated, status: updated?.status || 'Active' } : u,
+          ),
+        )
+        showToast(`Reactivated ${user.name || user.email}.`)
+      }
+      setConfirm(null)
+    } catch (err) {
+      // Leave the row unchanged and surface the guard failure.
+      showToast(err?.message || 'Action failed.', 'error')
+      setConfirm(null)
+    } finally {
+      setConfirmBusy(false)
+    }
+  }
+
+  const confirmCopy = confirm
+    ? {
+        delete: {
+          title: 'Remove user',
+          body: `Remove ${confirm.user.name || confirm.user.email} from the workspace? This cannot be undone.`,
+          action: 'Remove',
+          color: 'error',
+        },
+        deactivate: {
+          title: 'Deactivate user',
+          body: `Deactivate ${confirm.user.name || confirm.user.email}? They will no longer be able to sign in.`,
+          action: 'Deactivate',
+          color: 'warning',
+        },
+        reactivate: {
+          title: 'Reactivate user',
+          body: `Reactivate ${confirm.user.name || confirm.user.email}? They will be able to sign in again.`,
+          action: 'Reactivate',
+          color: 'primary',
+        },
+      }[confirm.type]
+    : null
+
   return (
     <section className="page user-management-page">
       <div className="user-management-header">
@@ -100,6 +279,13 @@ export function UserManagementPage() {
             Browse all workspace users. Search by name or email, and filter by role or status.
           </p>
         </div>
+        <Button
+          variant="contained"
+          startIcon={<PersonAddAltIcon />}
+          onClick={openAddDialog}
+        >
+          Add user
+        </Button>
       </div>
 
       <div className="user-management-toolbar">
@@ -174,6 +360,13 @@ export function UserManagementPage() {
                 ? 'Try adjusting your search or clearing the role and status filters.'
                 : 'Workspace users will appear here once members are invited.'
             }
+            action={
+              hasActiveFilters ? undefined : (
+                <Button variant="contained" startIcon={<PersonAddAltIcon />} onClick={openAddDialog}>
+                  Add user
+                </Button>
+              )
+            }
           />
         ) : (
           <TableContainer className="user-management-table-container">
@@ -185,46 +378,201 @@ export function UserManagementPage() {
                   <TableCell>Role</TableCell>
                   <TableCell>Status</TableCell>
                   {hasLastActivity && <TableCell>Last activity</TableCell>}
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((user) => (
-                  <TableRow key={user.id} hover>
-                    <TableCell>
-                      <div className="user-management-name-cell">
-                        <Avatar className="user-management-avatar">
-                          {(user.name || '?').slice(0, 2).toUpperCase()}
-                        </Avatar>
-                        <strong>{user.name}</strong>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={user.role || 'Unknown'}
-                        color={ROLE_CHIP_COLOR[user.role] || 'default'}
-                        variant={user.role === 'Owner' || user.role === 'Admin' ? 'filled' : 'outlined'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={user.status || 'Unknown'}
-                        color={user.status === 'Active' ? 'success' : 'default'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    {hasLastActivity && (
-                      <TableCell>{formatLastActivity(user.last_activity_at || user.last_active_at)}</TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                {filtered.map((user) => {
+                  const owner = isOwnerRow(user)
+                  const deactivated = user.status === 'Deactivated'
+                  const roleChoices = [...new Set([user.role, ...ASSIGNABLE_ROLES])].filter(
+                    (r) => r && r !== 'Owner',
+                  )
+                  return (
+                    <TableRow key={user.id} hover>
+                      <TableCell>
+                        <div className="user-management-name-cell">
+                          <Avatar className="user-management-avatar">
+                            {(user.name || '?').slice(0, 2).toUpperCase()}
+                          </Avatar>
+                          <strong>{user.name}</strong>
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        {owner ? (
+                          <Chip
+                            size="small"
+                            label={user.role || 'Owner'}
+                            color={ROLE_CHIP_COLOR[user.role] || 'secondary'}
+                            variant="filled"
+                          />
+                        ) : (
+                          <Select
+                            size="small"
+                            variant="standard"
+                            value={user.role || ''}
+                            onChange={(e) => handleRoleChange(user, e.target.value)}
+                            disableUnderline
+                            className="user-management-role-select"
+                            inputProps={{ 'aria-label': `Change role for ${user.name}` }}
+                            SelectDisplayProps={{ 'aria-label': `Change role for ${user.name}` }}
+                          >
+                            {roleChoices.map((role) => (
+                              <MenuItem key={role} value={role}>{role}</MenuItem>
+                            ))}
+                          </Select>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={user.status || 'Unknown'}
+                          color={user.status === 'Active' ? 'success' : 'default'}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      {hasLastActivity && (
+                        <TableCell>{formatLastActivity(user.last_activity_at || user.last_active_at)}</TableCell>
+                      )}
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          {deactivated ? (
+                            <Button
+                              size="small"
+                              color="primary"
+                              onClick={() => requestAction('reactivate', user)}
+                              aria-label={`Reactivate ${user.name}`}
+                            >
+                              Reactivate
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              color="warning"
+                              disabled={owner}
+                              onClick={() => requestAction('deactivate', user)}
+                              aria-label={`Deactivate ${user.name}`}
+                            >
+                              Deactivate
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            color="error"
+                            disabled={owner}
+                            onClick={() => requestAction('delete', user)}
+                            aria-label={`Delete ${user.name}`}
+                          >
+                            Delete
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </TableContainer>
         )}
       </article>
+
+      {/* Add-user dialog */}
+      <Dialog open={addOpen} onClose={closeAddDialog} fullWidth maxWidth="xs">
+        <form onSubmit={handleAddSubmit}>
+          <DialogTitle>Add user</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 2 }}>
+              Leave the password blank to email an invite, or set a temporary password to create the
+              account directly.
+            </DialogContentText>
+            {addError && (
+              <Alert severity="error" sx={{ mb: 2 }}>{addError}</Alert>
+            )}
+            <Stack spacing={2}>
+              <TextField
+                label="Full name"
+                value={addForm.name}
+                onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                inputProps={{ 'aria-label': 'Full name' }}
+                required
+                fullWidth
+                autoFocus
+              />
+              <TextField
+                label="Email"
+                type="email"
+                value={addForm.email}
+                onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                inputProps={{ 'aria-label': 'Email' }}
+                required
+                fullWidth
+              />
+              <TextField
+                label="Role"
+                select
+                value={addForm.role}
+                onChange={(e) => setAddForm((f) => ({ ...f, role: e.target.value }))}
+                SelectProps={{ native: true }}
+                inputProps={{ 'aria-label': 'Role' }}
+                fullWidth
+              >
+                {ASSIGNABLE_ROLES.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </TextField>
+              <TextField
+                label="Temporary password (optional)"
+                type="password"
+                value={addForm.password}
+                onChange={(e) => setAddForm((f) => ({ ...f, password: e.target.value }))}
+                inputProps={{ 'aria-label': 'Temporary password (optional)' }}
+                fullWidth
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeAddDialog} disabled={addSubmitting}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={addSubmitting}>
+              {addSubmitting ? 'Adding…' : 'Add user'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Confirm destructive/status action */}
+      <Dialog open={Boolean(confirm)} onClose={closeConfirm} maxWidth="xs" fullWidth>
+        {confirmCopy && (
+          <>
+            <DialogTitle>{confirmCopy.title}</DialogTitle>
+            <DialogContent>
+              <DialogContentText>{confirmCopy.body}</DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={closeConfirm} disabled={confirmBusy}>Cancel</Button>
+              <Button
+                variant="contained"
+                color={confirmCopy.color}
+                onClick={runConfirmedAction}
+                disabled={confirmBusy}
+              >
+                {confirmCopy.action}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={5000}
+        onClose={closeToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={closeToast} severity={toast.severity} variant="filled" sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </section>
   )
 }
