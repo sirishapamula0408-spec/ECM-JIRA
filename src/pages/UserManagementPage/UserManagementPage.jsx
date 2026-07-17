@@ -13,6 +13,7 @@ import Avatar from '@mui/material/Avatar'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import Dialog from '@mui/material/Dialog'
@@ -37,6 +38,7 @@ import {
   createMember,
   updateMemberRole,
   deleteMember,
+  bulkDeleteMembers,
   deactivateMember,
   reactivateMember,
 } from '../../api/memberApi'
@@ -96,6 +98,11 @@ export function UserManagementPage() {
   const [confirm, setConfirm] = useState(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
 
+  // JL-208: multi-select for bulk delete.
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+
   // JL-195/JL-197: the audit trail is only surfaced to workspace Admins/Owners.
   const { canManageUsers } = usePermissions()
 
@@ -153,9 +160,11 @@ export function UserManagementPage() {
   const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
 
   // JL-205: reset to the first page whenever the filter/search criteria change,
-  // so you never land on a now-out-of-range page.
+  // so you never land on a now-out-of-range page. JL-208: also clear any
+  // selection so we never act on now-hidden rows.
   useEffect(() => {
     setPage(0)
+    setSelectedIds(new Set())
   }, [normalizedQuery, roleFilter, statusFilter])
 
   // Clamp the page in case the filtered set shrank (e.g. after a delete) and
@@ -166,6 +175,65 @@ export function UserManagementPage() {
     currentPage * rowsPerPage,
     currentPage * rowsPerPage + rowsPerPage,
   )
+
+  // JL-208: Owner rows can't be deleted, so they aren't selectable. Select-all
+  // and the "all selected" state are scoped to the currently visible page.
+  const selectablePaged = paged.filter((u) => !isOwnerRow(u))
+  const selectedCount = selectedIds.size
+  const allPageSelected =
+    selectablePaged.length > 0 && selectablePaged.every((u) => selectedIds.has(u.id))
+  const somePageSelected = selectablePaged.some((u) => selectedIds.has(u.id))
+
+  function toggleRow(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllOnPage() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allPageSelected) selectablePaged.forEach((u) => next.delete(u.id))
+      else selectablePaged.forEach((u) => next.add(u.id))
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  async function runBulkDelete() {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const result = await bulkDeleteMembers(ids)
+      const deleted = result?.deleted || []
+      const skipped = result?.skipped || []
+      const deletedSet = new Set(deleted)
+      setUsers((current) => current.filter((u) => !deletedSet.has(u.id)))
+      setSelectedIds(new Set())
+      setBulkConfirmOpen(false)
+      const noun = (n) => `${n} user${n === 1 ? '' : 's'}`
+      if (skipped.length > 0) {
+        showToast(
+          `Removed ${noun(deleted.length)}; ${skipped.length} skipped (protected).`,
+          deleted.length > 0 ? 'success' : 'error',
+        )
+      } else {
+        showToast(`Removed ${noun(deleted.length)}.`)
+      }
+    } catch (err) {
+      showToast(err?.message || 'Bulk delete failed.', 'error')
+      setBulkConfirmOpen(false)
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   // --- Inline role edit (optimistic with rollback) -------------------------
   async function handleRoleChange(user, nextRole) {
@@ -376,6 +444,22 @@ export function UserManagementPage() {
 
       {error && <Alert severity="error" className="user-management-alert">{error}</Alert>}
 
+      {/* JL-208: bulk-action toolbar, shown only when rows are selected. */}
+      {selectedCount > 0 && (
+        <div className="user-management-bulkbar" role="region" aria-label="Bulk actions">
+          <span className="user-management-bulkbar-count">{selectedCount} selected</span>
+          <Button
+            size="small"
+            color="error"
+            variant="contained"
+            onClick={() => setBulkConfirmOpen(true)}
+          >
+            Delete selected
+          </Button>
+          <Button size="small" onClick={clearSelection}>Clear</Button>
+        </div>
+      )}
+
       <article className="panel user-management-table-shell">
         {loading ? (
           <div className="user-management-loading" role="status" aria-label="Loading users">
@@ -405,6 +489,16 @@ export function UserManagementPage() {
             <Table size="small" aria-label="Workspace users">
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={allPageSelected}
+                      indeterminate={somePageSelected && !allPageSelected}
+                      disabled={selectablePaged.length === 0}
+                      onChange={toggleSelectAllOnPage}
+                      inputProps={{ 'aria-label': 'Select all users on this page' }}
+                    />
+                  </TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Role</TableCell>
@@ -421,7 +515,16 @@ export function UserManagementPage() {
                     (r) => r && r !== 'Owner',
                   )
                   return (
-                    <TableRow key={user.id} hover>
+                    <TableRow key={user.id} hover selected={selectedIds.has(user.id)}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.has(user.id)}
+                          disabled={owner}
+                          onChange={() => toggleRow(user.id)}
+                          inputProps={{ 'aria-label': `Select ${user.name}` }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="user-management-name-cell">
                           <Avatar className="user-management-avatar">
@@ -629,6 +732,28 @@ export function UserManagementPage() {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* JL-208: confirm bulk delete */}
+      <Dialog
+        open={bulkConfirmOpen}
+        onClose={() => { if (!bulkBusy) setBulkConfirmOpen(false) }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete selected users</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Remove {selectedCount} selected user{selectedCount === 1 ? '' : 's'} from the workspace?
+            This cannot be undone. Protected users (the Owner or the last remaining Admin) are skipped.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkConfirmOpen(false)} disabled={bulkBusy}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={runBulkDelete} disabled={bulkBusy}>
+            {bulkBusy ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Snackbar

@@ -70,6 +70,15 @@ export function deleteMember(id) {
   })
 }
 
+// JL-207/JL-208: delete multiple members in one request. POST /api/members/bulk-delete.
+// Returns { deleted: number[], skipped: [{ id, reason }] }.
+export function bulkDeleteMembers(ids) {
+  return api('/api/members/bulk-delete', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
+}
+
 // JL-194: soft-deactivate a member (blocks login, preserves data). JL-192.
 export function deactivateMember(id) {
   return api(`/api/members/${id}/deactivate`, {
