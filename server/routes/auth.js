@@ -54,9 +54,15 @@ router.post('/login', asyncHandler(async (req, res) => {
     return
   }
 
-  const user = await get('SELECT id, email, password_hash, created_at FROM users WHERE email = ?', [email])
+  const user = await get('SELECT id, email, password_hash, status, created_at FROM users WHERE email = ?', [email])
   if (!user || !verifyPassword(password, user.password_hash)) {
     res.status(401).json({ error: 'Invalid email or password' })
+    return
+  }
+
+  // JL-192: block deactivated accounts before issuing the JWT
+  if (user.status === 'Deactivated') {
+    res.status(403).json({ error: 'This account has been deactivated. Please contact your workspace admin.' })
     return
   }
 
