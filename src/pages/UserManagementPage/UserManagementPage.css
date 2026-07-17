@@ -80,3 +80,13 @@
   min-width: 96px;
   font-size: 13px;
 }
+
+.user-management-audit.MuiAccordion-root {
+  border: 1px solid var(--jira-border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.user-management-audit.MuiAccordion-root::before {
+  display: none;
+}
