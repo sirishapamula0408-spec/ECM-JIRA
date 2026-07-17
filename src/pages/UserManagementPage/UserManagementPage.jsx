@@ -5,6 +5,7 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import TablePagination from '@mui/material/TablePagination'
 import TextField from '@mui/material/TextField'
 import InputAdornment from '@mui/material/InputAdornment'
 import Chip from '@mui/material/Chip'
@@ -78,6 +79,10 @@ export function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
+  // JL-205: client-side pagination over the filtered list.
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
+
   // Toast for success/guard-failure feedback.
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
@@ -146,6 +151,21 @@ export function UserManagementPage() {
   })
 
   const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
+
+  // JL-205: reset to the first page whenever the filter/search criteria change,
+  // so you never land on a now-out-of-range page.
+  useEffect(() => {
+    setPage(0)
+  }, [normalizedQuery, roleFilter, statusFilter])
+
+  // Clamp the page in case the filtered set shrank (e.g. after a delete) and
+  // slice the visible rows for the current page.
+  const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage))
+  const currentPage = Math.min(page, pageCount - 1)
+  const paged = filtered.slice(
+    currentPage * rowsPerPage,
+    currentPage * rowsPerPage + rowsPerPage,
+  )
 
   // --- Inline role edit (optimistic with rollback) -------------------------
   async function handleRoleChange(user, nextRole) {
@@ -380,6 +400,7 @@ export function UserManagementPage() {
             }
           />
         ) : (
+          <>
           <TableContainer className="user-management-table-container">
             <Table size="small" aria-label="Workspace users">
               <TableHead>
@@ -393,7 +414,7 @@ export function UserManagementPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((user) => {
+                {paged.map((user) => {
                   const owner = isOwnerRow(user)
                   const deactivated = user.status === 'Deactivated'
                   const roleChoices = [...new Set([user.role, ...ASSIGNABLE_ROLES])].filter(
@@ -485,6 +506,22 @@ export function UserManagementPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePagination
+            component="div"
+            className="user-management-pagination"
+            count={filtered.length}
+            page={currentPage}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10))
+              setPage(0)
+            }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            labelRowsPerPage="Users per page"
+            SelectProps={{ native: true, inputProps: { 'aria-label': 'Users per page' } }}
+          />
+          </>
         )}
       </article>
 
