@@ -212,9 +212,24 @@ on `main` — so only green commits reach the server — then SSHes in and runs
    | `SSH_PRIVATE_KEY` | full contents of the **private** `deploy_key` (PEM) |
    | `APP_DIR` | repo path on the server, e.g. `/var/www/ecm-jira` |
    | `SSH_PORT` | *(optional)* SSH port; defaults to `22` |
+   | `SLACK_WEBHOOK_URL` | *(optional)* Slack Incoming Webhook — posts deploy success/failure |
 
 4. **First deploy** still needs the manual one-time server setup above (nginx,
    PM2, `.env`, DB). After that, pushes to `main` deploy themselves.
+
+### Slack notifications
+
+Set `SLACK_WEBHOOK_URL` to a Slack [Incoming Webhook](https://api.slack.com/messaging/webhooks)
+to get a ✅/❌ message on every deploy. It's wired in two places and is a no-op
+if the webhook is unset:
+
+- **GitHub Actions** — the workflow's *Notify Slack* step posts the repo, short
+  SHA, actor, and a link to the run (colored green/red).
+- **`deploy.prod.sh`** — posts success (with the deployed SHA) or failure
+  (with the failing line / message) for **manual or cron** deploys run directly
+  on the server. Provide the webhook via the environment, e.g.
+  `SLACK_WEBHOOK_URL=https://hooks.slack.com/... ./deploy.prod.sh`, or export it
+  in the shell / add it to the deploy user's profile.
 
 ### Notes
 
