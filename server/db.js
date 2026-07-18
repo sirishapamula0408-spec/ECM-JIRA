@@ -499,6 +499,17 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_watchers_issue ON watchers(issue_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_watchers_email ON watchers(user_email)')
 
+  // --- JL-214: Issue voting ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_votes (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (issue_id, user_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_votes_issue ON issue_votes(issue_id)')
+
   // --- JL-159: Star / favorite projects ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS project_favorites (
