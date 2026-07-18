@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchIssueById, fetchComments, createComment, updateComment, deleteComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS, cloneIssue } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
+import VoteButton from '../../components/issues/VoteButton'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
@@ -1271,6 +1272,7 @@ export function IssueDetailPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               {isWatching ? 'Watching' : 'Watch'} ({watcherCount})
             </button>
+            <VoteButton issueId={issue.id} />
           </div>
 
           {/* Description */}
