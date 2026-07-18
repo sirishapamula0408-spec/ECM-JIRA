@@ -33,6 +33,7 @@ import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { TipTapEditor } from '../../components/editor/TipTapEditor'
 import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import './IssueDetailPage.css'
@@ -122,6 +123,10 @@ export function IssueDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingCommentText, setEditingCommentText] = useState('')
   const [activityTab, setActivityTab] = useState('All')
+  // JL-217: activity feed sort order ('newest' | 'oldest'), persisted across sessions
+  const [activitySortOrder, setActivitySortOrder] = useState(() => {
+    try { return localStorage.getItem('activitySortOrder') === 'oldest' ? 'oldest' : 'newest' } catch { return 'newest' }
+  })
   const [isEditing, setIsEditing] = useState(false)
   const [editDesc, setEditDesc] = useState('')
   const [workLogs, setWorkLogs] = useState([])
@@ -873,15 +878,26 @@ export function IssueDetailPage() {
 
   const workLogEntries = workLogs.map((w) => ({ ...w, type: 'worklog' }))
 
-  // Filter by active tab
-  const allEntries = [...commentEntries, ...historyEntries, ...workLogEntries]
-    .sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0))
+  // Filter by active tab (JL-217: comparator respects the newest/oldest sort toggle)
+  const byActivitySort = (a, b) => activitySortOrder === 'oldest'
+    ? (a.sortKey || 0) - (b.sortKey || 0)
+    : (b.sortKey || 0) - (a.sortKey || 0)
+  const allEntries = [...commentEntries, ...historyEntries, ...workLogEntries].sort(byActivitySort)
   const visibleEntries =
     activityTab === 'All' ? allEntries
-    : activityTab === 'Comments' ? commentEntries
-    : activityTab === 'History' ? historyEntries
-    : activityTab === 'Work log' ? workLogEntries
+    : activityTab === 'Comments' ? [...commentEntries].sort(byActivitySort)
+    : activityTab === 'History' ? [...historyEntries].sort(byActivitySort)
+    : activityTab === 'Work log' ? [...workLogEntries].sort(byActivitySort)
     : allEntries
+
+  // JL-217: flip sort order and persist the choice
+  function toggleActivitySortOrder() {
+    setActivitySortOrder((prev) => {
+      const next = prev === 'newest' ? 'oldest' : 'newest'
+      try { localStorage.setItem('activitySortOrder', next) } catch { /* ignore storage errors */ }
+      return next
+    })
+  }
 
   async function handleAddComment() {
     if (!commentText.trim()) return
@@ -1557,15 +1573,27 @@ export function IssueDetailPage() {
               <svg className={`id-collapse-chevron${activityOpen ? '' : ' id-collapse-chevron--closed'}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             {activityOpen && <>
-            <div className="id-activity-tabs">
-              {['All', 'Comments', 'History', 'Work log'].map((tab) => (
-                <button key={tab} type="button" className={`id-activity-tab${activityTab === tab ? ' active' : ''}`} onClick={() => setActivityTab(tab)}>
-                  {tab}
-                  {tab === 'Comments' && commentEntries.length > 0 && <span className="id-tab-count">{commentEntries.length}</span>}
-                  {tab === 'History' && historyEntries.length > 0 && <span className="id-tab-count">{historyEntries.length}</span>}
-                  {tab === 'Work log' && workLogEntries.length > 0 && <span className="id-tab-count">{workLogEntries.length}</span>}
-                </button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div className="id-activity-tabs">
+                {['All', 'Comments', 'History', 'Work log'].map((tab) => (
+                  <button key={tab} type="button" className={`id-activity-tab${activityTab === tab ? ' active' : ''}`} onClick={() => setActivityTab(tab)}>
+                    {tab}
+                    {tab === 'Comments' && commentEntries.length > 0 && <span className="id-tab-count">{commentEntries.length}</span>}
+                    {tab === 'History' && historyEntries.length > 0 && <span className="id-tab-count">{historyEntries.length}</span>}
+                    {tab === 'Work log' && workLogEntries.length > 0 && <span className="id-tab-count">{workLogEntries.length}</span>}
+                  </button>
+                ))}
+              </div>
+              {/* JL-217: newest/oldest sort toggle */}
+              <Tooltip title={activitySortOrder === 'newest' ? 'Newest first — click to show oldest first' : 'Oldest first — click to show newest first'}>
+                <IconButton
+                  size="small"
+                  onClick={toggleActivitySortOrder}
+                  aria-label={activitySortOrder === 'newest' ? 'Sorted newest first — switch to oldest first' : 'Sorted oldest first — switch to newest first'}
+                >
+                  <SwapVertIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </div>
 
             {/* Comment input — show on All or Comments tab */}
