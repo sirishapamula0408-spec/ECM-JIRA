@@ -3,6 +3,7 @@ import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import { fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
+import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import './TeamsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -43,6 +44,35 @@ export function TeamsPage() {
 
   function setPolicyField(field, value) {
     setPolicy((c) => ({ ...c, [field]: value }))
+  }
+
+  // JL-211: configurable "Create project" workspace policy
+  const [creationPolicy, setCreationPolicy] = useState('all_members')
+  const [creationState, setCreationState] = useState({ saving: false, error: '', message: '' })
+
+  const loadCreationPolicy = useCallback(async () => {
+    try {
+      const settings = await fetchWorkspaceSettings()
+      if (settings?.project_creation_policy) setCreationPolicy(settings.project_creation_policy)
+    } catch {
+      /* ignore — non-fatal */
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCreationPolicy()
+  }, [loadCreationPolicy])
+
+  async function handleSaveCreationPolicy(event) {
+    event.preventDefault()
+    setCreationState({ saving: true, error: '', message: '' })
+    try {
+      const saved = await updateProjectCreationPolicy(creationPolicy)
+      setCreationPolicy(saved.project_creation_policy)
+      setCreationState({ saving: false, error: '', message: 'Project creation policy updated.' })
+    } catch (err) {
+      setCreationState({ saving: false, error: err.message, message: '' })
+    }
   }
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
@@ -244,6 +274,34 @@ export function TeamsPage() {
               </tbody>
             </table>
           )}
+        </article>
+      )}
+
+      {isAdmin && (
+        <article className="panel teams-security-panel">
+          <h3>Project Creation</h3>
+          <p className="teams-subtitle">
+            Control who can create new projects in this workspace. Workspace owners can always create projects.
+          </p>
+          <form className="teams-security-form" onSubmit={handleSaveCreationPolicy}>
+            <label>
+              Who can create projects
+              <select
+                value={creationPolicy}
+                onChange={(e) => setCreationPolicy(e.target.value)}
+              >
+                <option value="all_members">All members</option>
+                <option value="admins_only">Admins only</option>
+              </select>
+            </label>
+            <div className="teams-invite-actions">
+              <button className="btn btn-primary" type="submit" disabled={creationState.saving}>
+                {creationState.saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </form>
+          {creationState.error && <p className="banner error">{creationState.error}</p>}
+          {creationState.message && <p className="banner">{creationState.message}</p>}
         </article>
       )}
 

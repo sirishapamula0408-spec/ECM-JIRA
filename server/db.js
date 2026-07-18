@@ -162,6 +162,29 @@ export async function tableExists(table) {
 }
 
 /**
+ * JL-211 — Read a workspace-level setting from the `workspace_settings` key/value
+ * store. Returns `fallback` when the key is absent (or the table isn't ready yet).
+ */
+export async function getSetting(key, fallback = null) {
+  const row = await get('SELECT value FROM workspace_settings WHERE key = ?', [key])
+  return row && row.value != null ? row.value : fallback
+}
+
+/**
+ * JL-211 — Upsert a workspace-level setting. Explicit `RETURNING key` keeps the
+ * `run()` wrapper from injecting `RETURNING id` (this table has no `id` column).
+ */
+export async function setSetting(key, value) {
+  await run(
+    `INSERT INTO workspace_settings (key, value) VALUES (?, ?)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+     RETURNING key`,
+    [key, value == null ? null : String(value)],
+  )
+  return { key, value }
+}
+
+/**
  * Initialize all database tables with PostgreSQL-native types.
  */
 export async function initializeDatabase() {
@@ -1952,6 +1975,17 @@ export async function initializeDatabase() {
       FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE SET NULL
     `).catch(() => {}) // Ignore if already exists (race / older catalog)
   }
+
+  // --- JL-211: Workspace settings (simple key/value store) ---
+  // Backs configurable workspace-wide policies such as `project_creation_policy`.
+  // Kept intentionally generic so future workspace toggles reuse the same table
+  // via getSetting/setSetting.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workspace_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `)
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so

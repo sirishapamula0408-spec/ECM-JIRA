@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole, loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
+import { loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
 import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/validation.js'
+import { getProjectCreationPolicy } from './workspaceSettings.js'
 
 const router = Router()
 
@@ -37,6 +38,30 @@ async function recordProjectAudit({
     )
   } catch (err) {
     console.error('[Projects] Failed to record audit entry:', err.message)
+  }
+}
+
+const ROLE_RANK = { Viewer: 1, Member: 2, Admin: 3 }
+
+/**
+ * JL-211: Enforce the configurable workspace `project_creation_policy`.
+ *   - Owner always allowed.
+ *   - 'admins_only'  → workspace Admin/Owner only (Member/Viewer → 403).
+ *   - 'all_members'  → workspace Member+ (preserves the legacy requireRole('Member')).
+ */
+async function enforceProjectCreationPolicy(req, res, next) {
+  try {
+    if (req.user?.isOwner) return next()
+
+    const policy = await getProjectCreationPolicy()
+    const minRank = policy === 'admins_only' ? ROLE_RANK.Admin : ROLE_RANK.Member
+    const userRank = ROLE_RANK[req.user?.workspaceRole] || 0
+
+    if (userRank >= minRank) return next()
+
+    res.status(403).json({ error: 'Insufficient permissions to create projects' })
+  } catch (err) {
+    next(err)
   }
 }
 
@@ -91,7 +116,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => {
   const { name, key, type, lead } = req.body
   const trimmedName = String(name || '').trim()
   const trimmedKey = String(key || '').trim()
