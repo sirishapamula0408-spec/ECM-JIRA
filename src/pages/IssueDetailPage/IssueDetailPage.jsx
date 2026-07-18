@@ -11,6 +11,7 @@ import VoteButton from '../../components/issues/VoteButton'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
+import { ImpedimentFlagToggle } from '../../components/issues/ImpedimentFlag'
 import { fetchProjectComponents, fetchIssueComponents, setIssueComponents } from '../../api/componentApi'
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
@@ -1751,6 +1752,11 @@ export function IssueDetailPage() {
             >
               {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+          </div>
+
+          {/* JL-215: flag / unflag as impediment */}
+          <div className="id-sidebar-flag">
+            <ImpedimentFlagToggle issue={issue} />
           </div>
 
           {/* JL-145: plugin-contributed issue panels (declarative, safe links) */}

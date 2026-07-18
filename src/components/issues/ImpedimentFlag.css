@@ -1,0 +1,14 @@
+/* JL-215: impediment flag indicator + toggle */
+.impediment-flag-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: #b65c02; /* warning / "flagged" amber, readable on the warm tint */
+  font-size: 16px;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: help;
+}
+
+.impediment-flag-toggle {
+  align-self: flex-start;
+}
