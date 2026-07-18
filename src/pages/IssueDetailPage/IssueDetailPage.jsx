@@ -108,7 +108,7 @@ function InlineField({ editing, onOpen, onClose, display, children }) {
 }
 
 export function IssueDetailPage() {
-  const { issues, handleMove, handleUpdate } = useIssues()
+  const { issues, handleMove, handleUpdate, handleDelete } = useIssues()
   const { members, profile } = useMembers()
   const { sprints } = useSprints()
   const { authUser } = useAuth()
@@ -148,6 +148,7 @@ export function IssueDetailPage() {
   const [isWatching, setIsWatching] = useState(false)
   const [watcherCount, setWatcherCount] = useState(0)
   const [cloning, setCloning] = useState(false) // JL-158: clone-in-progress guard
+  const [deleting, setDeleting] = useState(false) // JL-228: delete-in-progress guard
   const [approvals, setApprovals] = useState([])
   const [subtasks, setSubtasks] = useState([])
   const [subtaskProgress, setSubtaskProgress] = useState({ total: 0, done: 0, percent: 0 })
@@ -218,7 +219,7 @@ export function IssueDetailPage() {
   }, [id, existing])
 
   const issue = existing || fetchedIssue
-  const { isAdmin, canEditIssue } = usePermissions(issue?.projectId)
+  const { isAdmin, canEditIssue, canDeleteIssue } = usePermissions(issue?.projectId)
 
   // JL-216 — drag-and-drop + paste-to-attach; reuses the base64 upload path.
   const {
@@ -843,6 +844,20 @@ export function IssueDetailPage() {
     }
   }
 
+  // JL-228: delete this issue (project Member+ via canDeleteIssue) and navigate back
+  async function handleDeleteIssue() {
+    if (!issue?.id || deleting) return
+    if (!window.confirm(`Delete ${issue.key || `IT-${issue.id}`}? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await handleDelete(issue.id)
+      navigate(issue.projectId ? `/projects/${issue.projectId}` : '/projects')
+    } catch {
+      // ignore — client surfaces API errors via Snackbar
+      setDeleting(false)
+    }
+  }
+
   async function handleApprovalAction(decision) {
     if (!issue?.id) return
     try {
@@ -1287,6 +1302,13 @@ export function IssueDetailPage() {
               {isWatching ? 'Watching' : 'Watch'} ({watcherCount})
             </button>
             <VoteButton issueId={issue.id} />
+            {/* JL-228: delete issue — visible to project Member+ (canDeleteIssue); hidden for Viewers */}
+            {canDeleteIssue && (
+              <button className="id-quick-btn id-quick-btn--danger" type="button" onClick={handleDeleteIssue} disabled={deleting} title="Delete this issue" aria-label="Delete issue">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            )}
           </div>
 
           {/* Description */}
