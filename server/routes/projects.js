@@ -84,24 +84,33 @@ router.get('/', asyncHandler(async (req, res) => {
   const workspaceId = req.workspaceId ?? null
   const wsClause = workspaceId != null ? ' AND (p.workspace_id = ? OR p.workspace_id IS NULL)' : ''
 
+  // JL-219: exclude archived projects from the default listing. Opt back in with
+  // ?includeArchived=true. The computed `archived` flag lets the UI badge them.
+  const includeArchived = req.query.includeArchived === 'true'
+
   // Return projects where user is a member or the lead
   let rows
   if (member) {
+    const archivedClause = includeArchived ? '' : ' AND p.archived_at IS NULL'
     const params = [member.id, member.name]
     if (workspaceId != null) params.push(workspaceId)
     rows = await all(
-      `SELECT DISTINCT p.* FROM projects p
+      `SELECT DISTINCT p.*, (p.archived_at IS NOT NULL) AS archived FROM projects p
        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
-       WHERE (pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?))${wsClause}
+       WHERE (pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?))${wsClause}${archivedClause}
        ORDER BY p.id ASC`,
       params,
     )
   } else {
     // Fallback: no member record yet — show projects where user email matches lead
     const leadClause = workspaceId != null ? ' AND (workspace_id = ? OR workspace_id IS NULL)' : ''
+    const archivedClause = includeArchived ? '' : ' AND archived_at IS NULL'
     const params = [userEmail]
     if (workspaceId != null) params.push(workspaceId)
-    rows = await all(`SELECT * FROM projects WHERE LOWER(lead) = LOWER(?)${leadClause} ORDER BY id ASC`, params)
+    rows = await all(
+      `SELECT *, (archived_at IS NOT NULL) AS archived FROM projects WHERE LOWER(lead) = LOWER(?)${leadClause}${archivedClause} ORDER BY id ASC`,
+      params,
+    )
   }
 
   res.json(rows)
@@ -231,6 +240,63 @@ router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler
   await run('DELETE FROM project_members WHERE project_id = ?', [id])
   await run('DELETE FROM projects WHERE id = ?', [id])
   res.json({ ok: true })
+}))
+
+// ── JL-219: Project archive / unarchive ──
+// Non-destructive alternative to DELETE — sets/clears projects.archived_at.
+// Gated like PUT/DELETE (project Admin/Lead or workspace Admin/Owner). Archived
+// projects drop out of the default listing but keep their issues/URLs.
+
+router.post('/:id/archive', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid project id' })
+    return
+  }
+
+  const project = await get('SELECT * FROM projects WHERE id = ?', [id])
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' })
+    return
+  }
+
+  await run('UPDATE projects SET archived_at = NOW() WHERE id = ?', [id])
+
+  await recordProjectAudit({
+    actor: req.user?.email,
+    action: 'project_archived',
+    before: `project:${id} / active`,
+    after: `project:${id} / archived`,
+  })
+
+  const updated = await get('SELECT *, (archived_at IS NOT NULL) AS archived FROM projects WHERE id = ?', [id])
+  res.json(updated)
+}))
+
+router.post('/:id/unarchive', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid project id' })
+    return
+  }
+
+  const project = await get('SELECT * FROM projects WHERE id = ?', [id])
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' })
+    return
+  }
+
+  await run('UPDATE projects SET archived_at = NULL WHERE id = ?', [id])
+
+  await recordProjectAudit({
+    actor: req.user?.email,
+    action: 'project_unarchived',
+    before: `project:${id} / archived`,
+    after: `project:${id} / active`,
+  })
+
+  const updated = await get('SELECT *, (archived_at IS NOT NULL) AS archived FROM projects WHERE id = ?', [id])
+  res.json(updated)
 }))
 
 // ── Project Members ──
