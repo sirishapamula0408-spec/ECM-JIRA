@@ -170,7 +170,7 @@ router.post('/:issueId/comments', requireProjectWrite(commentIssueProject), asyn
 
 // POST /api/comments/:id/reactions — toggle an emoji reaction (JL-139).
 // Mounted at /api/comments in index.js, so the router path is /:id/reactions.
-router.post('/:id/reactions', asyncHandler(async (req, res) => {
+router.post('/:id/reactions', requireRole('Member'), asyncHandler(async (req, res) => {
   const commentId = Number(req.params.id)
   const emoji = String(req.body?.emoji || '').trim()
 
