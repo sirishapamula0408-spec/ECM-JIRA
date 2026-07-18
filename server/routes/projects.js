@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
+import { loadProjectRole, requireProjectRole, requireProjectRead } from '../middleware/authorize.js'
 import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/validation.js'
 import { getProjectCreationPolicy } from './workspaceSettings.js'
 
@@ -88,9 +88,25 @@ router.get('/', asyncHandler(async (req, res) => {
   // ?includeArchived=true. The computed `archived` flag lets the UI badge them.
   const includeArchived = req.query.includeArchived === 'true'
 
+  // JL-224: workspace Owner/Admin may access ALL projects, so their listing is
+  // not filtered by membership/lead — only by workspace scope + archived flag.
+  // Member/Viewer keep the member/lead-only listing below. `req.user` is
+  // populated by loadUserRoles (see server/middleware/authorize.js).
+  const isWorkspaceAdmin = req.user?.isOwner || req.user?.workspaceRole === 'Admin'
+
   // Return projects where user is a member or the lead
   let rows
-  if (member) {
+  if (isWorkspaceAdmin) {
+    const archivedClause = includeArchived ? '' : ' AND p.archived_at IS NULL'
+    const params = []
+    if (workspaceId != null) params.push(workspaceId)
+    rows = await all(
+      `SELECT p.*, (p.archived_at IS NOT NULL) AS archived FROM projects p
+       WHERE 1=1${wsClause}${archivedClause}
+       ORDER BY p.id ASC`,
+      params,
+    )
+  } else if (member) {
     const archivedClause = includeArchived ? '' : ' AND p.archived_at IS NULL'
     const params = [member.id, member.name]
     if (workspaceId != null) params.push(workspaceId)
@@ -116,7 +132,10 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
-router.get('/:id', asyncHandler(async (req, res) => {
+// JL-225: gate project detail reads. Member/Viewer may only read projects they
+// belong to; workspace Owner/Admin bypass. A missing project falls through to
+// the handler's 404.
+router.get('/:id', requireProjectRead((req) => Number(req.params.id)), asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM projects WHERE id = ?', [req.params.id])
   if (!row) {
     res.status(404).json({ error: 'Project not found' })
@@ -318,7 +337,9 @@ async function countProjectAdmins(projectId) {
   return Number(row?.count || 0)
 }
 
-router.get('/:id/members', asyncHandler(async (req, res) => {
+// JL-225: gate project member listing behind project access (workspace
+// Owner/Admin bypass; Member/Viewer must belong to the project).
+router.get('/:id/members', requireProjectRead((req) => Number(req.params.id)), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const rows = await all(
     `SELECT pm.id AS pm_id, pm.role AS project_role, pm.assigned_at,

@@ -64,8 +64,11 @@ const existingComment = {
 describe('PATCH /api/issues/:issueId/comments/:commentId — edit', () => {
   it('updates the comment for the author', async () => {
     const app = createApp(commentsModule, { email: 'author@test.com' })
+    // JL-226: the project-access write guard first resolves the issue's project
+    // (project-less here → workspace Member+ fallback allows the mutation).
     // 1st get: fetch existing comment; 2nd get: return updated row
     get
+      .mockResolvedValueOnce({ project_id: null })
       .mockResolvedValueOnce(existingComment)
       .mockResolvedValueOnce({ ...existingComment, text: 'fixed typo', edited_at: '2026-01-02T00:00:00Z' })
     run.mockResolvedValue({ changes: 1 })
@@ -137,7 +140,8 @@ describe('PATCH /api/issues/:issueId/comments/:commentId — edit', () => {
 describe('DELETE /api/issues/:issueId/comments/:commentId — delete', () => {
   it('removes the comment for the author', async () => {
     const app = createApp(commentsModule, { email: 'author@test.com' })
-    get.mockResolvedValueOnce(existingComment)
+    // JL-226: project-access write guard resolves the issue's project first.
+    get.mockResolvedValueOnce({ project_id: null }).mockResolvedValueOnce(existingComment)
     run.mockResolvedValue({ changes: 1 })
 
     const res = await request(app).delete('/api/issues/10/comments/5')

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireProjectWrite } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
 import { extractMentions, processMentions } from '../services/mentions.js'
 import { runCommentAutomations } from '../services/automation.js'
@@ -9,6 +9,16 @@ import { emitEvent } from '../services/events.js'
 import { publish } from '../services/realtime.js'
 
 const router = Router()
+
+// JL-226: resolve the project id a comment mutation acts on, from the issue id
+// path param, for the project-access write guard. Returns null (→ legacy
+// workspace Member+ gate) for a bad id or a project-less/absent issue.
+const commentIssueProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
 
 // JL-139: fixed allow-list of emoji usable as comment reactions.
 export const REACTION_EMOJIS = ['👍', '👎', '❤️', '🎉', '😄', '👀', '🚀', '😕']
@@ -79,7 +89,7 @@ router.get('/:issueId/comments', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/comments
-router.post('/:issueId/comments', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/:issueId/comments', requireProjectWrite(commentIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const { author, text } = req.body
   const normalizedAuthor = String(author || '').trim()
@@ -211,7 +221,7 @@ async function canModifyComment(req, comment) {
 }
 
 // PATCH /api/issues/:issueId/comments/:commentId — edit comment (author or Admin)
-router.patch('/:issueId/comments/:commentId', requireRole('Member'), asyncHandler(async (req, res) => {
+router.patch('/:issueId/comments/:commentId', requireProjectWrite(commentIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const commentId = Number(req.params.commentId)
   const normalizedText = String(req.body?.text ?? '').trim()
@@ -241,7 +251,7 @@ router.patch('/:issueId/comments/:commentId', requireRole('Member'), asyncHandle
 }))
 
 // DELETE /api/issues/:issueId/comments/:commentId — delete comment (author or Admin)
-router.delete('/:issueId/comments/:commentId', requireRole('Member'), asyncHandler(async (req, res) => {
+router.delete('/:issueId/comments/:commentId', requireProjectWrite(commentIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const commentId = Number(req.params.commentId)
 

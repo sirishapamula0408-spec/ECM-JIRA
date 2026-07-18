@@ -1,10 +1,26 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireProjectWrite } from '../middleware/authorize.js'
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
+
+// JL-226: project-access resolvers for the write guard. Creating a link acts on
+// the source issue's project; DELETE is keyed by link id, so hop link → source
+// issue → project.
+const linkSourceProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
+const linkIdProject = async (req) => {
+  const link = await get('SELECT source_issue_id FROM issue_links WHERE id = ?', [Number(req.params.id)])
+  if (!link) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [link.source_issue_id])
+  return row?.project_id ?? null
+}
 
 // Directed link types stored on the source row, with their inverse (shown on the target)
 const INVERSE = {
@@ -50,7 +66,7 @@ router.get('/issues/:issueId/links', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/links — { type, targetIssueId }
-router.post('/issues/:issueId/links', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/issues/:issueId/links', requireProjectWrite(linkSourceProject), asyncHandler(async (req, res) => {
   const sourceId = Number(req.params.issueId)
   const type = String(req.body?.type || '').trim()
   const targetIssueId = Number(req.body?.targetIssueId)
@@ -82,7 +98,7 @@ router.post('/issues/:issueId/links', requireRole('Member'), asyncHandler(async 
 }))
 
 // DELETE /api/links/:id
-router.delete('/links/:id', requireRole('Member'), asyncHandler(async (req, res) => {
+router.delete('/links/:id', requireProjectWrite(linkIdProject), asyncHandler(async (req, res) => {
   await run('DELETE FROM issue_links WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 }))
