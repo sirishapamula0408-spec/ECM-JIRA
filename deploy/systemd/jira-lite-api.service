@@ -1,0 +1,61 @@
+# systemd unit for the ECM JIRA Clone API — a PM2 alternative.
+#
+# The Express API (server/index.js) also hosts the JL-136 /ws realtime hub,
+# so this runs as a single process (Type=simple), not a socket-activated or
+# forking service. The static frontend is still served by nginx
+# (deploy/nginx/jira-lite.conf).
+#
+# The app loads its own .env via `import 'dotenv/config'`, so env vars come
+# from <WorkingDirectory>/.env — no EnvironmentFile= needed. NODE_ENV/PORT
+# are pinned here for clarity (dotenv won't override an already-set var).
+#
+# Install (edit the paths/User below to match your box first):
+#   sudo cp deploy/systemd/jira-lite-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now jira-lite-api
+#   systemctl status jira-lite-api
+#   journalctl -u jira-lite-api -f          # tail logs
+#
+# Deploy with systemd instead of PM2:
+#   PROCESS_MANAGER=systemd ./deploy.prod.sh
+
+[Unit]
+Description=ECM JIRA Clone API (Express + /ws realtime)
+Documentation=https://github.com/sirishapamula0408-spec/ECM-JIRA
+After=network-online.target postgresql.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# --- adjust these three to your server -------------------------------------
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/ecm-jira
+# ExecStart must use an ABSOLUTE node path (systemd has a minimal PATH).
+# Find it with `which node`; nvm installs live under ~/.nvm/versions/node/*/bin.
+ExecStart=/usr/bin/node server/index.js
+# ---------------------------------------------------------------------------
+
+Environment=NODE_ENV=production
+Environment=PORT=4000
+
+Restart=always
+RestartSec=3
+# index.js closes the PG pool on SIGINT/SIGTERM for a clean shutdown.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Logs go to the journal (journalctl -u jira-lite-api)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jira-lite-api
+
+# Reasonable hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
