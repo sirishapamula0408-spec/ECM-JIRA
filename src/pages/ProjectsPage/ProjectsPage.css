@@ -53,7 +53,10 @@
   border: 1px solid var(--jira-border);
   border-radius: 8px;
   background: var(--jira-surface);
-  overflow: hidden;
+  /* JL-223: was overflow:hidden, which clipped the per-row action dropdown when
+     the table is short (few/single projects). Keep the rounded look via explicit
+     corner radii on the header/last row below. */
+  overflow: visible;
 }
 
 .projects-table {
@@ -87,6 +90,13 @@
 .projects-table tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* JL-223: with the shell no longer clipping (overflow:visible), round the table's
+   own outer corners so the surface still looks rounded. */
+.projects-table thead th:first-child { border-top-left-radius: 8px; }
+.projects-table thead th:last-child { border-top-right-radius: 8px; }
+.projects-table tbody tr:last-child td:first-child { border-bottom-left-radius: 8px; }
+.projects-table tbody tr:last-child td:last-child { border-bottom-right-radius: 8px; }
 
 .projects-table tbody tr:hover {
   background: #fafbfc;
