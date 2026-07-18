@@ -53,7 +53,11 @@ vi.mock('../api/securityLevelApi', () => ({
   deleteSecurityLevel: vi.fn(),
 }))
 vi.mock('../context/MemberContext', () => ({
-  useMembers: () => ({ members: [] }),
+  // JL-227: render as a workspace Admin so admin-gated tabs stay visible.
+  useMembers: () => ({
+    members: [],
+    currentMember: { workspaceRole: 'Admin', isOwner: false, projectRoles: [] },
+  }),
 }))
 
 import { ProjectSettingsPage } from '../pages/ProjectSettingsPage/ProjectSettingsPage'

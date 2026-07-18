@@ -17,6 +17,7 @@ import { fetchFieldConfig, saveFieldConfig } from '../../api/fieldConfigApi'
 import { fetchSecurityLevels, createSecurityLevel, deleteSecurityLevel } from '../../api/securityLevelApi'
 import { ISSUE_TYPES } from '../../constants'
 import { useMembers } from '../../context/MemberContext'
+import { usePermissions } from '../../hooks/usePermissions'
 import './ProjectSettingsPage.css'
 
 const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', SCREENS: 'screens', FIELD_CONFIG: 'fieldconfig' }
@@ -46,6 +47,9 @@ export function ProjectSettingsPage() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { members } = useMembers()
+  // JL-227: access management (add/remove/role-edit members) is limited to
+  // project admins (project Lead/Admin or workspace Admin/Owner).
+  const { canManageProjectSettings } = usePermissions(projectId)
 
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(null)
@@ -595,21 +599,23 @@ export function ProjectSettingsPage() {
             Details
           </button>
 
-          <button
-            className={`ps-nav-link${activeSection === SECTIONS.ACCESS ? ' active' : ''}`}
-            type="button"
-            onClick={() => setActiveSection(SECTIONS.ACCESS)}
-          >
-            <span className="ps-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </span>
-            Access
-          </button>
+          {canManageProjectSettings && (
+            <button
+              className={`ps-nav-link${activeSection === SECTIONS.ACCESS ? ' active' : ''}`}
+              type="button"
+              onClick={() => setActiveSection(SECTIONS.ACCESS)}
+            >
+              <span className="ps-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
+              Access
+            </button>
+          )}
 
           <button
             className={`ps-nav-link${activeSection === SECTIONS.FIELDS ? ' active' : ''}`}
@@ -778,7 +784,7 @@ export function ProjectSettingsPage() {
           </>
         )}
 
-        {activeSection === SECTIONS.ACCESS && (
+        {activeSection === SECTIONS.ACCESS && canManageProjectSettings && (
           <>
             <h1>Access</h1>
             <article className="panel">
