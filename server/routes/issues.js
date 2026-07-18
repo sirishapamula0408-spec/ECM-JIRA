@@ -55,6 +55,7 @@ function mapIssue(row) {
     components: row.components ?? null,
     updatedAt: row.updated_at ?? null,
     securityLevelId: row.security_level_id ?? null,
+    flagged: row.flagged === true,
     ...(row.watcher_count !== undefined
       ? { watcherCount: Number(row.watcher_count) || 0 }
       : {}),
@@ -228,7 +229,7 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   const sql =
-    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, i.security_level_id, ' +
+    'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, i.security_level_id, i.flagged, ' +
     '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
     (built.where ? ` ${built.where}` : '') +
     ` ORDER BY ${built.orderBy}`
@@ -269,7 +270,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, security_level_id FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, security_level_id, flagged FROM issues WHERE id = ?',
     [id],
   )
 
@@ -448,7 +449,7 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     )
 
     const inserted = await tx.get(
-      'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+      'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
       [created.lastID],
     )
 
@@ -489,7 +490,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const existing = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [id],
   )
   if (!existing) {
@@ -642,6 +643,17 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     changes.push({ field: 'epic', oldValue: existing.epic_id, newValue: normalizedEpicId })
   }
 
+  // JL-215: flag/unflag as impediment (strict boolean)
+  if (fields.flagged !== undefined) {
+    if (typeof fields.flagged !== 'boolean') {
+      res.status(400).json({ error: 'flagged must be a boolean' })
+      return
+    }
+    sets.push('flagged = ?')
+    params.push(fields.flagged)
+    changes.push({ field: 'flagged', oldValue: existing.flagged === true, newValue: fields.flagged })
+  }
+
   if (sets.length === 0) {
     res.json(mapIssue(existing))
     return
@@ -684,7 +696,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [id],
   )
 
@@ -779,7 +791,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [id],
   )
 
@@ -794,7 +806,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 
   // Re-read in case an automation action mutated the issue (e.g. transition/assign)
   const finalRow = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [id],
   )
 
@@ -844,7 +856,7 @@ router.get('/:id/epic-children', asyncHandler(async (req, res) => {
     return
   }
   const rows = await all(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE epic_id = ? ORDER BY id ASC',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE epic_id = ? ORDER BY id ASC',
     [id],
   )
   const total = rows.length
@@ -863,7 +875,7 @@ router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
     return
   }
   const rows = await all(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE parent_id = ? ORDER BY id ASC',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE parent_id = ? ORDER BY id ASC',
     [parentId],
   )
   const total = rows.length
@@ -921,7 +933,7 @@ router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (re
     [issueKey, title, description, priority, assignee, status, 'Sub-task', sprintId, projectId, parentId],
   )
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [created.lastID],
   )
   res.status(201).json(mapIssue(row))
@@ -1198,7 +1210,7 @@ router.post('/:id/clone', requireRole('Member'), asyncHandler(async (req, res) =
   }
 
   const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at FROM issues WHERE id = ?',
+    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [created.lastID],
   )
 

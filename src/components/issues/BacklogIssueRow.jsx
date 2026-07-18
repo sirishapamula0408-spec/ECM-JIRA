@@ -1,5 +1,6 @@
 import { ISSUE_STATUSES } from '../../constants'
 import { DueDateBadge } from './DueDateBadge'
+import { ImpedimentFlagIndicator } from './ImpedimentFlag'
 
 export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
@@ -8,7 +9,7 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
 
   return (
     <div
-      className={`backlog-issue-row${isSelected ? ' selected' : ''}`}
+      className={`backlog-issue-row${isSelected ? ' selected' : ''}${issue.flagged ? ' backlog-issue-flagged' : ''}`}
       draggable
       onDragStart={() => onDragStart(issue.id)}
       onDragEnd={onDragEnd}
@@ -24,6 +25,11 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         <small>{issue.key}</small>
         <strong>{issue.title}</strong>
       </button>
+      {issue.flagged === true && (
+        <span className="backlog-flagged-chip" title="Flagged as impediment">
+          <ImpedimentFlagIndicator /> Flagged
+        </span>
+      )}
       {isBlocked && (
         <span
           className="backlog-blocked-chip"

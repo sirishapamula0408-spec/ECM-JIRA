@@ -392,3 +392,13 @@
   color: var(--jira-link-hover);
   text-decoration: underline;
 }
+
+/* JL-215: flagged-as-impediment cards — JIRA's yellow-card convention */
+.kanban-card-flagged {
+  background: #fffae6;
+  border-left: 3px solid #ffab00;
+}
+
+.kanban-card-flag {
+  margin-left: 6px;
+}

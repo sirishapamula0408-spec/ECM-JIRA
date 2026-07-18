@@ -748,6 +748,11 @@ export async function initializeDatabase() {
     await pool.query('ALTER TABLE issues ADD COLUMN updated_at TIMESTAMPTZ')
   }
 
+  // --- JL-215: Flag issue as impediment ---
+  // JIRA-style "Add flag" — a simple boolean toggled via PATCH /api/issues/:id
+  // and surfaced as a warning indicator on board cards and backlog rows.
+  await pool.query('ALTER TABLE issues ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFAULT FALSE')
+
   // --- JL-86: Reporting data foundation ---
   // Story points on issues (nullable). Real sprint dates + completion timestamp.
   if (!(await columnExists('issues', 'story_points'))) {
