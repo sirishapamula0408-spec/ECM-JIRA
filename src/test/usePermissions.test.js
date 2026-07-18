@@ -19,6 +19,7 @@ describe('usePermissions', () => {
     const { result } = renderHook(() => usePermissions())
     expect(result.current.loaded).toBe(false)
     expect(result.current.canCreateIssue).toBe(false)
+    expect(result.current.canDeleteIssue).toBe(false)
     expect(result.current.canManageSprints).toBe(false)
     expect(result.current.canInviteMembers).toBe(false)
   })
@@ -77,7 +78,8 @@ describe('usePermissions', () => {
       expect(result.current.canEditIssue).toBe(true)
       expect(result.current.canAddComment).toBe(true)
       expect(result.current.canCreateProject).toBe(true)
-      expect(result.current.canDeleteIssue).toBe(false)
+      // JL-228: Members can delete issues (same tier as create/edit)
+      expect(result.current.canDeleteIssue).toBe(true)
       expect(result.current.canManageSprints).toBe(false)
       expect(result.current.canInviteMembers).toBe(false)
       expect(result.current.canDeleteProject).toBe(false)
@@ -186,6 +188,45 @@ describe('usePermissions', () => {
     })
   })
 
+  describe('JL-228 — canDeleteIssue for project Members', () => {
+    it('workspace Viewer with project Member role can delete in that project', () => {
+      setupMock({
+        workspaceRole: 'Viewer',
+        isOwner: false,
+        projectRoles: [{ projectId: 1, projectKey: 'TP', role: 'Member' }],
+      })
+      const { result } = renderHook(() => usePermissions(1))
+      expect(result.current.projectRole).toBe('Member')
+      expect(result.current.canDeleteIssue).toBe(true)
+      // but no project-admin caps
+      expect(result.current.canManageSprints).toBe(false)
+      expect(result.current.canManageProjectSettings).toBe(false)
+    })
+
+    it('workspace Viewer with project Viewer role cannot delete', () => {
+      setupMock({
+        workspaceRole: 'Viewer',
+        isOwner: false,
+        projectRoles: [{ projectId: 1, projectKey: 'TP', role: 'Viewer' }],
+      })
+      const { result } = renderHook(() => usePermissions(1))
+      expect(result.current.canDeleteIssue).toBe(false)
+    })
+
+    it('project Admin and Lead can still delete', () => {
+      setupMock({
+        workspaceRole: 'Viewer',
+        isOwner: false,
+        projectRoles: [
+          { projectId: 1, projectKey: 'TP', role: 'Admin' },
+          { projectId: 2, projectKey: 'TQ', role: 'Lead' },
+        ],
+      })
+      expect(renderHook(() => usePermissions(1)).result.current.canDeleteIssue).toBe(true)
+      expect(renderHook(() => usePermissions(2)).result.current.canDeleteIssue).toBe(true)
+    })
+  })
+
   describe('Project context', () => {
     it('should return null projectRole when no projectId given', () => {
       setupMock({
@@ -205,7 +246,10 @@ describe('usePermissions', () => {
       })
       const { result } = renderHook(() => usePermissions(999))
       expect(result.current.projectRole).toBeNull()
-      expect(result.current.canDeleteIssue).toBe(false)
+      // JL-228: workspace Member rank still grants delete (same as create/edit),
+      // but project-admin caps are not granted
+      expect(result.current.canDeleteIssue).toBe(true)
+      expect(result.current.canManageSprints).toBe(false)
     })
 
     it('should match projectId as string', () => {
