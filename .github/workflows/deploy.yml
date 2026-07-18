@@ -1,0 +1,59 @@
+# Auto-deploy to the production server.
+#
+# Fires after the "CI" workflow finishes successfully on `main` (so we only
+# ever deploy green commits), or manually via the Actions tab. It SSHes into
+# the server and runs deploy.prod.sh, which builds the SPA, reloads the API
+# under PM2, and reloads nginx. See deploy/README.md for server setup.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   SSH_HOST         server host/IP           e.g. 20.219.248.167
+#   SSH_USER         SSH login user           e.g. azureuser
+#   SSH_PRIVATE_KEY  private key (PEM) whose public half is in the server's
+#                    ~/.ssh/authorized_keys
+#   APP_DIR          repo path on the server  e.g. /var/www/ecm-jira
+#   SSH_PORT         (optional) SSH port; defaults to 22
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+# Never run two deploys at once; let an in-flight deploy finish rather than
+# cancelling it half-way through a build/restart.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+    # Deploy on a manual run, or only when the triggering CI run passed.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    # Optional: gives a deployment record + lets you add required reviewers
+    # (Settings → Environments → production). Auto-created on first run.
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.APP_DIR }}"
+            # Update the working tree first so we run the LATEST deploy.prod.sh
+            # (a fresh bash process reads the updated file after the reset).
+            git fetch origin --prune
+            git checkout main
+            git reset --hard origin/main
+            bash ./deploy.prod.sh

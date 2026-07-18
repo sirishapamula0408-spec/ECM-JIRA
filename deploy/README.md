@@ -144,3 +144,49 @@ curl -s localhost:4000/api/health   # -> {"status":"ok"}
 git checkout <previous-good-sha>
 BRANCH=$(git rev-parse --abbrev-ref HEAD) ./deploy.prod.sh   # or reset a branch to the old sha
 ```
+
+## Automated deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` auto-deploys on every green push to `main`. It
+fires **after** the `CI` workflow (lint/test/build) finishes **successfully**
+on `main` — so only green commits reach the server — then SSHes in and runs
+`deploy.prod.sh`. You can also trigger it manually from the **Actions** tab
+(**Deploy → Run workflow**), which skips the CI gate.
+
+### One-time setup
+
+1. **Generate a deploy key** on your machine (no passphrase):
+
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
+   ```
+
+2. **Authorize the public half** on the server:
+
+   ```bash
+   ssh-copy-id -i deploy_key.pub <user>@<host>
+   # or append deploy_key.pub to ~/.ssh/authorized_keys on the server
+   ```
+
+3. **Add repository secrets** (Settings → Secrets and variables → Actions):
+
+   | Secret | Value |
+   |--------|-------|
+   | `SSH_HOST` | server IP/host, e.g. `20.219.248.167` |
+   | `SSH_USER` | SSH login user, e.g. `azureuser` |
+   | `SSH_PRIVATE_KEY` | full contents of the **private** `deploy_key` (PEM) |
+   | `APP_DIR` | repo path on the server, e.g. `/var/www/ecm-jira` |
+   | `SSH_PORT` | *(optional)* SSH port; defaults to `22` |
+
+4. **First deploy** still needs the manual one-time server setup above (nginx,
+   PM2, `.env`, DB). After that, pushes to `main` deploy themselves.
+
+### Notes
+
+- The workflow uses a `deploy-production` concurrency group, so overlapping
+  deploys queue instead of clobbering each other.
+- It updates the working tree (`git reset --hard origin/main`) **before**
+  invoking `deploy.prod.sh`, so the latest script version runs each time.
+- Prefer restricting the deploy key to this server and, optionally, add a
+  required reviewer under **Settings → Environments → production** to gate
+  production releases behind an approval.
