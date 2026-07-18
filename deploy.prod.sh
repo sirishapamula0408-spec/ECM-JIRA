@@ -21,7 +21,7 @@
 #     SKIP_DB=1              don't touch docker/postgres
 #     FORCE_INSTALL=1        run npm ci even when the lockfile didn't change
 
-set -euo pipefail
+set -Eeuo pipefail
 
 BRANCH="${BRANCH:-main}"
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
@@ -30,13 +30,27 @@ WEB_ROOT="${WEB_ROOT:-}"
 RELOAD_NGINX="${RELOAD_NGINX:-1}"
 PROCESS_MANAGER="${PROCESS_MANAGER:-pm2}"   # pm2 | systemd
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-jira-lite-api}"
+SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"  # optional; posts deploy result to Slack
 HEALTH_URL="http://localhost:${API_PORT}/api/health"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-60}"
 
 log()  { printf '\033[1;34m[deploy]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[ ok  ]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn ]\033[0m %s\n' "$*"; }
-die()  { printf '\033[1;31m[fail ]\033[0m %s\n' "$*" >&2; exit 1; }
+die()  { printf '\033[1;31m[fail ]\033[0m %s\n' "$*" >&2; notify_slack "❌ ECM JIRA prod deploy FAILED on $(hostname): $*"; exit 1; }
+
+# Post a plain-text message to Slack if a webhook is configured; never fails
+# the deploy (best-effort, short timeout). The message text is controlled
+# (host/sha/branch), so a simple JSON escape of embedded quotes suffices.
+notify_slack() {
+  [ -n "${SLACK_WEBHOOK_URL:-}" ] || return 0
+  local msg="${1//\"/\\\"}"
+  curl -sf -m 10 -X POST -H 'Content-type: application/json' \
+    --data "{\"text\":\"$msg\"}" "$SLACK_WEBHOOK_URL" >/dev/null 2>&1 || true
+}
+
+# On any unhandled error (set -e), notify Slack before exiting.
+trap 'notify_slack "❌ ECM JIRA prod deploy FAILED on $(hostname) at line $LINENO (branch ${BRANCH})"' ERR
 
 cd "$APP_DIR" || die "APP_DIR not found: $APP_DIR"
 log "Production deploy of '$BRANCH' in $APP_DIR"
@@ -156,6 +170,8 @@ done
 if [ "$healthy" = "1" ]; then
   ok "API healthy at $HEALTH_URL"
   ok "Production deploy complete → now serving $NEW_SHA"
+  trap - ERR   # success — don't let the failure trap fire during teardown
+  notify_slack "✅ ECM JIRA prod deploy succeeded on $(hostname) — now serving ${NEW_SHA:0:7} (${BRANCH})"
 else
   if [ "$PROCESS_MANAGER" = "systemd" ]; then
     warn "API did not report healthy within ${HEALTH_TIMEOUT}s. Recent journal logs:"

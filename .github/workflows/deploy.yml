@@ -11,7 +11,9 @@
 #   SSH_PRIVATE_KEY  private key (PEM) whose public half is in the server's
 #                    ~/.ssh/authorized_keys
 #   APP_DIR          repo path on the server  e.g. /var/www/ecm-jira
-#   SSH_PORT         (optional) SSH port; defaults to 22
+#   SSH_PORT           (optional) SSH port; defaults to 22
+#   SLACK_WEBHOOK_URL  (optional) Slack Incoming Webhook — posts deploy
+#                      success/failure; the notify step no-ops if unset
 name: Deploy
 
 on:
@@ -40,6 +42,7 @@ jobs:
     environment: production
     steps:
       - name: Deploy over SSH
+        id: deploy
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -57,3 +60,34 @@ jobs:
             git checkout main
             git reset --hard origin/main
             bash ./deploy.prod.sh
+
+      # Post the deploy result to Slack. Runs regardless of the deploy
+      # outcome; no-ops (exit 0) when SLACK_WEBHOOK_URL isn't configured.
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          OUTCOME: ${{ steps.deploy.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not set — skipping Slack notification"
+            exit 0
+          fi
+          if [ "$OUTCOME" = "success" ]; then
+            EMOJI="✅"; COLOR="good"; WORD="succeeded"
+          else
+            EMOJI="❌"; COLOR="danger"; WORD="failed"
+          fi
+          SHORT_SHA="$(echo "${{ github.sha }}" | cut -c1-7)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD="$(jq -n \
+            --arg color "$COLOR" \
+            --arg text "$EMOJI Deploy $WORD — *${{ github.repository }}* @ \`$SHORT_SHA\`" \
+            --arg ctx "triggered by ${{ github.actor }} • <$RUN_URL|view workflow run>" \
+            '{attachments:[{color:$color,blocks:[
+               {type:"section",text:{type:"mrkdwn",text:$text}},
+               {type:"context",elements:[{type:"mrkdwn",text:$ctx}]}
+             ]}]}')"
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL"
