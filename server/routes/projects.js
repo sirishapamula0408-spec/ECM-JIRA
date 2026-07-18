@@ -91,11 +91,11 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   )
   const projectId = result.lastID
 
-  // Auto-add the logged-in user as an Admin member of the new project
+  // Auto-add the logged-in user as the Lead (top project role) of the new project
   if (member) {
     await run(
       'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?) ON CONFLICT (project_id, member_id) DO NOTHING',
-      [projectId, member.id, 'Admin'],
+      [projectId, member.id, 'Lead'],
     )
   }
 
@@ -200,7 +200,7 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
     return
   }
 
-  const validRole = ['Admin', 'Member', 'Viewer'].includes(role) ? role : 'Member'
+  const validRole = ['Lead', 'Admin', 'Member', 'Viewer'].includes(role) ? role : 'Member'
 
   await run(
     'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
