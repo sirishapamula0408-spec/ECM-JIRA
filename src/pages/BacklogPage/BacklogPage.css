@@ -351,6 +351,23 @@
   font-size: var(--font-size-xs);
 }
 
+/* JL-230: static status chip shown to read-only Viewers instead of the select */
+.backlog-status-readonly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108px;
+  height: 22px;
+  padding: 0 4px;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  background: #deebff;
+  color: #172b4d;
+  border: 1px solid #b3d4ff;
+  border-radius: 4px;
+}
+
 .backlog-status-select {
   width: auto;
   min-width: 108px;
