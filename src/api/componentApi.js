@@ -10,6 +10,12 @@ export const createComponent = (projectId, { name, description, lead }) =>
     body: JSON.stringify({ name, description, lead }),
   })
 
+export const updateComponent = (projectId, componentId, { name, description, lead }) =>
+  api(`/api/projects/${projectId}/components/${componentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name, description, lead }),
+  })
+
 export const deleteComponent = (projectId, componentId) =>
   api(`/api/projects/${projectId}/components/${componentId}`, { method: 'DELETE' })
 

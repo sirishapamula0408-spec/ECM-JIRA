@@ -10,7 +10,7 @@ import {
   addPermissionGrant, deletePermissionGrant, assignPermissionScheme,
   fetchEffectivePermissions, PERMISSION_KEYS, SCHEME_ROLES,
 } from '../../api/schemesApi'
-import { fetchProjectComponents, createComponent, deleteComponent } from '../../api/componentApi'
+import { fetchProjectComponents, createComponent, updateComponent, deleteComponent } from '../../api/componentApi'
 import { fetchResolvedScreen, saveScreenScheme } from '../../api/screenSchemeApi'
 import { fetchProjectCustomFields } from '../../api/customFieldApi'
 import { fetchFieldConfig, saveFieldConfig } from '../../api/fieldConfigApi'
@@ -78,6 +78,8 @@ export function ProjectSettingsPage() {
   // Components (JL-111)
   const [components, setComponents] = useState([])
   const [newComponent, setNewComponent] = useState({ name: '', description: '', lead: '' })
+  // JL-218: inline component edit — null when not editing, else { id, name, description, lead }
+  const [editingComponent, setEditingComponent] = useState(null)
 
   // Field configuration tab state (JL-115) — map of field_key -> { isRequired, isHidden, defaultValue }
   const [fieldCfg, setFieldCfg] = useState({})
@@ -332,6 +334,33 @@ export function ProjectSettingsPage() {
       setNewComponent({ name: '', description: '', lead: '' })
     } catch (err) {
       setFieldsError(err.message || 'Failed to add component.')
+    }
+    setFieldsBusy(false)
+  }
+
+  function startEditComponent(c) {
+    setFieldsError('')
+    setEditingComponent({ id: c.id, name: c.name, description: c.description || '', lead: c.lead || '' })
+  }
+
+  async function handleUpdateComponent() {
+    if (!editingComponent) return
+    const name = editingComponent.name.trim()
+    if (!name) return
+    setFieldsBusy(true)
+    setFieldsError('')
+    try {
+      const row = await updateComponent(projectId, editingComponent.id, {
+        name,
+        description: editingComponent.description.trim(),
+        lead: editingComponent.lead.trim(),
+      })
+      setComponents((prev) => prev
+        .map((c) => (c.id === row.id ? { ...c, ...row } : c))
+        .sort((a, b) => a.name.localeCompare(b.name)))
+      setEditingComponent(null)
+    } catch (err) {
+      setFieldsError(err.message || 'Failed to update component.')
     }
     setFieldsBusy(false)
   }
@@ -1026,12 +1055,67 @@ export function ProjectSettingsPage() {
                 </thead>
                 <tbody>
                   {components.length > 0 ? components.map((c) => (
+                    editingComponent?.id === c.id ? (
+                      <tr key={c.id}>
+                        <td>
+                          <input
+                            aria-label={`Name for ${c.name}`}
+                            value={editingComponent.name}
+                            onChange={(e) => setEditingComponent((ec) => ({ ...ec, name: e.target.value }))}
+                            disabled={fieldsBusy}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Description for ${c.name}`}
+                            value={editingComponent.description}
+                            onChange={(e) => setEditingComponent((ec) => ({ ...ec, description: e.target.value }))}
+                            disabled={fieldsBusy}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Lead for ${c.name}`}
+                            value={editingComponent.lead}
+                            onChange={(e) => setEditingComponent((ec) => ({ ...ec, lead: e.target.value }))}
+                            disabled={fieldsBusy}
+                          />
+                        </td>
+                        <td><span className="pill">{c.issueCount}</span></td>
+                        <td>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            type="button"
+                            onClick={handleUpdateComponent}
+                            disabled={!editingComponent.name.trim() || fieldsBusy}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            type="button"
+                            onClick={() => setEditingComponent(null)}
+                            disabled={fieldsBusy}
+                          >
+                            Cancel
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
                     <tr key={c.id}>
                       <td><strong>{c.name}</strong></td>
                       <td className="muted">{c.description || '—'}</td>
                       <td className="muted">{c.lead || '—'}</td>
                       <td><span className="pill">{c.issueCount}</span></td>
                       <td>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => startEditComponent(c)}
+                          disabled={fieldsBusy}
+                        >
+                          Edit
+                        </button>
                         <button
                           className="btn btn-ghost btn-sm ps-remove-btn"
                           type="button"
@@ -1042,6 +1126,7 @@ export function ProjectSettingsPage() {
                         </button>
                       </td>
                     </tr>
+                    )
                   )) : (
                     <tr><td colSpan="5" className="muted">No components configured.</td></tr>
                   )}
