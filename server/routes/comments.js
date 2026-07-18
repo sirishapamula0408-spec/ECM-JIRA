@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireProjectWrite } from '../middleware/authorize.js'
+import { requireProjectWrite, requireRole } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
 import { extractMentions, processMentions } from '../services/mentions.js'
 import { runCommentAutomations } from '../services/automation.js'
