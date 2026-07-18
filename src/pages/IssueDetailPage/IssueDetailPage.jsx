@@ -7,12 +7,14 @@ import { useAuth } from '../../context/AuthContext'
 import { fetchIssueById, fetchComments, createComment, updateComment, deleteComment, fetchSubtasks, createSubtask, getIssueHistory, fetchEpicChildren, fetchIssues, addReaction, REACTION_EMOJIS, cloneIssue } from '../../api/issueApi'
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
+import VoteButton from '../../components/issues/VoteButton'
 import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
+import { ImpedimentFlagToggle } from '../../components/issues/ImpedimentFlag'
 import { fetchProjectComponents, fetchIssueComponents, setIssueComponents } from '../../api/componentApi'
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
-import { fetchAttachments, uploadAttachment, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
+import { fetchAttachments, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
 import { fetchGitLinks, createGitLink, deleteGitLink, fetchDeployments, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS, PR_STATE_LABELS } from '../../api/gitIntegrationApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
@@ -21,6 +23,7 @@ import { fetchSecurityLevels, setIssueSecurityLevel } from '../../api/securityLe
 import { fetchCiBuilds } from '../../api/cicdApi'
 import { fetchAssets, fetchIssueAssets, linkIssueAsset, unlinkIssueAsset } from '../../api/assetApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useAttachmentDropZone } from '../../hooks/useAttachmentDropZone'
 import { usePluginContributions } from '../../hooks/usePluginContributions'
 import { useRecentIssues } from '../../hooks/useRecentIssues'
 import { timeAgo } from '../../utils/timeAgo'
@@ -33,6 +36,7 @@ import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { TipTapEditor } from '../../components/editor/TipTapEditor'
 import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import './IssueDetailPage.css'
@@ -122,6 +126,10 @@ export function IssueDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingCommentText, setEditingCommentText] = useState('')
   const [activityTab, setActivityTab] = useState('All')
+  // JL-217: activity feed sort order ('newest' | 'oldest'), persisted across sessions
+  const [activitySortOrder, setActivitySortOrder] = useState(() => {
+    try { return localStorage.getItem('activitySortOrder') === 'oldest' ? 'oldest' : 'newest' } catch { return 'newest' }
+  })
   const [isEditing, setIsEditing] = useState(false)
   const [editDesc, setEditDesc] = useState('')
   const [workLogs, setWorkLogs] = useState([])
@@ -150,7 +158,6 @@ export function IssueDetailPage() {
   const [epicRollup, setEpicRollup] = useState({ total: 0, done: 0, percent: 0 })
   const [epicOptions, setEpicOptions] = useState([]) // available Epics in this project
   const [attachments, setAttachments] = useState([])
-  const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
   const [links, setLinks] = useState([])
   const [ciBuilds, setCiBuilds] = useState([])
@@ -211,7 +218,19 @@ export function IssueDetailPage() {
   }, [id, existing])
 
   const issue = existing || fetchedIssue
-  const { isAdmin } = usePermissions(issue?.projectId)
+  const { isAdmin, canEditIssue } = usePermissions(issue?.projectId)
+
+  // JL-216 — drag-and-drop + paste-to-attach; reuses the base64 upload path.
+  const {
+    isDragging: isAttachDragging,
+    uploading: attachUploading,
+    uploadFiles: uploadAttachmentFiles,
+    dropZoneProps: attachDropZoneProps,
+  } = useAttachmentDropZone({
+    issueId: issue?.id,
+    enabled: canEditIssue,
+    onUploaded: (saved) => setAttachments((prev) => [saved, ...prev]),
+  })
 
   // JL-163 — record this issue in the recently viewed list
   const { addRecent } = useRecentIssues()
@@ -482,19 +501,8 @@ export function IssueDetailPage() {
 
   async function handleFilesSelected(e) {
     const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    setUploading(true)
-    try {
-      for (const file of files) {
-        const saved = await uploadAttachment(issue.id, file)
-        setAttachments((prev) => [saved, ...prev])
-      }
-    } catch {
-      // ignore individual failures
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+    if (files.length) await uploadAttachmentFiles(files)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleDeleteAttachment(id) {
@@ -873,15 +881,26 @@ export function IssueDetailPage() {
 
   const workLogEntries = workLogs.map((w) => ({ ...w, type: 'worklog' }))
 
-  // Filter by active tab
-  const allEntries = [...commentEntries, ...historyEntries, ...workLogEntries]
-    .sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0))
+  // Filter by active tab (JL-217: comparator respects the newest/oldest sort toggle)
+  const byActivitySort = (a, b) => activitySortOrder === 'oldest'
+    ? (a.sortKey || 0) - (b.sortKey || 0)
+    : (b.sortKey || 0) - (a.sortKey || 0)
+  const allEntries = [...commentEntries, ...historyEntries, ...workLogEntries].sort(byActivitySort)
   const visibleEntries =
     activityTab === 'All' ? allEntries
-    : activityTab === 'Comments' ? commentEntries
-    : activityTab === 'History' ? historyEntries
-    : activityTab === 'Work log' ? workLogEntries
+    : activityTab === 'Comments' ? [...commentEntries].sort(byActivitySort)
+    : activityTab === 'History' ? [...historyEntries].sort(byActivitySort)
+    : activityTab === 'Work log' ? [...workLogEntries].sort(byActivitySort)
     : allEntries
+
+  // JL-217: flip sort order and persist the choice
+  function toggleActivitySortOrder() {
+    setActivitySortOrder((prev) => {
+      const next = prev === 'newest' ? 'oldest' : 'newest'
+      try { localStorage.setItem('activitySortOrder', next) } catch { /* ignore storage errors */ }
+      return next
+    })
+  }
 
   async function handleAddComment() {
     if (!commentText.trim()) return
@@ -1224,7 +1243,19 @@ export function IssueDetailPage() {
       {/* ---- Main grid ---- */}
       <div className="id-layout">
         {/* ======== LEFT ======== */}
-        <div className="id-main">
+        {/* JL-216 — drop zone: dropping files anywhere on the detail pane attaches them */}
+        <div
+          className={`id-main${isAttachDragging ? ' id-main--dragging' : ''}`}
+          {...(canEditIssue ? attachDropZoneProps : {})}
+        >
+          {isAttachDragging && (
+            <div className="id-dropzone-overlay" aria-hidden="true">
+              <div className="id-dropzone-overlay-inner">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Drop files to attach</span>
+              </div>
+            </div>
+          )}
           <div className="id-type-row">
             <span className="id-type-icon" style={{ color: typeMeta.color }}>{typeMeta.icon}</span>
             <span className="id-issue-key">{issue.key || `IT-${issue.id}`}</span>
@@ -1234,9 +1265,9 @@ export function IssueDetailPage() {
           <h1 className="id-title">{issue.title}</h1>
 
           <div className="id-quick-actions">
-            <button className="id-quick-btn" type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            <button className="id-quick-btn" type="button" onClick={() => fileInputRef.current?.click()} disabled={attachUploading}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              {uploading ? 'Uploading…' : 'Attach'}
+              {attachUploading ? 'Uploading…' : 'Attach'}
             </button>
             <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFilesSelected} />
             <button className="id-quick-btn" type="button">
@@ -1255,6 +1286,7 @@ export function IssueDetailPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               {isWatching ? 'Watching' : 'Watch'} ({watcherCount})
             </button>
+            <VoteButton issueId={issue.id} />
           </div>
 
           {/* Description */}
@@ -1557,15 +1589,27 @@ export function IssueDetailPage() {
               <svg className={`id-collapse-chevron${activityOpen ? '' : ' id-collapse-chevron--closed'}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             {activityOpen && <>
-            <div className="id-activity-tabs">
-              {['All', 'Comments', 'History', 'Work log'].map((tab) => (
-                <button key={tab} type="button" className={`id-activity-tab${activityTab === tab ? ' active' : ''}`} onClick={() => setActivityTab(tab)}>
-                  {tab}
-                  {tab === 'Comments' && commentEntries.length > 0 && <span className="id-tab-count">{commentEntries.length}</span>}
-                  {tab === 'History' && historyEntries.length > 0 && <span className="id-tab-count">{historyEntries.length}</span>}
-                  {tab === 'Work log' && workLogEntries.length > 0 && <span className="id-tab-count">{workLogEntries.length}</span>}
-                </button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div className="id-activity-tabs">
+                {['All', 'Comments', 'History', 'Work log'].map((tab) => (
+                  <button key={tab} type="button" className={`id-activity-tab${activityTab === tab ? ' active' : ''}`} onClick={() => setActivityTab(tab)}>
+                    {tab}
+                    {tab === 'Comments' && commentEntries.length > 0 && <span className="id-tab-count">{commentEntries.length}</span>}
+                    {tab === 'History' && historyEntries.length > 0 && <span className="id-tab-count">{historyEntries.length}</span>}
+                    {tab === 'Work log' && workLogEntries.length > 0 && <span className="id-tab-count">{workLogEntries.length}</span>}
+                  </button>
+                ))}
+              </div>
+              {/* JL-217: newest/oldest sort toggle */}
+              <Tooltip title={activitySortOrder === 'newest' ? 'Newest first — click to show oldest first' : 'Oldest first — click to show newest first'}>
+                <IconButton
+                  size="small"
+                  onClick={toggleActivitySortOrder}
+                  aria-label={activitySortOrder === 'newest' ? 'Sorted newest first — switch to oldest first' : 'Sorted oldest first — switch to newest first'}
+                >
+                  <SwapVertIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </div>
 
             {/* Comment input — show on All or Comments tab */}
@@ -1721,6 +1765,11 @@ export function IssueDetailPage() {
             >
               {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+          </div>
+
+          {/* JL-215: flag / unflag as impediment */}
+          <div className="id-sidebar-flag">
+            <ImpedimentFlagToggle issue={issue} />
           </div>
 
           {/* JL-145: plugin-contributed issue panels (declarative, safe links) */}

@@ -5,6 +5,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from '../../api/boardConfigApi'
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
+import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
 import './BoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -307,8 +308,9 @@ export function BoardPage() {
                     </span>
                   </header>
                   {colIssues.map((issue) => (
-                    <div className="card kanban-card-draggable" key={issue.id} draggable onDragStart={() => setDragIssueId(issue.id)} onDragEnd={() => { setDragIssueId(null); setDropStatus('') }}>
+                    <div className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`} key={issue.id} draggable onDragStart={() => setDragIssueId(issue.id)} onDragEnd={() => { setDragIssueId(null); setDropStatus('') }}>
                       <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+                      {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
                       <h4>{issue.title}</h4>
                       <p>{issue.issueType}</p>
                       <DueDateBadge dueDate={issue.dueDate} status={issue.status} />

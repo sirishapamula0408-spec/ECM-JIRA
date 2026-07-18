@@ -19,6 +19,8 @@ import { MemberProvider, useMembers } from './context/MemberContext'
 import { NotificationProvider, useNotifications } from './context/NotificationContext'
 
 import { ErrorBoundary } from './components/common/ErrorBoundary'
+import { SkipToContent } from './components/common/SkipToContent'
+import { useFocusMainOnRouteChange } from './hooks/useFocusMainOnRouteChange'
 import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/layout/Topbar'
@@ -116,6 +118,10 @@ function AppContent() {
     if (searchInput) searchInput.focus()
   }, [])
 
+  // JL-220 — after client-side navigation, move focus to <main> so
+  // keyboard/screen-reader users land on the new page content.
+  useFocusMainOnRouteChange()
+
   useKeyboardShortcuts({
     enabled: isAuthenticated,
     onCreate: () => setShowCreate(true),
@@ -151,8 +157,9 @@ function AppContent() {
 
   return (
     <div className={`workspace${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+      <SkipToContent />
       <Sidebar collapsed={isSidebarCollapsed} onToggleSidebar={() => setIsSidebarCollapsed((c) => !c)} onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} hasProjects={hasProjects} />
-      <main className="content" role="main">
+      <main className="content" role="main" id="main-content" tabIndex={-1}>
         <Topbar onCreate={() => setShowCreate(true)} hasProjects={hasProjects} />
         <ProjectTopPanel onCreate={() => setShowCreate(true)} hasProjects={hasProjects} />
         {error && <p className="banner error" role="alert">{error}</p>}

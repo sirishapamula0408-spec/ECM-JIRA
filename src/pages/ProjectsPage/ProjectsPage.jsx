@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchProjects, deleteProject } from '../../api/projectApi'
+import { fetchProjects, deleteProject, archiveProject, unarchiveProject } from '../../api/projectApi'
 import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/favoriteApi'
 import './ProjectsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -13,17 +13,19 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
   const [query, setQuery] = useState('')
   const [openMenuId, setOpenMenuId] = useState(null)
   const [favorites, setFavorites] = useState(() => new Set())
+  // JL-219: archived projects are hidden by default; toggle to reveal them.
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     setLoading(true)
-    fetchProjects()
+    fetchProjects({ includeArchived: showArchived })
       .then((data) => {
         const list = Array.isArray(data) ? data : []
         setProjects(list.sort((a, b) => b.id - a.id))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [projectRefreshKey])
+  }, [projectRefreshKey, showArchived])
 
   useEffect(() => {
     fetchFavorites()
@@ -80,6 +82,27 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
     if (onProjectDeleted) onProjectDeleted()
   }
 
+  // JL-219: archive is reversible and non-destructive — issues/URLs stay intact.
+  async function handleArchive(project) {
+    const confirmed = window.confirm(
+      `Archive project "${project.name}"? It will be hidden from the active projects list and pickers, but its issues remain accessible. You can restore it anytime.`,
+    )
+    if (!confirmed) return
+    const updated = await archiveProject(project.id)
+    setOpenMenuId(null)
+    setProjects((prev) =>
+      showArchived
+        ? prev.map((p) => (p.id === project.id ? { ...p, ...updated, archived: true } : p))
+        : prev.filter((p) => p.id !== project.id),
+    )
+  }
+
+  async function handleUnarchive(project) {
+    const updated = await unarchiveProject(project.id)
+    setOpenMenuId(null)
+    setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, ...updated, archived: false } : p)))
+  }
+
   return (
     <section className="page projects-page">
       <div className="projects-header">
@@ -98,6 +121,14 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+          </label>
+          <label className="projects-archived-toggle" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+            />
+            Show archived
           </label>
           {onCreateProject && (
             <button className="btn btn-primary create-btn" type="button" onClick={onCreateProject}>
@@ -176,6 +207,11 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                       </span>
                       <div className="projects-name-text">
                         <strong className="projects-name-link">{project.name}</strong>
+                        {project.archived && (
+                          <span className="projects-archived-chip" style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: '3px', background: 'var(--color-neutral-200, #dfe1e6)', color: 'var(--color-text-subtle, #5e6c84)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Archived
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -197,6 +233,11 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                       {openMenuId === project.id && (
                         <div className="projects-action-menu" role="menu">
                           <button className="projects-action-item" type="button" onClick={() => { setOpenMenuId(null); navigate(`/projects/${project.id}/settings`) }}>Project settings</button>
+                          {project.archived ? (
+                            <button className="projects-action-item" type="button" onClick={() => handleUnarchive(project)}>Restore from archive</button>
+                          ) : (
+                            <button className="projects-action-item" type="button" onClick={() => handleArchive(project)}>Archive project</button>
+                          )}
                           <div className="projects-action-divider" />
                           <button className="projects-action-item projects-action-danger" type="button" onClick={() => handleMoveToTrash(project)}>Move to trash</button>
                         </div>

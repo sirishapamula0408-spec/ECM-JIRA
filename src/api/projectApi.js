@@ -1,8 +1,18 @@
 import { api } from './client.js'
 
-export const fetchProjects = () => api('/api/projects')
+export const fetchProjects = ({ includeArchived = false } = {}) =>
+  api(`/api/projects${includeArchived ? '?includeArchived=true' : ''}`)
 
 export const fetchProjectById = (id) => api(`/api/projects/${id}`)
+
+// JL-219: non-destructive archive / restore (project Admin only)
+export function archiveProject(id) {
+  return api(`/api/projects/${id}/archive`, { method: 'POST' })
+}
+
+export function unarchiveProject(id) {
+  return api(`/api/projects/${id}/unarchive`, { method: 'POST' })
+}
 
 export function createProject(payload) {
   return api('/api/projects', {

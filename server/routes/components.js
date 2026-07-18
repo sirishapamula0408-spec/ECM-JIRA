@@ -58,6 +58,50 @@ router.post('/projects/:projectId/components', requireRole('Admin'), asyncHandle
   res.status(201).json({ ...mapComponent(row), issueCount: 0 })
 }))
 
+// PATCH /api/projects/:projectId/components/:componentId (Admin) — update name/description/lead
+router.patch('/projects/:projectId/components/:componentId', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.projectId)
+  const componentId = Number(req.params.componentId)
+  const existing = await get(
+    'SELECT id, project_id, name, description, lead FROM components WHERE id = ? AND project_id = ?',
+    [componentId, projectId],
+  )
+  if (!existing) {
+    res.status(404).json({ error: 'Component not found' })
+    return
+  }
+  // Partial update: only fields present in the body change; others keep current values.
+  const name = req.body?.name !== undefined ? String(req.body.name).trim() : existing.name
+  const description = req.body?.description !== undefined ? String(req.body.description).trim() : (existing.description || '')
+  const lead = req.body?.lead !== undefined ? String(req.body.lead).trim() : (existing.lead || '')
+  if (!name) {
+    res.status(400).json({ error: 'Component name is required' })
+    return
+  }
+  const duplicate = await get(
+    'SELECT id FROM components WHERE project_id = ? AND LOWER(name) = LOWER(?) AND id <> ?',
+    [projectId, name, componentId],
+  )
+  if (duplicate) {
+    res.status(409).json({ error: 'A component with that name already exists' })
+    return
+  }
+  await run(
+    'UPDATE components SET name = ?, description = ?, lead = ? WHERE id = ? AND project_id = ?',
+    [name, description, lead, componentId, projectId],
+  )
+  const row = await get(
+    `SELECT c.id, c.project_id, c.name, c.description, c.lead,
+            COUNT(ic.issue_id)::int AS "issueCount"
+     FROM components c
+     LEFT JOIN issue_components ic ON ic.component_id = c.id
+     WHERE c.id = ?
+     GROUP BY c.id`,
+    [componentId],
+  )
+  res.json(mapComponent(row))
+}))
+
 // DELETE /api/projects/:projectId/components/:componentId (Admin) — cascades issue_components
 router.delete('/projects/:projectId/components/:componentId', requireRole('Admin'), asyncHandler(async (req, res) => {
   const componentId = Number(req.params.componentId)

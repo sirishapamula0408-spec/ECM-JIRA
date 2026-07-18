@@ -30,6 +30,7 @@ import commentRoutes from './routes/comments.js'
 import filterRoutes from './routes/filters.js'
 import notificationRoutes from './routes/notifications.js'
 import watcherRoutes from './routes/watchers.js'
+import voteRoutes from './routes/votes.js'
 import favoriteRoutes from './routes/favorites.js'
 import approvalRoutes from './routes/approvals.js'
 import sharedDashboardRoutes from './routes/shared-dashboards.js'
@@ -199,6 +200,7 @@ app.use('/api/filters', ...protect, filterRoutes)
 app.use('/api/list-views', ...protect, listViewRoutes)
 app.use('/api/notifications', ...protect, notificationRoutes)
 app.use('/api/issues', ...protect, watcherRoutes)
+app.use('/api/issues', ...protect, voteRoutes) // JL-214: issue voting
 app.use('/api', ...protect, favoriteRoutes)
 app.use('/api/approvals', ...protect, approvalRoutes)
 app.use('/api/shared-dashboards', ...protect, sharedDashboardRoutes)

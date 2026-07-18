@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember, updateProjectMemberRole } from '../../api/projectApi'
+import { fetchProjectById, updateProject, archiveProject, unarchiveProject, fetchProjectMembers, addProjectMember, removeProjectMember, updateProjectMemberRole } from '../../api/projectApi'
 import {
   fetchProjectPriorities, createPriority, deletePriority,
   fetchProjectStatuses, createStatus, deleteStatus,
@@ -10,7 +10,7 @@ import {
   addPermissionGrant, deletePermissionGrant, assignPermissionScheme,
   fetchEffectivePermissions, PERMISSION_KEYS, SCHEME_ROLES,
 } from '../../api/schemesApi'
-import { fetchProjectComponents, createComponent, deleteComponent } from '../../api/componentApi'
+import { fetchProjectComponents, createComponent, updateComponent, deleteComponent } from '../../api/componentApi'
 import { fetchResolvedScreen, saveScreenScheme } from '../../api/screenSchemeApi'
 import { fetchProjectCustomFields } from '../../api/customFieldApi'
 import { fetchFieldConfig, saveFieldConfig } from '../../api/fieldConfigApi'
@@ -78,6 +78,8 @@ export function ProjectSettingsPage() {
   // Components (JL-111)
   const [components, setComponents] = useState([])
   const [newComponent, setNewComponent] = useState({ name: '', description: '', lead: '' })
+  // JL-218: inline component edit — null when not editing, else { id, name, description, lead }
+  const [editingComponent, setEditingComponent] = useState(null)
 
   // Field configuration tab state (JL-115) — map of field_key -> { isRequired, isHidden, defaultValue }
   const [fieldCfg, setFieldCfg] = useState({})
@@ -226,6 +228,34 @@ export function ProjectSettingsPage() {
     setBanner({ type: '', message: '' })
   }
 
+  // JL-219: archive is a reversible, non-destructive alternative to deletion.
+  const isArchived = Boolean(project.archived_at)
+
+  async function handleToggleArchive() {
+    const confirmed = isArchived
+      ? true
+      : window.confirm(
+          `Archive "${project.name}"? It will be hidden from the active projects list and pickers, but its issues and URLs stay accessible. You can restore it from here anytime.`,
+        )
+    if (!confirmed) return
+    setSaving(true)
+    setBanner({ type: '', message: '' })
+    try {
+      const updated = isArchived
+        ? await unarchiveProject(projectId)
+        : await archiveProject(projectId)
+      setProject(updated)
+      setBanner({
+        type: 'success',
+        message: updated.archived_at ? 'Project archived.' : 'Project restored.',
+      })
+    } catch (err) {
+      setBanner({ type: 'error', message: err.message || 'Failed to update archive state.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const assignedIds = new Set(projectMembers.map((pm) => pm.id))
   const availableMembers = members.filter((m) => !assignedIds.has(m.id))
 
@@ -332,6 +362,33 @@ export function ProjectSettingsPage() {
       setNewComponent({ name: '', description: '', lead: '' })
     } catch (err) {
       setFieldsError(err.message || 'Failed to add component.')
+    }
+    setFieldsBusy(false)
+  }
+
+  function startEditComponent(c) {
+    setFieldsError('')
+    setEditingComponent({ id: c.id, name: c.name, description: c.description || '', lead: c.lead || '' })
+  }
+
+  async function handleUpdateComponent() {
+    if (!editingComponent) return
+    const name = editingComponent.name.trim()
+    if (!name) return
+    setFieldsBusy(true)
+    setFieldsError('')
+    try {
+      const row = await updateComponent(projectId, editingComponent.id, {
+        name,
+        description: editingComponent.description.trim(),
+        lead: editingComponent.lead.trim(),
+      })
+      setComponents((prev) => prev
+        .map((c) => (c.id === row.id ? { ...c, ...row } : c))
+        .sort((a, b) => a.name.localeCompare(b.name)))
+      setEditingComponent(null)
+    } catch (err) {
+      setFieldsError(err.message || 'Failed to update component.')
     }
     setFieldsBusy(false)
   }
@@ -701,6 +758,23 @@ export function ProjectSettingsPage() {
                 </button>
               </div>
             </article>
+
+            <article className="panel ps-archive-panel">
+              <h3>{isArchived ? 'Restore project' : 'Archive project'}</h3>
+              <p className="muted">
+                {isArchived
+                  ? 'This project is archived — it is hidden from the active projects list and pickers. Restore it to make it active again everywhere. Its issues and URLs have stayed accessible.'
+                  : 'Archiving hides this project from the active projects list and pickers without deleting anything. Its issues and URLs remain accessible, and you can restore it anytime.'}
+              </p>
+              <button
+                className={`btn ${isArchived ? 'btn-primary' : 'btn-ghost'}`}
+                type="button"
+                onClick={handleToggleArchive}
+                disabled={saving}
+              >
+                {isArchived ? 'Restore project' : 'Archive project'}
+              </button>
+            </article>
           </>
         )}
 
@@ -1026,12 +1100,67 @@ export function ProjectSettingsPage() {
                 </thead>
                 <tbody>
                   {components.length > 0 ? components.map((c) => (
+                    editingComponent?.id === c.id ? (
+                      <tr key={c.id}>
+                        <td>
+                          <input
+                            aria-label={`Name for ${c.name}`}
+                            value={editingComponent.name}
+                            onChange={(e) => setEditingComponent((ec) => ({ ...ec, name: e.target.value }))}
+                            disabled={fieldsBusy}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Description for ${c.name}`}
+                            value={editingComponent.description}
+                            onChange={(e) => setEditingComponent((ec) => ({ ...ec, description: e.target.value }))}
+                            disabled={fieldsBusy}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`Lead for ${c.name}`}
+                            value={editingComponent.lead}
+                            onChange={(e) => setEditingComponent((ec) => ({ ...ec, lead: e.target.value }))}
+                            disabled={fieldsBusy}
+                          />
+                        </td>
+                        <td><span className="pill">{c.issueCount}</span></td>
+                        <td>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            type="button"
+                            onClick={handleUpdateComponent}
+                            disabled={!editingComponent.name.trim() || fieldsBusy}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            type="button"
+                            onClick={() => setEditingComponent(null)}
+                            disabled={fieldsBusy}
+                          >
+                            Cancel
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
                     <tr key={c.id}>
                       <td><strong>{c.name}</strong></td>
                       <td className="muted">{c.description || '—'}</td>
                       <td className="muted">{c.lead || '—'}</td>
                       <td><span className="pill">{c.issueCount}</span></td>
                       <td>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          onClick={() => startEditComponent(c)}
+                          disabled={fieldsBusy}
+                        >
+                          Edit
+                        </button>
                         <button
                           className="btn btn-ghost btn-sm ps-remove-btn"
                           type="button"
@@ -1042,6 +1171,7 @@ export function ProjectSettingsPage() {
                         </button>
                       </td>
                     </tr>
+                    )
                   )) : (
                     <tr><td colSpan="5" className="muted">No components configured.</td></tr>
                   )}

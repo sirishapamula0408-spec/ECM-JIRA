@@ -1,11 +1,19 @@
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, clearReadNotifications } from '../api/notificationApi'
+import { setUnreadTitleCount } from '../hooks/usePageTitle'
 
 const NotificationContext = createContext(null)
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+
+  // JL-221: mirror the unread count into the browser tab title as a "(N) "
+  // prefix; cleared when the count drops to 0 or the provider unmounts.
+  useEffect(() => {
+    setUnreadTitleCount(unreadCount)
+    return () => setUnreadTitleCount(0)
+  }, [unreadCount])
 
   const loadNotifications = useCallback(async () => {
     try {

@@ -684,3 +684,23 @@
   color: #ae2a19;
   cursor: help;
 }
+
+/* JL-215: flagged-as-impediment rows */
+.backlog-issue-flagged {
+  background: #fffae6;
+}
+
+.backlog-flagged-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #fff0b3;
+  color: #974f0c;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  cursor: help;
+}

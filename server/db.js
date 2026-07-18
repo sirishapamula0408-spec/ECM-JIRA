@@ -499,6 +499,17 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_watchers_issue ON watchers(issue_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_watchers_email ON watchers(user_email)')
 
+  // --- JL-214: Issue voting ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS issue_votes (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (issue_id, user_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_votes_issue ON issue_votes(issue_id)')
+
   // --- JL-159: Star / favorite projects ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS project_favorites (
@@ -747,6 +758,11 @@ export async function initializeDatabase() {
   if (!(await columnExists('issues', 'updated_at'))) {
     await pool.query('ALTER TABLE issues ADD COLUMN updated_at TIMESTAMPTZ')
   }
+
+  // --- JL-215: Flag issue as impediment ---
+  // JIRA-style "Add flag" — a simple boolean toggled via PATCH /api/issues/:id
+  // and surfaced as a warning indicator on board cards and backlog rows.
+  await pool.query('ALTER TABLE issues ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFAULT FALSE')
 
   // --- JL-86: Reporting data foundation ---
   // Story points on issues (nullable). Real sprint dates + completion timestamp.
@@ -1263,6 +1279,12 @@ export async function initializeDatabase() {
   if (!(await columnExists('projects', 'allow_parallel_sprints'))) {
     await pool.query('ALTER TABLE projects ADD COLUMN allow_parallel_sprints BOOLEAN NOT NULL DEFAULT FALSE')
   }
+
+  // --- JL-219: Project archive / unarchive ---
+  // Non-destructive alternative to DELETE. NULL = active; a timestamp = archived.
+  // Archived projects are excluded from the default project listing (opt back in
+  // with ?includeArchived=true) but their issues/URLs remain accessible.
+  await pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP')
 
   // Seed the DEFAULT permission scheme (mirrors the fixed role→capability map in
   // middleware/authorize.js + hooks/usePermissions.js). Grants store the MINIMUM

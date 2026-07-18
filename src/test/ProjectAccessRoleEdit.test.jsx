@@ -33,6 +33,7 @@ vi.mock('../api/schemesApi', () => ({
 vi.mock('../api/componentApi', () => ({
   fetchProjectComponents: vi.fn(() => Promise.resolve([])),
   createComponent: vi.fn(),
+  updateComponent: vi.fn(),
   deleteComponent: vi.fn(),
 }))
 vi.mock('../api/screenSchemeApi', () => ({
