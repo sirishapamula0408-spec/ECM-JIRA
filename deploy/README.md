@@ -95,6 +95,33 @@ pm2 startup systemd -u "$USER" --hp "$HOME"   # prints a command — run it with
 # (deploy.prod.sh runs `pm2 save` after each deploy so the process list survives reboot)
 ```
 
+### Alternative: systemd instead of PM2
+
+If you'd rather not run PM2, a systemd unit is provided at
+`deploy/systemd/jira-lite-api.service`. It runs the API as a single process
+with `Restart=always`, logs to the journal, and starts on boot — no PM2
+needed. Pick **one** process manager; don't run both against the same port.
+
+```bash
+# 1. Edit User / Group / WorkingDirectory / ExecStart (absolute node path) in
+#    the unit to match your box (`which node` gives the ExecStart path).
+sudo cp deploy/systemd/jira-lite-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now jira-lite-api     # start + enable on boot
+systemctl status jira-lite-api
+journalctl -u jira-lite-api -f                # tail logs
+```
+
+Then deploy with the systemd path (it runs `systemctl restart` instead of
+`pm2 startOrReload`):
+
+```bash
+PROCESS_MANAGER=systemd ./deploy.prod.sh
+```
+
+`PROCESS_MANAGER` defaults to `pm2`. Override the unit name with
+`SYSTEMD_UNIT=<name>` if you renamed the service.
+
 ## Deploying a release
 
 ```bash
@@ -115,6 +142,7 @@ WEB_ROOT=/var/www/ecm-jira/dist ./deploy.prod.sh   # explicit web root
 RELOAD_NGINX=0 ./deploy.prod.sh                     # skip nginx reload
 SKIP_DB=1 ./deploy.prod.sh                          # DB managed elsewhere
 FORCE_INSTALL=1 ./deploy.prod.sh                    # force npm ci
+PROCESS_MANAGER=systemd ./deploy.prod.sh            # use systemd instead of PM2
 ```
 
 ## TLS (recommended)
@@ -131,9 +159,16 @@ picks `wss:` when the page is served over HTTPS.
 ## Operating it
 
 ```bash
+# PM2
 pm2 status                     # process state
 pm2 logs jira-lite-api         # tail API logs
 pm2 restart jira-lite-api      # manual restart
+
+# systemd (if you chose that instead of PM2)
+systemctl status jira-lite-api
+journalctl -u jira-lite-api -f            # tail API logs
+sudo systemctl restart jira-lite-api      # manual restart
+
 sudo systemctl reload nginx    # after editing the nginx conf
 curl -s localhost:4000/api/health   # -> {"status":"ok"}
 ```

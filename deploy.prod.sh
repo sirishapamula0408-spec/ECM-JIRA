@@ -28,6 +28,8 @@ APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 API_PORT="${API_PORT:-4000}"
 WEB_ROOT="${WEB_ROOT:-}"
 RELOAD_NGINX="${RELOAD_NGINX:-1}"
+PROCESS_MANAGER="${PROCESS_MANAGER:-pm2}"   # pm2 | systemd
+SYSTEMD_UNIT="${SYSTEMD_UNIT:-jira-lite-api}"
 HEALTH_URL="http://localhost:${API_PORT}/api/health"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-60}"
 
@@ -43,10 +45,20 @@ log "Production deploy of '$BRANCH' in $APP_DIR"
 command -v git  >/dev/null || die "git not installed"
 command -v node >/dev/null || die "node not installed"
 command -v npm  >/dev/null || die "npm not installed"
-command -v pm2  >/dev/null || die "pm2 not installed — run 'npm install -g pm2' (see deploy/README.md)"
 [ -d .git ]         || die "$APP_DIR is not a git repository"
 [ -f package.json ] || die "no package.json in $APP_DIR"
-[ -f ecosystem.config.cjs ] || die "ecosystem.config.cjs missing — is this the right branch?"
+case "$PROCESS_MANAGER" in
+  pm2)
+    command -v pm2 >/dev/null || die "pm2 not installed — run 'npm install -g pm2' (see deploy/README.md)"
+    [ -f ecosystem.config.cjs ] || die "ecosystem.config.cjs missing — is this the right branch?"
+    ;;
+  systemd)
+    command -v systemctl >/dev/null || die "systemctl not found — this box isn't systemd-managed"
+    systemctl list-unit-files "${SYSTEMD_UNIT}.service" 2>/dev/null | grep -q "${SYSTEMD_UNIT}.service" \
+      || die "systemd unit '${SYSTEMD_UNIT}.service' not installed — see deploy/README.md (install deploy/systemd/jira-lite-api.service)"
+    ;;
+  *) die "PROCESS_MANAGER must be 'pm2' or 'systemd' (got '$PROCESS_MANAGER')" ;;
+esac
 
 # --- 1. Fast-forward to origin/<branch> ------------------------------------
 log "Fetching origin…"
@@ -111,12 +123,18 @@ else
   log "WEB_ROOT unset — nginx should serve $APP_DIR/dist directly"
 fi
 
-# --- 7. (Re)start the API under PM2 ----------------------------------------
-mkdir -p logs
-log "Reloading API under PM2…"
-pm2 startOrReload ecosystem.config.cjs --update-env
-pm2 save >/dev/null 2>&1 || warn "pm2 save failed (run 'pm2 startup' once for boot persistence)"
-ok "API (re)started under PM2"
+# --- 7. (Re)start the API under the chosen process manager -----------------
+if [ "$PROCESS_MANAGER" = "systemd" ]; then
+  log "Restarting API via systemd ($SYSTEMD_UNIT)…"
+  sudo systemctl restart "$SYSTEMD_UNIT"
+  ok "API (re)started via systemd — logs: journalctl -u $SYSTEMD_UNIT -f"
+else
+  mkdir -p logs
+  log "Reloading API under PM2…"
+  pm2 startOrReload ecosystem.config.cjs --update-env
+  pm2 save >/dev/null 2>&1 || warn "pm2 save failed (run 'pm2 startup' once for boot persistence)"
+  ok "API (re)started under PM2"
+fi
 
 # --- 8. Reload nginx -------------------------------------------------------
 if [ "$RELOAD_NGINX" = "1" ] && command -v nginx >/dev/null; then
@@ -139,7 +157,13 @@ if [ "$healthy" = "1" ]; then
   ok "API healthy at $HEALTH_URL"
   ok "Production deploy complete → now serving $NEW_SHA"
 else
-  warn "API did not report healthy within ${HEALTH_TIMEOUT}s. Recent PM2 logs:"
-  pm2 logs jira-lite-api --lines 40 --nostream 2>/dev/null || true
-  die "Deploy finished but health check failed — inspect 'pm2 logs jira-lite-api'"
+  if [ "$PROCESS_MANAGER" = "systemd" ]; then
+    warn "API did not report healthy within ${HEALTH_TIMEOUT}s. Recent journal logs:"
+    sudo journalctl -u "$SYSTEMD_UNIT" -n 40 --no-pager 2>/dev/null || true
+    die "Deploy finished but health check failed — inspect 'journalctl -u $SYSTEMD_UNIT'"
+  else
+    warn "API did not report healthy within ${HEALTH_TIMEOUT}s. Recent PM2 logs:"
+    pm2 logs jira-lite-api --lines 40 --nostream 2>/dev/null || true
+    die "Deploy finished but health check failed — inspect 'pm2 logs jira-lite-api'"
+  fi
 fi
