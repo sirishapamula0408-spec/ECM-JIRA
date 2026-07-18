@@ -52,6 +52,40 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Skip-to-content link (JL-220) — WCAG 2.4.1 Bypass Blocks.
+   Off-screen by default; slides into the top-left corner when
+   keyboard-focused. Sits above the Topbar via --z-toast. The solid
+   brand-blue pill with white text is visible in both themes.
+   ───────────────────────────────────────────────────────────── */
+.skip-to-content {
+  position: fixed;
+  top: -100px;
+  left: var(--space-2);
+  z-index: var(--z-toast);
+  padding: 10px 16px;
+  background: var(--jira-blue);
+  color: #ffffff;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--jira-shadow-hover);
+  transition: top var(--transition-fast) var(--ease-standard);
+}
+
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+  top: var(--space-2);
+  outline: 2px solid var(--jira-blue);
+  outline-offset: 2px;
+}
+
+/* The skip link / route-change focus target: no visible ring on the
+   programmatically-focused main region itself. */
+#main-content:focus {
+  outline: none;
+}
+
 /* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   .btn,
