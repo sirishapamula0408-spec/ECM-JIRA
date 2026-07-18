@@ -70,6 +70,7 @@ import listViewRoutes from './routes/listViews.js'
 import securityLevelRoutes from './routes/securityLevels.js'
 import pluginRoutes from './routes/plugins.js'
 import workspaceRoutes from './routes/workspaces.js'
+import workspaceSettingsRoutes from './routes/workspaceSettings.js'
 import scimRoutes from './routes/scim.js'
 import assetRoutes from './routes/assets.js'
 import sessionRoutes from './routes/sessions.js'
@@ -172,6 +173,7 @@ app.use('/api', gitWebhookRouter)
 const protect = [authGuard, loadUserRoles, resolveWorkspace]
 
 app.use('/api/workspaces', ...protect, workspaceRoutes)
+app.use('/api/workspace', ...protect, workspaceSettingsRoutes) // JL-211: workspace settings
 app.use('/api/sessions', ...protect, sessionRoutes) // JL-133: session/device management
 app.use('/api/issues', ...protect, issueRoutes)
 app.use('/api/sprints', ...protect, sprintRoutes)

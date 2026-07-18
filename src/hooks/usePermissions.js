@@ -42,7 +42,7 @@ export function usePermissions(projectId) {
       }
     }
 
-    const { workspaceRole, isOwner, projectRoles } = currentMember
+    const { workspaceRole, isOwner, projectRoles, projectCreationPolicy } = currentMember
     const wsRank = ROLE_RANK[workspaceRole] || 0
 
     // Find the project-level role if projectId is provided
@@ -83,7 +83,13 @@ export function usePermissions(projectId) {
       // Project permissions
       canManageProjectSettings: isProjectAdmin,
       canDeleteProject: isOwner || isAdmin,
-      canCreateProject: wsRank >= ROLE_RANK.Member,
+      // JL-211: configurable workspace policy. 'admins_only' restricts creation to
+      // workspace Admin/Owner; anything else (default 'all_members') keeps the
+      // legacy Member+ behaviour. Owner always allowed.
+      canCreateProject:
+        projectCreationPolicy === 'admins_only'
+          ? isAdmin
+          : wsRank >= ROLE_RANK.Member,
 
       // Member permissions
       canManageMembers: isAdmin,

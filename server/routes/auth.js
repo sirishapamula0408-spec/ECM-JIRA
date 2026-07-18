@@ -14,6 +14,7 @@ import {
   isSamlConfigured,
 } from '../config.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { getProjectCreationPolicy } from './workspaceSettings.js'
 import { isAllowedEmail, hashPassword, verifyPassword } from '../middleware/validate.js'
 import { authGuard } from '../middleware/authGuard.js'
 import { loadUserRoles } from '../middleware/authorize.js'
@@ -389,6 +390,10 @@ router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
       )
     : []
 
+  // JL-211: expose the workspace project-creation policy so the FE can gate the
+  // "Create project" action without an extra round-trip.
+  const projectCreationPolicy = await getProjectCreationPolicy()
+
   res.json({
     id,
     email,
@@ -397,6 +402,7 @@ router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
     isOwner,
     profile: profile || null,
     projectRoles,
+    projectCreationPolicy,
   })
 }))
 
