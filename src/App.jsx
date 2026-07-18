@@ -190,7 +190,15 @@ function AppContent() {
               <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
               <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/advanced-roadmap" element={hasProjects ? <AdvancedRoadmapPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/teams" element={<TeamsPage />} />
+              {/* Teams / member management is Admin/Owner-only (JL-227) */}
+              <Route
+                path="/teams"
+                element={(
+                  <RequireRole permission="canManageMembers" fallback={<Navigate to="/" replace />}>
+                    <TeamsPage />
+                  </RequireRole>
+                )}
+              />
               <Route
                 path="/users"
                 element={(

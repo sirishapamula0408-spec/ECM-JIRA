@@ -78,7 +78,9 @@ export function usePermissions(projectId) {
       // Issue permissions
       canCreateIssue: effectiveRank >= ROLE_RANK.Member,
       canEditIssue: effectiveRank >= ROLE_RANK.Member,
-      canDeleteIssue: isProjectAdmin,
+      // JL-228: project Members (and above) can delete issues/tasks/stories/epics
+      // — same tier as create/edit. Viewers stay blocked (rank < Member).
+      canDeleteIssue: effectiveRank >= ROLE_RANK.Member,
 
       // Sprint permissions
       canManageSprints: isProjectAdmin,

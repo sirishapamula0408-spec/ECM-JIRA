@@ -2,7 +2,7 @@ import { ISSUE_STATUSES } from '../../constants'
 import { DueDateBadge } from './DueDateBadge'
 import { ImpedimentFlagIndicator } from './ImpedimentFlag'
 
-export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked }) {
+export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
   const isBlocked = !!blocked?.isBlocked
   const blockers = blocked?.blockedBy || []
@@ -10,17 +10,19 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
   return (
     <div
       className={`backlog-issue-row${isSelected ? ' selected' : ''}${issue.flagged ? ' backlog-issue-flagged' : ''}`}
-      draggable
-      onDragStart={() => onDragStart(issue.id)}
-      onDragEnd={onDragEnd}
+      draggable={canEdit}
+      onDragStart={canEdit ? () => onDragStart(issue.id) : undefined}
+      onDragEnd={canEdit ? onDragEnd : undefined}
     >
-      <input
-        className="backlog-checkbox"
-        type="checkbox"
-        checked={isSelected}
-        onChange={() => onToggleSelect(issue.id)}
-        aria-label={`Select ${issue.key}`}
-      />
+      {canEdit && (
+        <input
+          className="backlog-checkbox"
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onToggleSelect(issue.id)}
+          aria-label={`Select ${issue.key}`}
+        />
+      )}
       <button className="backlog-issue-main backlog-issue-link" type="button" onClick={onOpen}>
         <small>{issue.key}</small>
         <strong>{issue.title}</strong>
@@ -42,28 +44,36 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
       <div className="backlog-issue-actions">
         <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
         <span className="backlog-row-minus">-</span>
-        <select
-          className="backlog-status-select"
-          value={issue.status}
-          onChange={(event) => onMove(issue.id, event.target.value)}
-          aria-label={`Status for ${issue.key}`}
-        >
-          {ISSUE_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {status.toUpperCase()}
-            </option>
-          ))}
-        </select>
-        <button
-          className="flag-btn"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onMove(issue.id, nextStatus)
-          }}
-        >
-          ⚑
-        </button>
+        {canEdit ? (
+          <select
+            className="backlog-status-select"
+            value={issue.status}
+            onChange={(event) => onMove(issue.id, event.target.value)}
+            aria-label={`Status for ${issue.key}`}
+          >
+            {ISSUE_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="backlog-status-readonly" aria-label={`Status for ${issue.key}`}>
+            {issue.status.toUpperCase()}
+          </span>
+        )}
+        {canEdit && (
+          <button
+            className="flag-btn"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onMove(issue.id, nextStatus)
+            }}
+          >
+            ⚑
+          </button>
+        )}
         <span className="member-avatar">{issue.assignee.slice(0, 2).toUpperCase()}</span>
       </div>
     </div>

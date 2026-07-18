@@ -45,6 +45,8 @@ describe('usePermissions — project Lead role (JL-210)', () => {
     const { result } = renderHook(() => usePermissions(1))
     expect(result.current.projectRole).toBe('Member')
     expect(result.current.canManageProjectSettings).toBe(false)
-    expect(result.current.canDeleteIssue).toBe(false)
+    expect(result.current.canManageSprints).toBe(false)
+    // JL-228: delete is no longer project-admin-gated — Members can delete
+    expect(result.current.canDeleteIssue).toBe(true)
   })
 })

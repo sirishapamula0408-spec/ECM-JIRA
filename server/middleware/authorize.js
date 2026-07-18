@@ -6,7 +6,7 @@ import { get } from '../db.js'
  * (ranked at/above Admin so a project Lead has full project-admin rights).
  * Higher numeric value = higher privilege.
  */
-const ROLE_RANK = {
+export const ROLE_RANK = {
   Viewer: 1,
   Member: 2,
   Admin: 3,
@@ -109,5 +109,129 @@ export function requireProjectRole(...allowedRoles) {
     if (userRank >= minRank) return next()
 
     res.status(403).json({ error: 'Insufficient project permissions' })
+  }
+}
+
+/**
+ * JL-224/225/226: reusable project-scoped access resolution.
+ *
+ * Target model: workspace Owner/Admin can access ALL projects; every other user
+ * (workspace Member/Viewer) may only access projects they explicitly belong to
+ * — an explicit `project_members` row (any project role) or being the project
+ * lead (`projects.lead_member_id`).
+ *
+ * Returns a descriptor:
+ *   - admin        : workspace Owner/Admin (bypasses all project checks)
+ *   - projectExists: whether the target project row exists (false also when no
+ *                    project id was resolvable — e.g. a project-less issue)
+ *   - hasAccess    : the (non-admin) caller has read access to the project
+ *   - projectRole  : the caller's project role ('Lead'|'Admin'|'Member'|'Viewer'|null)
+ *   - effectiveRank : max(workspace rank, project rank) — mirrors
+ *                     src/hooks/usePermissions.js so a workspace Viewer who holds
+ *                     a project Member/Admin role is treated by that higher role.
+ */
+export async function resolveProjectAccess(user, projectId) {
+  const wsRank = ROLE_RANK[user?.workspaceRole] || 0
+
+  if (user?.isOwner || user?.workspaceRole === 'Admin') {
+    return { admin: true, projectExists: true, hasAccess: true, projectRole: null, effectiveRank: ROLE_RANK.Admin }
+  }
+
+  if (projectId == null) {
+    return { admin: false, projectExists: false, hasAccess: false, projectRole: null, effectiveRank: wsRank }
+  }
+
+  const row = await get(
+    `SELECT p.id, p.lead_member_id, pm.role AS project_role
+       FROM projects p
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
+      WHERE p.id = ?`,
+    [user?.memberId ?? null, projectId],
+  )
+
+  if (!row) {
+    return { admin: false, projectExists: false, hasAccess: false, projectRole: null, effectiveRank: wsRank }
+  }
+
+  const isLead =
+    row.lead_member_id != null && Number(row.lead_member_id) === Number(user?.memberId)
+  const projectRole = row.project_role || (isLead ? 'Lead' : null)
+  const projRank = ROLE_RANK[projectRole] || 0
+
+  return {
+    admin: false,
+    projectExists: true,
+    hasAccess: Boolean(projectRole),
+    projectRole,
+    effectiveRank: Math.max(wsRank, projRank),
+  }
+}
+
+/**
+ * JL-225: convenience predicate — may this user READ the given project's data?
+ * True for workspace Owner/Admin, or any project member/lead.
+ */
+export async function canAccessProject(user, projectId) {
+  const access = await resolveProjectAccess(user, projectId)
+  return access.admin || access.hasAccess
+}
+
+/**
+ * JL-225: read-gating middleware factory.
+ *
+ * `resolveId(req)` returns (or resolves to) the target project id — for issue
+ * routes this is the issue's `project_id` (loaded from the DB); for project
+ * routes it is the path param. Workspace Owner/Admin bypass. A project that does
+ * not exist (or a project-less target) is allowed through so the handler can
+ * return its own 404 / legacy public response. Everyone else must have access.
+ */
+export function requireProjectRead(resolveId) {
+  return async (req, res, next) => {
+    try {
+      // Fast path: workspace Admin/Owner bypass without any project lookup, so
+      // Admin-stubbed route tests keep their exact db-call sequence.
+      if (req.user?.isOwner || req.user?.workspaceRole === 'Admin') return next()
+
+      const projectId = await resolveId(req)
+      const access = await resolveProjectAccess(req.user, projectId)
+      if (!access.projectExists || access.hasAccess) return next()
+
+      res.status(403).json({ error: 'You do not have access to this project' })
+    } catch (err) {
+      next(err)
+    }
+  }
+}
+
+/**
+ * JL-226: write-gating middleware factory.
+ *
+ * Requires the caller to have PROJECT access (a project_members row / lead) AND
+ * an effective role of at least Member — mirroring usePermissions. Workspace
+ * Owner/Admin bypass. When no project is resolvable (project-less issue or a
+ * create without a projectId) the legacy workspace-role gate (Member+) applies,
+ * preserving backward-compatible behavior for project-less data.
+ */
+export function requireProjectWrite(resolveId) {
+  return async (req, res, next) => {
+    try {
+      // Fast path: workspace Admin/Owner bypass without any project lookup.
+      if (req.user?.isOwner || req.user?.workspaceRole === 'Admin') return next()
+
+      const projectId = await resolveId(req)
+      const access = await resolveProjectAccess(req.user, projectId)
+
+      if (!access.projectExists) {
+        // No resolvable project — fall back to the legacy workspace-role gate.
+        if (access.effectiveRank >= ROLE_RANK.Member) return next()
+        return res.status(403).json({ error: 'Insufficient permissions' })
+      }
+
+      if (access.hasAccess && access.effectiveRank >= ROLE_RANK.Member) return next()
+
+      res.status(403).json({ error: 'Insufficient project permissions' })
+    } catch (err) {
+      next(err)
+    }
   }
 }

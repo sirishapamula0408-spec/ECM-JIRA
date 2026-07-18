@@ -13,6 +13,7 @@ import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { usePermissions } from '../../hooks/usePermissions'
 
 export function BacklogPage() {
   usePageTitle('Backlog')
@@ -43,6 +44,10 @@ export function BacklogPage() {
 
   // Import/Export is project-scoped: use the route project, else the project of the visible issues
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
+
+  // JL-230: Viewers get a read-only backlog — gate every mutating affordance.
+  const { canCreateIssue, canEditIssue, canDeleteIssue, canManageSprints } = usePermissions(exportProjectId ?? undefined)
+  const canBulkEdit = canEditIssue || canDeleteIssue
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
   // "My open issues" quick filter: only issues assigned to the current user that are not Done
@@ -117,6 +122,7 @@ export function BacklogPage() {
 
   async function handlePanelDrop(event, panelId, targetSprintId) {
     event.preventDefault()
+    if (!canEditIssue) { setDropPanelId(''); setDragIssueId(null); return }
     const issueId = Number(dragIssueId)
     if (!issueId) { setDropPanelId(''); return }
 
@@ -309,6 +315,7 @@ export function BacklogPage() {
           />
         </div>
         <div className="backlog-toolbar-right">
+          {canBulkEdit && (
           <div className="backlog-bulk">
             <span className="bulk-count">{selectedCount} selected</span>
             <select className="bulk-status-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={selectedCount === 0} aria-label="Bulk action">
@@ -318,7 +325,7 @@ export function BacklogPage() {
               <option value="sprint">Sprint</option>
               <option value="watch">Watch</option>
               <option value="unwatch">Unwatch</option>
-              <option value="delete">Delete</option>
+              {canDeleteIssue && <option value="delete">Delete</option>}
             </select>
             {bulkAction === 'status' && (
               <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Status value">
@@ -344,9 +351,12 @@ export function BacklogPage() {
             <button className="btn btn-ghost" type="button" onClick={applyBulkAction} disabled={selectedCount === 0}>Apply</button>
             <button className="btn btn-ghost" type="button" onClick={() => setShowBulkWizard(true)} disabled={selectedCount === 0}>Advanced bulk change</button>
           </div>
-          <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
-            Import / Export
-          </button>
+          )}
+          {canCreateIssue && (
+            <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
+              Import / Export
+            </button>
+          )}
           <button className="icon-btn" type="button" aria-label="Views">chart</button>
           <button className="icon-btn" type="button" aria-label="Display settings">settings</button>
           <button className="icon-btn" type="button" aria-label="More">...</button>
@@ -402,7 +412,9 @@ export function BacklogPage() {
                 onDrop={(event) => handlePanelDrop(event, sprintPanel.id, sprintPanel.id)}
               >
                 <div className="jira-sprint-left">
-                  <input className="backlog-checkbox" type="checkbox" checked={sprintPanel.issueIds.length > 0 && sprintPanel.issueIds.every((id) => selectedIssueIds.includes(id))} onChange={(event) => toggleSectionSelection(sprintPanel.issueIds, event.target.checked)} aria-label={`Select all ${sprintPanel.name} issues`} />
+                  {canBulkEdit && (
+                    <input className="backlog-checkbox" type="checkbox" checked={sprintPanel.issueIds.length > 0 && sprintPanel.issueIds.every((id) => selectedIssueIds.includes(id))} onChange={(event) => toggleSectionSelection(sprintPanel.issueIds, event.target.checked)} aria-label={`Select all ${sprintPanel.name} issues`} />
+                  )}
                   <button className={`sprint-toggle${isExpanded ? ' expanded' : ''}`} type="button" aria-label={isExpanded ? `Collapse ${sprintPanel.name}` : `Expand ${sprintPanel.name}`} onClick={() => setPanelExpanded(sprintPanel.id, !isExpanded)}>
                     <span className="sprint-caret" aria-hidden="true" />
                   </button>
@@ -415,9 +427,12 @@ export function BacklogPage() {
                   <span className="metric-pill">0</span>
                   <span className="metric-pill metric-pill-blue">0</span>
                   <span className="metric-pill metric-pill-green">0</span>
+                  {canManageSprints && (
                   <button className="btn btn-ghost sprint-action-btn" type="button" onClick={() => handleStartSprintAction(sprintPanel.id)} disabled={isStarted || sprintPanel.issues.length === 0}>
                     {isStarted ? 'Sprint started' : 'Start sprint'}
                   </button>
+                  )}
+                  {canManageSprints && (
                   <div className="sprint-menu-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpenSprintMenuId(null) }}>
                     <button className="icon-btn sprint-menu-trigger" type="button" aria-label="Sprint actions" onClick={() => setOpenSprintMenuId((current) => (current === sprintPanel.id ? null : sprintPanel.id))}>...</button>
                     {openSprintMenuId === sprintPanel.id && (
@@ -429,6 +444,7 @@ export function BacklogPage() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -440,9 +456,9 @@ export function BacklogPage() {
                 {isExpanded && (
                   <>
                     {sprintPanel.issues.map((issue) => (
-                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
                     ))}
-                    {quickCreateBySprint[sprintPanel.id] && (
+                    {canCreateIssue && quickCreateBySprint[sprintPanel.id] && (
                       <div className="quick-create-row">
                         <input className="quick-create-input" placeholder="What needs to be done?" value={quickCreateTitleBySprint[sprintPanel.id] || ''} onChange={(event) => setQuickCreateTitleBySprint((c) => ({ ...c, [sprintPanel.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submitQuickCreate(sprintPanel.id) } else if (event.key === 'Escape') { event.preventDefault(); closeQuickCreate(sprintPanel.id) } }} />
                         <button className="btn btn-primary quick-create-btn" type="button" onClick={() => submitQuickCreate(sprintPanel.id)} disabled={Boolean(quickCreateBusyBySprint[sprintPanel.id])}>Create</button>
@@ -450,11 +466,13 @@ export function BacklogPage() {
                         {quickCreateErrorBySprint[sprintPanel.id] && <p className="quick-create-error">{quickCreateErrorBySprint[sprintPanel.id]}</p>}
                       </div>
                     )}
-                    <div className="sprint-inline-create-wrap">
-                      <button className="sprint-inline-create" type="button" onClick={() => openQuickCreate(sprintPanel.id)}>
-                        <span className="plus-create-content"><span className="plus-create-symbol">+</span><span>Create</span></span>
-                      </button>
-                    </div>
+                    {canCreateIssue && (
+                      <div className="sprint-inline-create-wrap">
+                        <button className="sprint-inline-create" type="button" onClick={() => openQuickCreate(sprintPanel.id)}>
+                          <span className="plus-create-content"><span className="plus-create-symbol">+</span><span>Create</span></span>
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -464,7 +482,9 @@ export function BacklogPage() {
 
         <div className={`jira-backlog-row${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           <div className="jira-sprint-left">
-            <input className="backlog-checkbox" type="checkbox" checked={backlogIds.length > 0 && backlogIds.every((id) => selectedIssueIds.includes(id))} onChange={(event) => toggleSectionSelection(backlogIds, event.target.checked)} aria-label="Select all backlog issues" />
+            {canBulkEdit && (
+              <input className="backlog-checkbox" type="checkbox" checked={backlogIds.length > 0 && backlogIds.every((id) => selectedIssueIds.includes(id))} onChange={(event) => toggleSectionSelection(backlogIds, event.target.checked)} aria-label="Select all backlog issues" />
+            )}
             <button className={`sprint-toggle${expandedPanels.backlog ? ' expanded' : ''}`} type="button" aria-label={expandedPanels.backlog ? 'Collapse backlog' : 'Expand backlog'} onClick={() => setPanelExpanded('backlog', !expandedPanels.backlog)}>
               <span className="sprint-caret" aria-hidden="true" />
             </button>
@@ -474,13 +494,15 @@ export function BacklogPage() {
             <span className="metric-pill">0</span>
             <span className="metric-pill metric-pill-blue">0</span>
             <span className="metric-pill metric-pill-green">0</span>
-            <button className="btn btn-ghost sprint-action-btn" type="button" onClick={createSprintFromSelection}>Create sprint</button>
+            {canManageSprints && (
+              <button className="btn btn-ghost sprint-action-btn" type="button" onClick={createSprintFromSelection}>Create sprint</button>
+            )}
           </div>
         </div>
 
         <div className={`sprint-issues${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           {expandedPanels.backlog && backlogItems.map((issue) => (
-            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
           ))}
         </div>
       </article>

@@ -296,7 +296,7 @@ router.get('/:id/retros', asyncHandler(async (req, res) => {
   res.json(rows.map(mapRetro))
 }))
 
-router.post('/:id/retros', asyncHandler(async (req, res) => {
+router.post('/:id/retros', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
@@ -334,7 +334,7 @@ router.post('/:id/retros', asyncHandler(async (req, res) => {
   res.status(201).json(mapRetro(row))
 }))
 
-router.delete('/:sprintId/retros/:retroId', asyncHandler(async (req, res) => {
+router.delete('/:sprintId/retros/:retroId', requireRole('Member'), asyncHandler(async (req, res) => {
   const sprintId = Number(req.params.sprintId)
   const retroId = Number(req.params.retroId)
   if (!Number.isInteger(sprintId) || !Number.isInteger(retroId)) {
