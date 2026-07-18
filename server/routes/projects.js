@@ -6,6 +6,40 @@ import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/vali
 
 const router = Router()
 
+/**
+ * JL-213: appends an audit entry for project-access changes, reusing the
+ * user_audit_log store from JL-197 (see server/routes/members.js). The
+ * project id is encoded in the before/after value string
+ * (`project:<id> / <role>`) so no schema change is needed. Non-fatal —
+ * an audit failure never breaks the underlying access action.
+ */
+async function recordProjectAudit({
+  actor,
+  targetMemberId = null,
+  targetEmail = null,
+  action,
+  before = null,
+  after = null,
+}) {
+  try {
+    await run(
+      `INSERT INTO user_audit_log
+        (actor, target_member_id, target_email, action, before_value, after_value, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        actor || 'System',
+        targetMemberId,
+        targetEmail,
+        action,
+        before == null ? null : String(before),
+        after == null ? null : String(after),
+      ],
+    )
+  } catch (err) {
+    console.error('[Projects] Failed to record audit entry:', err.message)
+  }
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const userEmail = req.user?.email
   if (!userEmail) {
@@ -215,16 +249,44 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
      WHERE pm.project_id = ? AND pm.member_id = ?`,
     [projectId, mid],
   )
+
+  await recordProjectAudit({
+    actor: req.user?.email,
+    targetMemberId: mid,
+    targetEmail: row?.email ?? null,
+    action: 'project_member_added',
+    after: `project:${projectId} / ${validRole}`,
+  })
+
   res.status(201).json(row)
 }))
 
 router.delete('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const memberId = Number(req.params.memberId)
+
+  // Capture the current assignment (role + email) for the audit trail before deleting.
+  const existing = await get(
+    `SELECT pm.role, m.email
+     FROM project_members pm
+     JOIN members m ON m.id = pm.member_id
+     WHERE pm.project_id = ? AND pm.member_id = ?`,
+    [projectId, memberId],
+  )
+
   await run(
     'DELETE FROM project_members WHERE project_id = ? AND member_id = ?',
     [projectId, memberId],
   )
+
+  await recordProjectAudit({
+    actor: req.user?.email,
+    targetMemberId: memberId,
+    targetEmail: existing?.email ?? null,
+    action: 'project_member_removed',
+    before: existing ? `project:${projectId} / ${existing.role}` : `project:${projectId}`,
+  })
+
   res.json({ ok: true })
 }))
 
