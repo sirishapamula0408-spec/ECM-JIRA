@@ -21,5 +21,6 @@ export function TopNavIcon({ name }) {
   if (name === 'reports') return <svg {...common}><path d="M3 12.5h10" /><path d="M4.5 10V7.5" /><path d="M8 10V5.5" /><path d="M11.5 10V6.5" /></svg>
   if (name === 'list') return <svg {...common}><path d="M5.5 4h7M5.5 8h7M5.5 12h7" /><circle cx="3.5" cy="4" r=".6" fill="currentColor" stroke="none" /><circle cx="3.5" cy="8" r=".6" fill="currentColor" stroke="none" /><circle cx="3.5" cy="12" r=".6" fill="currentColor" stroke="none" /></svg>
   if (name === 'filter') return <svg {...common}><path d="M3 4h10M5 8h6M7 12h2" /></svg>
+  if (name === 'settings') return <svg {...common}><circle cx="8" cy="8" r="2" /><path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" /></svg>
   return <svg {...common}><circle cx="8" cy="8" r="5" /></svg>
 }

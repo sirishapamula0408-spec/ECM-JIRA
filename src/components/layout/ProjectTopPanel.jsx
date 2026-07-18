@@ -12,6 +12,7 @@ const VIEW_LABELS = {
   'active-sprint': 'Active sprints',
   list: 'List',
   wiki: 'Wiki',
+  settings: 'Settings',
 }
 
 export function ProjectTopPanel({ hasProjects }) {
@@ -47,7 +48,13 @@ export function ProjectTopPanel({ hasProjects }) {
     { id: 'active-sprints', label: 'Active sprints', path: `${prefix}/active-sprint`, icon: 'active-sprints' },
     { id: 'reports', label: 'Reports', path: `${prefix}/reports`, icon: 'reports' },
     { id: 'list', label: 'List', path: projectId ? `${prefix}/list` : '/workflows', icon: 'list' },
-    ...(projectId ? [{ id: 'wiki', label: 'Wiki', path: `${prefix}/wiki`, icon: 'list' }] : []),
+    // JL-222: project-scoped tabs (only shown when inside a project)
+    ...(projectId
+      ? [
+          { id: 'wiki', label: 'Wiki', path: `${prefix}/wiki`, icon: 'list' },
+          { id: 'settings', label: 'Settings', path: `${prefix}/settings`, icon: 'settings' },
+        ]
+      : []),
   ]
 
   const isPathActive = (path, id) => {
