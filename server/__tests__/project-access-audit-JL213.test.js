@@ -102,6 +102,9 @@ describe('JL-213 — audit on DELETE /api/projects/:id/members/:memberId (remove
     run.mockResolvedValue({ changes: 1 })
     // Route get(): existing assignment lookup before delete
     get.mockResolvedValueOnce({ role: 'Admin', email: 'bob@test.com' })
+    // JL-212 integration: the DELETE handler now runs a last-admin guard that
+    // calls countProjectAdmins(); return >1 so removing this admin is allowed.
+    get.mockResolvedValueOnce({ count: 3 })
 
     const res = await request(app).delete('/api/projects/7/members/5')
     expect(res.status).toBe(200)
