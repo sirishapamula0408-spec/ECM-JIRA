@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchProjectById, updateProject, fetchProjectMembers, addProjectMember, removeProjectMember, updateProjectMemberRole } from '../../api/projectApi'
+import { fetchProjectById, updateProject, archiveProject, unarchiveProject, fetchProjectMembers, addProjectMember, removeProjectMember, updateProjectMemberRole } from '../../api/projectApi'
 import {
   fetchProjectPriorities, createPriority, deletePriority,
   fetchProjectStatuses, createStatus, deleteStatus,
@@ -226,6 +226,34 @@ export function ProjectSettingsPage() {
   function handleDiscard() {
     setForm({ name: project.name, key: project.key, type: project.type, lead: project.lead })
     setBanner({ type: '', message: '' })
+  }
+
+  // JL-219: archive is a reversible, non-destructive alternative to deletion.
+  const isArchived = Boolean(project.archived_at)
+
+  async function handleToggleArchive() {
+    const confirmed = isArchived
+      ? true
+      : window.confirm(
+          `Archive "${project.name}"? It will be hidden from the active projects list and pickers, but its issues and URLs stay accessible. You can restore it from here anytime.`,
+        )
+    if (!confirmed) return
+    setSaving(true)
+    setBanner({ type: '', message: '' })
+    try {
+      const updated = isArchived
+        ? await unarchiveProject(projectId)
+        : await archiveProject(projectId)
+      setProject(updated)
+      setBanner({
+        type: 'success',
+        message: updated.archived_at ? 'Project archived.' : 'Project restored.',
+      })
+    } catch (err) {
+      setBanner({ type: 'error', message: err.message || 'Failed to update archive state.' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const assignedIds = new Set(projectMembers.map((pm) => pm.id))
@@ -729,6 +757,23 @@ export function ProjectSettingsPage() {
                   Discard
                 </button>
               </div>
+            </article>
+
+            <article className="panel ps-archive-panel">
+              <h3>{isArchived ? 'Restore project' : 'Archive project'}</h3>
+              <p className="muted">
+                {isArchived
+                  ? 'This project is archived — it is hidden from the active projects list and pickers. Restore it to make it active again everywhere. Its issues and URLs have stayed accessible.'
+                  : 'Archiving hides this project from the active projects list and pickers without deleting anything. Its issues and URLs remain accessible, and you can restore it anytime.'}
+              </p>
+              <button
+                className={`btn ${isArchived ? 'btn-primary' : 'btn-ghost'}`}
+                type="button"
+                onClick={handleToggleArchive}
+                disabled={saving}
+              >
+                {isArchived ? 'Restore project' : 'Archive project'}
+              </button>
             </article>
           </>
         )}

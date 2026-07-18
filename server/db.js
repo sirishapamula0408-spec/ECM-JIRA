@@ -1280,6 +1280,12 @@ export async function initializeDatabase() {
     await pool.query('ALTER TABLE projects ADD COLUMN allow_parallel_sprints BOOLEAN NOT NULL DEFAULT FALSE')
   }
 
+  // --- JL-219: Project archive / unarchive ---
+  // Non-destructive alternative to DELETE. NULL = active; a timestamp = archived.
+  // Archived projects are excluded from the default project listing (opt back in
+  // with ?includeArchived=true) but their issues/URLs remain accessible.
+  await pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP')
+
   // Seed the DEFAULT permission scheme (mirrors the fixed role→capability map in
   // middleware/authorize.js + hooks/usePermissions.js). Grants store the MINIMUM
   // role that holds each capability; higher roles inherit via rank in the resolver.
