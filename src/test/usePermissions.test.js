@@ -130,6 +130,62 @@ describe('usePermissions', () => {
     })
   })
 
+  describe('JL-211 — configurable canCreateProject policy', () => {
+    it("Member cannot create under 'admins_only'", () => {
+      setupMock({
+        workspaceRole: 'Member',
+        isOwner: false,
+        projectRoles: [],
+        projectCreationPolicy: 'admins_only',
+      })
+      const { result } = renderHook(() => usePermissions())
+      expect(result.current.canCreateProject).toBe(false)
+    })
+
+    it("Member can create under 'all_members'", () => {
+      setupMock({
+        workspaceRole: 'Member',
+        isOwner: false,
+        projectRoles: [],
+        projectCreationPolicy: 'all_members',
+      })
+      const { result } = renderHook(() => usePermissions())
+      expect(result.current.canCreateProject).toBe(true)
+    })
+
+    it("Admin can create under 'admins_only'", () => {
+      setupMock({
+        workspaceRole: 'Admin',
+        isOwner: false,
+        projectRoles: [],
+        projectCreationPolicy: 'admins_only',
+      })
+      const { result } = renderHook(() => usePermissions())
+      expect(result.current.canCreateProject).toBe(true)
+    })
+
+    it("Owner can always create even under 'admins_only'", () => {
+      setupMock({
+        workspaceRole: 'Member',
+        isOwner: true,
+        projectRoles: [],
+        projectCreationPolicy: 'admins_only',
+      })
+      const { result } = renderHook(() => usePermissions())
+      expect(result.current.canCreateProject).toBe(true)
+    })
+
+    it('defaults to Member+ when policy is absent (legacy behaviour)', () => {
+      setupMock({
+        workspaceRole: 'Member',
+        isOwner: false,
+        projectRoles: [],
+      })
+      const { result } = renderHook(() => usePermissions())
+      expect(result.current.canCreateProject).toBe(true)
+    })
+  })
+
   describe('Project context', () => {
     it('should return null projectRole when no projectId given', () => {
       setupMock({

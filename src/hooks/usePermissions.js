@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
 import { useMembers } from '../context/MemberContext'
 
+// Project "Lead" is the highest project tier (>= Admin), so a project Lead
+// gets full project-admin capabilities. Workspace roles top out at Admin.
 const ROLE_RANK = {
   Viewer: 1,
   Member: 2,
   Admin: 3,
+  Lead: 4,
 }
 
 /**
@@ -42,7 +45,7 @@ export function usePermissions(projectId) {
       }
     }
 
-    const { workspaceRole, isOwner, projectRoles } = currentMember
+    const { workspaceRole, isOwner, projectRoles, projectCreationPolicy } = currentMember
     const wsRank = ROLE_RANK[workspaceRole] || 0
 
     // Find the project-level role if projectId is provided
@@ -83,7 +86,13 @@ export function usePermissions(projectId) {
       // Project permissions
       canManageProjectSettings: isProjectAdmin,
       canDeleteProject: isOwner || isAdmin,
-      canCreateProject: wsRank >= ROLE_RANK.Member,
+      // JL-211: configurable workspace policy. 'admins_only' restricts creation to
+      // workspace Admin/Owner; anything else (default 'all_members') keeps the
+      // legacy Member+ behaviour. Owner always allowed.
+      canCreateProject:
+        projectCreationPolicy === 'admins_only'
+          ? isAdmin
+          : wsRank >= ROLE_RANK.Member,
 
       // Member permissions
       canManageMembers: isAdmin,

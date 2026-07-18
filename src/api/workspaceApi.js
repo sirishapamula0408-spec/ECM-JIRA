@@ -34,3 +34,15 @@ export const createWorkspace = (name) =>
 
 export const addWorkspaceMember = (id, email, role = 'Member') =>
   api(`/api/workspaces/${id}/members`, { method: 'POST', body: JSON.stringify({ email, role }) })
+
+// JL-211: configurable workspace settings (project creation policy, etc.)
+
+/** Read workspace-wide settings (any signed-in user). */
+export const fetchWorkspaceSettings = () => api('/api/workspace/settings')
+
+/** Update the project creation policy (Admin/Owner only). */
+export const updateProjectCreationPolicy = (policy) =>
+  api('/api/workspace/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ project_creation_policy: policy }),
+  })

@@ -19,6 +19,10 @@ vi.mock('../db.js', () => ({
   columnExists: vi.fn(),
   tableExists: vi.fn(),
   withTransaction: vi.fn(),
+  // JL-211: projects create now consults the workspace project-creation policy
+  // via getSetting(); undefined → the 'all_members' default (Admin stub passes).
+  getSetting: vi.fn(),
+  setSetting: vi.fn(),
 }))
 
 // Mock notifications helper (imported transitively by automation.js / issues.js)

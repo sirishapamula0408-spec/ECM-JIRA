@@ -1,10 +1,69 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole, loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
+import { loadProjectRole, requireProjectRole } from '../middleware/authorize.js'
 import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/validation.js'
+import { getProjectCreationPolicy } from './workspaceSettings.js'
 
 const router = Router()
+
+/**
+ * JL-213: appends an audit entry for project-access changes, reusing the
+ * user_audit_log store from JL-197 (see server/routes/members.js). The
+ * project id is encoded in the before/after value string
+ * (`project:<id> / <role>`) so no schema change is needed. Non-fatal —
+ * an audit failure never breaks the underlying access action.
+ */
+async function recordProjectAudit({
+  actor,
+  targetMemberId = null,
+  targetEmail = null,
+  action,
+  before = null,
+  after = null,
+}) {
+  try {
+    await run(
+      `INSERT INTO user_audit_log
+        (actor, target_member_id, target_email, action, before_value, after_value, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        actor || 'System',
+        targetMemberId,
+        targetEmail,
+        action,
+        before == null ? null : String(before),
+        after == null ? null : String(after),
+      ],
+    )
+  } catch (err) {
+    console.error('[Projects] Failed to record audit entry:', err.message)
+  }
+}
+
+const ROLE_RANK = { Viewer: 1, Member: 2, Admin: 3 }
+
+/**
+ * JL-211: Enforce the configurable workspace `project_creation_policy`.
+ *   - Owner always allowed.
+ *   - 'admins_only'  → workspace Admin/Owner only (Member/Viewer → 403).
+ *   - 'all_members'  → workspace Member+ (preserves the legacy requireRole('Member')).
+ */
+async function enforceProjectCreationPolicy(req, res, next) {
+  try {
+    if (req.user?.isOwner) return next()
+
+    const policy = await getProjectCreationPolicy()
+    const minRank = policy === 'admins_only' ? ROLE_RANK.Admin : ROLE_RANK.Member
+    const userRank = ROLE_RANK[req.user?.workspaceRole] || 0
+
+    if (userRank >= minRank) return next()
+
+    res.status(403).json({ error: 'Insufficient permissions to create projects' })
+  } catch (err) {
+    next(err)
+  }
+}
 
 router.get('/', asyncHandler(async (req, res) => {
   const userEmail = req.user?.email
@@ -57,7 +116,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => {
   const { name, key, type, lead } = req.body
   const trimmedName = String(name || '').trim()
   const trimmedKey = String(key || '').trim()
@@ -91,11 +150,11 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   )
   const projectId = result.lastID
 
-  // Auto-add the logged-in user as an Admin member of the new project
+  // Auto-add the logged-in user as the Lead (top project role) of the new project
   if (member) {
     await run(
       'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?) ON CONFLICT (project_id, member_id) DO NOTHING',
-      [projectId, member.id, 'Admin'],
+      [projectId, member.id, 'Lead'],
     )
   }
 
@@ -176,6 +235,23 @@ router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler
 
 // ── Project Members ──
 
+// Project roles allowed on a project membership. Lead/Admin form the "admin tier"
+// that holds administrative control over the project.
+const PROJECT_ROLES = ['Lead', 'Admin', 'Member', 'Viewer']
+const ADMIN_TIER_ROLES = ['Lead', 'Admin']
+const isAdminTier = (role) => ADMIN_TIER_ROLES.includes(role)
+
+// Count the members that currently hold an admin-tier role (Admin or Lead) on a
+// project. Used to block orphaning a project of its last administrator.
+async function countProjectAdmins(projectId) {
+  const row = await get(
+    `SELECT COUNT(*) AS count FROM project_members
+     WHERE project_id = ? AND role IN ('Admin', 'Lead')`,
+    [projectId],
+  )
+  return Number(row?.count || 0)
+}
+
 router.get('/:id/members', asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const rows = await all(
@@ -200,7 +276,7 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
     return
   }
 
-  const validRole = ['Admin', 'Member', 'Viewer'].includes(role) ? role : 'Member'
+  const validRole = ['Lead', 'Admin', 'Member', 'Viewer'].includes(role) ? role : 'Member'
 
   await run(
     'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
@@ -215,16 +291,97 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
      WHERE pm.project_id = ? AND pm.member_id = ?`,
     [projectId, mid],
   )
+
+  await recordProjectAudit({
+    actor: req.user?.email,
+    targetMemberId: mid,
+    targetEmail: row?.email ?? null,
+    action: 'project_member_added',
+    after: `project:${projectId} / ${validRole}`,
+  })
+
   res.status(201).json(row)
+}))
+
+router.patch('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const projectId = Number(req.params.id)
+  const memberId = Number(req.params.memberId)
+  const { role } = req.body
+
+  if (!PROJECT_ROLES.includes(role)) {
+    res.status(400).json({ error: `role must be one of: ${PROJECT_ROLES.join(', ')}` })
+    return
+  }
+
+  const existing = await get(
+    'SELECT role FROM project_members WHERE project_id = ? AND member_id = ?',
+    [projectId, memberId],
+  )
+  if (!existing) {
+    res.status(404).json({ error: 'Project member not found' })
+    return
+  }
+
+  // Guard: block demoting the last admin-tier member out of the admin tier.
+  if (isAdminTier(existing.role) && !isAdminTier(role)) {
+    const admins = await countProjectAdmins(projectId)
+    if (admins <= 1) {
+      res.status(409).json({ error: 'Cannot demote the last remaining project admin' })
+      return
+    }
+  }
+
+  await run(
+    'UPDATE project_members SET role = ? WHERE project_id = ? AND member_id = ?',
+    [role, projectId, memberId],
+  )
+
+  const row = await get(
+    `SELECT pm.id AS pm_id, pm.role AS project_role, pm.assigned_at,
+            m.id, m.name, m.email, m.role AS global_role, m.status
+     FROM project_members pm
+     JOIN members m ON m.id = pm.member_id
+     WHERE pm.project_id = ? AND pm.member_id = ?`,
+    [projectId, memberId],
+  )
+  res.json(row)
 }))
 
 router.delete('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const memberId = Number(req.params.memberId)
+
+  // Capture the current assignment (role + email) for the audit trail before deleting.
+  const existing = await get(
+    `SELECT pm.role, m.email
+     FROM project_members pm
+     JOIN members m ON m.id = pm.member_id
+     WHERE pm.project_id = ? AND pm.member_id = ?`,
+    [projectId, memberId],
+  )
+
+  // Guard: block removing the last admin-tier member, orphaning admin control.
+  if (existing && isAdminTier(existing.role)) {
+    const admins = await countProjectAdmins(projectId)
+    if (admins <= 1) {
+      res.status(409).json({ error: 'Cannot remove the last remaining project admin' })
+      return
+    }
+  }
+
   await run(
     'DELETE FROM project_members WHERE project_id = ? AND member_id = ?',
     [projectId, memberId],
   )
+
+  await recordProjectAudit({
+    actor: req.user?.email,
+    targetMemberId: memberId,
+    targetEmail: existing?.email ?? null,
+    action: 'project_member_removed',
+    before: existing ? `project:${projectId} / ${existing.role}` : `project:${projectId}`,
+  })
+
   res.json({ ok: true })
 }))
 
