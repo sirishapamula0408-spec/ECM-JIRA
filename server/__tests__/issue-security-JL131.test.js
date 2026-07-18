@@ -239,6 +239,7 @@ describe('JL-131 — GET /api/issues/:id enforcement', () => {
   }
 
   it('returns the issue when it has no security level (backward compatible)', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: read guard project resolve
     get.mockResolvedValueOnce(issueRow())
     all.mockResolvedValue([]) // versions best-effort
     const app = createApp(mod, viewerUser, '/api/issues')
@@ -248,6 +249,7 @@ describe('JL-131 — GET /api/issues/:id enforcement', () => {
   })
 
   it('returns 403 for a non-viewer on a restricted issue', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: read guard project resolve
     get.mockResolvedValueOnce(issueRow({ security_level_id: 5 }))
     const app = createApp(mod, viewerUser, '/api/issues') // viewer, not assignee/reporter
     const res = await request(app).get('/api/issues/1')
@@ -255,6 +257,7 @@ describe('JL-131 — GET /api/issues/:id enforcement', () => {
   })
 
   it('returns the restricted issue for its assignee', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: read guard project resolve
     get.mockResolvedValueOnce(issueRow({ security_level_id: 5 }))
     all.mockResolvedValue([])
     const app = createApp(mod, { email: 'alice@test.com', workspaceRole: 'Member', isOwner: false }, '/api/issues')
@@ -312,6 +315,9 @@ describe('JL-131 — GET /api/issues list filtering', () => {
   }
 
   it('excludes restricted issues the caller cannot view; keeps public ones', async () => {
+    // JL-225: non-admin list scoping first resolves the caller's accessible
+    // projects; stub a membership so the security-level filtering is exercised.
+    all.mockResolvedValueOnce([{ id: 1 }])
     all.mockResolvedValueOnce([
       listRow(1), // public → visible
       listRow(2, { security_level_id: 9, assignee: 'someone@else.com', reporter: 'x@else.com' }), // hidden
@@ -327,6 +333,7 @@ describe('JL-131 — GET /api/issues list filtering', () => {
   })
 
   it('returns all issues unchanged when none are secured (backward compatible)', async () => {
+    all.mockResolvedValueOnce([{ id: 1 }]) // JL-225: accessible-projects scoping
     all.mockResolvedValueOnce([listRow(1), listRow(2), listRow(3)])
     const app = createApp(mod, viewerUser, '/api/issues')
     const res = await request(app).get('/api/issues')

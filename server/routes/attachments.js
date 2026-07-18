@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireProjectWrite } from '../middleware/authorize.js'
 import { getStorage } from '../services/storage.js'
 import { generateThumbnail } from '../services/thumbnails.js'
 import { scanBuffer } from '../services/virusScan.js'
@@ -94,6 +94,21 @@ async function canAccessIssueAttachments(issueId, user) {
   return canViewIssue(issue || {}, user)
 }
 
+// JL-226: project-access resolvers for the write guard. Upload acts on an
+// issue's project; DELETE is keyed by attachment id, so hop attachment → issue.
+const attachmentIssueProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
+const attachmentIdProject = async (req) => {
+  const att = await get('SELECT issue_id FROM attachments WHERE id = ?', [Number(req.params.id)])
+  if (!att) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [att.issue_id])
+  return row?.project_id ?? null
+}
+
 function mapAttachment(row) {
   return {
     id: row.id,
@@ -124,7 +139,7 @@ router.get('/issues/:issueId/attachments', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/attachments — upload { filename, mime, dataBase64 }
-router.post('/issues/:issueId/attachments', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/issues/:issueId/attachments', requireProjectWrite(attachmentIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const issue = await get('SELECT id FROM issues WHERE id = ?', [issueId])
   if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
@@ -220,7 +235,7 @@ router.get('/attachments/:id/thumbnail', asyncHandler(async (req, res) => {
 }))
 
 // DELETE /api/attachments/:id — remove row + object + thumbnail
-router.delete('/attachments/:id', requireRole('Member'), asyncHandler(async (req, res) => {
+router.delete('/attachments/:id', requireProjectWrite(attachmentIdProject), asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM attachments WHERE id = ?', [Number(req.params.id)])
   if (!row) { res.status(404).json({ error: 'Attachment not found' }); return }
   await run('DELETE FROM attachments WHERE id = ?', [row.id])

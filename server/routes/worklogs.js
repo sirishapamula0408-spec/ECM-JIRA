@@ -1,10 +1,25 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireProjectWrite } from '../middleware/authorize.js'
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
+
+// JL-226: project-access resolvers for the write guard. Worklog mutations act on
+// an issue's project; DELETE is keyed by worklog id, so hop worklog → issue.
+const worklogIssueProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
+const worklogIdProject = async (req) => {
+  const worklog = await get('SELECT issue_id FROM worklogs WHERE id = ?', [Number(req.params.id)])
+  if (!worklog) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [worklog.issue_id])
+  return row?.project_id ?? null
+}
 
 const MIN_PER = { d: 480, h: 60, m: 1 } // 1d = 8h working day
 
@@ -65,7 +80,7 @@ router.get('/issues/:issueId/worklogs', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/worklogs — { timeSpent, description }
-router.post('/issues/:issueId/worklogs', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/issues/:issueId/worklogs', requireProjectWrite(worklogIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const issue = await get('SELECT id FROM issues WHERE id = ?', [issueId])
   if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
@@ -84,7 +99,7 @@ router.post('/issues/:issueId/worklogs', requireRole('Member'), asyncHandler(asy
 }))
 
 // DELETE /api/worklogs/:id
-router.delete('/worklogs/:id', requireRole('Member'), asyncHandler(async (req, res) => {
+router.delete('/worklogs/:id', requireProjectWrite(worklogIdProject), asyncHandler(async (req, res) => {
   const row = await get('SELECT issue_id FROM worklogs WHERE id = ?', [Number(req.params.id)])
   if (!row) { res.status(404).json({ error: 'Worklog not found' }); return }
   await run('DELETE FROM worklogs WHERE id = ?', [Number(req.params.id)])
@@ -92,7 +107,7 @@ router.delete('/worklogs/:id', requireRole('Member'), asyncHandler(async (req, r
 }))
 
 // PUT /api/issues/:issueId/estimate — { estimate } (string or minutes; empty clears)
-router.put('/issues/:issueId/estimate', requireRole('Member'), asyncHandler(async (req, res) => {
+router.put('/issues/:issueId/estimate', requireProjectWrite(worklogIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const issue = await get('SELECT id FROM issues WHERE id = ?', [issueId])
   if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }

@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite, ROLE_RANK } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
 import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearchAsync } from '../services/jqlSearch.js'
@@ -15,6 +15,19 @@ import { publish } from '../services/realtime.js'
 import { canViewIssue } from '../services/issueSecurity.js'
 
 const router = Router()
+
+// JL-225/226: resolve the project id that an issue-scoped route acts on, from
+// the issue id path param. Used by the project-access read/write guards. Returns
+// null for a bad id or a project-less/absent issue (guards treat null as
+// "no resolvable project" → the handler then returns its own 404 / legacy path).
+function issueParamProject(param = 'id') {
+  return async (req) => {
+    const issueId = Number(req.params[param])
+    if (!Number.isInteger(issueId)) return null
+    const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+    return row?.project_id ?? null
+  }
+}
 
 // JL-187: hard safety cap on the default (unpaginated) issues list so a very
 // large issues table cannot be loaded wholesale into memory / serialized in one
@@ -228,10 +241,34 @@ router.get('/', asyncHandler(async (req, res) => {
     throw err
   }
 
+  // JL-225: scope the list to the caller's accessible projects. Workspace
+  // Owner/Admin see everything; Member/Viewer only see issues in projects they
+  // belong to (member/lead), plus project-less (legacy) issues. The scoping
+  // clause is appended AFTER the JQL where-clause so its bound params follow
+  // built.params in order.
+  const isWorkspaceAdmin = req.user?.isOwner || req.user?.workspaceRole === 'Admin'
+  let whereClause = built.where || ''
+  const scopeParams = []
+  if (!isWorkspaceAdmin) {
+    const accessibleRows = await all(
+      `SELECT p.id FROM projects p
+         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
+        WHERE pm.member_id IS NOT NULL OR p.lead_member_id = ?`,
+      [req.user?.memberId ?? null, req.user?.memberId ?? null],
+    )
+    const ids = accessibleRows.map((r) => r.id)
+    const inList = ids.length ? `i.project_id IN (${ids.map(() => '?').join(', ')})` : 'FALSE'
+    const scopeClause = `(${inList} OR i.project_id IS NULL)`
+    whereClause = whereClause ? `${whereClause} AND ${scopeClause}` : `WHERE ${scopeClause}`
+    scopeParams.push(...ids)
+  }
+
+  const queryParams = [...built.params, ...scopeParams]
+
   const sql =
     'SELECT i.id, i.issue_key, i.title, i.description, i.priority, i.assignee, i.status, i.issue_type, i.sprint_id, i.project_id, i.parent_id, i.epic_id, i.story_points, i.created_at, i.reporter, i.due_date, i.start_date, i.resolution, i.environment, i.components, i.updated_at, i.security_level_id, i.flagged, ' +
     '(SELECT COUNT(*) FROM watchers w WHERE w.issue_id = i.id) AS watcher_count FROM issues i' +
-    (built.where ? ` ${built.where}` : '') +
+    (whereClause ? ` ${whereClause}` : '') +
     ` ORDER BY ${built.orderBy}`
 
   // JL-100: opt-in pagination. Default (no limit/offset/page) keeps the legacy
@@ -241,11 +278,11 @@ router.get('/', asyncHandler(async (req, res) => {
     const { limit, offset } = parsePagination(req.query)
 
     const countSql =
-      'SELECT COUNT(*) AS total FROM issues i' + (built.where ? ` ${built.where}` : '')
-    const countRow = await get(countSql, built.params)
+      'SELECT COUNT(*) AS total FROM issues i' + (whereClause ? ` ${whereClause}` : '')
+    const countRow = await get(countSql, queryParams)
     const total = Number(countRow?.total) || 0
 
-    const rows = await all(`${sql} LIMIT ? OFFSET ?`, [...built.params, limit, offset])
+    const rows = await all(`${sql} LIMIT ? OFFSET ?`, [...queryParams, limit, offset])
     res.set('X-Total-Count', String(total))
     res.set('X-Limit', String(limit))
     res.set('X-Offset', String(offset))
@@ -257,12 +294,12 @@ router.get('/', asyncHandler(async (req, res) => {
   // JL-187: even the legacy (unpaginated) path is bounded by a hard cap so the
   // whole table is never materialized at once. The shape (a plain array) is
   // unchanged.
-  const rows = await all(`${sql} LIMIT ${DEFAULT_ISSUE_LIST_CAP}`, built.params)
+  const rows = await all(`${sql} LIMIT ${DEFAULT_ISSUE_LIST_CAP}`, queryParams)
   // JL-131: hide issues the caller may not view (no-op when none are secured).
   res.json(rows.map(mapIssue).filter((issue) => canViewIssue(issue, req.user)))
 }))
 
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', requireProjectRead(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -312,7 +349,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(issue)
 }))
 
-router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/', requireProjectWrite((req) => {
+  const pid = Number(req.body?.projectId)
+  return Number.isInteger(pid) ? pid : null
+}), asyncHandler(async (req, res) => {
   const { title, description, priority, assignee, status, issueType, sprintId, projectId, storyPoints } = req.body
   // JL-77: expanded, optional issue fields
   const reporter = optText(req.body.reporter) ?? (req.user?.email || null)
@@ -482,7 +522,7 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   res.status(201).json(mapIssue(row))
 }))
 
-router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
+router.patch('/:id', requireProjectWrite(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -709,7 +749,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   res.json(mapIssue(row))
 }))
 
-router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res) => {
+router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const { status, sprintId } = req.body
 
@@ -820,7 +860,7 @@ router.patch('/:id/status', requireRole('Member'), asyncHandler(async (req, res)
 }))
 
 // JL-82: GET /api/issues/:id/history — per-issue field change log, newest-first
-router.get('/:id/history', asyncHandler(async (req, res) => {
+router.get('/:id/history', requireProjectRead(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -844,7 +884,7 @@ router.get('/:id/history', asyncHandler(async (req, res) => {
 }))
 
 // JL-76: GET /api/issues/:id/epic-children — child issues of an Epic + rollup
-router.get('/:id/epic-children', asyncHandler(async (req, res) => {
+router.get('/:id/epic-children', requireProjectRead(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -868,7 +908,7 @@ router.get('/:id/epic-children', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/issues/:parentId/subtasks — list sub-tasks + progress summary
-router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
+router.get('/:parentId/subtasks', requireProjectRead(issueParamProject('parentId')), asyncHandler(async (req, res) => {
   const parentId = Number(req.params.parentId)
   if (!Number.isInteger(parentId)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -887,7 +927,7 @@ router.get('/:parentId/subtasks', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:parentId/subtasks — create a sub-task under a parent
-router.post('/:parentId/subtasks', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/:parentId/subtasks', requireProjectWrite(issueParamProject('parentId')), asyncHandler(async (req, res) => {
   const parentId = Number(req.params.parentId)
   const parent = await get(
     'SELECT id, assignee, status, sprint_id, project_id, parent_id FROM issues WHERE id = ?',
@@ -960,7 +1000,7 @@ async function resolveLabelId(projectId, name) {
 // dryRun=false → apply to valid issues, skipping/reporting invalid ones, and
 // return a { updated, skipped, errors, results } summary. Applied sequentially,
 // each guarded so one failure does not abort the batch.
-router.post('/bulk', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/bulk', asyncHandler(async (req, res) => {
   const body = req.body || {}
   const operations = body.operations || {}
   const dryRun = body.dryRun === true
@@ -998,6 +1038,37 @@ router.post('/bulk', requireRole('Member'), asyncHandler(async (req, res) => {
   for (const id of ids) {
     if (!foundIds.has(id)) {
       preview.push({ issueId: id, key: null, delete: false, willChange: false, changes: [], error: 'Issue not found' })
+    }
+  }
+
+  // JL-226: project-scoped write enforcement. Workspace Owner/Admin bypass;
+  // everyone else may only mutate issues in projects they can write to (member
+  // /lead with effective role >= Member). Issues outside that set become
+  // per-issue permission errors. Project-less (legacy) issues fall back to the
+  // workspace Member+ gate. This runs for both dry-run preview and apply so the
+  // preview reflects what would actually be permitted.
+  if (!(req.user?.isOwner || req.user?.workspaceRole === 'Admin')) {
+    const wsRank = ROLE_RANK[req.user?.workspaceRole] || 0
+    const accessRows = await all(
+      `SELECT p.id, p.lead_member_id, pm.role AS project_role
+         FROM projects p
+         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
+        WHERE pm.member_id IS NOT NULL OR p.lead_member_id = ?`,
+      [req.user?.memberId ?? null, req.user?.memberId ?? null],
+    )
+    const writable = new Set()
+    for (const r of accessRows) {
+      const role = r.project_role || (Number(r.lead_member_id) === Number(req.user?.memberId) ? 'Lead' : null)
+      const rank = ROLE_RANK[role] || 0
+      if (Math.max(wsRank, rank) >= ROLE_RANK.Member) writable.add(Number(r.id))
+    }
+    const projectlessWritable = wsRank >= ROLE_RANK.Member
+    const pidById = new Map(issues.map((i) => [i.id, i.projectId ?? null]))
+    for (const item of preview) {
+      if (item.error) continue
+      const pid = pidById.get(item.issueId)
+      const ok = pid == null ? projectlessWritable : writable.has(Number(pid))
+      if (!ok) item.error = 'Insufficient project permissions'
     }
   }
 
@@ -1124,7 +1195,7 @@ router.post('/bulk', requireRole('Member'), asyncHandler(async (req, res) => {
 }))
 
 // DELETE /api/issues/:id — delete an issue (dependent rows cascade via FKs)
-router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
+router.delete('/:id', requireProjectWrite(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })
@@ -1143,7 +1214,7 @@ router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
 // Copies core + expanded fields, allocates a fresh key via the same
 // project-scoped counter used by the create handler, prefixes the title with
 // "CLONE - ", optionally copies labels, and records a create activity row.
-router.post('/:id/clone', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/:id/clone', requireProjectWrite(issueParamProject('id')), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid issue id' })

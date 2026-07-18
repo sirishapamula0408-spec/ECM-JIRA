@@ -75,6 +75,9 @@ beforeEach(async () => {
 
 describe('JL-215 — GET returns the flagged state', () => {
   it('GET /:id maps flagged=true from the row', async () => {
+    // JL-226: the project-access read guard resolves the issue's project first
+    // (project-less here → allowed) before the handler's own lookup.
+    get.mockResolvedValueOnce({ project_id: null })
     get.mockResolvedValueOnce(issueRow({ flagged: true }))
 
     const res = await request(app).get('/api/issues/1')
@@ -83,6 +86,7 @@ describe('JL-215 — GET returns the flagged state', () => {
   })
 
   it('GET /:id defaults flagged to false', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: read guard project resolve
     get.mockResolvedValueOnce(issueRow())
 
     const res = await request(app).get('/api/issues/1')
@@ -93,6 +97,7 @@ describe('JL-215 — GET returns the flagged state', () => {
 
 describe('JL-215 — PATCH toggles the flag', () => {
   it('sets flagged=true and returns the new state', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: write guard project resolve
     get.mockResolvedValueOnce(issueRow()) // existing lookup
     get.mockResolvedValueOnce(issueRow({ flagged: true })) // re-read after UPDATE
     run.mockResolvedValue({ changes: 1 })
@@ -113,6 +118,7 @@ describe('JL-215 — PATCH toggles the flag', () => {
   })
 
   it('clears flagged=false and returns the new state', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: write guard project resolve
     get.mockResolvedValueOnce(issueRow({ flagged: true }))
     get.mockResolvedValueOnce(issueRow({ flagged: false }))
     run.mockResolvedValue({ changes: 1 })
@@ -129,6 +135,7 @@ describe('JL-215 — PATCH toggles the flag', () => {
   })
 
   it('records the change in the issue history audit log', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: write guard project resolve
     get.mockResolvedValueOnce(issueRow())
     get.mockResolvedValueOnce(issueRow({ flagged: true }))
     run.mockResolvedValue({ changes: 1 })
@@ -147,6 +154,7 @@ describe('JL-215 — PATCH toggles the flag', () => {
   })
 
   it('rejects a non-boolean flagged value with 400', async () => {
+    get.mockResolvedValueOnce({ project_id: null }) // JL-226: write guard project resolve
     get.mockResolvedValueOnce(issueRow())
 
     const res = await request(app).patch('/api/issues/1').send({ flagged: 'yes' })
