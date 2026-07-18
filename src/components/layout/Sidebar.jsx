@@ -8,7 +8,7 @@ import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
-  const { canCreateProject, canManageUsers } = usePermissions()
+  const { canCreateProject, canManageUsers, canManageMembers } = usePermissions()
   // JL-145: declarative plugin nav-item contributions, rendered as safe links.
   const { contributions: pluginNavItems } = usePluginContributions('nav-item')
   const navigate = useNavigate()
@@ -66,7 +66,8 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   ]
 
   const productItems = [
-    { label: 'Teams', path: '/teams', icon: 'teams' },
+    // Teams / member management is Admin/Owner-only (JL-227)
+    ...(canManageMembers ? [{ label: 'Teams', path: '/teams', icon: 'teams' }] : []),
     // User Management is Admin/Owner-only (JL-195)
     ...(canManageUsers ? [{ label: 'Users', path: '/users', icon: 'teams' }] : []),
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
