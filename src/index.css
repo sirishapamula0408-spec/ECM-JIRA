@@ -18,5 +18,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: #f1f5f9;
+  /* JL-231: pure white page background in light mode (was smoke-white #f1f5f9).
+     Dark mode is unaffected — .app-theme-dark body overrides to #1d2125. */
+  background: #ffffff;
 }
