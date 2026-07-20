@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogActions from '@mui/material/DialogActions'
+import Button from '@mui/material/Button'
 import {
   fetchListViews,
   createListView,
@@ -29,13 +35,30 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
   const [saving, setSaving] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const pickerRef = useRef(null)
   const viewsRef = useRef(null)
 
   useEffect(() => {
+    let active = true
+    setLoading(true)
+    setLoadError('')
     fetchListViews()
-      .then((data) => setViews(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .then((data) => {
+        if (!active) return
+        setViews(Array.isArray(data) ? data : [])
+      })
+      .catch((err) => {
+        if (!active) return
+        setLoadError(err?.message || 'Could not load saved views')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
   }, [])
 
   // Apply the user's default view (if any) once on first load.
@@ -110,16 +133,24 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
     try {
       const updated = await updateListView(view.id, { isDefault: true })
       setViews((prev) => prev.map((v) => ({ ...v, isDefault: v.id === updated.id })))
-    } catch { /* ignore */ }
+    } catch (err) {
+      setError(err?.message || 'Could not set default view')
+    }
   }
 
-  async function handleDeleteView(view) {
-    if (!window.confirm(`Delete view "${view.name}"?`)) return
+  async function confirmDeleteView() {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
     try {
-      await deleteListView(view.id)
-      setViews((prev) => prev.filter((v) => v.id !== view.id))
-      if (activeViewId === view.id) setActiveViewId(null)
-    } catch { /* ignore */ }
+      await deleteListView(deleteTarget.id)
+      setViews((prev) => prev.filter((v) => v.id !== deleteTarget.id))
+      if (activeViewId === deleteTarget.id) setActiveViewId(null)
+      setDeleteTarget(null)
+    } catch (err) {
+      setError(err?.message || 'Could not delete view')
+    } finally {
+      setDeleteBusy(false)
+    }
   }
 
   const activeView = views.find((v) => v.id === activeViewId)
@@ -128,14 +159,24 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
     <div className="lvc">
       {/* Saved views dropdown */}
       <div className="lvc-dropdown" ref={viewsRef}>
-        <button type="button" className="btn btn-ghost lvc-trigger" onClick={() => setViewsOpen((o) => !o)}>
+        <button
+          type="button"
+          className="btn btn-ghost lvc-trigger"
+          onClick={() => setViewsOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={viewsOpen}
+        >
           {activeView ? `View: ${activeView.name}` : 'Views'}
           <span className="lvc-caret" aria-hidden="true">▾</span>
         </button>
         {viewsOpen && (
           <div className="lvc-menu">
             <div className="lvc-menu-title">Saved views</div>
-            {views.length === 0 ? (
+            {loading ? (
+              <div className="lvc-menu-empty" role="status">Loading views…</div>
+            ) : loadError ? (
+              <p className="lvc-error" role="alert">{loadError}</p>
+            ) : views.length === 0 ? (
               <div className="lvc-menu-empty">No saved views yet</div>
             ) : (
               <ul className="lvc-view-list">
@@ -147,9 +188,9 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
                     </button>
                     <span className="lvc-view-actions">
                       {!v.isDefault && (
-                        <button type="button" className="link-btn" onClick={() => handleSetDefault(v)} title="Set as default">★</button>
+                        <button type="button" className="link-btn" onClick={() => handleSetDefault(v)} title="Set as default" aria-label={`Set "${v.name}" as default view`}>★</button>
                       )}
-                      <button type="button" className="link-btn lvc-del" onClick={() => handleDeleteView(v)} title="Delete view">✕</button>
+                      <button type="button" className="link-btn lvc-del" onClick={() => setDeleteTarget(v)} title="Delete view" aria-label={`Delete view "${v.name}"`}>✕</button>
                     </span>
                   </li>
                 ))}
@@ -167,14 +208,20 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </form>
-            {error && <p className="lvc-error">{error}</p>}
+            {error && <p className="lvc-error" role="alert">{error}</p>}
           </div>
         )}
       </div>
 
       {/* Column picker dropdown */}
       <div className="lvc-dropdown" ref={pickerRef}>
-        <button type="button" className="btn btn-ghost lvc-trigger" onClick={() => setPickerOpen((o) => !o)}>
+        <button
+          type="button"
+          className="btn btn-ghost lvc-trigger"
+          onClick={() => setPickerOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={pickerOpen}
+        >
           Columns
           <span className="lvc-caret" aria-hidden="true">▾</span>
         </button>
@@ -186,12 +233,12 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
               {columns.map((key, i) => (
                 <li key={key} className="lvc-col-item">
                   <label className="lvc-col-label">
-                    <input type="checkbox" checked readOnly onClick={() => toggleColumn(key)} />
+                    <input type="checkbox" checked onChange={() => toggleColumn(key)} />
                     {COLUMN_LABELS[key] || key}
                   </label>
                   <span className="lvc-col-reorder">
-                    <button type="button" className="link-btn" disabled={i === 0} onClick={() => move(i, -1)} title="Move up">↑</button>
-                    <button type="button" className="link-btn" disabled={i === columns.length - 1} onClick={() => move(i, 1)} title="Move down">↓</button>
+                    <button type="button" className="link-btn" disabled={i === 0} onClick={() => move(i, -1)} title="Move up" aria-label={`Move ${COLUMN_LABELS[key] || key} up`}>↑</button>
+                    <button type="button" className="link-btn" disabled={i === columns.length - 1} onClick={() => move(i, 1)} title="Move down" aria-label={`Move ${COLUMN_LABELS[key] || key} down`}>↓</button>
                   </span>
                 </li>
               ))}
@@ -209,6 +256,27 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
           </div>
         )}
       </div>
+
+      {/* In-app delete confirmation (replaces window.confirm) */}
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => (deleteBusy ? null : setDeleteTarget(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete view?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteTarget ? `Delete the saved view "${deleteTarget.name}"? This cannot be undone.` : ''}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleteBusy}>Cancel</Button>
+          <Button onClick={confirmDeleteView} color="error" variant="contained" disabled={deleteBusy}>
+            {deleteBusy ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }
