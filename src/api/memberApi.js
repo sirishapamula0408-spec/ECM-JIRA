@@ -107,3 +107,10 @@ export function revokeInvitation(id) {
     method: 'DELETE',
   })
 }
+
+// JL-251: re-issue a token invitation (fresh token + expiry) and re-send the email.
+export function resendInvitation(id) {
+  return api(`/api/invitations/${id}/resend`, {
+    method: 'POST',
+  })
+}

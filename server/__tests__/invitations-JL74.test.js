@@ -221,6 +221,20 @@ describe('JL-74 invitations API', () => {
       expect(res.status).toBe(200)
       expect(res.body).toHaveLength(1)
     })
+
+    // JL-251: the list must distinguish expired pending invites from live ones.
+    it('marks a past-expiry pending invite as expired and a future one as live', async () => {
+      const app = createApp(mod, { role: 'Admin' })
+      all.mockResolvedValue([
+        { id: 1, email: 'live@test.com', role: 'Member', invited_by: 'admin@test.com', status: 'pending', created_at: 'now', expires_at: '2099-01-01T00:00:00.000Z' },
+        { id: 2, email: 'stale@test.com', role: 'Member', invited_by: 'admin@test.com', status: 'pending', created_at: 'old', expires_at: '2000-01-01T00:00:00.000Z' },
+      ])
+      const res = await request(app).get('/api/invitations')
+      expect(res.status).toBe(200)
+      const byId = Object.fromEntries(res.body.map((r) => [r.id, r]))
+      expect(byId[1].expired).toBe(false)
+      expect(byId[2].expired).toBe(true)
+    })
   })
 
   describe('GET /api/invitations/:token — lookup', () => {
@@ -261,6 +275,67 @@ describe('JL-74 invitations API', () => {
       expect(res.status).toBe(200)
       expect(res.body.valid).toBe(false)
       expect(res.body.expired).toBe(true)
+    })
+  })
+
+  describe('POST /api/invitations/:id/resend — resend (Admin) — JL-251', () => {
+    it('re-issues a fresh token, revokes prior pending, and re-sends email', async () => {
+      const app = createApp(mod, { role: 'Admin' })
+      get.mockImplementation(async (sql) => {
+        if (sql.includes('FROM invitations WHERE id') && sql.includes('email')) {
+          // First lookup (id + email + role + status) — the pending invite to resend.
+          if (!sql.includes('token')) {
+            return { id: 5, email: 'stale@test.com', role: 'Member', status: 'pending' }
+          }
+          // Second lookup after insert (includes token/created_at/expires_at).
+          return {
+            id: 6,
+            email: 'stale@test.com',
+            role: 'Member',
+            token: 'freshtoken',
+            invited_by: 'admin@test.com',
+            status: 'pending',
+            created_at: 'now',
+            expires_at: '2099-01-01',
+          }
+        }
+        return undefined
+      })
+      run.mockResolvedValue({ lastID: 6, changes: 1 })
+
+      const res = await request(app).post('/api/invitations/5/resend')
+
+      expect(res.status).toBe(200)
+      expect(res.body.id).toBe(6)
+      // Prior pending invites for this email were revoked.
+      const revoke = run.mock.calls.find((c) => /UPDATE invitations SET status = 'revoked'/.test(c[0]))
+      expect(revoke).toBeTruthy()
+      // A brand-new invite row was inserted with a 64-char hex token.
+      const insert = run.mock.calls.find((c) => /INSERT INTO invitations/.test(c[0]))
+      expect(insert).toBeTruthy()
+      expect(insert[1][2]).toMatch(/^[a-f0-9]{64}$/)
+      // Courtesy email re-sent.
+      expect(sendMail).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns 404 for an unknown invitation', async () => {
+      const app = createApp(mod, { role: 'Admin' })
+      get.mockResolvedValue(undefined)
+      const res = await request(app).post('/api/invitations/999/resend')
+      expect(res.status).toBe(404)
+    })
+
+    it('rejects resending a non-pending invitation (400)', async () => {
+      const app = createApp(mod, { role: 'Admin' })
+      get.mockResolvedValue({ id: 5, email: 'x@test.com', role: 'Member', status: 'accepted' })
+      const res = await request(app).post('/api/invitations/5/resend')
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects a non-admin (403)', async () => {
+      const app = createApp(mod, { role: 'Member', isOwner: false })
+      const res = await request(app).post('/api/invitations/5/resend')
+      expect(res.status).toBe(403)
     })
   })
 
