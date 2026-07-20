@@ -1,16 +1,58 @@
 import { useState, useEffect, useCallback } from 'react'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogActions from '@mui/material/DialogActions'
+import Button from '@mui/material/Button'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
+import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
+import { LoadingState, ErrorState } from '../../components/common/LoadingState'
 import './TeamsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function TeamsPage() {
   usePageTitle('Teams')
-  const { profile, members, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
+  const { profile, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
   const { canInviteMembers, isAdmin } = usePermissions()
+
+  // JL-248: TeamsPage owns member loading so it can show distinct
+  // loading / error / empty states instead of silently swallowing a
+  // failed load behind a misleading "No team members yet" message.
+  const [members, setMembers] = useState([])
+  const [membersLoading, setMembersLoading] = useState(true)
+  const [membersError, setMembersError] = useState('')
+
+  const loadMembers = useCallback(async () => {
+    setMembersLoading(true)
+    setMembersError('')
+    try {
+      const data = await fetchMembers()
+      setMembers(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setMembersError(err.message || 'Failed to load team members.')
+    } finally {
+      setMembersLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadMembers()
+  }, [loadMembers])
+
+  // JL-248: surface otherwise-swallowed action errors (e.g. revoke) via a toast.
+  const [feedback, setFeedback] = useState({ open: false, message: '', severity: 'error' })
+  const showFeedback = (message, severity = 'error') => setFeedback({ open: true, message, severity })
+  const closeFeedback = () => setFeedback((prev) => ({ ...prev, open: false }))
+
+  // JL-248: confirm before revoking a pending invitation.
+  const [revokeTarget, setRevokeTarget] = useState(null)
+  const [revokeBusy, setRevokeBusy] = useState(false)
 
   // JL-134: org-wide security policy (enforced 2FA + password rules)
   const [policy, setPolicy] = useState(null)
@@ -112,12 +154,19 @@ export function TeamsPage() {
     }
   }
 
-  async function handleRevoke(id) {
+  async function confirmRevoke() {
+    if (!revokeTarget) return
+    setRevokeBusy(true)
     try {
-      await revokeInvitation(id)
+      await revokeInvitation(revokeTarget.id)
+      setRevokeTarget(null)
       loadInvites()
-    } catch {
-      /* ignore */
+      showFeedback(`Invitation for ${revokeTarget.email} revoked.`, 'success')
+    } catch (err) {
+      setRevokeTarget(null)
+      showFeedback(err.message || 'Failed to revoke invitation.', 'error')
+    } finally {
+      setRevokeBusy(false)
     }
   }
 
@@ -129,8 +178,10 @@ export function TeamsPage() {
       setInviteForm({ name: '', email: '', role: 'Viewer' })
       setInviteState({ saving: false, error: '', message: 'Invitation sent successfully.' })
       setIsInviteOpen(false)
+      loadMembers()
     } catch (inviteError) {
       setInviteState({ saving: false, error: inviteError.message, message: '' })
+      showFeedback(inviteError.message || 'Failed to send invitation.', 'error')
     }
   }
 
@@ -139,8 +190,9 @@ export function TeamsPage() {
     try {
       await onResend(memberId)
       setResendState({ id: null, message: 'Invite resent successfully.' })
-    } catch {
+    } catch (resendError) {
       setResendState({ id: null, message: 'Failed to resend invite.' })
+      showFeedback(resendError.message || 'Failed to resend invite.', 'error')
     }
   }
 
@@ -265,7 +317,7 @@ export function TeamsPage() {
                     <td><small>{inv.invited_by}</small></td>
                     <td><small>{new Date(inv.expires_at).toLocaleDateString()}</small></td>
                     <td>
-                      <button className="link-btn" type="button" onClick={() => handleRevoke(inv.id)}>
+                      <button className="link-btn" type="button" onClick={() => setRevokeTarget(inv)}>
                         Revoke
                       </button>
                     </td>
@@ -381,7 +433,11 @@ export function TeamsPage() {
       )}
 
       <article className="panel teams-table-shell">
-        {filtered.length === 0 ? (
+        {membersLoading ? (
+          <LoadingState label="Loading team members…" />
+        ) : membersError ? (
+          <ErrorState title="Couldn't load team members" error={membersError} onRetry={loadMembers} />
+        ) : filtered.length === 0 ? (
           <div className="teams-empty">
             {normalizedQuery ? 'No members match your search.' : 'No team members yet. Invite someone to get started.'}
           </div>
@@ -431,6 +487,34 @@ export function TeamsPage() {
           </table>
         )}
       </article>
+
+      <Dialog open={Boolean(revokeTarget)} onClose={() => (revokeBusy ? null : setRevokeTarget(null))}>
+        <DialogTitle>Revoke invitation?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {revokeTarget
+              ? `Revoke invitation for ${revokeTarget.email}? They will no longer be able to join with this link.`
+              : ''}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRevokeTarget(null)} disabled={revokeBusy}>Cancel</Button>
+          <Button onClick={confirmRevoke} color="error" variant="contained" disabled={revokeBusy}>
+            {revokeBusy ? 'Revoking…' : 'Revoke'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={feedback.open}
+        autoHideDuration={5000}
+        onClose={closeFeedback}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={closeFeedback} severity={feedback.severity} variant="filled" sx={{ width: '100%' }}>
+          {feedback.message}
+        </Alert>
+      </Snackbar>
     </section>
   )
 }
