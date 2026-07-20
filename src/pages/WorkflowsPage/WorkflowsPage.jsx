@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import TablePagination from '@mui/material/TablePagination'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
@@ -66,7 +67,8 @@ export function WorkflowsPage() {
   const [bulkAction, setBulkAction] = useState('status')
   const [bulkValue, setBulkValue] = useState('To Do')
   const [bulkBusy, setBulkBusy] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
   const [columnOrder, setColumnOrder] = useState(DEFAULT_COL_KEYS)
@@ -80,7 +82,6 @@ export function WorkflowsPage() {
   const [createTitle, setCreateTitle] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState('')
-  const PAGE_SIZE = 25
 
   const sprintById = useMemo(() => {
     const map = new Map()
@@ -146,8 +147,8 @@ export function WorkflowsPage() {
     return decorated.map((d) => d.issue)
   }, [filteredRows, sortKey, sortDir, sortValueFor])
 
-  // Reset to page 1 when filters or sort change
-  useEffect(() => { setCurrentPage(1) }, [query, statusFilter, sortKey, sortDir])
+  // Reset to the first page when filters, sort, or page size change (JL-263)
+  useEffect(() => { setPage(0) }, [query, statusFilter, sortKey, sortDir, rowsPerPage])
 
   function handleSort(colKey) {
     if (!SORTABLE.has(colKey)) return
@@ -169,7 +170,7 @@ export function WorkflowsPage() {
    * When a group-by is active we first order the whole filtered set by group so
    * each group is contiguous (`orderedRows`) and record each group's true size
    * (`groupTotals`). Pagination then slices this ordered list into pages of
-   * PAGE_SIZE rows (group headers do not consume a page slot). A group may span
+   * `rowsPerPage` rows (group headers do not consume a page slot). A group may span
    * a page boundary: its header re-appears on the next page but the count stays
    * the full-set total, not the page subset. When no group-by is active this is
    * just `filteredRows` paginated flat — identical to the previous behavior.
@@ -198,13 +199,16 @@ export function WorkflowsPage() {
   }, [filteredRows, groupBy, groupLabelFor])
 
   const totalCount = filteredRows.length
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-  const safePage = Math.min(currentPage, totalPages)
+  // JL-263: clamp the (0-based) page to the valid range for the current row count
+  // and page size, mirroring TeamsPage. Grouping/ordering already happened above,
+  // so we only ever slice the page window here — group totals stay full-set.
+  const pageCount = Math.max(1, Math.ceil(totalCount / rowsPerPage))
+  const currentPage = Math.min(page, pageCount - 1)
 
   const paginatedRows = useMemo(() => {
-    const start = (safePage - 1) * PAGE_SIZE
-    return orderedRows.slice(start, start + PAGE_SIZE)
-  }, [orderedRows, safePage])
+    const start = currentPage * rowsPerPage
+    return orderedRows.slice(start, start + rowsPerPage)
+  }, [orderedRows, currentPage, rowsPerPage])
 
   const groupedRows = useMemo(() => {
     if (groupBy === 'none') return [{ label: '', rows: paginatedRows, total: paginatedRows.length }]
@@ -667,30 +671,21 @@ export function WorkflowsPage() {
             </tbody>
           </table>
         </div>
-        <div className="jira-list-scroll-track"><span /></div>
-        {totalCount > PAGE_SIZE && (
-          <div className="jira-list-pagination">
-            <button
-              className="btn btn-ghost jira-list-page-btn"
-              type="button"
-              disabled={safePage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </button>
-            <span className="jira-list-page-info">
-              {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, totalCount)} of {totalCount}
-            </span>
-            <button
-              className="btn btn-ghost jira-list-page-btn"
-              type="button"
-              disabled={safePage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </button>
-          </div>
-        )}
+        <TablePagination
+          component="div"
+          className="jira-list-pagination"
+          count={totalCount}
+          page={currentPage}
+          onPageChange={(_event, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10))
+            setPage(0)
+          }}
+          rowsPerPageOptions={[10, 25, 50]}
+          labelRowsPerPage="Rows per page"
+          SelectProps={{ native: true, inputProps: { 'aria-label': 'Rows per page' } }}
+        />
         {isCreateOpen ? (
           <div className="quick-create-row">
             <input className="quick-create-input" type="text" placeholder="What needs to be done?" value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submitInlineCreate(); if (event.key === 'Escape') { setIsCreateOpen(false); setCreateTitle(''); setCreateError('') } }} autoFocus />
