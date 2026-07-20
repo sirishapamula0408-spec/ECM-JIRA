@@ -178,6 +178,34 @@
   gap: 4px;
 }
 
+/* Sortable column header (JL-256) */
+.col-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.col-sort-btn:hover {
+  color: #0052cc;
+}
+
+.col-sort-active {
+  color: #0052cc;
+}
+
+.col-sort-indicator {
+  font-size: 9px;
+  line-height: 1;
+}
+
 .col-drag-handle {
   opacity: 0;
   color: var(--list-subtle);
