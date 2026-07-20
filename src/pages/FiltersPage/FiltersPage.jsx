@@ -106,15 +106,28 @@ export function FiltersPage() {
       .finally(() => setSearching(false))
   }
 
-  function handleJqlSearch() {
-    if (!jqlQuery.trim()) return
+  function handleJqlSearch(queryOverride) {
+    const query = (typeof queryOverride === 'string' ? queryOverride : jqlQuery).trim()
+    if (!query) return
     setSearching(true)
     setResults(null)
     setJqlError('')
-    searchByJql(jqlQuery.trim())
+    searchByJql(query)
       .then((data) => setResults(Array.isArray(data) ? data : []))
       .catch((err) => { setJqlError(err.message || 'Invalid JQL query'); setResults([]) })
       .finally(() => setSearching(false))
+  }
+
+  // When a saved list view is applied (JL-261): if it carries a saved JQL,
+  // restore it into the JQL editor, switch to JQL mode, and re-run the search.
+  // Views without a filterJql only update columns (handled by ListViewControls).
+  function handleApplyView(view) {
+    const savedJql = typeof view?.filterJql === 'string' ? view.filterJql.trim() : ''
+    if (!savedJql) return
+    setSearchMode('jql')
+    setJqlQuery(savedJql)
+    setJqlError('')
+    handleJqlSearch(savedJql)
   }
 
   function handleAiSearch() {
@@ -509,6 +522,7 @@ export function FiltersPage() {
                   columns={columns}
                   onColumnsChange={setColumns}
                   filterJql={searchMode === 'jql' ? jqlQuery.trim() || null : null}
+                  onApplyView={handleApplyView}
                 />
               </div>
               {results.length === 0 ? (
