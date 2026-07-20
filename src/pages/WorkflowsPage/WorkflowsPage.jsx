@@ -51,7 +51,7 @@ function formatDate(dateStr) {
 }
 
 export function WorkflowsPage() {
-  const { issues, handleCreate: onCreateIssue, handleMove } = useIssues()
+  const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
   const { sprints } = useSprints()
   const { authUser: currentUser } = useAuth()
   const { profile } = useMembers()
@@ -63,6 +63,9 @@ export function WorkflowsPage() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [groupBy, setGroupBy] = useState('none')
   const [selectedIds, setSelectedIds] = useState([])
+  const [bulkAction, setBulkAction] = useState('status')
+  const [bulkValue, setBulkValue] = useState('To Do')
+  const [bulkBusy, setBulkBusy] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
@@ -227,6 +230,63 @@ export function WorkflowsPage() {
   function toggleSelectAll(checked) { setSelectedIds(checked ? allVisibleIds : []) }
   function toggleSelectOne(id, checked) {
     setSelectedIds((current) => { if (checked) return Array.from(new Set([...current, id])); return current.filter((item) => item !== id) })
+  }
+
+  /* ── Bulk actions (JL-257) ──
+   * Only ever act on rows still present in the current filtered set — never on
+   * rows hidden by the search/status filter or on another page's stale ids. */
+  const filteredIdSet = useMemo(() => new Set(filteredRows.map((issue) => issue.id)), [filteredRows])
+  const issueById = useMemo(() => {
+    const map = new Map()
+    filteredRows.forEach((issue) => map.set(issue.id, issue))
+    return map
+  }, [filteredRows])
+  const activeSelectedIds = useMemo(
+    () => selectedIds.filter((id) => filteredIdSet.has(id)),
+    [selectedIds, filteredIdSet],
+  )
+  const bulkCount = activeSelectedIds.length
+
+  function changeBulkAction(action) {
+    setBulkAction(action)
+    if (action === 'status') setBulkValue('To Do')
+    else if (action === 'priority') setBulkValue('Medium')
+    else setBulkValue('')
+  }
+
+  function clearSelection() { setSelectedIds([]) }
+
+  async function applyBulkAction() {
+    const ids = [...activeSelectedIds]
+    if (ids.length === 0 || bulkBusy) return
+
+    if (bulkAction === 'delete') {
+      if (!window.confirm(`Delete ${ids.length} issue(s)? This cannot be undone.`)) return
+      setBulkBusy(true)
+      try {
+        await Promise.all(ids.map((id) => handleDelete(id)))
+      } finally {
+        setSelectedIds([])
+        setBulkBusy(false)
+      }
+      return
+    }
+
+    setBulkBusy(true)
+    try {
+      if (bulkAction === 'status') {
+        await Promise.all(ids.map((id) => {
+          const issue = issueById.get(id)
+          const nextSprintId = bulkValue === 'Backlog' ? null : (issue?.sprintId ?? null)
+          return handleMove(id, bulkValue, nextSprintId)
+        }))
+      } else if (bulkAction === 'priority') {
+        await Promise.all(ids.map((id) => handleUpdate(id, { priority: bulkValue })))
+      }
+    } finally {
+      setSelectedIds([])
+      setBulkBusy(false)
+    }
   }
 
   function issueTypeIcon(issueType) {
@@ -452,12 +512,37 @@ export function WorkflowsPage() {
         </div>
       </div>
 
+      {bulkCount > 0 && (
+        <div className="jira-list-bulk-bar" role="region" aria-label="Bulk actions">
+          <span className="jira-list-bulk-count">{bulkCount} selected</span>
+          <select className="jira-list-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={bulkBusy} aria-label="Bulk action">
+            <option value="status">Status</option>
+            <option value="priority">Priority</option>
+            <option value="delete">Delete</option>
+          </select>
+          {bulkAction === 'status' && (
+            <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Status value">
+              {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{statusChip(status)}</option>))}
+            </select>
+          )}
+          {bulkAction === 'priority' && (
+            <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Priority value">
+              {PRIORITIES.map((priority) => (<option key={priority} value={priority}>{priority}</option>))}
+            </select>
+          )}
+          <button className="btn btn-primary" type="button" onClick={applyBulkAction} disabled={bulkBusy}>
+            {bulkAction === 'delete' ? 'Delete' : 'Apply'}
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={clearSelection} disabled={bulkBusy}>Clear</button>
+        </div>
+      )}
+
       <article className="jira-list-table-shell">
         <div className="jira-list-table-scroll">
           <table className="jira-list-table">
             <thead>
               <tr>
-                <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(event) => toggleSelectAll(event.target.checked)} /></th>
+                <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(event) => toggleSelectAll(event.target.checked)} aria-label="Select all issues on this page" /></th>
                 {columnOrder.map((colKey) => {
                   const def = ALL_COLUMNS[colKey]
                   const isDragging = dragColKey === colKey
@@ -557,7 +642,7 @@ export function WorkflowsPage() {
                     const selected = selectedIds.includes(issue.id)
                     return (
                       <tr key={issue.id} className={selected ? 'row-selected' : ''}>
-                        <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} /></td>
+                        <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} aria-label={`Select ${issue.key || issue.title || 'issue'}`} /></td>
                         {columnOrder.map((colKey) => {
                           const def = ALL_COLUMNS[colKey]
                           const isDragging = dragColKey === colKey
