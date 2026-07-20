@@ -10,7 +10,7 @@ import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
+import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation, resendInvitation } from '../../api/memberApi'
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
@@ -135,6 +135,8 @@ export function TeamsPage() {
   const [invites, setInvites] = useState([])
   const [inviteEmailForm, setInviteEmailForm] = useState({ email: '', role: 'Member' })
   const [sendState, setSendState] = useState({ saving: false, error: '', message: '' })
+  // JL-251: track which pending invite is currently being resent.
+  const [resendingInviteId, setResendingInviteId] = useState(null)
 
   const loadInvites = useCallback(async () => {
     if (!canInviteMembers) return
@@ -160,6 +162,20 @@ export function TeamsPage() {
       loadInvites()
     } catch (err) {
       setSendState({ saving: false, error: err.message, message: '' })
+    }
+  }
+
+  // JL-251: re-issue a token invitation and refresh the list.
+  async function handleResendInvitation(inv) {
+    setResendingInviteId(inv.id)
+    try {
+      await resendInvitation(inv.id)
+      await loadInvites()
+      showFeedback(`Invitation for ${inv.email} resent.`, 'success')
+    } catch (err) {
+      showFeedback(err.message || 'Failed to resend invitation.', 'error')
+    } finally {
+      setResendingInviteId(null)
     }
   }
 
@@ -382,8 +398,27 @@ export function TeamsPage() {
                     <td>{inv.email}</td>
                     <td><span className="pill">{inv.role}</span></td>
                     <td><small>{inv.invited_by}</small></td>
-                    <td><small>{new Date(inv.expires_at).toLocaleDateString()}</small></td>
                     <td>
+                      <small>{new Date(inv.expires_at).toLocaleDateString()}</small>
+                      {inv.expired && (
+                        <span
+                          className="pill"
+                          style={{ marginLeft: 6, background: '#ffebe6', color: '#bf2600' }}
+                        >
+                          Expired
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <button
+                        className="link-btn"
+                        type="button"
+                        disabled={resendingInviteId === inv.id}
+                        onClick={() => handleResendInvitation(inv)}
+                        style={{ marginRight: 12 }}
+                      >
+                        {resendingInviteId === inv.id ? 'Resending...' : 'Resend'}
+                      </button>
                       <button className="link-btn" type="button" onClick={() => setRevokeTarget(inv)}>
                         Revoke
                       </button>

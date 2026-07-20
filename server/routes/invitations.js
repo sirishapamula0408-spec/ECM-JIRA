@@ -80,7 +80,66 @@ router.get('/', requireRole('Admin'), asyncHandler(async (req, res) => {
       'SELECT id, email, role, invited_by, status, created_at, expires_at FROM invitations ORDER BY id DESC',
     )
   }
-  res.json(rows)
+  // JL-251: expiry was previously only evaluated at accept-time, so expired
+  // pending invites were indistinguishable from live ones. Surface an `expired`
+  // flag per row so the client can badge them (and offer a resend).
+  const now = Date.now()
+  const decorated = rows.map((r) => ({
+    ...r,
+    expired: r.status === 'pending' && r.expires_at != null && new Date(r.expires_at).getTime() < now,
+  }))
+  res.json(decorated)
+}))
+
+// --- Resend a token invitation (Admin only) — JL-251 ---
+// Re-issues a fresh token + expiry and re-sends the courtesy email. Reuses the
+// create-time "auto-revoke prior pending for this email" logic so only the
+// latest invite stays valid.
+router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid invitation id' })
+    return
+  }
+
+  const invite = await get('SELECT id, email, role, status FROM invitations WHERE id = ?', [id])
+  if (!invite) {
+    res.status(404).json({ error: 'Invitation not found' })
+    return
+  }
+  if (invite.status !== 'pending') {
+    res.status(400).json({ error: 'Only pending invitations can be resent' })
+    return
+  }
+
+  // Revoke any prior pending invites for this email (including this one) so the
+  // freshly-issued token is the only valid one — same guarantee as create.
+  await run("UPDATE invitations SET status = 'revoked' WHERE LOWER(email) = LOWER(?) AND status = 'pending'", [invite.email])
+
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString()
+  const invitedBy = req.user?.email || 'Team Admin'
+
+  const created = await run(
+    'INSERT INTO invitations (email, role, token, invited_by, status, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [invite.email, invite.role, token, invitedBy, 'pending', expiresAt],
+  )
+  const fresh = await get(
+    'SELECT id, email, role, token, invited_by, status, created_at, expires_at FROM invitations WHERE id = ?',
+    [created.lastID],
+  )
+
+  // Fire-and-forget courtesy email (never block the response on SMTP).
+  const { subject, html, text } = buildInviteEmail({
+    recipientName: invite.email.split('@')[0],
+    invitedBy,
+    role: invite.role,
+  })
+  sendMail({ to: invite.email, subject, html, text }).catch((err) => {
+    console.error(`[invitations] Failed to resend invite email to ${invite.email}: ${err.message}`)
+  })
+
+  res.json(fresh)
 }))
 
 // --- Public-ish lookup by token (used by the accept screen) ---
