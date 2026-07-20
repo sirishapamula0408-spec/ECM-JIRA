@@ -5,6 +5,7 @@ import {
   fetchAutomationRules, createAutomationRule, updateAutomationRule, deleteAutomationRule, fetchAutomationLogs,
 } from '../../api/automationApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import { ISSUE_STATUSES } from '../../constants'
 import './AutomationPage.css'
 
@@ -30,6 +31,7 @@ export function AutomationPage() {
   const [form, setForm] = useState(EMPTY)
   const [error, setError] = useState('')
   const { isAdmin } = usePermissions(projectId)
+  const { confirm, confirmDialog } = useConfirm()
 
   useEffect(() => {
     if (routeProjectId) return
@@ -64,7 +66,7 @@ export function AutomationPage() {
     reload()
   }
   async function remove(rule) {
-    if (!window.confirm(`Delete rule "${rule.name}"?`)) return
+    if (!(await confirm({ title: 'Delete rule?', message: `Delete rule "${rule.name}"?`, confirmLabel: 'Delete', danger: true }))) return
     await deleteAutomationRule(rule.id).catch(() => {})
     reload()
   }
@@ -86,6 +88,7 @@ export function AutomationPage() {
 
   return (
     <section className="page automation-page">
+      {confirmDialog}
       <div className="au-header">
         <h1>Automation</h1>
         {!routeProjectId && projects.length > 0 && (

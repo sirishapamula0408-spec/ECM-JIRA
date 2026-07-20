@@ -14,6 +14,7 @@ import {
 } from '../../api/assetApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import './AssetsPage.css'
 
 const STATUS_COLORS = {
@@ -37,6 +38,7 @@ export function AssetsPage() {
   const [newType, setNewType] = useState({ name: '', icon: '' })
 
   const { isAdmin } = usePermissions()
+  const { confirm, confirmDialog } = useConfirm()
 
   const loadTypes = useCallback(() => {
     fetchAssetTypes().then((d) => setTypes(Array.isArray(d) ? d : [])).catch(() => setTypes([]))
@@ -112,7 +114,7 @@ export function AssetsPage() {
   }
 
   async function handleDelete(asset) {
-    if (!window.confirm(`Delete asset "${asset.name}"?`)) return
+    if (!(await confirm({ title: 'Delete asset?', message: `Delete asset "${asset.name}"?`, confirmLabel: 'Delete', danger: true }))) return
     try {
       await deleteAsset(asset.id)
       loadAssets()
@@ -137,6 +139,7 @@ export function AssetsPage() {
 
   return (
     <Box className="assets-page" sx={{ p: 3 }}>
+      {confirmDialog}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Typography variant="h5" fontWeight={600}>Assets (CMDB)</Typography>
         <Stack direction="row" spacing={1}>
