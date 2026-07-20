@@ -83,25 +83,71 @@ export function WorkflowsPage() {
   // Reset to page 1 when filters change
   useEffect(() => { setCurrentPage(1) }, [query, statusFilter])
 
+  const groupLabelFor = useCallback((issue) => {
+    return groupBy === 'status'
+      ? String(issue.status || 'Uncategorized')
+      : String(sprintById.get(issue.sprintId) || 'No sprint')
+  }, [groupBy, sprintById])
+
+  /*
+   * Grouping/pagination model (JL-259):
+   * Grouping is computed over the FULL `filteredRows` set — never over a single
+   * page — so group-header counts always reflect the true group total.
+   * When a group-by is active we first order the whole filtered set by group so
+   * each group is contiguous (`orderedRows`) and record each group's true size
+   * (`groupTotals`). Pagination then slices this ordered list into pages of
+   * PAGE_SIZE rows (group headers do not consume a page slot). A group may span
+   * a page boundary: its header re-appears on the next page but the count stays
+   * the full-set total, not the page subset. When no group-by is active this is
+   * just `filteredRows` paginated flat — identical to the previous behavior.
+   */
+  const orderedRows = useMemo(() => {
+    if (groupBy === 'none') return filteredRows
+    const groups = new Map()
+    filteredRows.forEach((issue) => {
+      const label = groupLabelFor(issue)
+      if (!groups.has(label)) groups.set(label, [])
+      groups.get(label).push(issue)
+    })
+    return Array.from(groups.values()).flat()
+  }, [filteredRows, groupBy, groupLabelFor])
+
+  const groupTotals = useMemo(() => {
+    const totals = new Map()
+    if (groupBy === 'none') return totals
+    filteredRows.forEach((issue) => {
+      const label = groupLabelFor(issue)
+      totals.set(label, (totals.get(label) || 0) + 1)
+    })
+    return totals
+  }, [filteredRows, groupBy, groupLabelFor])
+
   const totalCount = filteredRows.length
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const safePage = Math.min(currentPage, totalPages)
 
   const paginatedRows = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE
-    return filteredRows.slice(start, start + PAGE_SIZE)
-  }, [filteredRows, safePage])
+    return orderedRows.slice(start, start + PAGE_SIZE)
+  }, [orderedRows, safePage])
 
   const groupedRows = useMemo(() => {
-    if (groupBy === 'none') return [{ label: '', rows: paginatedRows }]
-    const groups = new Map()
+    if (groupBy === 'none') return [{ label: '', rows: paginatedRows, total: paginatedRows.length }]
+    // paginatedRows are already ordered by group, so consecutive rows with the
+    // same label form one contiguous segment; the header count is the full-set
+    // total for that label (groupTotals), not the number of rows on this page.
+    const groups = []
+    let current = null
     paginatedRows.forEach((issue) => {
-      const label = groupBy === 'status' ? String(issue.status || 'Uncategorized') : String(sprintById.get(issue.sprintId) || 'No sprint')
-      if (!groups.has(label)) groups.set(label, [])
-      groups.get(label).push(issue)
+      const label = groupLabelFor(issue)
+      if (!current || current.label !== label) {
+        current = { label, rows: [], total: groupTotals.get(label) || 0 }
+        groups.push(current)
+      }
+      current.rows.push(issue)
     })
-    return Array.from(groups.entries()).map(([label, rows]) => ({ label, rows }))
-  }, [paginatedRows, groupBy, sprintById])
+    return groups
+  }, [paginatedRows, groupBy, groupLabelFor, groupTotals])
 
   const allVisibleIds = paginatedRows.map((issue) => issue.id)
   const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => selectedIds.includes(id))
@@ -388,7 +434,7 @@ export function WorkflowsPage() {
             <tbody>
               {groupedRows.map((group) => (
                 <Fragment key={group.label || 'all'}>
-                  {group.label && (<tr className="jira-list-group-row"><td colSpan={totalColSpan}><strong>{group.label}</strong> <span>{group.rows.length}</span></td></tr>)}
+                  {group.label && (<tr className="jira-list-group-row"><td colSpan={totalColSpan}><strong>{group.label}</strong> <span>{group.total}</span></td></tr>)}
                   {group.rows.map((issue, index) => {
                     const selected = selectedIds.includes(issue.id)
                     return (
