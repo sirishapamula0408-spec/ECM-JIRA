@@ -54,6 +54,8 @@
 
 .teams-search input:focus {
   outline: none;
+  /* #4c9aff is the theme-neutral focus accent — theme.css uses the same value
+     for dark-mode focus/accent states, so no dark override is needed. */
   border-color: #4c9aff;
   box-shadow: 0 0 0 1px #4c9aff;
 }
@@ -133,7 +135,7 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--jira-text-muted);
-  background: #fafbfc;
+  background: var(--jira-surface-subtle);
 }
 
 .teams-member-cell {
@@ -165,8 +167,8 @@
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: #deebff;
-  color: #0052cc;
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -185,4 +187,30 @@
   text-align: center;
   color: var(--jira-text-muted);
   font-size: var(--font-size-base);
+}
+
+/* ── Dark theme overrides (JL-249) ──
+   The --jira-* tokens are light-only (theme.css overrides per-selector), so
+   surfaces that read those tokens need explicit dark values here. Colors match
+   the palette used in src/styles/theme.css (#22272b surfaces, #2c333a borders,
+   #dfe1e6 / #9fadbc text, #1c2b41 / #4c9aff blue accents). */
+.app-theme-dark .teams-search input {
+  background: #22272b;
+  border-color: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .teams-table-shell {
+  background: #1d2125;
+  border-color: #2c333a;
+}
+
+.app-theme-dark .teams-table th {
+  background: #22272b;
+  color: #9fadbc;
+}
+
+.app-theme-dark .teams-member-avatar {
+  background: #1c2b41;
+  color: #4c9aff;
 }
