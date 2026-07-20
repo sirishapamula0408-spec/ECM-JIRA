@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import {
   fetchKbCategories, createKbCategory,
   fetchKbArticles, fetchKbArticle, createKbArticle, updateKbArticle, deleteKbArticle,
@@ -28,6 +29,7 @@ const EMPTY_ARTICLE = { title: '', body: '', categoryId: '', status: 'draft' }
 
 export function KnowledgeBasePage() {
   const { isAdmin, canCreateIssue: canAuthor } = usePermissions()
+  const { confirm, confirmDialog } = useConfirm()
   const [categories, setCategories] = useState([])
   const [articles, setArticles] = useState([])
   const [activeCategory, setActiveCategory] = useState(null) // null = all
@@ -110,7 +112,8 @@ export function KnowledgeBasePage() {
   }
 
   async function removeArticle() {
-    if (!selected || !window.confirm(`Delete article "${selected.title}"?`)) return
+    if (!selected) return
+    if (!(await confirm({ title: 'Delete article?', message: `Delete article "${selected.title}"?`, confirmLabel: 'Delete', danger: true }))) return
     await deleteKbArticle(selected.id).catch(() => {})
     setSelected(null)
     loadArticles()
@@ -132,6 +135,7 @@ export function KnowledgeBasePage() {
 
   return (
     <div className="page kb-page">
+      {confirmDialog}
       <header className="kb-header">
         <h1>Knowledge Base</h1>
         <p className="kb-subtitle">Help articles for customers — searchable, categorized, publishable.</p>

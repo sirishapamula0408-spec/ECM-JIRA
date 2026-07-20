@@ -6,6 +6,7 @@ import {
   fetchReleaseProgress, fetchReleaseNotes, updateRelease,
 } from '../../api/releaseApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import './ReleasesPage.css'
 
 const EMPTY = { name: '', description: '', releaseDate: '', status: 'unreleased' }
@@ -21,6 +22,7 @@ export function ReleasesPage() {
   const [progress, setProgress] = useState(null)
   const [notes, setNotes] = useState(null)
   const { canCreateIssue, isAdmin } = usePermissions(projectId)
+  const { confirm, confirmDialog } = useConfirm()
 
   useEffect(() => {
     if (routeProjectId) return
@@ -69,7 +71,7 @@ export function ReleasesPage() {
   }
 
   async function remove(rel) {
-    if (!window.confirm(`Delete release "${rel.name}"? Issues will be unassigned.`)) return
+    if (!(await confirm({ title: 'Delete release?', message: `Delete release "${rel.name}"? Issues will be unassigned.`, confirmLabel: 'Delete', danger: true }))) return
     await deleteRelease(rel.id).catch(() => {})
     if (selected?.id === rel.id) { setSelected(null); setProgress(null); setNotes(null) }
     reload()
@@ -77,6 +79,7 @@ export function ReleasesPage() {
 
   return (
     <section className="page releases-page">
+      {confirmDialog}
       <div className="rel-header">
         <h1>Releases</h1>
         {!routeProjectId && projects.length > 0 && (

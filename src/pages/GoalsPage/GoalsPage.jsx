@@ -6,6 +6,7 @@ import {
   createKeyResult, updateKeyResult, deleteKeyResult,
 } from '../../api/goalApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import './GoalsPage.css'
 
 const EMPTY_GOAL = { objective: '', description: '', owner: '', status: 'on_track', dueDate: '' }
@@ -24,6 +25,7 @@ export function GoalsPage() {
   const [error, setError] = useState('')
   const [krForms, setKrForms] = useState({})
   const { canCreateIssue, isAdmin } = usePermissions(projectId)
+  const { confirm, confirmDialog } = useConfirm()
 
   useEffect(() => {
     if (routeProjectId) return
@@ -60,7 +62,7 @@ export function GoalsPage() {
   }
 
   async function removeGoal(goal) {
-    if (!window.confirm(`Delete objective "${goal.objective}"? Key results will be removed.`)) return
+    if (!(await confirm({ title: 'Delete objective?', message: `Delete objective "${goal.objective}"? Key results will be removed.`, confirmLabel: 'Delete', danger: true }))) return
     await deleteGoal(goal.id).catch(() => {})
     reload()
   }
@@ -93,6 +95,7 @@ export function GoalsPage() {
 
   return (
     <section className="page goals-page">
+      {confirmDialog}
       <div className="goal-header">
         <h1>Goals &amp; OKRs</h1>
         {!routeProjectId && projects.length > 0 && (

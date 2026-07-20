@@ -8,6 +8,7 @@ import { DEFAULT_COLUMNS, COLUMN_LABELS } from '../../api/listViewApi'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './FiltersPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 const EMPTY_CRITERIA = { status: 'All', priority: 'All', issueType: 'All', assignee: '', text: '', projectId: 'All' }
 
@@ -57,6 +58,7 @@ function renderCell(issue, key) {
 export function FiltersPage() {
   usePageTitle('Filters')
   const navigate = useNavigate()
+  const { confirm, confirmDialog } = useConfirm()
   const [filters, setFilters] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilterId, setActiveFilterId] = useState(null)
@@ -207,7 +209,7 @@ export function FiltersPage() {
   }
 
   async function handleDeleteFilter(filter) {
-    if (!window.confirm(`Delete filter "${filter.name}"?`)) return
+    if (!(await confirm({ title: 'Delete filter?', message: `Delete filter "${filter.name}"?`, confirmLabel: 'Delete', danger: true }))) return
     await deleteFilter(filter.id)
     setFilters((prev) => prev.filter((f) => f.id !== filter.id))
     if (activeFilterId === filter.id) { setActiveFilterId(null); handleClear() }
@@ -223,6 +225,7 @@ export function FiltersPage() {
 
   return (
     <section className="page filters-page">
+      {confirmDialog}
       <div className="filters-header">
         <div>
           <h1>Filters</h1>

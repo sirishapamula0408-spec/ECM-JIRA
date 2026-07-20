@@ -16,6 +16,7 @@ import {
   fetchQueues, fetchQueueIssues, createQueue, updateQueue, deleteQueue,
 } from '../../api/queueApi.js'
 import { EmptyState } from '../../components/common/EmptyState.jsx'
+import { useConfirm } from '../../components/common/ConfirmDialog.jsx'
 import './QueuesPage.css'
 
 const SLA_CHIP_COLOR = { breached: 'error', at_risk: 'warning', ok: 'success' }
@@ -149,6 +150,7 @@ function QueueEditor({ open, onClose, onSave, projects, initial }) {
 export function QueuesPage() {
   const navigate = useNavigate()
   const { isAdmin } = usePermissions()
+  const { confirm, confirmDialog } = useConfirm()
   const [queues, setQueues] = useState([])
   const [projects, setProjects] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -192,7 +194,7 @@ export function QueuesPage() {
   }
 
   const handleDelete = async (q) => {
-    if (!window.confirm(`Delete queue "${q.name}"?`)) return
+    if (!(await confirm({ title: 'Delete queue?', message: `Delete queue "${q.name}"?`, confirmLabel: 'Delete', danger: true }))) return
     await deleteQueue(q.id)
     if (selectedId === q.id) setSelectedId(null)
     await loadQueues()
@@ -204,6 +206,7 @@ export function QueuesPage() {
 
   return (
     <Box className="page queues-page">
+      {confirmDialog}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h5">Queues</Typography>
         {isAdmin && (

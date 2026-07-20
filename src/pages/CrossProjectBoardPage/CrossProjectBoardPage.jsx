@@ -11,6 +11,7 @@ import {
   deleteCrossProjectBoard, fetchCrossProjectBoardIssues,
 } from '../../api/crossProjectBoardApi'
 import EmptyState from '../../components/common/EmptyState'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import './CrossProjectBoardPage.css'
 
 const SWIMLANE_OPTIONS = [
@@ -23,6 +24,7 @@ const emptyForm = { name: '', projectIds: [], swimlaneBy: 'project' }
 
 export function CrossProjectBoardPage() {
   const navigate = useNavigate()
+  const { confirm, confirmDialog } = useConfirm()
   const [projects, setProjects] = useState([])
   const [boards, setBoards] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -102,7 +104,7 @@ export function CrossProjectBoardPage() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this cross-project board?')) return
+    if (!(await confirm({ title: 'Delete board?', message: 'Delete this cross-project board?', confirmLabel: 'Delete', danger: true }))) return
     try {
       await deleteCrossProjectBoard(id)
       setBoards((b) => b.filter((x) => x.id !== id))
@@ -116,6 +118,7 @@ export function CrossProjectBoardPage() {
 
   return (
     <section className="page cpb-page">
+      {confirmDialog}
       <div className="board-jira-header">
         <h1 className="board-jira-title">Cross-Project Boards</h1>
         <div className="board-jira-actions">
