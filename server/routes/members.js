@@ -10,6 +10,11 @@ const router = Router()
 // Allowed workspace role values for role updates.
 const VALID_ROLES = ['Owner', 'Admin', 'Member', 'Viewer']
 
+// JL-246: roles assignable when creating a member. The workspace Owner is
+// tracked via the is_owner flag and cannot be granted through POST /members
+// (mirrors invitations.js, which also excludes Owner).
+const CREATABLE_ROLES = ['Admin', 'Member', 'Viewer']
+
 // JL-192: allowed member/user account statuses
 const MEMBER_STATUSES = ['Active', 'Invited', 'Deactivated']
 
@@ -135,6 +140,11 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   // Validate email per the existing signup rules
   if (!isAllowedEmail(normalizedEmail)) {
     res.status(400).json({ error: 'Use a valid office email or Gmail address' })
+    return
+  }
+  // JL-246: validate the workspace role (defaults to Viewer when omitted)
+  if (!CREATABLE_ROLES.includes(normalizedRole)) {
+    res.status(400).json({ error: `role must be one of: ${CREATABLE_ROLES.join(', ')}` })
     return
   }
   // Optional explicit status override
