@@ -19,7 +19,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function TeamsPage() {
   usePageTitle('Teams')
-  const { profile, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
+  const { handleResendInvite: onResend } = useMembers()
   const { canInviteMembers, isAdmin } = usePermissions()
 
   // JL-248: TeamsPage owns member loading so it can show distinct
@@ -118,7 +118,7 @@ export function TeamsPage() {
     }
   }
   const [isInviteOpen, setIsInviteOpen] = useState(false)
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'Viewer' })
   const [inviteState, setInviteState] = useState({ saving: false, error: '', message: '' })
   const [resendState, setResendState] = useState({ id: null, message: '' })
   const [query, setQuery] = useState('')
@@ -195,15 +195,19 @@ export function TeamsPage() {
     }
   }
 
+  // JL-247: the header "+ Invite Member" flow now creates a token-based,
+  // revocable, expiring invitation (POST /api/invitations) instead of the
+  // legacy tokenless POST /api/members path, which left dangling un-actionable
+  // "Invited" member rows. This is the single canonical invite path.
   async function handleInviteSubmit(event) {
     event.preventDefault()
     setInviteState({ saving: true, error: '', message: '' })
     try {
-      await onInvite({ ...inviteForm, invited_by: profile?.full_name || '' })
-      setInviteForm({ name: '', email: '', role: 'Viewer' })
+      await createInvitation({ email: inviteForm.email, role: inviteForm.role })
+      setInviteForm({ email: '', role: 'Viewer' })
       setInviteState({ saving: false, error: '', message: 'Invitation sent successfully.' })
       setIsInviteOpen(false)
-      loadMembers()
+      loadInvites()
     } catch (inviteError) {
       setInviteState({ saving: false, error: inviteError.message, message: '' })
       showFeedback(inviteError.message || 'Failed to send invitation.', 'error')
@@ -316,11 +320,10 @@ export function TeamsPage() {
       {isInviteOpen && (
         <article className="panel teams-invite-panel">
           <h3>Invite a new member</h3>
+          <p className="teams-subtitle">
+            Sends a token-based invitation email. The recipient joins with the assigned role when they accept.
+          </p>
           <form className="teams-invite-form" onSubmit={handleInviteSubmit}>
-            <label>
-              Name
-              <input placeholder="Full name" value={inviteForm.name} onChange={(e) => setInviteForm((c) => ({ ...c, name: e.target.value }))} required />
-            </label>
             <label>
               Email
               <input placeholder="Email address" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((c) => ({ ...c, email: e.target.value }))} required />
