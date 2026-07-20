@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import TablePagination from '@mui/material/TablePagination'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -9,7 +10,7 @@ import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation } from '../../api/memberApi'
+import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation, resendInvitation } from '../../api/memberApi'
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
@@ -18,7 +19,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function TeamsPage() {
   usePageTitle('Teams')
-  const { profile, handleInviteMember: onInvite, handleResendInvite: onResend } = useMembers()
+  const { handleResendInvite: onResend } = useMembers()
   const { canInviteMembers, isAdmin } = usePermissions()
 
   // JL-248: TeamsPage owns member loading so it can show distinct
@@ -117,15 +118,25 @@ export function TeamsPage() {
     }
   }
   const [isInviteOpen, setIsInviteOpen] = useState(false)
-  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'Viewer' })
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'Viewer' })
   const [inviteState, setInviteState] = useState({ saving: false, error: '', message: '' })
   const [resendState, setResendState] = useState({ id: null, message: '' })
   const [query, setQuery] = useState('')
+
+  // JL-250: client-side filter / sort / pagination for the members table.
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
 
   // JL-74: token-based invitations
   const [invites, setInvites] = useState([])
   const [inviteEmailForm, setInviteEmailForm] = useState({ email: '', role: 'Member' })
   const [sendState, setSendState] = useState({ saving: false, error: '', message: '' })
+  // JL-251: track which pending invite is currently being resent.
+  const [resendingInviteId, setResendingInviteId] = useState(null)
 
   const loadInvites = useCallback(async () => {
     if (!canInviteMembers) return
@@ -154,6 +165,20 @@ export function TeamsPage() {
     }
   }
 
+  // JL-251: re-issue a token invitation and refresh the list.
+  async function handleResendInvitation(inv) {
+    setResendingInviteId(inv.id)
+    try {
+      await resendInvitation(inv.id)
+      await loadInvites()
+      showFeedback(`Invitation for ${inv.email} resent.`, 'success')
+    } catch (err) {
+      showFeedback(err.message || 'Failed to resend invitation.', 'error')
+    } finally {
+      setResendingInviteId(null)
+    }
+  }
+
   async function confirmRevoke() {
     if (!revokeTarget) return
     setRevokeBusy(true)
@@ -170,15 +195,19 @@ export function TeamsPage() {
     }
   }
 
+  // JL-247: the header "+ Invite Member" flow now creates a token-based,
+  // revocable, expiring invitation (POST /api/invitations) instead of the
+  // legacy tokenless POST /api/members path, which left dangling un-actionable
+  // "Invited" member rows. This is the single canonical invite path.
   async function handleInviteSubmit(event) {
     event.preventDefault()
     setInviteState({ saving: true, error: '', message: '' })
     try {
-      await onInvite({ ...inviteForm, invited_by: profile?.full_name || '' })
-      setInviteForm({ name: '', email: '', role: 'Viewer' })
+      await createInvitation({ email: inviteForm.email, role: inviteForm.role })
+      setInviteForm({ email: '', role: 'Viewer' })
       setInviteState({ saving: false, error: '', message: 'Invitation sent successfully.' })
       setIsInviteOpen(false)
-      loadMembers()
+      loadInvites()
     } catch (inviteError) {
       setInviteState({ saving: false, error: inviteError.message, message: '' })
       showFeedback(inviteError.message || 'Failed to send invitation.', 'error')
@@ -196,11 +225,68 @@ export function TeamsPage() {
     }
   }
 
+  // JL-250: distinct role/status values present in the member list drive the
+  // filter dropdowns, so they stay in sync with whatever the data contains.
+  const roleOptions = useMemo(
+    () => [...new Set(members.map((m) => m.role).filter(Boolean))].sort(),
+    [members],
+  )
+  const statusOptions = useMemo(
+    () => [...new Set(members.map((m) => m.status).filter(Boolean))].sort(),
+    [members],
+  )
+
   const normalizedQuery = query.trim().toLowerCase()
   const filtered = members.filter((m) => {
+    if (roleFilter !== 'all' && m.role !== roleFilter) return false
+    if (statusFilter !== 'all' && m.status !== statusFilter) return false
     if (!normalizedQuery) return true
     return m.name.toLowerCase().includes(normalizedQuery) || m.email.toLowerCase().includes(normalizedQuery)
   })
+
+  const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
+
+  // JL-250: sort the filtered rows by the active column/direction. Names and
+  // roles/statuses compare as strings; task_count compares numerically.
+  const sorted = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      let cmp
+      if (sortBy === 'task_count') {
+        cmp = (a.task_count || 0) - (b.task_count || 0)
+      } else {
+        cmp = String(a[sortBy] ?? '').localeCompare(String(b[sortBy] ?? ''), undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        })
+      }
+      return cmp * dir
+    })
+  }, [filtered, sortBy, sortDir])
+
+  // JL-250: keep the page in range and slice the visible rows.
+  const pageCount = Math.max(1, Math.ceil(sorted.length / rowsPerPage))
+  const currentPage = Math.min(page, pageCount - 1)
+  const paged = sorted.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage)
+
+  // JL-250: jump back to the first page whenever the filter/search criteria
+  // change so you never land on a now-out-of-range page.
+  useEffect(() => {
+    setPage(0)
+  }, [normalizedQuery, roleFilter, statusFilter])
+
+  function toggleSort(column) {
+    if (sortBy === column) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(column)
+      setSortDir('asc')
+    }
+  }
+
+  const ariaSortFor = (column) =>
+    sortBy === column ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+  const sortIndicator = (column) => (sortBy === column ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
 
   return (
     <section className="page teams-page">
@@ -220,6 +306,7 @@ export function TeamsPage() {
             <input
               type="text"
               placeholder="Search members"
+              aria-label="Search members"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -233,11 +320,10 @@ export function TeamsPage() {
       {isInviteOpen && (
         <article className="panel teams-invite-panel">
           <h3>Invite a new member</h3>
+          <p className="teams-subtitle">
+            Sends a token-based invitation email. The recipient joins with the assigned role when they accept.
+          </p>
           <form className="teams-invite-form" onSubmit={handleInviteSubmit}>
-            <label>
-              Name
-              <input placeholder="Full name" value={inviteForm.name} onChange={(e) => setInviteForm((c) => ({ ...c, name: e.target.value }))} required />
-            </label>
             <label>
               Email
               <input placeholder="Email address" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((c) => ({ ...c, email: e.target.value }))} required />
@@ -315,8 +401,27 @@ export function TeamsPage() {
                     <td>{inv.email}</td>
                     <td><span className="pill">{inv.role}</span></td>
                     <td><small>{inv.invited_by}</small></td>
-                    <td><small>{new Date(inv.expires_at).toLocaleDateString()}</small></td>
                     <td>
+                      <small>{new Date(inv.expires_at).toLocaleDateString()}</small>
+                      {inv.expired && (
+                        <span
+                          className="pill"
+                          style={{ marginLeft: 6, background: '#ffebe6', color: '#bf2600' }}
+                        >
+                          Expired
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <button
+                        className="link-btn"
+                        type="button"
+                        disabled={resendingInviteId === inv.id}
+                        onClick={() => handleResendInvitation(inv)}
+                        style={{ marginRight: 12 }}
+                      >
+                        {resendingInviteId === inv.id ? 'Resending...' : 'Resend'}
+                      </button>
                       <button className="link-btn" type="button" onClick={() => setRevokeTarget(inv)}>
                         Revoke
                       </button>
@@ -437,23 +542,76 @@ export function TeamsPage() {
           <LoadingState label="Loading team members…" />
         ) : membersError ? (
           <ErrorState title="Couldn't load team members" error={membersError} onRetry={loadMembers} />
-        ) : filtered.length === 0 ? (
-          <div className="teams-empty">
-            {normalizedQuery ? 'No members match your search.' : 'No team members yet. Invite someone to get started.'}
-          </div>
         ) : (
-          <table className="table teams-table">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Tasks</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((member) => (
+          <>
+            <div className="teams-table-toolbar">
+              <label className="teams-table-filter">
+                <span>Role</span>
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  aria-label="Filter by role"
+                >
+                  <option value="all">All roles</option>
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="teams-table-filter">
+                <span>Status</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter by status"
+                >
+                  <option value="all">All statuses</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+              <span className="teams-table-count" aria-live="polite">
+                {sorted.length} of {members.length} members
+              </span>
+            </div>
+
+            {sorted.length === 0 ? (
+              <div className="teams-empty">
+                {hasActiveFilters
+                  ? 'No members match your filters.'
+                  : 'No team members yet. Invite someone to get started.'}
+              </div>
+            ) : (
+              <>
+                <table className="table teams-table">
+                  <thead>
+                    <tr>
+                      <th aria-sort={ariaSortFor('name')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('name')}>
+                          Member{sortIndicator('name')}
+                        </button>
+                      </th>
+                      <th aria-sort={ariaSortFor('role')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('role')}>
+                          Role{sortIndicator('role')}
+                        </button>
+                      </th>
+                      <th aria-sort={ariaSortFor('status')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('status')}>
+                          Status{sortIndicator('status')}
+                        </button>
+                      </th>
+                      <th aria-sort={ariaSortFor('task_count')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('task_count')}>
+                          Tasks{sortIndicator('task_count')}
+                        </button>
+                      </th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paged.map((member) => (
                 <tr key={member.id}>
                   <td>
                     <div className="teams-member-cell">
@@ -483,8 +641,26 @@ export function TeamsPage() {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+                  </tbody>
+                </table>
+                <TablePagination
+                  component="div"
+                  className="teams-table-pagination"
+                  count={sorted.length}
+                  page={currentPage}
+                  onPageChange={(_event, newPage) => setPage(newPage)}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={(event) => {
+                    setRowsPerPage(parseInt(event.target.value, 10))
+                    setPage(0)
+                  }}
+                  rowsPerPageOptions={[10, 25, 50]}
+                  labelRowsPerPage="Members per page"
+                  SelectProps={{ native: true, inputProps: { 'aria-label': 'Members per page' } }}
+                />
+              </>
+            )}
+          </>
         )}
       </article>
 
