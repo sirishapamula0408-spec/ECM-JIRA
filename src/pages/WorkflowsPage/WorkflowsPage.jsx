@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import './WorkflowsPage.css'
 import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -52,6 +53,7 @@ function formatDate(dateStr) {
 }
 
 export function WorkflowsPage() {
+  const { confirm, confirmDialog } = useConfirm()
   const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
   const { sprints } = useSprints()
   const { authUser: currentUser } = useAuth()
@@ -265,7 +267,12 @@ export function WorkflowsPage() {
     if (ids.length === 0 || bulkBusy) return
 
     if (bulkAction === 'delete') {
-      if (!window.confirm(`Delete ${ids.length} issue(s)? This cannot be undone.`)) return
+      if (!(await confirm({
+        title: 'Delete issues?',
+        message: `Delete ${ids.length} issue(s)? This cannot be undone.`,
+        confirmLabel: 'Delete',
+        danger: true,
+      }))) return
       setBulkBusy(true)
       try {
         await Promise.all(ids.map((id) => handleDelete(id)))
@@ -456,6 +463,7 @@ export function WorkflowsPage() {
 
   return (
     <section className="page jira-list-page">
+      {confirmDialog}
       <div className="jira-list-toolbar">
         <div className="jira-list-toolbar-left">
           <label className="jira-list-search">

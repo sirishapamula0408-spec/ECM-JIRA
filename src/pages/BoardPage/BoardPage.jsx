@@ -8,6 +8,7 @@ import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
 import './BoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 const SWIMLANE_OPTIONS = [
   { value: 'none', label: 'No swimlanes' },
@@ -26,6 +27,7 @@ function swimlaneValueFor(issue, mode) {
 
 export function BoardPage() {
   usePageTitle('Board')
+  const { confirm, confirmDialog } = useConfirm()
   const { issues, handleMove } = useIssues()
   const { projectId } = useParams()
   const navigate = useNavigate()
@@ -190,7 +192,7 @@ export function BoardPage() {
                   {isBoardStarred ? 'Remove from starred' : 'Add to starred'}
                 </button>
                 <button className="board-menu-item board-menu-item-settings" type="button" onClick={() => { setIsBoardMenuOpen(false); setIsSettingsOpen(true) }}>Board settings</button>
-                <button className="board-menu-item board-menu-item-danger board-menu-item-delete" type="button" onClick={async () => { const ok = window.confirm('Delete board? This will move all board issues to backlog.'); if (ok) { setIsBoardMenuOpen(false); await handleDeleteBoard() } }}>Delete board</button>
+                <button className="board-menu-item board-menu-item-danger board-menu-item-delete" type="button" onClick={async () => { const ok = await confirm({ title: 'Delete board?', message: 'Delete board? This will move all board issues to backlog.', confirmLabel: 'Delete board', danger: true }); if (ok) { setIsBoardMenuOpen(false); await handleDeleteBoard() } }}>Delete board</button>
               </div>
             )}
           </div>
@@ -325,6 +327,7 @@ export function BoardPage() {
           </div>
         </div>
       ))}
+      {confirmDialog}
     </section>
   )
 }

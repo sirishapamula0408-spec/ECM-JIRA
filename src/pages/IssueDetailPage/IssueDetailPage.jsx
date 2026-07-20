@@ -30,6 +30,7 @@ import { timeAgo } from '../../utils/timeAgo'
 import { getRealtimeClient } from '../../services/realtimeClient'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import { SmartText } from '../../components/common/SmartText'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import { Button } from '@mui/material'
 import PrintIcon from '@mui/icons-material/Print'
 import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
@@ -108,6 +109,7 @@ function InlineField({ editing, onOpen, onClose, display, children }) {
 }
 
 export function IssueDetailPage() {
+  const { confirm, confirmDialog } = useConfirm()
   const { issues, handleMove, handleUpdate, handleDelete } = useIssues()
   const { members, profile } = useMembers()
   const { sprints } = useSprints()
@@ -847,7 +849,12 @@ export function IssueDetailPage() {
   // JL-228: delete this issue (project Member+ via canDeleteIssue) and navigate back
   async function handleDeleteIssue() {
     if (!issue?.id || deleting) return
-    if (!window.confirm(`Delete ${issue.key || `IT-${issue.id}`}? This cannot be undone.`)) return
+    if (!(await confirm({
+      title: 'Delete issue?',
+      message: `Delete ${issue.key || `IT-${issue.id}`}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    }))) return
     setDeleting(true)
     try {
       await handleDelete(issue.id)
@@ -961,7 +968,12 @@ export function IssueDetailPage() {
   }
 
   async function handleDeleteComment(commentId) {
-    if (!window.confirm('Delete this comment? This cannot be undone.')) return
+    if (!(await confirm({
+      title: 'Delete comment?',
+      message: 'Delete this comment? This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    }))) return
     try {
       await deleteComment(issue.id, commentId)
       setComments((current) => current.filter((c) => c.id !== commentId))
@@ -2448,6 +2460,7 @@ export function IssueDetailPage() {
 
         </aside>
       </div>
+      {confirmDialog}
     </section>
   )
 }

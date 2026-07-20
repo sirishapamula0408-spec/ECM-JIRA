@@ -4,9 +4,11 @@ import { fetchProjects, deleteProject, archiveProject, unarchiveProject } from '
 import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/favoriteApi'
 import './ProjectsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
   usePageTitle('Projects')
+  const { confirm, confirmDialog } = useConfirm()
   const navigate = useNavigate()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -74,7 +76,12 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
     })
 
   async function handleMoveToTrash(project) {
-    const confirmed = window.confirm(`Move project "${project.name}" to trash? Issues will be unlinked but not deleted.`)
+    const confirmed = await confirm({
+      title: 'Move project to trash?',
+      message: `Move project "${project.name}" to trash? Issues will be unlinked but not deleted.`,
+      confirmLabel: 'Move to trash',
+      danger: true,
+    })
     if (!confirmed) return
     await deleteProject(project.id)
     setProjects((prev) => prev.filter((p) => p.id !== project.id))
@@ -84,9 +91,11 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
 
   // JL-219: archive is reversible and non-destructive — issues/URLs stay intact.
   async function handleArchive(project) {
-    const confirmed = window.confirm(
-      `Archive project "${project.name}"? It will be hidden from the active projects list and pickers, but its issues remain accessible. You can restore it anytime.`,
-    )
+    const confirmed = await confirm({
+      title: 'Archive project?',
+      message: `Archive project "${project.name}"? It will be hidden from the active projects list and pickers, but its issues remain accessible. You can restore it anytime.`,
+      confirmLabel: 'Archive',
+    })
     if (!confirmed) return
     const updated = await archiveProject(project.id)
     setOpenMenuId(null)
@@ -250,6 +259,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
           </table>
         )}
       </article>
+      {confirmDialog}
     </section>
   )
 }
