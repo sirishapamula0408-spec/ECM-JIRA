@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import TablePagination from '@mui/material/TablePagination'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -122,6 +123,14 @@ export function TeamsPage() {
   const [resendState, setResendState] = useState({ id: null, message: '' })
   const [query, setQuery] = useState('')
 
+  // JL-250: client-side filter / sort / pagination for the members table.
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+
   // JL-74: token-based invitations
   const [invites, setInvites] = useState([])
   const [inviteEmailForm, setInviteEmailForm] = useState({ email: '', role: 'Member' })
@@ -196,11 +205,68 @@ export function TeamsPage() {
     }
   }
 
+  // JL-250: distinct role/status values present in the member list drive the
+  // filter dropdowns, so they stay in sync with whatever the data contains.
+  const roleOptions = useMemo(
+    () => [...new Set(members.map((m) => m.role).filter(Boolean))].sort(),
+    [members],
+  )
+  const statusOptions = useMemo(
+    () => [...new Set(members.map((m) => m.status).filter(Boolean))].sort(),
+    [members],
+  )
+
   const normalizedQuery = query.trim().toLowerCase()
   const filtered = members.filter((m) => {
+    if (roleFilter !== 'all' && m.role !== roleFilter) return false
+    if (statusFilter !== 'all' && m.status !== statusFilter) return false
     if (!normalizedQuery) return true
     return m.name.toLowerCase().includes(normalizedQuery) || m.email.toLowerCase().includes(normalizedQuery)
   })
+
+  const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
+
+  // JL-250: sort the filtered rows by the active column/direction. Names and
+  // roles/statuses compare as strings; task_count compares numerically.
+  const sorted = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      let cmp
+      if (sortBy === 'task_count') {
+        cmp = (a.task_count || 0) - (b.task_count || 0)
+      } else {
+        cmp = String(a[sortBy] ?? '').localeCompare(String(b[sortBy] ?? ''), undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        })
+      }
+      return cmp * dir
+    })
+  }, [filtered, sortBy, sortDir])
+
+  // JL-250: keep the page in range and slice the visible rows.
+  const pageCount = Math.max(1, Math.ceil(sorted.length / rowsPerPage))
+  const currentPage = Math.min(page, pageCount - 1)
+  const paged = sorted.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage)
+
+  // JL-250: jump back to the first page whenever the filter/search criteria
+  // change so you never land on a now-out-of-range page.
+  useEffect(() => {
+    setPage(0)
+  }, [normalizedQuery, roleFilter, statusFilter])
+
+  function toggleSort(column) {
+    if (sortBy === column) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(column)
+      setSortDir('asc')
+    }
+  }
+
+  const ariaSortFor = (column) =>
+    sortBy === column ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+  const sortIndicator = (column) => (sortBy === column ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
 
   return (
     <section className="page teams-page">
@@ -220,6 +286,7 @@ export function TeamsPage() {
             <input
               type="text"
               placeholder="Search members"
+              aria-label="Search members"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -437,23 +504,76 @@ export function TeamsPage() {
           <LoadingState label="Loading team members…" />
         ) : membersError ? (
           <ErrorState title="Couldn't load team members" error={membersError} onRetry={loadMembers} />
-        ) : filtered.length === 0 ? (
-          <div className="teams-empty">
-            {normalizedQuery ? 'No members match your search.' : 'No team members yet. Invite someone to get started.'}
-          </div>
         ) : (
-          <table className="table teams-table">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Tasks</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((member) => (
+          <>
+            <div className="teams-table-toolbar">
+              <label className="teams-table-filter">
+                <span>Role</span>
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  aria-label="Filter by role"
+                >
+                  <option value="all">All roles</option>
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="teams-table-filter">
+                <span>Status</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter by status"
+                >
+                  <option value="all">All statuses</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+              <span className="teams-table-count" aria-live="polite">
+                {sorted.length} of {members.length} members
+              </span>
+            </div>
+
+            {sorted.length === 0 ? (
+              <div className="teams-empty">
+                {hasActiveFilters
+                  ? 'No members match your filters.'
+                  : 'No team members yet. Invite someone to get started.'}
+              </div>
+            ) : (
+              <>
+                <table className="table teams-table">
+                  <thead>
+                    <tr>
+                      <th aria-sort={ariaSortFor('name')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('name')}>
+                          Member{sortIndicator('name')}
+                        </button>
+                      </th>
+                      <th aria-sort={ariaSortFor('role')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('role')}>
+                          Role{sortIndicator('role')}
+                        </button>
+                      </th>
+                      <th aria-sort={ariaSortFor('status')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('status')}>
+                          Status{sortIndicator('status')}
+                        </button>
+                      </th>
+                      <th aria-sort={ariaSortFor('task_count')}>
+                        <button type="button" className="teams-sort-btn" onClick={() => toggleSort('task_count')}>
+                          Tasks{sortIndicator('task_count')}
+                        </button>
+                      </th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paged.map((member) => (
                 <tr key={member.id}>
                   <td>
                     <div className="teams-member-cell">
@@ -483,8 +603,26 @@ export function TeamsPage() {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+                  </tbody>
+                </table>
+                <TablePagination
+                  component="div"
+                  className="teams-table-pagination"
+                  count={sorted.length}
+                  page={currentPage}
+                  onPageChange={(_event, newPage) => setPage(newPage)}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={(event) => {
+                    setRowsPerPage(parseInt(event.target.value, 10))
+                    setPage(0)
+                  }}
+                  rowsPerPageOptions={[10, 25, 50]}
+                  labelRowsPerPage="Members per page"
+                  SelectProps={{ native: true, inputProps: { 'aria-label': 'Members per page' } }}
+                />
+              </>
+            )}
+          </>
         )}
       </article>
 
