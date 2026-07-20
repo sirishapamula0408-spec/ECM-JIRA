@@ -80,7 +80,6 @@ describe('JL-257 — List bulk-action toolbar', () => {
   })
 
   it('bulk delete confirms, calls delete for each id, then clears selection', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderPage()
     selectRow('TP-1')
     selectRow('TP-3')
@@ -88,7 +87,10 @@ describe('JL-257 — List bulk-action toolbar', () => {
     fireEvent.change(screen.getByLabelText('Bulk action'), { target: { value: 'delete' } })
     await fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
-    expect(confirmSpy).toHaveBeenCalledOnce()
+    // Themed ConfirmDialog (JL-232) replaces window.confirm — confirm via the dialog button.
+    const dialog = await screen.findByRole('dialog')
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+
     expect(handleDelete).toHaveBeenCalledTimes(2)
     expect(handleDelete).toHaveBeenCalledWith(1)
     expect(handleDelete).toHaveBeenCalledWith(3)
@@ -96,16 +98,18 @@ describe('JL-257 — List bulk-action toolbar', () => {
   })
 
   it('cancelling the delete confirm performs no deletion and keeps the selection', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderPage()
     selectRow('TP-1')
 
     fireEvent.change(screen.getByLabelText('Bulk action'), { target: { value: 'delete' } })
     await fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
-    expect(confirmSpy).toHaveBeenCalledOnce()
+    const dialog = await screen.findByRole('dialog')
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
     expect(handleDelete).not.toHaveBeenCalled()
-    expect(within(bulkBar()).getByText('1 selected')).toBeInTheDocument()
+    // Dialog un-hides background content asynchronously on close.
+    await waitFor(() => expect(within(bulkBar()).getByText('1 selected')).toBeInTheDocument())
   })
 
   it('reconciles selection with the active filter so hidden rows are never acted on', async () => {

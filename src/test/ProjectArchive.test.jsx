@@ -70,6 +70,8 @@ describe('JL-219 — ProjectsPage archive UX', () => {
 
     fireEvent.click(screen.getByLabelText('Project actions'))
     fireEvent.click(screen.getByText('Archive project'))
+    // Themed ConfirmDialog (JL-232) replaces window.confirm — confirm via the dialog button.
+    fireEvent.click(await screen.findByRole('button', { name: /^archive$/i }))
 
     await waitFor(() => expect(archiveProject).toHaveBeenCalledWith(1))
     // removed from the (active-only) list after archiving
