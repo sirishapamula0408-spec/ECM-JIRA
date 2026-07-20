@@ -178,6 +178,34 @@
   gap: 4px;
 }
 
+/* Sortable column header (JL-256) */
+.col-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.col-sort-btn:hover {
+  color: #0052cc;
+}
+
+.col-sort-active {
+  color: #0052cc;
+}
+
+.col-sort-indicator {
+  font-size: 9px;
+  line-height: 1;
+}
+
 .col-drag-handle {
   opacity: 0;
   color: var(--list-subtle);
@@ -569,4 +597,23 @@ body.col-resizing * {
 
 .jira-list-create:hover {
   background: #fafbfc;
+}
+
+/* ── Bulk-action bar (JL-257) ── */
+.jira-list-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  border: 1px solid var(--list-border);
+  border-radius: 6px;
+  background: var(--list-surface);
+}
+
+.jira-list-bulk-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--list-subtle);
+  white-space: nowrap;
 }

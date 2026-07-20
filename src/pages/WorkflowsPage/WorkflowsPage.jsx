@@ -5,7 +5,7 @@ import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
 import './WorkflowsPage.css'
 import { useMembers } from '../../context/MemberContext'
-import { ISSUE_STATUSES } from '../../constants'
+import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -31,6 +31,18 @@ const DEFAULT_WIDTHS = {
   assignee: 150, created: 120, label: 100, dueDate: 120,
 }
 
+/* ── Column sorting (JL-256) ── *
+ * Which columns are sortable and by what kind of comparator. `comments` is a
+ * derived/pseudo-random cell, so it is intentionally NOT sortable. Rank maps let
+ * status/priority sort by their logical order rather than alphabetically. */
+const STATUS_RANK = Object.fromEntries(ISSUE_STATUSES.map((s, i) => [s, i]))
+const PRIORITY_RANK = Object.fromEntries(PRIORITIES.map((p, i) => [p, i]))
+const SORT_KIND = {
+  type: 'text', key: 'text', summary: 'text', status: 'num', sprint: 'text',
+  priority: 'num', assignee: 'text', created: 'date', label: 'text', dueDate: 'date',
+}
+const SORTABLE = new Set(Object.keys(SORT_KIND))
+
 function formatDate(dateStr) {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
@@ -39,7 +51,7 @@ function formatDate(dateStr) {
 }
 
 export function WorkflowsPage() {
-  const { issues, handleCreate: onCreateIssue, handleMove } = useIssues()
+  const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
   const { sprints } = useSprints()
   const { authUser: currentUser } = useAuth()
   const { profile } = useMembers()
@@ -51,9 +63,15 @@ export function WorkflowsPage() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [groupBy, setGroupBy] = useState('none')
   const [selectedIds, setSelectedIds] = useState([])
+  const [bulkAction, setBulkAction] = useState('status')
+  const [bulkValue, setBulkValue] = useState('To Do')
+  const [bulkBusy, setBulkBusy] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [sortKey, setSortKey] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [columnOrder, setColumnOrder] = useState(DEFAULT_COL_KEYS)
   const [showColumnMenu, setShowColumnMenu] = useState(false)
+  const [showDisplayMenu, setShowDisplayMenu] = useState(false)
   const [dragColKey, setDragColKey] = useState(null)
   const [dragOverColKey, setDragOverColKey] = useState(null)
   const [columnWidths, setColumnWidths] = useState(DEFAULT_WIDTHS)
@@ -80,8 +98,63 @@ export function WorkflowsPage() {
     })
   }, [scopedIssues, query, statusFilter])
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setCurrentPage(1) }, [query, statusFilter])
+  /* Raw value used to sort a row for a given column (JL-256). Returns the logical
+   * rank for status/priority, the display name for sprint, and the raw
+   * string/date otherwise. Missing values return null so they can sort last. */
+  const sortValueFor = useCallback((colKey, issue) => {
+    switch (colKey) {
+      case 'type': return issue.issueType
+      case 'key': return issue.key
+      case 'summary': return issue.title
+      case 'status': return STATUS_RANK[issue.status] ?? null
+      case 'sprint': return issue.sprintId ? sprintById.get(issue.sprintId) : null
+      case 'priority': return PRIORITY_RANK[issue.priority] ?? null
+      case 'assignee': return issue.assignee
+      case 'created': return issue.createdAt || issue.created_at
+      case 'label': return issue.label
+      case 'dueDate': return issue.dueDate
+      default: return null
+    }
+  }, [sprintById])
+
+  /* Apply the active sort to the FULL filtered set before grouping/pagination.
+   * Missing values (null/undefined/'' or unparseable dates) always sort last,
+   * regardless of direction; ties fall back to the original order (stable). */
+  const sortedRows = useMemo(() => {
+    if (!sortKey || !SORTABLE.has(sortKey)) return filteredRows
+    const kind = SORT_KIND[sortKey]
+    const dir = sortDir === 'desc' ? -1 : 1
+    const decorated = filteredRows.map((issue, idx) => {
+      let value = sortValueFor(sortKey, issue)
+      if (kind === 'date') {
+        const t = value == null || value === '' ? NaN : new Date(value).getTime()
+        value = Number.isNaN(t) ? null : t
+      }
+      const missing = value === null || value === undefined || value === ''
+      return { issue, idx, value, missing }
+    })
+    decorated.sort((a, b) => {
+      if (a.missing && b.missing) return a.idx - b.idx
+      if (a.missing) return 1
+      if (b.missing) return -1
+      let cmp
+      if (kind === 'text') cmp = String(a.value).localeCompare(String(b.value), undefined, { numeric: true, sensitivity: 'base' })
+      else cmp = a.value - b.value
+      if (cmp === 0) return a.idx - b.idx
+      return cmp * dir
+    })
+    return decorated.map((d) => d.issue)
+  }, [filteredRows, sortKey, sortDir, sortValueFor])
+
+  // Reset to page 1 when filters or sort change
+  useEffect(() => { setCurrentPage(1) }, [query, statusFilter, sortKey, sortDir])
+
+  function handleSort(colKey) {
+    if (!SORTABLE.has(colKey)) return
+    if (sortKey !== colKey) { setSortKey(colKey); setSortDir('asc') }
+    else if (sortDir === 'asc') { setSortDir('desc') }
+    else { setSortKey(null); setSortDir('asc') } // third click clears
+  }
 
   const groupLabelFor = useCallback((issue) => {
     return groupBy === 'status'
@@ -102,15 +175,17 @@ export function WorkflowsPage() {
    * just `filteredRows` paginated flat — identical to the previous behavior.
    */
   const orderedRows = useMemo(() => {
-    if (groupBy === 'none') return filteredRows
+    if (groupBy === 'none') return sortedRows
+    // Grouping is stable over the already-sorted set, so the active column sort
+    // is preserved within each group (JL-256 composes with JL-259 grouping).
     const groups = new Map()
-    filteredRows.forEach((issue) => {
+    sortedRows.forEach((issue) => {
       const label = groupLabelFor(issue)
       if (!groups.has(label)) groups.set(label, [])
       groups.get(label).push(issue)
     })
     return Array.from(groups.values()).flat()
-  }, [filteredRows, groupBy, groupLabelFor])
+  }, [sortedRows, groupBy, groupLabelFor])
 
   const groupTotals = useMemo(() => {
     const totals = new Map()
@@ -155,6 +230,63 @@ export function WorkflowsPage() {
   function toggleSelectAll(checked) { setSelectedIds(checked ? allVisibleIds : []) }
   function toggleSelectOne(id, checked) {
     setSelectedIds((current) => { if (checked) return Array.from(new Set([...current, id])); return current.filter((item) => item !== id) })
+  }
+
+  /* ── Bulk actions (JL-257) ──
+   * Only ever act on rows still present in the current filtered set — never on
+   * rows hidden by the search/status filter or on another page's stale ids. */
+  const filteredIdSet = useMemo(() => new Set(filteredRows.map((issue) => issue.id)), [filteredRows])
+  const issueById = useMemo(() => {
+    const map = new Map()
+    filteredRows.forEach((issue) => map.set(issue.id, issue))
+    return map
+  }, [filteredRows])
+  const activeSelectedIds = useMemo(
+    () => selectedIds.filter((id) => filteredIdSet.has(id)),
+    [selectedIds, filteredIdSet],
+  )
+  const bulkCount = activeSelectedIds.length
+
+  function changeBulkAction(action) {
+    setBulkAction(action)
+    if (action === 'status') setBulkValue('To Do')
+    else if (action === 'priority') setBulkValue('Medium')
+    else setBulkValue('')
+  }
+
+  function clearSelection() { setSelectedIds([]) }
+
+  async function applyBulkAction() {
+    const ids = [...activeSelectedIds]
+    if (ids.length === 0 || bulkBusy) return
+
+    if (bulkAction === 'delete') {
+      if (!window.confirm(`Delete ${ids.length} issue(s)? This cannot be undone.`)) return
+      setBulkBusy(true)
+      try {
+        await Promise.all(ids.map((id) => handleDelete(id)))
+      } finally {
+        setSelectedIds([])
+        setBulkBusy(false)
+      }
+      return
+    }
+
+    setBulkBusy(true)
+    try {
+      if (bulkAction === 'status') {
+        await Promise.all(ids.map((id) => {
+          const issue = issueById.get(id)
+          const nextSprintId = bulkValue === 'Backlog' ? null : (issue?.sprintId ?? null)
+          return handleMove(id, bulkValue, nextSprintId)
+        }))
+      } else if (bulkAction === 'priority') {
+        await Promise.all(ids.map((id) => handleUpdate(id, { priority: bulkValue })))
+      }
+    } finally {
+      setSelectedIds([])
+      setBulkBusy(false)
+    }
   }
 
   function issueTypeIcon(issueType) {
@@ -344,26 +476,81 @@ export function WorkflowsPage() {
             <option value="status">Group by status</option>
             <option value="sprint">Group by sprint</option>
           </select>
-          <button type="button" className="jira-list-icon-btn" aria-label="Display settings">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 4.5h5M2.5 8h8M2.5 11.5h5M10.5 4.5h3M12 3v3M8.5 11.5h5M11 10v3" /></svg>
-          </button>
-          <button type="button" className="jira-list-icon-btn" aria-label="More options">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><circle cx="3.5" cy="8" r="1" /><circle cx="8" cy="8" r="1" /><circle cx="12.5" cy="8" r="1" /></svg>
-          </button>
+          <div className="jira-list-col-menu-wrap" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setShowDisplayMenu(false) }}>
+            <button
+              type="button"
+              className="jira-list-icon-btn"
+              aria-label="Display settings"
+              aria-haspopup="menu"
+              aria-expanded={showDisplayMenu}
+              onClick={() => setShowDisplayMenu((c) => !c)}
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 4.5h5M2.5 8h8M2.5 11.5h5M10.5 4.5h3M12 3v3M8.5 11.5h5M11 10v3" /></svg>
+            </button>
+            {showDisplayMenu && (
+              <div className="jira-list-col-menu" role="menu">
+                {EXTRA_COL_KEYS.map((colKey) => {
+                  const def = ALL_COLUMNS[colKey]
+                  const active = columnOrder.includes(colKey)
+                  return (
+                    <button
+                      key={colKey}
+                      className={`jira-list-col-menu-item${active ? ' active' : ''}`}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={active}
+                      onClick={() => toggleColumn(colKey)}
+                    >
+                      <span className="jira-list-col-check">{active ? '✓' : ''}</span>
+                      {def.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {bulkCount > 0 && (
+        <div className="jira-list-bulk-bar" role="region" aria-label="Bulk actions">
+          <span className="jira-list-bulk-count">{bulkCount} selected</span>
+          <select className="jira-list-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={bulkBusy} aria-label="Bulk action">
+            <option value="status">Status</option>
+            <option value="priority">Priority</option>
+            <option value="delete">Delete</option>
+          </select>
+          {bulkAction === 'status' && (
+            <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Status value">
+              {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{statusChip(status)}</option>))}
+            </select>
+          )}
+          {bulkAction === 'priority' && (
+            <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Priority value">
+              {PRIORITIES.map((priority) => (<option key={priority} value={priority}>{priority}</option>))}
+            </select>
+          )}
+          <button className="btn btn-primary" type="button" onClick={applyBulkAction} disabled={bulkBusy}>
+            {bulkAction === 'delete' ? 'Delete' : 'Apply'}
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={clearSelection} disabled={bulkBusy}>Clear</button>
+        </div>
+      )}
 
       <article className="jira-list-table-shell">
         <div className="jira-list-table-scroll">
           <table className="jira-list-table">
             <thead>
               <tr>
-                <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(event) => toggleSelectAll(event.target.checked)} /></th>
+                <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(event) => toggleSelectAll(event.target.checked)} aria-label="Select all issues on this page" /></th>
                 {columnOrder.map((colKey) => {
                   const def = ALL_COLUMNS[colKey]
                   const isDragging = dragColKey === colKey
                   const isOver = dragOverColKey === colKey && dragColKey !== colKey
                   const w = columnWidths[colKey] || DEFAULT_WIDTHS[colKey]
+                  const sortable = SORTABLE.has(colKey)
+                  const isSorted = sortKey === colKey
+                  const ariaSort = sortable ? (isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none') : undefined
                   return (
                     <th
                       key={colKey}
@@ -373,6 +560,7 @@ export function WorkflowsPage() {
                         (isOver ? ' col-drag-over' : '')
                       }
                       style={{ width: w, minWidth: 50 }}
+                      aria-sort={ariaSort}
                       draggable
                       onDragStart={(e) => handleColDragStart(e, colKey)}
                       onDragOver={(e) => handleColDragOver(e, colKey)}
@@ -386,7 +574,22 @@ export function WorkflowsPage() {
                           <circle cx="2" cy="7" r="1" /><circle cx="6" cy="7" r="1" />
                           <circle cx="2" cy="12" r="1" /><circle cx="6" cy="12" r="1" />
                         </svg>
-                        {def.label}
+                        {sortable ? (
+                          // Sort is triggered by a click on the label button, which is
+                          // distinct from the th's drag-to-reorder gesture (drag never
+                          // fires a click), so the two interactions don't conflict.
+                          <button
+                            type="button"
+                            className={`col-sort-btn${isSorted ? ' col-sort-active' : ''}`}
+                            draggable={false}
+                            onClick={() => handleSort(colKey)}
+                          >
+                            {def.label}
+                            {isSorted && (
+                              <span className="col-sort-indicator" aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </button>
+                        ) : def.label}
                       </span>
                       <div
                         className="col-resize-handle"
@@ -439,7 +642,7 @@ export function WorkflowsPage() {
                     const selected = selectedIds.includes(issue.id)
                     return (
                       <tr key={issue.id} className={selected ? 'row-selected' : ''}>
-                        <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} /></td>
+                        <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} aria-label={`Select ${issue.key || issue.title || 'issue'}`} /></td>
                         {columnOrder.map((colKey) => {
                           const def = ALL_COLUMNS[colKey]
                           const isDragging = dragColKey === colKey
