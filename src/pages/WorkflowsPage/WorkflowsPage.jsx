@@ -54,6 +54,7 @@ export function WorkflowsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [columnOrder, setColumnOrder] = useState(DEFAULT_COL_KEYS)
   const [showColumnMenu, setShowColumnMenu] = useState(false)
+  const [showDisplayMenu, setShowDisplayMenu] = useState(false)
   const [dragColKey, setDragColKey] = useState(null)
   const [dragOverColKey, setDragOverColKey] = useState(null)
   const [columnWidths, setColumnWidths] = useState(DEFAULT_WIDTHS)
@@ -344,12 +345,39 @@ export function WorkflowsPage() {
             <option value="status">Group by status</option>
             <option value="sprint">Group by sprint</option>
           </select>
-          <button type="button" className="jira-list-icon-btn" aria-label="Display settings">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 4.5h5M2.5 8h8M2.5 11.5h5M10.5 4.5h3M12 3v3M8.5 11.5h5M11 10v3" /></svg>
-          </button>
-          <button type="button" className="jira-list-icon-btn" aria-label="More options">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><circle cx="3.5" cy="8" r="1" /><circle cx="8" cy="8" r="1" /><circle cx="12.5" cy="8" r="1" /></svg>
-          </button>
+          <div className="jira-list-col-menu-wrap" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setShowDisplayMenu(false) }}>
+            <button
+              type="button"
+              className="jira-list-icon-btn"
+              aria-label="Display settings"
+              aria-haspopup="menu"
+              aria-expanded={showDisplayMenu}
+              onClick={() => setShowDisplayMenu((c) => !c)}
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 4.5h5M2.5 8h8M2.5 11.5h5M10.5 4.5h3M12 3v3M8.5 11.5h5M11 10v3" /></svg>
+            </button>
+            {showDisplayMenu && (
+              <div className="jira-list-col-menu" role="menu">
+                {EXTRA_COL_KEYS.map((colKey) => {
+                  const def = ALL_COLUMNS[colKey]
+                  const active = columnOrder.includes(colKey)
+                  return (
+                    <button
+                      key={colKey}
+                      className={`jira-list-col-menu-item${active ? ' active' : ''}`}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={active}
+                      onClick={() => toggleColumn(colKey)}
+                    >
+                      <span className="jira-list-col-check">{active ? '✓' : ''}</span>
+                      {def.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
