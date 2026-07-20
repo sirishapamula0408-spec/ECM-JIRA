@@ -6,11 +6,12 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogContentText from '@mui/material/DialogContentText'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation, resendInvitation } from '../../api/memberApi'
+import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation, resendInvitation, deleteMember, bulkDeleteMembers } from '../../api/memberApi'
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
@@ -54,6 +55,13 @@ export function TeamsPage() {
   // JL-248: confirm before revoking a pending invitation.
   const [revokeTarget, setRevokeTarget] = useState(null)
   const [revokeBusy, setRevokeBusy] = useState(false)
+
+  // JL-252: single + bulk member delete (Admin/Owner only).
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   // JL-134: org-wide security policy (enforced 2FA + password rules)
   const [policy, setPolicy] = useState(null)
@@ -195,6 +203,62 @@ export function TeamsPage() {
     }
   }
 
+  // JL-252: remove a single member from the workspace. The backend enforces the
+  // Owner / last-Admin guards and returns 403 if the delete is disallowed.
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
+    try {
+      await deleteMember(deleteTarget.id)
+      const removedId = deleteTarget.id
+      const removedName = deleteTarget.name
+      setDeleteTarget(null)
+      setSelectedIds((prev) => {
+        if (!prev.has(removedId)) return prev
+        const next = new Set(prev)
+        next.delete(removedId)
+        return next
+      })
+      await loadMembers()
+      showFeedback(`${removedName} removed from the workspace.`, 'success')
+    } catch (err) {
+      setDeleteTarget(null)
+      showFeedback(err.message || 'Failed to remove member.', 'error')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
+  // JL-252: delete every selected member in one request. The backend applies the
+  // per-id guards and returns { deleted, skipped } so we can summarise the outcome.
+  async function runBulkDelete() {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const result = await bulkDeleteMembers(ids)
+      const deleted = result?.deleted || []
+      const skipped = result?.skipped || []
+      setBulkConfirmOpen(false)
+      setSelectedIds(new Set())
+      await loadMembers()
+      const noun = (n) => `${n} member${n === 1 ? '' : 's'}`
+      if (skipped.length > 0) {
+        showFeedback(
+          `Deleted ${noun(deleted.length)}, skipped ${skipped.length} (Owner / last Admin).`,
+          deleted.length > 0 ? 'success' : 'error',
+        )
+      } else {
+        showFeedback(`Deleted ${noun(deleted.length)}.`, 'success')
+      }
+    } catch (err) {
+      setBulkConfirmOpen(false)
+      showFeedback(err.message || 'Bulk delete failed.', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   // JL-247: the header "+ Invite Member" flow now creates a token-based,
   // revocable, expiring invitation (POST /api/invitations) instead of the
   // legacy tokenless POST /api/members path, which left dangling un-actionable
@@ -274,6 +338,44 @@ export function TeamsPage() {
   useEffect(() => {
     setPage(0)
   }, [normalizedQuery, roleFilter, statusFilter])
+
+  // JL-252: clear the bulk selection whenever the filter/search/page changes so
+  // a "Delete selected" can never act on rows that are no longer visible.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [normalizedQuery, roleFilter, statusFilter, page, rowsPerPage])
+
+  // JL-252: the workspace Owner can never be deleted, so those rows aren't
+  // selectable. Select-all and the "all selected" state are scoped to the
+  // currently visible page and only apply for Admins/Owners.
+  const isOwnerRow = (m) => Boolean(m.is_owner) || m.role === 'Owner'
+  const selectablePaged = isAdmin ? paged.filter((m) => !isOwnerRow(m)) : []
+  const selectedCount = selectedIds.size
+  const allPageSelected =
+    selectablePaged.length > 0 && selectablePaged.every((m) => selectedIds.has(m.id))
+  const somePageSelected = selectablePaged.some((m) => selectedIds.has(m.id))
+
+  function toggleRow(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllOnPage() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allPageSelected) selectablePaged.forEach((m) => next.delete(m.id))
+      else selectablePaged.forEach((m) => next.add(m.id))
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
 
   function toggleSort(column) {
     if (sortBy === column) {
@@ -584,9 +686,36 @@ export function TeamsPage() {
               </div>
             ) : (
               <>
+                {/* JL-252: bulk-action toolbar, shown only when rows are selected. */}
+                {isAdmin && selectedCount > 0 && (
+                  <div className="teams-bulkbar" role="region" aria-label="Bulk actions">
+                    <span className="teams-bulkbar-count">{selectedCount} selected</span>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="contained"
+                      onClick={() => setBulkConfirmOpen(true)}
+                    >
+                      Delete {selectedCount} member{selectedCount === 1 ? '' : 's'}
+                    </Button>
+                    <Button size="small" onClick={clearSelection}>Clear</Button>
+                  </div>
+                )}
                 <table className="table teams-table">
                   <thead>
                     <tr>
+                      {isAdmin && (
+                        <th className="teams-checkbox-cell">
+                          <Checkbox
+                            size="small"
+                            checked={allPageSelected}
+                            indeterminate={somePageSelected && !allPageSelected}
+                            disabled={selectablePaged.length === 0}
+                            onChange={toggleSelectAllOnPage}
+                            inputProps={{ 'aria-label': 'Select all members on this page' }}
+                          />
+                        </th>
+                      )}
                       <th aria-sort={ariaSortFor('name')}>
                         <button type="button" className="teams-sort-btn" onClick={() => toggleSort('name')}>
                           Member{sortIndicator('name')}
@@ -613,6 +742,17 @@ export function TeamsPage() {
                   <tbody>
                     {paged.map((member) => (
                 <tr key={member.id}>
+                  {isAdmin && (
+                    <td className="teams-checkbox-cell">
+                      <Checkbox
+                        size="small"
+                        checked={selectedIds.has(member.id)}
+                        disabled={isOwnerRow(member)}
+                        onChange={() => toggleRow(member.id)}
+                        inputProps={{ 'aria-label': `Select ${member.name}` }}
+                      />
+                    </td>
+                  )}
                   <td>
                     <div className="teams-member-cell">
                       <span className="teams-member-avatar">{member.name.slice(0, 2).toUpperCase()}</span>
@@ -631,13 +771,25 @@ export function TeamsPage() {
                   </td>
                   <td>{member.task_count || 0}</td>
                   <td>
-                    {member.status === 'Invited' ? (
-                      <button className="link-btn" type="button" onClick={() => handleResend(member.id)} disabled={resendState.id === member.id}>
-                        {resendState.id === member.id ? 'Resending...' : 'Resend Invite'}
-                      </button>
-                    ) : (
-                      <span className="teams-active-label">Active</span>
-                    )}
+                    <div className="teams-row-actions">
+                      {member.status === 'Invited' ? (
+                        <button className="link-btn" type="button" onClick={() => handleResend(member.id)} disabled={resendState.id === member.id}>
+                          {resendState.id === member.id ? 'Resending...' : 'Resend Invite'}
+                        </button>
+                      ) : (
+                        <span className="teams-active-label">Active</span>
+                      )}
+                      {isAdmin && !isOwnerRow(member) && (
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => setDeleteTarget(member)}
+                          aria-label={`Delete ${member.name}`}
+                        >
+                          Delete
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -677,6 +829,46 @@ export function TeamsPage() {
           <Button onClick={() => setRevokeTarget(null)} disabled={revokeBusy}>Cancel</Button>
           <Button onClick={confirmRevoke} color="error" variant="contained" disabled={revokeBusy}>
             {revokeBusy ? 'Revoking…' : 'Revoke'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* JL-252: confirm single member delete */}
+      <Dialog open={Boolean(deleteTarget)} onClose={() => (deleteBusy ? null : setDeleteTarget(null))} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove member?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteTarget
+              ? `Remove ${deleteTarget.name} (${deleteTarget.email}) from the workspace? This cannot be undone.`
+              : ''}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleteBusy}>Cancel</Button>
+          <Button onClick={confirmDelete} color="error" variant="contained" disabled={deleteBusy}>
+            {deleteBusy ? 'Removing…' : 'Remove'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* JL-252: confirm bulk member delete */}
+      <Dialog
+        open={bulkConfirmOpen}
+        onClose={() => { if (!bulkBusy) setBulkConfirmOpen(false) }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete selected members</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Remove {selectedCount} selected member{selectedCount === 1 ? '' : 's'} from the workspace?
+            This cannot be undone. Protected members (the Owner or the last remaining Admin) are skipped.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkConfirmOpen(false)} disabled={bulkBusy}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={runBulkDelete} disabled={bulkBusy}>
+            {bulkBusy ? 'Deleting…' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

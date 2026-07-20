@@ -118,6 +118,16 @@
   gap: 8px !important;
 }
 
+/* JL-253: shared.css sets `input { width: 100% }` globally, which stretched the
+   security-policy checkboxes full-width and pushed their labels far right.
+   Reset just these checkboxes so each sits ~8px left of its label text. */
+.teams-security-check input[type='checkbox'] {
+  width: auto;
+  flex: none;
+  margin: 0;
+  padding: 0;
+}
+
 .teams-table-shell {
   border: 1px solid var(--jira-border);
   border-radius: 8px;
@@ -281,4 +291,42 @@
   background: #22272b;
   border-color: #2c333a;
   color: #dfe1e6;
+}
+
+/* JL-252: bulk-select toolbar + row actions for member delete */
+.teams-bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: #e9f2ff;
+  border: 1px solid #cce0ff;
+  border-radius: 6px;
+}
+
+.teams-bulkbar-count {
+  font-weight: 600;
+  color: #0c66e4;
+}
+
+.teams-checkbox-cell {
+  width: 48px;
+  padding-left: 4px;
+  padding-right: 0;
+}
+
+.teams-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-theme-dark .teams-bulkbar {
+  background: #1c2b41;
+  border-color: #09326c;
+}
+
+.app-theme-dark .teams-bulkbar-count {
+  color: #4c9aff;
 }
