@@ -5,7 +5,7 @@ import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
 import './WorkflowsPage.css'
 import { useMembers } from '../../context/MemberContext'
-import { ISSUE_STATUSES } from '../../constants'
+import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -31,6 +31,18 @@ const DEFAULT_WIDTHS = {
   assignee: 150, created: 120, label: 100, dueDate: 120,
 }
 
+/* ── Column sorting (JL-256) ── *
+ * Which columns are sortable and by what kind of comparator. `comments` is a
+ * derived/pseudo-random cell, so it is intentionally NOT sortable. Rank maps let
+ * status/priority sort by their logical order rather than alphabetically. */
+const STATUS_RANK = Object.fromEntries(ISSUE_STATUSES.map((s, i) => [s, i]))
+const PRIORITY_RANK = Object.fromEntries(PRIORITIES.map((p, i) => [p, i]))
+const SORT_KIND = {
+  type: 'text', key: 'text', summary: 'text', status: 'num', sprint: 'text',
+  priority: 'num', assignee: 'text', created: 'date', label: 'text', dueDate: 'date',
+}
+const SORTABLE = new Set(Object.keys(SORT_KIND))
+
 function formatDate(dateStr) {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
@@ -52,6 +64,8 @@ export function WorkflowsPage() {
   const [groupBy, setGroupBy] = useState('none')
   const [selectedIds, setSelectedIds] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [sortKey, setSortKey] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [columnOrder, setColumnOrder] = useState(DEFAULT_COL_KEYS)
   const [showColumnMenu, setShowColumnMenu] = useState(false)
   const [dragColKey, setDragColKey] = useState(null)
@@ -80,8 +94,63 @@ export function WorkflowsPage() {
     })
   }, [scopedIssues, query, statusFilter])
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setCurrentPage(1) }, [query, statusFilter])
+  /* Raw value used to sort a row for a given column (JL-256). Returns the logical
+   * rank for status/priority, the display name for sprint, and the raw
+   * string/date otherwise. Missing values return null so they can sort last. */
+  const sortValueFor = useCallback((colKey, issue) => {
+    switch (colKey) {
+      case 'type': return issue.issueType
+      case 'key': return issue.key
+      case 'summary': return issue.title
+      case 'status': return STATUS_RANK[issue.status] ?? null
+      case 'sprint': return issue.sprintId ? sprintById.get(issue.sprintId) : null
+      case 'priority': return PRIORITY_RANK[issue.priority] ?? null
+      case 'assignee': return issue.assignee
+      case 'created': return issue.createdAt || issue.created_at
+      case 'label': return issue.label
+      case 'dueDate': return issue.dueDate
+      default: return null
+    }
+  }, [sprintById])
+
+  /* Apply the active sort to the FULL filtered set before grouping/pagination.
+   * Missing values (null/undefined/'' or unparseable dates) always sort last,
+   * regardless of direction; ties fall back to the original order (stable). */
+  const sortedRows = useMemo(() => {
+    if (!sortKey || !SORTABLE.has(sortKey)) return filteredRows
+    const kind = SORT_KIND[sortKey]
+    const dir = sortDir === 'desc' ? -1 : 1
+    const decorated = filteredRows.map((issue, idx) => {
+      let value = sortValueFor(sortKey, issue)
+      if (kind === 'date') {
+        const t = value == null || value === '' ? NaN : new Date(value).getTime()
+        value = Number.isNaN(t) ? null : t
+      }
+      const missing = value === null || value === undefined || value === ''
+      return { issue, idx, value, missing }
+    })
+    decorated.sort((a, b) => {
+      if (a.missing && b.missing) return a.idx - b.idx
+      if (a.missing) return 1
+      if (b.missing) return -1
+      let cmp
+      if (kind === 'text') cmp = String(a.value).localeCompare(String(b.value), undefined, { numeric: true, sensitivity: 'base' })
+      else cmp = a.value - b.value
+      if (cmp === 0) return a.idx - b.idx
+      return cmp * dir
+    })
+    return decorated.map((d) => d.issue)
+  }, [filteredRows, sortKey, sortDir, sortValueFor])
+
+  // Reset to page 1 when filters or sort change
+  useEffect(() => { setCurrentPage(1) }, [query, statusFilter, sortKey, sortDir])
+
+  function handleSort(colKey) {
+    if (!SORTABLE.has(colKey)) return
+    if (sortKey !== colKey) { setSortKey(colKey); setSortDir('asc') }
+    else if (sortDir === 'asc') { setSortDir('desc') }
+    else { setSortKey(null); setSortDir('asc') } // third click clears
+  }
 
   const groupLabelFor = useCallback((issue) => {
     return groupBy === 'status'
@@ -102,15 +171,17 @@ export function WorkflowsPage() {
    * just `filteredRows` paginated flat — identical to the previous behavior.
    */
   const orderedRows = useMemo(() => {
-    if (groupBy === 'none') return filteredRows
+    if (groupBy === 'none') return sortedRows
+    // Grouping is stable over the already-sorted set, so the active column sort
+    // is preserved within each group (JL-256 composes with JL-259 grouping).
     const groups = new Map()
-    filteredRows.forEach((issue) => {
+    sortedRows.forEach((issue) => {
       const label = groupLabelFor(issue)
       if (!groups.has(label)) groups.set(label, [])
       groups.get(label).push(issue)
     })
     return Array.from(groups.values()).flat()
-  }, [filteredRows, groupBy, groupLabelFor])
+  }, [sortedRows, groupBy, groupLabelFor])
 
   const groupTotals = useMemo(() => {
     const totals = new Map()
@@ -364,6 +435,9 @@ export function WorkflowsPage() {
                   const isDragging = dragColKey === colKey
                   const isOver = dragOverColKey === colKey && dragColKey !== colKey
                   const w = columnWidths[colKey] || DEFAULT_WIDTHS[colKey]
+                  const sortable = SORTABLE.has(colKey)
+                  const isSorted = sortKey === colKey
+                  const ariaSort = sortable ? (isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none') : undefined
                   return (
                     <th
                       key={colKey}
@@ -373,6 +447,7 @@ export function WorkflowsPage() {
                         (isOver ? ' col-drag-over' : '')
                       }
                       style={{ width: w, minWidth: 50 }}
+                      aria-sort={ariaSort}
                       draggable
                       onDragStart={(e) => handleColDragStart(e, colKey)}
                       onDragOver={(e) => handleColDragOver(e, colKey)}
@@ -386,7 +461,22 @@ export function WorkflowsPage() {
                           <circle cx="2" cy="7" r="1" /><circle cx="6" cy="7" r="1" />
                           <circle cx="2" cy="12" r="1" /><circle cx="6" cy="12" r="1" />
                         </svg>
-                        {def.label}
+                        {sortable ? (
+                          // Sort is triggered by a click on the label button, which is
+                          // distinct from the th's drag-to-reorder gesture (drag never
+                          // fires a click), so the two interactions don't conflict.
+                          <button
+                            type="button"
+                            className={`col-sort-btn${isSorted ? ' col-sort-active' : ''}`}
+                            draggable={false}
+                            onClick={() => handleSort(colKey)}
+                          >
+                            {def.label}
+                            {isSorted && (
+                              <span className="col-sort-indicator" aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </button>
+                        ) : def.label}
                       </span>
                       <div
                         className="col-resize-handle"
