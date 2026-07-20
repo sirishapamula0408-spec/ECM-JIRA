@@ -14,9 +14,11 @@ import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 export function BacklogPage() {
   usePageTitle('Backlog')
+  const { confirm, confirmDialog } = useConfirm()
   const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
   const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
   const { profile, members } = useMembers()
@@ -166,7 +168,12 @@ export function BacklogPage() {
     const ids = [...selectedIssueIds]
 
     if (bulkAction === 'delete') {
-      if (!window.confirm(`Delete ${ids.length} issue(s)? This cannot be undone.`)) return
+      if (!(await confirm({
+        title: 'Delete issues?',
+        message: `Delete ${ids.length} issue(s)? This cannot be undone.`,
+        confirmLabel: 'Delete',
+        danger: true,
+      }))) return
       await Promise.all(ids.map((id) => handleDelete(id)))
       setSelectedIssueIds([])
       setBacklogMessage(`Deleted ${ids.length} issue(s).`)
@@ -255,7 +262,12 @@ export function BacklogPage() {
   }
 
   async function handleDeleteSprintPanel(sprintPanel) {
-    const confirmed = window.confirm(`Delete ${sprintPanel.name}? Issues will be moved to backlog.`)
+    const confirmed = await confirm({
+      title: 'Delete sprint?',
+      message: `Delete ${sprintPanel.name}? Issues will be moved to backlog.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    })
     if (!confirmed) return
     await onDeleteSprint(sprintPanel.id)
     setPanelExpanded(sprintPanel.id, false)
@@ -506,6 +518,7 @@ export function BacklogPage() {
           ))}
         </div>
       </article>
+      {confirmDialog}
     </section>
   )
 }

@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogContentText from '@mui/material/DialogContentText'
-import DialogActions from '@mui/material/DialogActions'
-import Button from '@mui/material/Button'
+import { ConfirmDialog } from '../common/ConfirmDialog'
 import {
   fetchListViews,
   createListView,
@@ -257,26 +252,17 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
         )}
       </div>
 
-      {/* In-app delete confirmation (replaces window.confirm) */}
-      <Dialog
+      {/* In-app delete confirmation (shared ConfirmDialog — replaces window.confirm) */}
+      <ConfirmDialog
         open={Boolean(deleteTarget)}
-        onClose={() => (deleteBusy ? null : setDeleteTarget(null))}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete view?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {deleteTarget ? `Delete the saved view "${deleteTarget.name}"? This cannot be undone.` : ''}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)} disabled={deleteBusy}>Cancel</Button>
-          <Button onClick={confirmDeleteView} color="error" variant="contained" disabled={deleteBusy}>
-            {deleteBusy ? 'Deleting…' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        title="Delete view?"
+        message={deleteTarget ? `Delete the saved view "${deleteTarget.name}"? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        danger
+        busy={deleteBusy}
+        onConfirm={confirmDeleteView}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

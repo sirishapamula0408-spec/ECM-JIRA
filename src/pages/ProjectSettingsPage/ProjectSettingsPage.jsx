@@ -18,6 +18,7 @@ import { fetchSecurityLevels, createSecurityLevel, deleteSecurityLevel } from '.
 import { ISSUE_TYPES } from '../../constants'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import './ProjectSettingsPage.css'
 
 const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', SCREENS: 'screens', FIELD_CONFIG: 'fieldconfig' }
@@ -44,6 +45,7 @@ const CONFIGURABLE_FIELDS = [
 ]
 
 export function ProjectSettingsPage() {
+  const { confirm, confirmDialog } = useConfirm()
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { members } = useMembers()
@@ -238,9 +240,11 @@ export function ProjectSettingsPage() {
   async function handleToggleArchive() {
     const confirmed = isArchived
       ? true
-      : window.confirm(
-          `Archive "${project.name}"? It will be hidden from the active projects list and pickers, but its issues and URLs stay accessible. You can restore it from here anytime.`,
-        )
+      : await confirm({
+          title: 'Archive project?',
+          message: `Archive "${project.name}"? It will be hidden from the active projects list and pickers, but its issues and URLs stay accessible. You can restore it from here anytime.`,
+          confirmLabel: 'Archive',
+        })
     if (!confirmed) return
     setSaving(true)
     setBanner({ type: '', message: '' })
@@ -1477,6 +1481,7 @@ export function ProjectSettingsPage() {
           </>
         )}
       </div>
+      {confirmDialog}
     </section>
   )
 }

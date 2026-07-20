@@ -206,24 +206,24 @@ describe('IssueDetailPage — delete control gating (JL-228)', () => {
   })
 
   it('confirming delete calls IssueContext.handleDelete and navigates to the project', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderPage({ perms: memberPerms })
     await screen.findByText('Deletable issue')
 
     fireEvent.click(deleteButton())
-    expect(confirmSpy).toHaveBeenCalled()
+    // Themed ConfirmDialog (JL-232) replaces window.confirm — confirm via the dialog button.
+    const confirmBtn = await screen.findByRole('button', { name: /^delete$/i })
+    fireEvent.click(confirmBtn)
     await waitFor(() => expect(mockHandleDelete).toHaveBeenCalledWith(baseIssue.id))
     await screen.findByTestId('project-page')
-    confirmSpy.mockRestore()
   })
 
   it('cancelling the confirm dialog does not delete', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderPage({ perms: memberPerms })
     await screen.findByText('Deletable issue')
 
     fireEvent.click(deleteButton())
+    const cancelBtn = await screen.findByRole('button', { name: /^cancel$/i })
+    fireEvent.click(cancelBtn)
     expect(mockHandleDelete).not.toHaveBeenCalled()
-    confirmSpy.mockRestore()
   })
 })

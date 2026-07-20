@@ -7,6 +7,7 @@ import { fetchParallelSprintSetting, setParallelSprintSetting, addRetro, deleteR
 import { STATUS_COLUMNS } from '../../constants'
 import './ActiveSprintPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 const RETRO_COLUMNS = [
   { key: 'well', label: 'What went well' },
@@ -131,6 +132,7 @@ export function ActiveSprintPage() {
 }
 
 function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleUpdateSprint, canManageSprints, reloadIssues, navigate, dragIssueId, setDragIssueId, dropStatus, setDropStatus, showDivider }) {
+  const { confirm, confirmDialog } = useConfirm()
   const sprintIssues = useMemo(
     () => issues.filter((i) => i.sprintId === sprint.id && i.status !== 'Backlog'),
     [issues, sprint.id],
@@ -163,7 +165,11 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
   }
 
   async function onComplete() {
-    const ok = window.confirm(`Complete sprint "${sprint.name}"? Incomplete issues will move to the backlog.`)
+    const ok = await confirm({
+      title: 'Complete sprint?',
+      message: `Complete sprint "${sprint.name}"? Incomplete issues will move to the backlog.`,
+      confirmLabel: 'Complete sprint',
+    })
     if (!ok) return
     await handleCompleteSprint(sprint.id)
     await reloadIssues()
@@ -229,6 +235,7 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
       </div>
 
       <RetroPanel sprintId={sprint.id} canEdit={canManageSprints} />
+      {confirmDialog}
     </div>
   )
 }

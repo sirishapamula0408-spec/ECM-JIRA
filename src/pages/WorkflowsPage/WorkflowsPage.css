@@ -524,62 +524,9 @@ body.col-resizing * {
   display: inline-block;
 }
 
-.jira-list-scroll-track {
-  height: 18px;
-  padding: 3px 12px;
-  display: flex;
-  align-items: center;
-}
-
-.jira-list-scroll-track span {
-  height: 10px;
-  width: 48%;
-  border-radius: 999px;
-  background: var(--list-thumb);
-  position: relative;
-}
-
-.jira-list-scroll-track span::before,
-.jira-list-scroll-track span::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 0;
-  height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  transform: translateY(-50%);
-}
-
-.jira-list-scroll-track span::before {
-  left: -10px;
-  border-right: 6px solid var(--list-thumb);
-}
-
-.jira-list-scroll-track span::after {
-  right: -10px;
-  border-left: 6px solid var(--list-thumb);
-}
-
-/* Pagination */
+/* Pagination — MUI TablePagination (JL-263), matching TeamsPage */
 .jira-list-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 8px 16px;
   border-top: 1px solid var(--list-border);
-}
-
-.jira-list-page-btn {
-  min-width: 72px;
-  font-size: var(--font-size-sm);
-}
-
-.jira-list-page-info {
-  font-size: var(--font-size-sm);
-  color: var(--list-subtle);
-  white-space: nowrap;
 }
 
 .jira-list-create {

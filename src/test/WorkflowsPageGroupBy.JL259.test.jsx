@@ -97,7 +97,7 @@ describe('JL-259 — List Group by covers the full filtered set', () => {
     enableGroupByStatus()
 
     // Go to page 2: remaining 5 "To Do" rows then 10 "Done" rows.
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByLabelText('Go to next page'))
 
     const headers = groupHeaders()
     expect(headers).toEqual([
