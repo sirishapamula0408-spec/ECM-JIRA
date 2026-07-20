@@ -118,6 +118,16 @@
   gap: 8px !important;
 }
 
+/* JL-253: shared.css sets `input { width: 100% }` globally, which stretched the
+   security-policy checkboxes full-width and pushed their labels far right.
+   Reset just these checkboxes so each sits ~8px left of its label text. */
+.teams-security-check input[type='checkbox'] {
+  width: auto;
+  flex: none;
+  margin: 0;
+  padding: 0;
+}
+
 .teams-table-shell {
   border: 1px solid var(--jira-border);
   border-radius: 8px;
