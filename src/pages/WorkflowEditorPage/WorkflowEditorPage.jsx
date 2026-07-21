@@ -21,6 +21,19 @@ const NODE_WIDTH = 180
 const NODE_HEIGHT = 60
 const NUDGE_STEP = 10
 
+// JL-276: quick-pick presets for the Add Status dialog. Backend `category` only
+// allows 'todo' | 'inprogress' | 'done', so names like "In Code Review" are STATUS
+// NAMES mapped onto one of those three categories — never new categories.
+const STATUS_PRESETS = [
+  { label: 'To Do', category: 'todo', color: '#dfe1e6' },
+  { label: 'In Progress', category: 'inprogress', color: '#deebff' },
+  { label: 'In Code Review', category: 'inprogress', color: '#eae6ff' },
+  { label: 'In Testing / QA', category: 'inprogress', color: '#fffae6' },
+  { label: 'Blocked', category: 'inprogress', color: '#ffebe6' },
+  { label: 'Ready for Release', category: 'inprogress', color: '#e3fcef' },
+  { label: 'Done', category: 'done', color: '#e3fcef' },
+]
+
 // Backend status categories are 'todo' | 'inprogress' | 'done'. Older demo data
 // used 'in-progress'; normalize so both render.
 function normalizeCategory(cat) {
@@ -89,6 +102,7 @@ export function WorkflowEditorPage() {
   const [newStatusName, setNewStatusName] = useState('')
   const [newStatusCategory, setNewStatusCategory] = useState('todo')
   const [newStatusColor, setNewStatusColor] = useState('#42526E')
+  const [newStatusPreset, setNewStatusPreset] = useState('')
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState('')
 
@@ -255,8 +269,19 @@ export function WorkflowEditorPage() {
     setNewStatusName('')
     setNewStatusCategory('todo')
     setNewStatusColor('#42526E')
+    setNewStatusPreset('')
     setModalError('')
     setShowAddStatus(true)
+  }
+
+  // JL-276: applying a preset pre-fills name + category + color (all still editable).
+  const applyStatusPreset = (label) => {
+    setNewStatusPreset(label)
+    const preset = STATUS_PRESETS.find((p) => p.label === label)
+    if (!preset) return
+    setNewStatusName(preset.label)
+    setNewStatusCategory(preset.category)
+    setNewStatusColor(preset.color)
   }
 
   const handleAddStatus = async () => {
@@ -448,9 +473,10 @@ export function WorkflowEditorPage() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="wfe-body">
-        {/* Canvas */}
+      {/* Main: two columns — canvas (left, max width) + sidebar (right) */}
+      <div className="wfe-main">
+        {/* Canvas column */}
+        <div className="wfe-canvas-column" data-testid="wfe-canvas-column">
         <div
           ref={canvasWrapperRef}
           className="wfe-canvas-wrapper"
@@ -563,9 +589,13 @@ export function WorkflowEditorPage() {
             </div>
           )}
         </div>
+        </div>
 
+        {/* Right sidebar: Properties (top) + Transition Rules (below) */}
+        <aside className="wfe-sidebar" data-testid="wfe-sidebar">
         {/* Properties Panel */}
         <div className="wfe-properties">
+          <h3 className="wfe-sidebar-heading">Properties</h3>
           {selectedNode ? (
             <StatusProperties
               node={selectedNode}
@@ -583,7 +613,6 @@ export function WorkflowEditorPage() {
             />
           ) : (
             <div className="wfe-empty-props">
-              <p>Properties</p>
               <p>Select a status or transition to view its properties.</p>
               {transitions.length > 0 && (
                 <div className="wfe-prop-group" style={{ marginTop: 16 }}>
@@ -606,18 +635,20 @@ export function WorkflowEditorPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* JL-79: Configurable workflow transition rules (persisted per project) */}
-      <WorkflowRulesPanel
-        isAdmin={isAdmin}
-        projectId={projectId}
-        statuses={statusNames}
-        transitions={transitions}
-        loading={loading}
-        error={error}
-        onChanged={() => reload(projectId)}
-      />
+        {/* JL-79: Configurable workflow transition rules (persisted per project).
+            JL-275: moved out of the full-width bottom slot into the right sidebar. */}
+        <WorkflowRulesPanel
+          isAdmin={isAdmin}
+          projectId={projectId}
+          statuses={statusNames}
+          transitions={transitions}
+          loading={loading}
+          error={error}
+          onChanged={() => reload(projectId)}
+        />
+        </aside>
+      </div>
 
       {/* Add Status Modal (JL-273: MUI Dialog → role=dialog, aria-modal, focus trap, Esc) */}
       <Dialog
@@ -632,6 +663,19 @@ export function WorkflowEditorPage() {
         <DialogContent>
           <div className="wfe-modal-form">
             {modalError && <div className="alert alert-error" style={{ color: '#bf2600' }}>{modalError}</div>}
+            <div className="wfe-modal-row">
+              <label htmlFor="wfe-new-status-preset">Preset (optional)</label>
+              <select
+                id="wfe-new-status-preset"
+                value={newStatusPreset}
+                onChange={(e) => applyStatusPreset(e.target.value)}
+              >
+                <option value="">Custom…</option>
+                {STATUS_PRESETS.map((p) => (
+                  <option key={p.label} value={p.label}>{p.label}</option>
+                ))}
+              </select>
+            </div>
             <div className="wfe-modal-row">
               <label htmlFor="wfe-new-status-name">Status name</label>
               <input
@@ -948,9 +992,9 @@ function WorkflowRulesPanel({ isAdmin, projectId, statuses, transitions, loading
   const isEditing = editingId !== null
 
   return (
-    <div className="wfe-rules-panel" style={{ padding: '16px 24px', borderTop: '1px solid var(--border, #dfe1e6)' }}>
+    <div className="wfe-rules-panel" style={{ padding: '16px', borderTop: '1px solid var(--jira-border, #dfe1e6)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>Transition Rules</h3>
+        <h3 className="wfe-sidebar-heading" style={{ margin: 0 }}>Transition rules</h3>
       </div>
       <p className="muted" style={{ marginTop: 0 }}>
         When no transitions are configured for a project, all status changes are allowed.

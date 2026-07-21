@@ -137,21 +137,54 @@
   text-align: center;
 }
 
-/* ---- Body: canvas + properties ---- */
-.wfe-body {
+/* ---- Main: two columns — canvas (left) + sidebar (right) ---- */
+.wfe-main {
   display: flex;
   flex: 1;
+  min-height: 0; /* let children own their height so the canvas is visible */
   overflow: hidden;
+}
+
+/* LEFT column: diagram canvas, maximum width */
+.wfe-canvas-column {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---- Canvas ---- */
 .wfe-canvas-wrapper {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   background-color: #fafbfc;
   background-image: radial-gradient(circle, #dfe1e6 1px, transparent 1px);
   background-size: 20px 20px;
   position: relative;
+}
+
+/* RIGHT column: fixed-width sidebar holding Properties + Transition rules */
+.wfe-sidebar {
+  width: 360px;
+  flex-shrink: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-left: 1px solid var(--jira-border);
+  background: #ffffff;
+}
+
+/* Atlassian-style section heading shared by Properties + Transition rules */
+.wfe-sidebar-heading {
+  margin: 0 0 12px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--jira-text-muted);
 }
 
 .wfe-canvas {
@@ -257,13 +290,10 @@
   fill: none;
 }
 
-/* ---- Properties Panel ---- */
+/* ---- Properties Panel (top of the right sidebar) ---- */
 .wfe-properties {
-  width: 300px;
   flex-shrink: 0;
-  border-left: 1px solid var(--jira-border);
   background: #ffffff;
-  overflow-y: auto;
   padding: 16px;
 }
 
