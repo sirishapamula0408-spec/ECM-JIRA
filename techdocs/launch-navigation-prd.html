@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECM JIRA Clone — Launch Navigation PRD</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#172b4d; --muted:#5e6c84; --line:#dfe1e6;
+    --accent:#0052cc; --accent-soft:#deebff; --ok:#e3fcef; --ok-fg:#006644;
+    --warn:#fffae6; --warn-fg:#974f00; --code:#f4f5f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--fg);background:#f4f5f7;line-height:1.55}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 24px 80px}
+  header.doc{background:linear-gradient(135deg,#0052cc,#0747a6);color:#fff;border-radius:12px;padding:32px 36px;margin-bottom:28px}
+  header.doc h1{margin:0 0 6px;font-size:28px}
+  header.doc .sub{opacity:.9;font-size:15px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:16px;font-size:13px;opacity:.95}
+  .meta b{font-weight:600}
+  section{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:24px 28px;margin-bottom:20px}
+  h2{font-size:20px;margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid var(--accent-soft)}
+  h3{font-size:16px;margin:20px 0 8px}
+  p{margin:0 0 12px}
+  ul,ol{margin:0 0 12px;padding-left:22px}
+  li{margin:4px 0}
+  code{background:var(--code);padding:1px 6px;border-radius:4px;font-family:"SF Mono",Consolas,monospace;font-size:13px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#fafbfc;font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  .pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+  .pill.keep{background:var(--ok);color:var(--ok-fg)}
+  .pill.hide{background:#ffebe6;color:#bf2600}
+  .pill.done{background:var(--ok);color:var(--ok-fg)}
+  .pill.todo{background:var(--accent-soft);color:var(--accent)}
+  .callout{border-left:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px}
+  .callout.warn{border-color:#ff8b00;background:var(--warn);color:var(--warn-fg)}
+  .grid6{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
+  .navcard{border:1px solid var(--line);border-radius:8px;padding:12px;font-size:13px}
+  .navcard b{display:block;margin-bottom:2px}
+  .navcard .path{color:var(--muted);font-family:monospace;font-size:12px}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="doc">
+  <h1>Launch Navigation — Product Requirements</h1>
+  <div class="sub">Curated left-panel navigation for the ECM JIRA Clone launch</div>
+  <div class="meta">
+    <span><b>Version:</b> 1.2</span>
+    <span><b>Date:</b> 2026-07-21</span>
+    <span><b>Status:</b> Implemented (JL-277, JL-282, JL-283)</span>
+    <span><b>Source:</b> origin/main @ 572d340</span>
+    <span><b>Owner:</b> sirisha@sedintechnologies.com</span>
+  </div>
+</header>
+
+<section>
+  <h2>1. Summary</h2>
+  <p>The application's left-hand navigation had grown to roughly <b>28 items</b> across three groups (primary, product, utility) plus dynamically contributed plugin links. For the launch we present a curated surface: the <b>Projects</b> entry, the admin/oversight product tools (<b>Teams, Users, Activity, Workflows, Audit Log</b>), and the full <b>Filters box</b> of reporting &amp; views (<b>Filters, Dashboards, Portfolio, Report Builder, Advanced Roadmap, Shared Dashboards, Cross-Project Boards</b>). The remaining product items and the plugin nav are hidden from the sidebar while remaining fully functional at their routes (nav-only curation), so the reduction is presentation, not feature removal, and is fully reversible via a single flag.</p>
+  <h3>Projects &amp; product (admin / oversight)</h3>
+  <div class="grid6">
+    <div class="navcard"><b>Projects</b><span class="path">/projects</span></div>
+    <div class="navcard"><b>Teams</b><span class="path">/teams</span></div>
+    <div class="navcard"><b>Users</b><span class="path">/users</span></div>
+    <div class="navcard"><b>Activity</b><span class="path">/activity</span></div>
+    <div class="navcard"><b>Workflows</b><span class="path">/workflow-editor</span></div>
+    <div class="navcard"><b>Audit Log</b><span class="path">/audit-log</span></div>
+  </div>
+  <h3>Filters box (reporting &amp; views)</h3>
+  <div class="grid6">
+    <div class="navcard"><b>Filters</b><span class="path">/filters</span></div>
+    <div class="navcard"><b>Dashboards</b><span class="path">/dashboard</span></div>
+    <div class="navcard"><b>Portfolio</b><span class="path">/portfolio</span></div>
+    <div class="navcard"><b>Report Builder</b><span class="path">/report-builder</span></div>
+    <div class="navcard"><b>Advanced Roadmap</b><span class="path">/advanced-roadmap</span></div>
+    <div class="navcard"><b>Shared Dashboards</b><span class="path">/shared-dashboards</span></div>
+    <div class="navcard"><b>Cross-Project Boards</b><span class="path">/cross-project-boards</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>2. Goals &amp; Non-Goals</h2>
+  <h3>Goals</h3>
+  <ul>
+    <li>Present a focused, uncluttered navigation for launch users centered on administration &amp; oversight (Users, Teams, Audit Log) and core work surfaces (Filters, Activity, Workflows).</li>
+    <li>Make the curation <b>reversible</b> — a single flag restores the full navigation with no code archaeology.</li>
+    <li>Preserve all existing role/permission gating and cause no regressions to hidden features.</li>
+  </ul>
+  <h3>Non-Goals</h3>
+  <ul>
+    <li>Removing routes or features. Hidden pages (Dashboards, Automation, Releases, etc.) remain reachable by URL and continue to work.</li>
+    <li>Reworking the destination pages themselves (each already exists and ships on <code>main</code>).</li>
+    <li>Server-side authorization changes — this is a client-side navigation presentation change.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. The launch sections</h2>
+  <table>
+    <thead><tr><th>Section</th><th>Route → Page</th><th>What it does today</th><th>Gating</th><th>Launch-readiness</th></tr></thead>
+    <tbody>
+      <tr><td><b>Projects</b></td><td><code>/projects</code> → ProjectsPage</td><td>Expandable projects section (caret, create-project +, project list); entry point to boards/backlogs.</td><td>—</td><td>Ready (kept via JL-282)</td></tr>
+      <tr><td><b>Filters</b></td><td><code>/filters</code> → FiltersPage</td><td>Saved-filter CRUD, JQL search, sharing.</td><td>hasProjects</td><td>Ready</td></tr>
+      <tr><td><b>Teams</b></td><td><code>/teams</code> → TeamsPage</td><td>Member directory, invite by email, inline workspace-role edits.</td><td>canManageMembers</td><td>Ready (overlaps Users — see §6)</td></tr>
+      <tr><td><b>Users</b></td><td><code>/users</code> → UserManagementPage</td><td>Admin CRUD: create (temp-password or invite), role change, deactivate/reactivate, single + bulk delete with Owner/last-Admin/self guards, per-user audit panel, paginated table.</td><td>canManageUsers</td><td>Ready (client-side paging; see JL-281)</td></tr>
+      <tr><td><b>Activity</b></td><td><code>/activity</code> → ActivityFeedPage</td><td>Cursor-paginated, filterable feed of project/issue events.</td><td>hasProjects</td><td>Ready (sparse event typing acceptable)</td></tr>
+      <tr><td><b>Workflows</b></td><td><code>/workflow-editor</code> → WorkflowEditorPage</td><td>Atlassian-style two-column status/transition editor with rules (JL-269–276).</td><td>hasProjects</td><td>Ready</td></tr>
+      <tr><td><b>Audit Log</b></td><td><code>/audit-log</code> → AuditLogPage</td><td>Tamper-evident hash-chained log with filters, chain verification, CSV/JSON export, retention.</td><td>Admin-only</td><td>Ready UI; thin event coverage (see JL-280)</td></tr>
+      <tr><td><b>Filters box</b><br>(reporting &amp; views)</td><td>Dashboards <code>/dashboard</code>, Portfolio <code>/portfolio</code>, Report Builder <code>/report-builder</code>, Advanced Roadmap <code>/advanced-roadmap</code>, Shared Dashboards <code>/shared-dashboards</code>, Cross-Project Boards <code>/cross-project-boards</code></td><td>The full utility group rendered under Filters in the <code>.sidebar-box</code> — dashboards, portfolio, report building, roadmaps, and cross-project views.</td><td>hasProjects</td><td>Ready (restored via JL-283)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>4. What is hidden (and why it's safe)</h2>
+  <p>The following remain routable by URL but are removed from the sidebar for launch:</p>
+  <ul>
+    <li><b>Primary:</b> Recent. (<b>Projects</b> is kept — see §3.)</li>
+    <li><b>Product:</b> Webhooks, Inbound Email, Automation, Marketplace, Releases, Goals, Assets, Knowledge Base, Help Center, Queues, Incidents, Apps, BI Export.</li>
+    <li><b>Plugin nav:</b> the entire dynamically-contributed nav section and its divider.</li>
+  </ul>
+  <p class="muted">The <b>Utility group</b> (the Filters box) is now shown in full — see §3.</p>
+  <div class="callout"><b>Resolved (JL-282):</b> the initial curation (JL-277) also hid the <b>Projects</b> block, removing the in-sidebar entry point to boards/backlogs. Projects was subsequently added back to <code>LAUNCH_NAV</code>, so the launch sidebar retains it while Recent stays hidden.</div>
+</section>
+
+<section>
+  <h2>5. Implementation</h2>
+  <p>Single file: <code>src/components/layout/Sidebar.jsx</code>. A reversible allow-list drives everything:</p>
+  <ul>
+    <li><code>LAUNCH_SIDEBAR = true</code> — master switch; set <code>false</code> to restore the full navigation.</li>
+    <li><code>LAUNCH_NAV = ['Projects','Filters','Teams','Users','Activity','Workflows','Audit Log','Dashboards','Portfolio','Report Builder','Advanced Roadmap','Shared Dashboards','Cross-Project Boards']</code> — the curated set (Projects added in JL-282; the six other utility items restored in JL-283).</li>
+    <li><code>launchFilter</code> is applied to the <code>primaryItems</code>, <code>productItems</code>, and <code>utilityItems</code> arrays <em>after</em> their existing permission spreads, so role gating is preserved.</li>
+    <li>Empty-state chrome is guarded on <code>primaryItems.length &gt; 0</code>: the first <code>&lt;nav&gt;</code>, its divider, and the "Show Projects" restore button don't render when the primary group is empty. With Projects kept, the primary nav landmark now renders.</li>
+    <li>The plugin nav section renders only when <code>!LAUNCH_SIDEBAR</code>.</li>
+  </ul>
+  <p><b>Tests:</b> <code>src/test/Sidebar.launch.test.jsx</code> — asserts the six product/utility labels plus Projects render with correct hrefs, that the remaining non-launch labels are absent, and that the primary nav landmark renders. 4/4 passing.</p>
+  <p><b>Delivery:</b> PR #36 (curation, JL-277 · app JL-51), PR #37 (keep Projects, JL-282 · app JL-52), and PR #38 (restore Filters-box utility items, JL-283 · app JL-53), squash-merged to <code>main</code> (commit <code>572d340</code>).</p>
+</section>
+
+<section>
+  <h2>6. Follow-ups (backlog)</h2>
+  <table>
+    <thead><tr><th>Ticket</th><th>Title</th><th>Type / Effort</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>JL-278</td><td>Distinct sidebar icons for Activity &amp; Audit Log (stop reusing the <code>recent</code> clock)</td><td>Task · S · FE</td><td><span class="pill todo">To Do</span></td></tr>
+      <tr><td>JL-279</td><td>Sidebar navigation a11y pass (nav landmarks, caret button, disabled-item semantics)</td><td>Task · S · FE</td><td><span class="pill todo">To Do</span></td></tr>
+      <tr><td>JL-280</td><td>Broaden tamper-evident <code>audit_log</code> event coverage (member/role/project/auth/webhook/automation)</td><td>Story · M · BE</td><td><span class="pill todo">To Do</span></td></tr>
+      <tr><td>JL-281</td><td>Server-side pagination + search for <code>GET /api/members</code> (Users page)</td><td>Story · M · FS</td><td><span class="pill todo">To Do</span></td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><b>Notable:</b> Teams and Users overlap on invite/member management. For launch both ship; a future consolidation should decide which surface owns invitations to avoid duplicate UX. The Audit Log UI is complete but currently records only <code>login</code> and <code>webhook.create</code> events — JL-280 widens coverage so the page reflects real security history.</div>
+</section>
+
+<footer>ECM JIRA Clone · Launch Navigation PRD v1.2 · generated 2026-07-21 · source origin/main @ 572d340</footer>
+</div>
+</body>
+</html>
