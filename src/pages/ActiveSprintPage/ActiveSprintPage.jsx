@@ -21,7 +21,7 @@ export function ActiveSprintPage() {
   const { sprints, handleCompleteSprint, handleUpdateSprint } = useSprints()
   const navigate = useNavigate()
   const { projectId } = useParams()
-  const { canManageSprints } = usePermissions(projectId ? Number(projectId) : undefined)
+  const { canManageSprints, canEditIssue } = usePermissions(projectId ? Number(projectId) : undefined)
   const scopedIssues = projectId ? issues.filter((i) => i.projectId === Number(projectId)) : issues
   const [dragIssueId, setDragIssueId] = useState(null)
   const [dropStatus, setDropStatus] = useState('')
@@ -119,6 +119,7 @@ export function ActiveSprintPage() {
         handleCompleteSprint={handleCompleteSprint}
         handleUpdateSprint={handleUpdateSprint}
         canManageSprints={canManageSprints}
+        canEditIssue={canEditIssue}
         reloadIssues={reloadIssues}
         navigate={navigate}
         dragIssueId={dragIssueId}
@@ -131,7 +132,7 @@ export function ActiveSprintPage() {
   )
 }
 
-function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleUpdateSprint, canManageSprints, reloadIssues, navigate, dragIssueId, setDragIssueId, dropStatus, setDropStatus, showDivider }) {
+function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleUpdateSprint, canManageSprints, canEditIssue, reloadIssues, navigate, dragIssueId, setDragIssueId, dropStatus, setDropStatus, showDivider }) {
   const { confirm, confirmDialog } = useConfirm()
   const sprintIssues = useMemo(
     () => issues.filter((i) => i.sprintId === sprint.id && i.status !== 'Backlog'),
@@ -151,6 +152,7 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
   async function onDrop(nextStatus) {
+    if (!canEditIssue) return
     if (!dragIssueId) return
     const issue = issues.find((i) => i.id === dragIssueId)
     if (!issue || issue.status === nextStatus) { setDragIssueId(null); setDropStatus(''); return }
@@ -189,7 +191,9 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
           <div className="active-sprint-header__progress-bar">
             <div className="active-sprint-header__progress-fill" style={{ width: `${pct}%` }} />
           </div>
-          <button className="btn btn-primary" type="button" onClick={onComplete}>Complete sprint</button>
+          {canManageSprints && (
+            <button className="btn btn-primary" type="button" onClick={onComplete}>Complete sprint</button>
+          )}
         </div>
       </div>
 
@@ -211,9 +215,9 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
               <div
                 className={`active-sprint-card${dragIssueId === issue.id ? ' dragging' : ''}`}
                 key={issue.id}
-                draggable
-                onDragStart={() => setDragIssueId(issue.id)}
-                onDragEnd={() => { setDragIssueId(null); setDropStatus('') }}
+                draggable={canEditIssue}
+                onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
+                onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropStatus('') } : undefined}
               >
                 <div className="active-sprint-card__top">
                   <span className="active-sprint-card__type">{issue.issueType === 'Bug' ? '\u{1F41B}' : issue.issueType === 'Story' ? '\u{1F4D7}' : '\u{2705}'}</span>
