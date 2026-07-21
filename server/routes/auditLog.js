@@ -16,7 +16,11 @@ import { toCsv } from '../utils/tabular.js'
 const router = Router()
 
 // All audit-log endpoints are Admin (or Owner) only.
-router.use(requireRole('Admin'))
+// JL-290: scope the Admin gate to the audit-log paths only. A path-less
+// router.use() ran for EVERY request entering this router's broad "/api" mount,
+// so it shadowed later-mounted /api routes (labels, worklogs, attachments,
+// issue-links, custom-fields, kb) and Admin-gated them for non-admin members.
+router.use('/audit-log', requireRole('Admin'))
 
 const EXPORT_FIELDS = ['seq', 'actor', 'action', 'target', 'metadata', 'prev_hash', 'hash', 'created_at']
 
