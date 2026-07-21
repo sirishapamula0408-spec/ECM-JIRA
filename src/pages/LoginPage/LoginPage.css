@@ -460,6 +460,11 @@
   flex-shrink: 0;
 }
 
+/* Align the icon to the top when the banner holds a multi-line list (JL-267) */
+.login-error:has(.login-error-list) {
+  align-items: flex-start;
+}
+
 /* legacy banner class support */
 .banner.error {
   display: flex;
@@ -521,6 +526,64 @@
 
 @keyframes login-spin {
   to { transform: rotate(360deg); }
+}
+
+/* JL-264: respect reduced-motion — freeze the spinner instead of rotating it */
+@media (prefers-reduced-motion: reduce) {
+  .login-spinner {
+    animation: none;
+    opacity: 0.6;
+  }
+  .login-tab,
+  .login-submit-btn,
+  .login-input-wrap input,
+  .login-password-toggle,
+  .login-sso-action {
+    transition: none;
+  }
+}
+
+/* JL-265: field-level hints and inline errors */
+.login-hint {
+  font-size: var(--font-size-sm);
+  color: #6b778c;
+  line-height: 1.4;
+}
+
+.login-field-error {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: #bf2600;
+  line-height: 1.35;
+}
+
+/* JL-265: Caps Lock warning under password fields */
+.login-caps-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: #b76e00;
+  line-height: 1.35;
+}
+
+.login-caps-hint svg {
+  flex-shrink: 0;
+}
+
+/* JL-267: bulleted list of password-policy violations inside the error banner */
+.login-error-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  list-style: disc;
+}
+
+.login-error-list li {
+  line-height: 1.4;
 }
 
 /* ---------- Toggle link ---------- */
