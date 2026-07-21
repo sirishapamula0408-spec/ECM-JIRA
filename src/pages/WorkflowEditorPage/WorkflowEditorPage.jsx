@@ -1,11 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ISSUE_STATUSES } from '../../constants'
 import { fetchProjects } from '../../api/projectApi'
+import { fetchProjectStatuses } from '../../api/issueConfigApi'
 import {
   fetchWorkflowTransitions,
   createWorkflowTransition,
+  updateWorkflowTransition,
   deleteWorkflowTransition,
 } from '../../api/workflowTransitionApi'
+import { usePermissions } from '../../hooks/usePermissions'
 import './WorkflowEditorPage.css'
 
 const NODE_WIDTH = 180
@@ -48,6 +51,8 @@ let nextNodeId = 100
 let nextTransId = 100
 
 export function WorkflowEditorPage() {
+  // JL-269: workflow config (statuses/transitions) is workspace-Admin only.
+  const { isAdmin } = usePermissions()
   const [nodes, setNodes] = useState(() => buildDefaultNodes())
   const [transitions, setTransitions] = useState(() => buildDefaultTransitions(buildDefaultNodes()))
   const [selectedNodeId, setSelectedNodeId] = useState(null)
@@ -230,21 +235,27 @@ export function WorkflowEditorPage() {
       {/* Toolbar */}
       <div className="wfe-toolbar">
         <div className="wfe-toolbar-left">
-          <button type="button" className="wfe-toolbar-btn" onClick={() => { setNewStatusName(''); setNewStatusCategory('todo'); setShowAddStatus(true) }}>
-            <span aria-hidden="true">+</span> Add status
-          </button>
-          <button
-            type="button"
-            className="wfe-toolbar-btn"
-            onClick={() => {
-              setNewTransFrom('')
-              setNewTransTo('')
-              setNewTransLabel('')
-              setShowAddTransition(true)
-            }}
-          >
-            <span aria-hidden="true">→</span> Add transition
-          </button>
+          {isAdmin ? (
+            <>
+              <button type="button" className="wfe-toolbar-btn" onClick={() => { setNewStatusName(''); setNewStatusCategory('todo'); setShowAddStatus(true) }}>
+                <span aria-hidden="true">+</span> Add status
+              </button>
+              <button
+                type="button"
+                className="wfe-toolbar-btn"
+                onClick={() => {
+                  setNewTransFrom('')
+                  setNewTransTo('')
+                  setNewTransLabel('')
+                  setShowAddTransition(true)
+                }}
+              >
+                <span aria-hidden="true">→</span> Add transition
+              </button>
+            </>
+          ) : (
+            <span className="wfe-readonly-hint muted">Workspace Admins can configure the workflow.</span>
+          )}
         </div>
         <div className="wfe-toolbar-right">
           <button type="button" className="wfe-zoom-btn" onClick={handleZoomIn} title="Zoom in">+</button>
@@ -412,9 +423,11 @@ export function WorkflowEditorPage() {
                   <span className="muted">None</span>
                 )}
               </div>
-              <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteNode(selectedNode.id)}>
-                ✕ Delete status
-              </button>
+              {isAdmin && (
+                <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteNode(selectedNode.id)}>
+                  ✕ Delete status
+                </button>
+              )}
             </>
           ) : selectedTrans ? (
             <>
@@ -435,9 +448,11 @@ export function WorkflowEditorPage() {
                   {nodes.find((n) => n.id === selectedTrans.to)?.name || selectedTrans.to}
                 </span>
               </div>
-              <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteTransition(selectedTrans.id)}>
-                ✕ Delete transition
-              </button>
+              {isAdmin && (
+                <button type="button" className="wfe-delete-btn" onClick={() => handleDeleteTransition(selectedTrans.id)}>
+                  ✕ Delete transition
+                </button>
+              )}
             </>
           ) : (
             <div className="wfe-empty-props">
@@ -535,12 +550,20 @@ export function WorkflowEditorPage() {
 // Backend enforces these on issue status changes (deny -> 409, validator -> 400,
 // allow -> apply post-functions). No transitions configured = all changes allowed.
 function WorkflowRulesPanel() {
+  // JL-269: POST/PATCH/DELETE require workspace Admin — non-admins get a read-only view.
+  const { isAdmin } = usePermissions()
+
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState('')
   const [transitions, setTransitions] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // JL-272: real per-project statuses for the From/To dropdowns.
+  const [statuses, setStatuses] = useState(ISSUE_STATUSES)
+
+  // Shared add/edit form state. editingId === null means "add" mode.
+  const [editingId, setEditingId] = useState(null)
   const [fromStatus, setFromStatus] = useState('')
   const [toStatus, setToStatus] = useState('')
   const [requiredField, setRequiredField] = useState('')
@@ -568,19 +591,74 @@ function WorkflowRulesPanel() {
 
   useEffect(() => { loadTransitions(projectId) }, [projectId, loadTransitions])
 
-  const handleAdd = async () => {
-    setError('')
-    if (!projectId || !fromStatus || !toStatus || fromStatus === toStatus) return
+  // JL-272: load the project's effective statuses; fall back to the hardcoded set.
+  useEffect(() => {
+    if (!projectId) { setStatuses(ISSUE_STATUSES); return }
+    let cancelled = false
+    fetchProjectStatuses(projectId)
+      .then((rows) => {
+        if (cancelled) return
+        const names = (rows || []).map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean)
+        setStatuses(names.length > 0 ? names : ISSUE_STATUSES)
+      })
+      .catch(() => { if (!cancelled) setStatuses(ISSUE_STATUSES) })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  const resetForm = () => {
+    setEditingId(null)
+    setFromStatus(''); setToStatus(''); setRequiredField('')
+    setSetField(''); setSetValue(''); setCommentText('')
+  }
+
+  // Cancel edit if the project changes underneath us.
+  useEffect(() => { resetForm() }, [projectId])
+
+  const buildBody = () => {
     const validators = requiredField ? [{ type: 'required_field', field: requiredField }] : []
     const postFunctions = []
     if (setField) postFunctions.push({ type: 'set_field', field: setField, value: setValue })
     if (commentText.trim()) postFunctions.push({ type: 'add_comment', text: commentText.trim() })
+    return { validators, postFunctions }
+  }
+
+  const handleAdd = async () => {
+    setError('')
+    if (!projectId || !fromStatus || !toStatus || fromStatus === toStatus) return
     try {
-      await createWorkflowTransition(projectId, { fromStatus, toStatus, validators, postFunctions })
-      setFromStatus(''); setToStatus(''); setRequiredField(''); setSetField(''); setSetValue(''); setCommentText('')
+      await createWorkflowTransition(projectId, { fromStatus, toStatus, ...buildBody() })
+      resetForm()
       loadTransitions(projectId)
     } catch (e) {
       setError(e.message || 'Failed to add transition')
+    }
+  }
+
+  // JL-270: begin editing a rule — prefill the same controls; From/To are immutable.
+  const startEdit = (t) => {
+    setError('')
+    setEditingId(t.id)
+    setFromStatus(t.fromStatus)
+    setToStatus(t.toStatus)
+    const req = (t.validators || []).find((v) => v.type === 'required_field')
+    setRequiredField(req?.field || '')
+    const sf = (t.postFunctions || []).find((f) => f.type === 'set_field')
+    setSetField(sf?.field || '')
+    setSetValue(sf?.value || '')
+    const cm = (t.postFunctions || []).find((f) => f.type === 'add_comment')
+    setCommentText(cm?.text || '')
+  }
+
+  // JL-270: save edits via PATCH (only validators/post-functions are mutable).
+  const handleUpdate = async () => {
+    setError('')
+    if (!editingId) return
+    try {
+      await updateWorkflowTransition(editingId, buildBody())
+      resetForm()
+      loadTransitions(projectId)
+    } catch (e) {
+      setError(e.message || 'Failed to update transition')
     }
   }
 
@@ -588,11 +666,14 @@ function WorkflowRulesPanel() {
     setError('')
     try {
       await deleteWorkflowTransition(id)
+      if (editingId === id) resetForm()
       loadTransitions(projectId)
     } catch (e) {
       setError(e.message || 'Failed to delete transition')
     }
   }
+
+  const isEditing = editingId !== null
 
   return (
     <div className="wfe-rules-panel" style={{ padding: '16px 24px', borderTop: '1px solid var(--border, #dfe1e6)' }}>
@@ -608,6 +689,11 @@ function WorkflowRulesPanel() {
       <p className="muted" style={{ marginTop: 0 }}>
         When no transitions are configured for a project, all status changes are allowed.
       </p>
+      {!isAdmin && (
+        <p className="wfe-rules-readonly-hint muted" style={{ marginTop: 0 }}>
+          Workspace Admins can configure transition rules.
+        </p>
+      )}
 
       {error && <div className="alert alert-error" style={{ color: '#bf2600', marginBottom: 8 }}>{error}</div>}
 
@@ -623,7 +709,7 @@ function WorkflowRulesPanel() {
               <th style={{ padding: 6 }}>To</th>
               <th style={{ padding: 6 }}>Validators</th>
               <th style={{ padding: 6 }}>Post-functions</th>
-              <th style={{ padding: 6 }}></th>
+              {isAdmin && <th style={{ padding: 6 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -645,28 +731,40 @@ function WorkflowRulesPanel() {
                   ))}
                   {(!t.postFunctions || t.postFunctions.length === 0) && <span className="muted">—</span>}
                 </td>
-                <td style={{ padding: 6 }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => handleDelete(t.id)}>Remove</button>
-                </td>
+                {isAdmin && (
+                  <td style={{ padding: 6, whiteSpace: 'nowrap' }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => startEdit(t)}>Edit</button>
+                    <button type="button" className="btn btn-ghost" onClick={() => handleDelete(t.id)}>Remove</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       )}
 
-      {projectId && (
+      {isAdmin && projectId && (
         <div className="wfe-rules-add" style={{ display: 'grid', gap: 8, maxWidth: 520 }}>
-          <strong>Add transition</strong>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <select value={fromStatus} onChange={(e) => setFromStatus(e.target.value)}>
-              <option value="">From status…</option>
-              {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={toStatus} onChange={(e) => setToStatus(e.target.value)}>
-              <option value="">To status…</option>
-              {ISSUE_STATUSES.filter((s) => s !== fromStatus).map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+          <strong>{isEditing ? 'Edit transition' : 'Add transition'}</strong>
+          {isEditing ? (
+            // JL-270: From/To are immutable — show read-only.
+            <div className="wfe-rules-fromto" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span className="chip">{fromStatus}</span>
+              <span aria-hidden="true">→</span>
+              <span className="chip">{toStatus}</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select aria-label="From status" value={fromStatus} onChange={(e) => setFromStatus(e.target.value)}>
+                <option value="">From status…</option>
+                {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select aria-label="To status" value={toStatus} onChange={(e) => setToStatus(e.target.value)}>
+                <option value="">To status…</option>
+                {statuses.filter((s) => s !== fromStatus).map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
           <label>Validator — require field before transition (optional)
             <select value={requiredField} onChange={(e) => setRequiredField(e.target.value)}>
               <option value="">None</option>
@@ -689,10 +787,21 @@ function WorkflowRulesPanel() {
           <label>Post-function — add comment (optional)
             <input type="text" value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Comment text" />
           </label>
-          <div>
-            <button type="button" className="btn btn-primary" onClick={handleAdd} disabled={!fromStatus || !toStatus || fromStatus === toStatus}>
-              Add transition
-            </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {isEditing ? (
+              <>
+                <button type="button" className="btn btn-primary" onClick={handleUpdate}>
+                  Save changes
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={resetForm}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-primary" onClick={handleAdd} disabled={!fromStatus || !toStatus || fromStatus === toStatus}>
+                Add transition
+              </button>
+            )}
           </div>
         </div>
       )}
