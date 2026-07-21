@@ -29,7 +29,7 @@ vi.mock('../context/SprintContext', () => ({
 // JL-124 + JL-127: parallel-sprints deps (permissions gating + settings API)
 // and sprint retro notes — stub all.
 vi.mock('../hooks/usePermissions', () => ({
-  usePermissions: () => ({ canManageSprints: false }),
+  usePermissions: () => ({ canManageSprints: true, canEditIssue: true }),
 }))
 
 vi.mock('../api/sprintApi', () => ({

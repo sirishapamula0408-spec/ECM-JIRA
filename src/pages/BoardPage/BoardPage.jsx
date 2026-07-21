@@ -31,7 +31,7 @@ export function BoardPage() {
   const { issues, handleMove } = useIssues()
   const { projectId } = useParams()
   const navigate = useNavigate()
-  const { canManageProjectSettings } = usePermissions(projectId)
+  const { canManageProjectSettings, canEditIssue } = usePermissions(projectId)
 
   const [dragIssueId, setDragIssueId] = useState(null)
   const [dropStatus, setDropStatus] = useState('')
@@ -146,6 +146,7 @@ export function BoardPage() {
   }
 
   async function handleDrop(nextStatus) {
+    if (!canEditIssue) return
     if (!dragIssueId) return
     const issue = filteredIssues.find((item) => item.id === dragIssueId)
     if (!issue || issue.status === nextStatus) { setDragIssueId(null); setDropStatus(''); return }
@@ -192,7 +193,9 @@ export function BoardPage() {
                   {isBoardStarred ? 'Remove from starred' : 'Add to starred'}
                 </button>
                 <button className="board-menu-item board-menu-item-settings" type="button" onClick={() => { setIsBoardMenuOpen(false); setIsSettingsOpen(true) }}>Board settings</button>
-                <button className="board-menu-item board-menu-item-danger board-menu-item-delete" type="button" onClick={async () => { const ok = await confirm({ title: 'Delete board?', message: 'Delete board? This will move all board issues to backlog.', confirmLabel: 'Delete board', danger: true }); if (ok) { setIsBoardMenuOpen(false); await handleDeleteBoard() } }}>Delete board</button>
+                {canManageProjectSettings && (
+                  <button className="board-menu-item board-menu-item-danger board-menu-item-delete" type="button" onClick={async () => { const ok = await confirm({ title: 'Delete board?', message: 'Delete board? This will move all board issues to backlog.', confirmLabel: 'Delete board', danger: true }); if (ok) { setIsBoardMenuOpen(false); await handleDeleteBoard() } }}>Delete board</button>
+                )}
               </div>
             )}
           </div>
@@ -310,15 +313,25 @@ export function BoardPage() {
                     </span>
                   </header>
                   {colIssues.map((issue) => (
-                    <div className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`} key={issue.id} draggable onDragStart={() => setDragIssueId(issue.id)} onDragEnd={() => { setDragIssueId(null); setDropStatus('') }}>
+                    <div
+                      className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`}
+                      key={issue.id}
+                      draggable={canEditIssue}
+                      onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
+                      onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropStatus('') } : undefined}
+                    >
                       <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
                       {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
                       <h4>{issue.title}</h4>
                       <p>{issue.issueType}</p>
                       <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
-                      <select value={issue.status} onChange={(event) => handleMove(issue.id, event.target.value, issue.sprintId ?? null)}>
-                        {ISSUE_STATUSES.map((item) => (<option key={item} value={item}>{item}</option>))}
-                      </select>
+                      {canEditIssue ? (
+                        <select value={issue.status} onChange={(event) => handleMove(issue.id, event.target.value, issue.sprintId ?? null)}>
+                          {ISSUE_STATUSES.map((item) => (<option key={item} value={item}>{item}</option>))}
+                        </select>
+                      ) : (
+                        <span className="kanban-status-readonly" aria-label={`Status for ${issue.key}`}>{issue.status}</span>
+                      )}
                     </div>
                   ))}
                 </article>
