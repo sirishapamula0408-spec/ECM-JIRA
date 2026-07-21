@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -29,7 +30,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/shared-dashboards — create dashboard
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const { name, description = '', projectId = null, visibility = 'private', layout = [] } = req.body
   if (!name?.trim()) {
     res.status(400).json({ error: 'name is required' })
@@ -94,11 +95,15 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   res.json({ success: true })
 }))
 
-// POST /api/shared-dashboards/:id/clone — clone a dashboard
-router.post('/:id/clone', asyncHandler(async (req, res) => {
+// POST /api/shared-dashboards/:id/clone — clone a dashboard (owner or public only)
+router.post('/:id/clone', requireRole('Member'), asyncHandler(async (req, res) => {
   const original = await get('SELECT * FROM shared_dashboards WHERE id = ?', [Number(req.params.id)])
   if (!original) {
     res.status(404).json({ error: 'Dashboard not found' })
+    return
+  }
+  if (original.owner_email !== req.user.email && original.visibility !== 'public') {
+    res.status(403).json({ error: 'Access denied' })
     return
   }
   const result = await run(
