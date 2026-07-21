@@ -6,6 +6,29 @@ import { VALIDATOR_TYPES, POST_FUNCTION_TYPES } from '../services/workflow.js'
 
 const router = Router()
 
+// Mirrors src/constants.js ISSUE_STATUSES — the global default status names,
+// used as the final fallback when a project has no issue_statuses rows and the
+// global (project_id IS NULL) defaults are not seeded in the DB.
+const ISSUE_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+
+// Compute the effective set of valid status names for a project, matching the
+// Statuses UI (GET /projects/:projectId/statuses): project-level issue_statuses
+// names take precedence; otherwise the global (project_id IS NULL) defaults;
+// otherwise the ISSUE_STATUSES constant.
+async function effectiveStatusNames(projectId) {
+  const own = await all(
+    'SELECT name FROM issue_statuses WHERE project_id = ? ORDER BY position ASC, name ASC',
+    [projectId],
+  )
+  if (own.length > 0) return own.map((r) => r.name)
+  const global = await all(
+    'SELECT name FROM issue_statuses WHERE project_id IS NULL ORDER BY position ASC, name ASC',
+    [],
+  )
+  if (global.length > 0) return global.map((r) => r.name)
+  return ISSUE_STATUSES
+}
+
 function mapTransition(row) {
   return {
     id: row.id,
@@ -70,6 +93,26 @@ router.post('/projects/:projectId/workflow-transitions', requireRole('Admin'), a
   if (vErr) { res.status(400).json({ error: vErr }); return }
   const pErr = validatePostFunctions(postFunctions)
   if (pErr) { res.status(400).json({ error: pErr }); return }
+
+  // JL-271: validate status names against the project's effective statuses so we
+  // never create a never-matching rule that also locks the workflow (JL-79).
+  const validStatuses = await effectiveStatusNames(projectId)
+  const invalid = [fromStatus, toStatus].find((s) => !validStatuses.includes(s))
+  if (invalid) {
+    res.status(400).json({ error: `Invalid status "${invalid}". Valid statuses: ${validStatuses.join(', ')}` })
+    return
+  }
+
+  // JL-271: reject duplicates — a second (projectId, fromStatus, toStatus) rule
+  // makes findTransition() nondeterministic and shows confusing duplicate rows.
+  const dup = await get(
+    'SELECT id FROM workflow_transitions WHERE project_id = ? AND from_status = ? AND to_status = ?',
+    [projectId, fromStatus, toStatus],
+  )
+  if (dup) {
+    res.status(409).json({ error: `A transition from "${fromStatus}" to "${toStatus}" already exists for this project` })
+    return
+  }
 
   const created = await run(
     'INSERT INTO workflow_transitions (project_id, from_status, to_status, validators, post_functions) VALUES (?, ?, ?, ?::jsonb, ?::jsonb)',
