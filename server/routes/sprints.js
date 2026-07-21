@@ -296,6 +296,10 @@ router.get('/:id/retros', asyncHandler(async (req, res) => {
   res.json(rows.map(mapRetro))
 }))
 
+// JL-286: sprint retros stay on the workspace-role gate (requireRole('Member')).
+// The `sprints` table has no project_id column (sprints are global in this
+// schema — see the header comment), so a retro cannot be resolved to a project
+// and requireProjectWrite has nothing to scope against.
 router.post('/:id/retros', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {

@@ -1,10 +1,14 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
+
+// JL-286: both endpoints carry the project id directly in the path — export is a
+// project READ (available to any project member, incl. Viewers), import a WRITE.
+const importExportProject = (req) => Number(req.params.projectId)
 
 const EXPORT_FIELDS = ['issue_key', 'title', 'description', 'priority', 'assignee', 'status', 'issue_type', 'sprint_id']
 const VALID = {
@@ -36,7 +40,7 @@ function parseCsv(text) {
 
 /* ---------- Export ---------- */
 // GET /api/projects/:projectId/export?format=csv|json
-router.get('/projects/:projectId/export', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/export', requireProjectRead(importExportProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const format = String(req.query.format || 'csv').toLowerCase()
   const project = await get('SELECT id, key, name FROM projects WHERE id = ?', [projectId])
@@ -60,7 +64,7 @@ router.get('/projects/:projectId/export', asyncHandler(async (req, res) => {
 /* ---------- Import ---------- */
 // POST /api/projects/:projectId/import  { csv, mapping?, dryRun? }
 // mapping maps target field -> source header (defaults to identity where headers match field names)
-router.post('/projects/:projectId/import', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/projects/:projectId/import', requireProjectWrite(importExportProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const project = await get('SELECT id, key FROM projects WHERE id = ?', [projectId])
   if (!project) { res.status(404).json({ error: 'Project not found' }); return }

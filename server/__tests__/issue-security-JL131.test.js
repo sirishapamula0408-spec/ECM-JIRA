@@ -443,7 +443,9 @@ describe('JL-185 — attachment access enforcement', () => {
   const attachmentRow = { id: 7, issue_id: 1, filename: 'secret.png', mime_type: 'image/png', size_bytes: 10, storage_path: 'k', thumbnail_key: null }
 
   it('GET issue attachments → 403 for a non-viewer of a restricted issue', async () => {
-    get.mockResolvedValueOnce(restrictedIssue) // parent issue lookup
+    // JL-286: the requireProjectRead guard also looks up the issue (no project_id
+    // on these fixtures → guard passes through), so return the row for every get.
+    get.mockResolvedValue(restrictedIssue) // parent issue lookup (guard + handler)
     const app = createApp(mod, viewerUser, '/api')
     const res = await request(app).get('/api/issues/1/attachments')
     expect(res.status).toBe(403)
@@ -460,7 +462,7 @@ describe('JL-185 — attachment access enforcement', () => {
   })
 
   it('GET issue attachments → 200 unchanged for a non-restricted issue', async () => {
-    get.mockResolvedValueOnce(publicIssue)
+    get.mockResolvedValue(publicIssue) // JL-286: guard + handler both read the issue
     all.mockResolvedValueOnce([attachmentRow])
     const app = createApp(mod, viewerUser, '/api')
     const res = await request(app).get('/api/issues/1/attachments')
@@ -469,18 +471,24 @@ describe('JL-185 — attachment access enforcement', () => {
   })
 
   it('GET download → 403 for a non-viewer of a restricted issue (IDOR blocked)', async () => {
-    get
-      .mockResolvedValueOnce(attachmentRow) // attachment lookup
-      .mockResolvedValueOnce(restrictedIssue) // parent issue lookup
+    // JL-286: requireProjectRead resolves attachment → issue before the handler,
+    // so route by SQL shape (no project_id → guard passes; canViewIssue blocks).
+    get.mockImplementation(async (sql) => {
+      if (sql.includes('FROM attachments')) return attachmentRow
+      if (sql.includes('FROM issues')) return restrictedIssue
+      return null
+    })
     const app = createApp(mod, viewerUser, '/api')
     const res = await request(app).get('/api/attachments/7/download')
     expect(res.status).toBe(403)
   })
 
   it('GET download → 403 for the issue assignee is allowed (200)', async () => {
-    get
-      .mockResolvedValueOnce(attachmentRow)
-      .mockResolvedValueOnce(restrictedIssue)
+    get.mockImplementation(async (sql) => {
+      if (sql.includes('FROM attachments')) return attachmentRow
+      if (sql.includes('FROM issues')) return restrictedIssue
+      return null
+    })
     const app = createApp(mod, { email: 'alice@test.com', workspaceRole: 'Member', isOwner: false }, '/api')
     const res = await request(app).get('/api/attachments/7/download')
     // Assignee may view → passes the guard (storage.get then resolves/404s on missing data, not 403).

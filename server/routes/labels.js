@@ -1,12 +1,22 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js' // JL-229: Viewer is read-only
+import { requireProjectWrite } from '../middleware/authorize.js' // JL-286: project-aware write gating
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
 
 const HEX = /^#[0-9a-fA-F]{6}$/
+
+// JL-286: project-access resolvers for the write guard. Project-label routes carry
+// the project id directly; the issue-labels route resolves it from the issue.
+const labelParamProject = (req) => Number(req.params.projectId)
+const labelIssueProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
 
 // GET /api/projects/:projectId/labels — list labels (with issue counts); ?search= for autocomplete
 router.get('/projects/:projectId/labels', asyncHandler(async (req, res) => {
@@ -32,7 +42,7 @@ router.get('/projects/:projectId/labels', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/projects/:projectId/labels — create a label
-router.post('/projects/:projectId/labels', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/projects/:projectId/labels', requireProjectWrite(labelParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const name = String(req.body?.name || '').trim()
   const color = String(req.body?.color || '#42526E').trim()
@@ -59,7 +69,7 @@ router.post('/projects/:projectId/labels', requireRole('Member'), asyncHandler(a
 }))
 
 // PUT /api/projects/:projectId/labels/:labelId — rename and/or recolor a label (JL-199)
-router.put('/projects/:projectId/labels/:labelId', requireRole('Member'), asyncHandler(async (req, res) => {
+router.put('/projects/:projectId/labels/:labelId', requireProjectWrite(labelParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const labelId = Number(req.params.labelId)
 
@@ -115,7 +125,7 @@ router.put('/projects/:projectId/labels/:labelId', requireRole('Member'), asyncH
 }))
 
 // DELETE /api/projects/:projectId/labels/:labelId — delete a label (cascades issue_labels)
-router.delete('/projects/:projectId/labels/:labelId', requireRole('Member'), asyncHandler(async (req, res) => {
+router.delete('/projects/:projectId/labels/:labelId', requireProjectWrite(labelParamProject), asyncHandler(async (req, res) => {
   const labelId = Number(req.params.labelId)
   await run('DELETE FROM labels WHERE id = ? AND project_id = ?', [labelId, Number(req.params.projectId)])
   res.json({ success: true })
@@ -134,7 +144,7 @@ router.get('/issues/:issueId/labels', asyncHandler(async (req, res) => {
 }))
 
 // PUT /api/issues/:issueId/labels — set labels for an issue (replaces existing). Body: { labelIds: [] }
-router.put('/issues/:issueId/labels', requireRole('Member'), asyncHandler(async (req, res) => {
+router.put('/issues/:issueId/labels', requireProjectWrite(labelIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const labelIds = Array.isArray(req.body?.labelIds) ? req.body.labelIds.map(Number).filter(Number.isInteger) : []
   await run('DELETE FROM issue_labels WHERE issue_id = ?', [issueId])

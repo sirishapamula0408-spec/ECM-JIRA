@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireProjectWrite } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
@@ -67,7 +67,7 @@ async function buildSummary(issueId) {
 }
 
 // GET /api/issues/:issueId/worklogs — worklogs + time summary
-router.get('/issues/:issueId/worklogs', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/worklogs', requireProjectRead(worklogIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const worklogs = await all(
     'SELECT id, issue_id, author, time_spent_minutes, description, created_at FROM worklogs WHERE issue_id = ? ORDER BY created_at DESC',
