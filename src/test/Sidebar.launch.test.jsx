@@ -42,11 +42,13 @@ beforeEach(() => {
 describe('JL-277 launch sidebar', () => {
   const LAUNCH_LABELS = ['Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log']
 
-  it('shows exactly the six launch nav sections', () => {
+  it('shows the six launch nav sections plus Projects', () => {
     renderSidebar()
     LAUNCH_LABELS.forEach((label) => {
       expect(screen.getByText(label)).toBeInTheDocument()
     })
+    // JL-282: Projects is kept in the launch sidebar as the entry point to boards/backlogs.
+    expect(screen.getByText('Projects')).toBeInTheDocument()
   })
 
   it('renders the six launch items as links to their routes', () => {
@@ -63,7 +65,6 @@ describe('JL-277 launch sidebar', () => {
     renderSidebar()
     const hidden = [
       'Recent',
-      'Projects',
       'Webhooks',
       'Inbound Email',
       'Automation',
@@ -89,9 +90,11 @@ describe('JL-277 launch sidebar', () => {
     })
   })
 
-  it('renders no "Show Projects" restore button and no Main navigation block', () => {
+  it('renders the Main navigation block for the kept Projects section', () => {
     renderSidebar()
+    // JL-282: with Projects kept, the primary nav landmark renders again.
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+    // The "Show Projects" restore button only appears once Projects is hidden via the menu.
     expect(screen.queryByText('Show Projects')).toBeNull()
-    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull()
   })
 })

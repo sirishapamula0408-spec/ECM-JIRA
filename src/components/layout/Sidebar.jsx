@@ -8,8 +8,9 @@ import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 // JL-277: launch sidebar shows only these sections; flip LAUNCH_SIDEBAR to false to restore the full nav.
+// JL-282: Projects kept so the launch sidebar retains an entry point to boards/backlogs.
 const LAUNCH_SIDEBAR = true
-const LAUNCH_NAV = ['Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log']
+const LAUNCH_NAV = ['Projects', 'Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log']
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
