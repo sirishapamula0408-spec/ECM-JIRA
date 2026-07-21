@@ -50,6 +50,28 @@
   gap: 8px;
 }
 
+.wfe-project-select {
+  font-size: var(--font-size-base);
+  color: var(--jira-text);
+  background: #ffffff;
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  min-width: 180px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---- Toolbar ---- */
 .wfe-toolbar {
   display: flex;
@@ -160,6 +182,27 @@
 
 .wfe-node--selected {
   box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.4);
+}
+
+/* JL-273: visible keyboard focus ring on nodes */
+.wfe-node:focus-visible {
+  outline: 3px solid #0052cc;
+  outline-offset: 2px;
+}
+
+/* Canvas loading / empty / error states */
+.wfe-canvas-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  font-size: var(--font-size-base);
+}
+
+.wfe-canvas-error {
+  color: #bf2600;
 }
 
 .wfe-node-name {
@@ -331,6 +374,52 @@
   font-weight: var(--font-weight-semibold);
   color: #42526e;
   letter-spacing: 0;
+}
+
+/* JL-274: transition properties edit fields + selectable list */
+.wfe-prop-field {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: #42526e;
+  margin-bottom: 12px;
+}
+
+.wfe-prop-field select,
+.wfe-prop-field input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.wfe-trans-select-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wfe-trans-select-btn {
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  background: #ffffff;
+  color: #42526e;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.wfe-trans-select-btn:hover {
+  background: #f4f5f7;
+}
+
+.wfe-trans-select-btn:focus-visible {
+  outline: 2px solid #0052cc;
+  outline-offset: 1px;
 }
 
 /* JL-269/270/272: Transition Rules panel */
