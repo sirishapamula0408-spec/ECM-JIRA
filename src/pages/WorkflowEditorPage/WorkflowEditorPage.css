@@ -332,3 +332,18 @@
   color: #42526e;
   letter-spacing: 0;
 }
+
+/* JL-269/270/272: Transition Rules panel */
+.wfe-readonly-hint,
+.wfe-rules-readonly-hint {
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+.wfe-rules-table .btn + .btn {
+  margin-left: 6px;
+}
+
+.wfe-rules-fromto .chip {
+  font-weight: var(--font-weight-semibold);
+}
