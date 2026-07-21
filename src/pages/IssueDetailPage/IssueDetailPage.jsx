@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
@@ -38,7 +38,12 @@ import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import SwapVertIcon from '@mui/icons-material/SwapVert'
-import { TipTapEditor } from '../../components/editor/TipTapEditor'
+// JL-284: lazy-load the rich-text editor so its heavy editor dependency stays
+// out of the static import graph. It only mounts when a permitted user edits the
+// description, keeping the page (and its read-only Viewer view) light to load.
+const TipTapEditor = lazy(() =>
+  import('../../components/editor/TipTapEditor').then((m) => ({ default: m.TipTapEditor })),
+)
 import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
@@ -85,7 +90,15 @@ export function CopyIssueLinkButton({ issueId }) {
 }
 
 /* ---- Inline editable field (JIRA click-to-edit pattern) ---- */
-function InlineField({ editing, onOpen, onClose, display, children }) {
+function InlineField({ editing, onOpen, onClose, display, children, canEdit = true }) {
+  // JL-284: read-only sidebar field for Viewers — show the value, no click-to-edit.
+  if (!canEdit) {
+    return (
+      <div className="id-inline-display id-inline-display--readonly">
+        {display}
+      </div>
+    )
+  }
   if (editing) {
     return (
       <div className="id-inline-editor">
@@ -221,7 +234,16 @@ export function IssueDetailPage() {
   }, [id, existing])
 
   const issue = existing || fetchedIssue
-  const { isAdmin, canEditIssue, canDeleteIssue } = usePermissions(issue?.projectId)
+  const {
+    isAdmin,
+    canEditIssue,
+    canDeleteIssue,
+    canCreateIssue,
+    canAddComment,
+    canLogWork,
+    canAddAttachment,
+    canLinkIssues,
+  } = usePermissions(issue?.projectId)
 
   // JL-216 — drag-and-drop + paste-to-attach; reuses the base64 upload path.
   const {
@@ -231,7 +253,7 @@ export function IssueDetailPage() {
     dropZoneProps: attachDropZoneProps,
   } = useAttachmentDropZone({
     issueId: issue?.id,
-    enabled: canEditIssue,
+    enabled: canAddAttachment,
     onUploaded: (saved) => setAttachments((prev) => [saved, ...prev]),
   })
 
@@ -1237,6 +1259,8 @@ export function IssueDetailPage() {
 
   return (
     <section className="page issue-detail-page">
+      {/* JL-284: hide the click-to-edit pencil affordance on read-only sidebar fields */}
+      <style>{`.id-inline-display--readonly{cursor:default}.id-inline-display--readonly .id-edit-pencil{display:none}`}</style>
       {/* ---- Breadcrumb bar ---- */}
       <div className="id-breadcrumb-bar">
         <nav className="id-breadcrumbs">
@@ -1273,7 +1297,7 @@ export function IssueDetailPage() {
         {/* JL-216 — drop zone: dropping files anywhere on the detail pane attaches them */}
         <div
           className={`id-main${isAttachDragging ? ' id-main--dragging' : ''}`}
-          {...(canEditIssue ? attachDropZoneProps : {})}
+          {...(canAddAttachment ? attachDropZoneProps : {})}
         >
           {isAttachDragging && (
             <div className="id-dropzone-overlay" aria-hidden="true">
@@ -1292,23 +1316,37 @@ export function IssueDetailPage() {
           <h1 className="id-title">{issue.title}</h1>
 
           <div className="id-quick-actions">
-            <button className="id-quick-btn" type="button" onClick={() => fileInputRef.current?.click()} disabled={attachUploading}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              {attachUploading ? 'Uploading…' : 'Attach'}
-            </button>
-            <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFilesSelected} />
-            <button className="id-quick-btn" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-              Create subtask
-            </button>
-            <button className="id-quick-btn" type="button" onClick={() => setShowLinkDialog((v) => !v)}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              Link issue
-            </button>
-            <button className="id-quick-btn" type="button" onClick={handleClone} disabled={cloning} title="Clone this issue">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              {cloning ? 'Cloning…' : 'Clone'}
-            </button>
+            {/* JL-284: attach controls gated by canAddAttachment (Viewers hidden) */}
+            {canAddAttachment && (
+              <>
+                <button className="id-quick-btn" type="button" onClick={() => fileInputRef.current?.click()} disabled={attachUploading}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  {attachUploading ? 'Uploading…' : 'Attach'}
+                </button>
+                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFilesSelected} />
+              </>
+            )}
+            {/* JL-284: create sub-task gated by canCreateIssue */}
+            {canCreateIssue && (
+              <button className="id-quick-btn" type="button" onClick={() => { if (!issue.parentId) setShowSubtaskForm(true) }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Create subtask
+              </button>
+            )}
+            {/* JL-284: link issue gated by canLinkIssues */}
+            {canLinkIssues && (
+              <button className="id-quick-btn" type="button" onClick={() => setShowLinkDialog((v) => !v)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Link issue
+              </button>
+            )}
+            {/* JL-284: clone creates a new issue — gated by canCreateIssue */}
+            {canCreateIssue && (
+              <button className="id-quick-btn" type="button" onClick={handleClone} disabled={cloning} title="Clone this issue">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                {cloning ? 'Cloning…' : 'Clone'}
+              </button>
+            )}
             <button className={`id-quick-btn${isWatching ? ' id-quick-btn--active' : ''}`} type="button" onClick={handleToggleWatch}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               {isWatching ? 'Watching' : 'Watch'} ({watcherCount})
@@ -1326,16 +1364,19 @@ export function IssueDetailPage() {
           {/* Description */}
           <div className="id-section">
             <h3 className="id-section-title">Description</h3>
-            {isEditing ? (
+            {isEditing && canEditIssue ? (
               <div className="id-desc-edit">
-                <TipTapEditor value={editDesc} onChange={setEditDesc} placeholder="Add a description… Type / for blocks" autoFocus />
+                <Suspense fallback={<div className="id-desc-loading">Loading editor…</div>}>
+                  <TipTapEditor value={editDesc} onChange={setEditDesc} placeholder="Add a description… Type / for blocks" autoFocus />
+                </Suspense>
                 <div className="id-desc-edit-actions">
                   <button className="btn btn-primary btn-sm" type="button" onClick={saveDesc}>Save</button>
                   <button className="btn btn-ghost btn-sm" type="button" onClick={() => setIsEditing(false)}>Cancel</button>
                 </div>
               </div>
             ) : (
-              <div className="id-description" onClick={startEditDesc} title="Click to edit">
+              // JL-284: click-to-edit only for canEditIssue; Viewers get a plain read-only view
+              <div className="id-description" onClick={canEditIssue ? startEditDesc : undefined} title={canEditIssue ? 'Click to edit' : undefined}>
                 {issue.description ? (
                   looksLikeHtml(issue.description) ? (
                     <div className="id-desc-rendered" dangerouslySetInnerHTML={{ __html: sanitizeHtml(issue.description) }} />
@@ -1360,7 +1401,10 @@ export function IssueDetailPage() {
                       <span className="id-attach-name">{a.filename}</span>
                       <span className="id-attach-size">{a.size != null ? `${Math.max(1, Math.round(a.size / 1024))} KB` : ''}</span>
                     </button>
-                    <button type="button" className="id-attach-delete" onClick={() => handleDeleteAttachment(a.id)} aria-label="Delete attachment">&times;</button>
+                    {/* JL-284: attachment delete gated by canAddAttachment */}
+                    {canAddAttachment && (
+                      <button type="button" className="id-attach-delete" onClick={() => handleDeleteAttachment(a.id)} aria-label="Delete attachment">&times;</button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1391,7 +1435,8 @@ export function IssueDetailPage() {
                 ))}
               </ul>
             )}
-            {showSubtaskForm ? (
+            {/* JL-284: sub-task creation gated by canCreateIssue (Viewers see the list only) */}
+            {canCreateIssue && (showSubtaskForm ? (
               <div className="id-subtask-form">
                 <input className="id-inline-input" value={subtaskTitle} autoFocus placeholder="Sub-task summary"
                   onChange={(e) => setSubtaskTitle(e.target.value)}
@@ -1401,7 +1446,7 @@ export function IssueDetailPage() {
               </div>
             ) : (
               <button className="id-subtask-add-btn" type="button" onClick={() => setShowSubtaskForm(true)}>+ Add sub-task</button>
-            )}
+            ))}
           </div>
           )}
 
@@ -1436,9 +1481,12 @@ export function IssueDetailPage() {
           <div className="id-section">
             <div className="id-subtask-header">
               <h3 className="id-section-title">Linked issues</h3>
-              <button className="id-subtask-add-btn" type="button" onClick={() => setShowLinkDialog(true)}>+ Add link</button>
+              {/* JL-284: add-link gated by canLinkIssues */}
+              {canLinkIssues && (
+                <button className="id-subtask-add-btn" type="button" onClick={() => setShowLinkDialog(true)}>+ Add link</button>
+              )}
             </div>
-            {showLinkDialog && (
+            {canLinkIssues && showLinkDialog && (
               <div className="id-link-dialog">
                 <select className="id-inline-select" value={linkType} onChange={(e) => setLinkType(e.target.value)}>
                   {LINK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -1472,7 +1520,10 @@ export function IssueDetailPage() {
                     <span className="id-subtask-key" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.key}</span>
                     <span className="id-subtask-title" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.title}</span>
                     <span className={`id-subtask-status id-subtask-status--${String(l.issue.status).toLowerCase().replace(/\s+/g, '-')}`}>{l.issue.status}</span>
-                    <button type="button" className="id-attach-delete" onClick={() => handleRemoveLink(l.id)} aria-label="Remove link">&times;</button>
+                    {/* JL-284: remove-link gated by canLinkIssues */}
+                    {canLinkIssues && (
+                      <button type="button" className="id-attach-delete" onClick={() => handleRemoveLink(l.id)} aria-label="Remove link">&times;</button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1646,8 +1697,8 @@ export function IssueDetailPage() {
               </Tooltip>
             </div>
 
-            {/* Comment input — show on All or Comments tab */}
-            {(activityTab === 'All' || activityTab === 'Comments') && (
+            {/* Comment input — show on All or Comments tab (JL-284: canAddComment gates composer) */}
+            {canAddComment && (activityTab === 'All' || activityTab === 'Comments') && (
               <div className="id-comment-input">
                 <span className="id-comment-avatar id-comment-avatar--me">{currentUserInitials}</span>
                 <div className="id-comment-box">
@@ -1674,7 +1725,8 @@ export function IssueDetailPage() {
                     <span>{timeSummary.estimateText ? `${timeSummary.estimateText} estimated` : ''}</span>
                   </div>
                 </div>
-                {!showWorkLogForm ? (
+                {/* JL-284: logging work gated by canLogWork (Viewers see the summary only) */}
+                {canLogWork && (!showWorkLogForm ? (
                   <button className="id-worklog-add-btn" type="button" onClick={() => setShowWorkLogForm(true)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Log work
@@ -1694,7 +1746,7 @@ export function IssueDetailPage() {
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowWorkLogForm(false); setWorkLogTime(''); setWorkLogDesc('') }}>Cancel</button>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
 
@@ -1731,33 +1783,38 @@ export function IssueDetailPage() {
                       <>
                         <p className="id-comment-text"><SmartText text={entry.text} issues={issues} renderText={(t) => <MentionText text={t} />} /></p>
                         <div className="id-reaction-bar">
+                          {/* JL-284: reaction counts stay visible to all; toggling is gated by canEditIssue */}
                           {entry.reactions.map((r) => (
                             <button
                               key={r.emoji}
                               type="button"
                               className={`id-reaction-chip${r.reactedByMe ? ' id-reaction-chip--mine' : ''}`}
-                              onClick={() => handleReact(entry.id, r.emoji)}
-                              title={r.reactedByMe ? 'Remove your reaction' : 'React'}
+                              onClick={canEditIssue ? () => handleReact(entry.id, r.emoji) : undefined}
+                              disabled={!canEditIssue}
+                              title={!canEditIssue ? undefined : r.reactedByMe ? 'Remove your reaction' : 'React'}
                             >
                               <span className="id-reaction-emoji">{r.emoji}</span>
                               <span className="id-reaction-count">{r.count}</span>
                             </button>
                           ))}
-                          <div className="id-reaction-picker">
-                            <button type="button" className="id-reaction-add" title="Add reaction">＋</button>
-                            <div className="id-reaction-menu">
-                              {REACTION_EMOJIS.map((em) => (
-                                <button
-                                  key={em}
-                                  type="button"
-                                  className="id-reaction-option"
-                                  onClick={() => handleReact(entry.id, em)}
-                                >
-                                  {em}
-                                </button>
-                              ))}
+                          {/* JL-284: add-reaction picker only for canEditIssue */}
+                          {canEditIssue && (
+                            <div className="id-reaction-picker">
+                              <button type="button" className="id-reaction-add" title="Add reaction">＋</button>
+                              <div className="id-reaction-menu">
+                                {REACTION_EMOJIS.map((em) => (
+                                  <button
+                                    key={em}
+                                    type="button"
+                                    className="id-reaction-option"
+                                    onClick={() => handleReact(entry.id, em)}
+                                  >
+                                    {em}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                         {entry.canModify && (
                           <div className="id-comment-controls">
@@ -1786,19 +1843,32 @@ export function IssueDetailPage() {
 
         {/* ======== RIGHT SIDEBAR (editable fields) ======== */}
         <aside className="id-sidebar">
-          {/* Status */}
+          {/* Status — JL-284: editable select for Member+; read-only badge for Viewers */}
           <div className="id-sidebar-status">
-            <select
-              className="id-status-select"
-              value={issue.status}
-              onChange={(e) => handleMove(issue.id, e.target.value)}
-              style={{
-                background: issue.status === 'Done' ? '#e3fcef' : issue.status === 'In Progress' ? '#deebff' : issue.status === 'Code Review' ? '#eae6ff' : '#dfe1e6',
-                color: issue.status === 'Done' ? '#006644' : issue.status === 'In Progress' ? '#0052cc' : issue.status === 'Code Review' ? '#5243aa' : '#42526e',
-              }}
-            >
-              {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            {canEditIssue ? (
+              <select
+                className="id-status-select"
+                value={issue.status}
+                onChange={(e) => handleMove(issue.id, e.target.value)}
+                style={{
+                  background: issue.status === 'Done' ? '#e3fcef' : issue.status === 'In Progress' ? '#deebff' : issue.status === 'Code Review' ? '#eae6ff' : '#dfe1e6',
+                  color: issue.status === 'Done' ? '#006644' : issue.status === 'In Progress' ? '#0052cc' : issue.status === 'Code Review' ? '#5243aa' : '#42526e',
+                }}
+              >
+                {ISSUE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <span
+                className="id-status-select id-status-select--readonly"
+                style={{
+                  display: 'inline-block',
+                  background: issue.status === 'Done' ? '#e3fcef' : issue.status === 'In Progress' ? '#deebff' : issue.status === 'Code Review' ? '#eae6ff' : '#dfe1e6',
+                  color: issue.status === 'Done' ? '#006644' : issue.status === 'In Progress' ? '#0052cc' : issue.status === 'Code Review' ? '#5243aa' : '#42526e',
+                }}
+              >
+                {issue.status}
+              </span>
+            )}
           </div>
 
           {/* JL-215: flag / unflag as impediment */}
@@ -1836,6 +1906,7 @@ export function IssueDetailPage() {
                 <dt>Assignee</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'assignee'}
                     onOpen={() => openField('assignee')}
                     onClose={closeField}
@@ -1854,7 +1925,8 @@ export function IssueDetailPage() {
                       {members.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>
                   </InlineField>
-                  {issue.assignee !== currentUserName && (
+                  {/* JL-284: "Assign to me" is a write action — gated by canEditIssue */}
+                  {canEditIssue && issue.assignee !== currentUserName && (
                     <button
                       type="button"
                       className="id-assign-to-me"
@@ -1885,6 +1957,7 @@ export function IssueDetailPage() {
                 <dt>Priority</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'priority'}
                     onOpen={() => openField('priority')}
                     onClose={closeField}
@@ -1910,6 +1983,7 @@ export function IssueDetailPage() {
                 <dt>Type</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'type'}
                     onOpen={() => openField('type')}
                     onClose={closeField}
@@ -1936,6 +2010,7 @@ export function IssueDetailPage() {
                 <dt>Epic</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'epic'}
                     onOpen={() => openField('epic')}
                     onClose={closeField}
@@ -1967,6 +2042,7 @@ export function IssueDetailPage() {
                 <dt>Labels</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'labels'}
                     onOpen={() => openField('labels')}
                     onClose={closeField}
@@ -2001,6 +2077,7 @@ export function IssueDetailPage() {
                 <dt>Fix Versions</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'fixVersions'}
                     onOpen={() => openField('fixVersions')}
                     onClose={closeField}
@@ -2038,6 +2115,7 @@ export function IssueDetailPage() {
                 <dt>Affects Versions</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'affectsVersions'}
                     onOpen={() => openField('affectsVersions')}
                     onClose={closeField}
@@ -2075,6 +2153,7 @@ export function IssueDetailPage() {
                 <dt>Sprint</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'sprint'}
                     onOpen={() => openField('sprint')}
                     onClose={closeField}
@@ -2112,6 +2191,7 @@ export function IssueDetailPage() {
                 <dt>Start date</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'startDate'}
                     onOpen={() => openField('startDate')}
                     onClose={saveStartDate}
@@ -2138,6 +2218,7 @@ export function IssueDetailPage() {
                 <dt>Due date</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'dueDate'}
                     onOpen={() => openField('dueDate')}
                     onClose={saveDueDate}
@@ -2164,6 +2245,7 @@ export function IssueDetailPage() {
                 <dt>Estimate</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'estimate'}
                     onOpen={() => { setEstimateInput(timeSummary.estimateText || ''); openField('estimate') }}
                     onClose={handleSaveEstimate}
@@ -2192,6 +2274,7 @@ export function IssueDetailPage() {
                 <dt>Story points</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'storyPoints'}
                     onOpen={() => { setStoryPoints(issue.storyPoints === null || issue.storyPoints === undefined ? '' : String(issue.storyPoints)); openField('storyPoints') }}
                     onClose={saveStoryPoints}
@@ -2229,6 +2312,7 @@ export function IssueDetailPage() {
                 <dt>Components (text)</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'components'}
                     onOpen={() => openField('components')}
                     onClose={saveComponents}
@@ -2256,6 +2340,7 @@ export function IssueDetailPage() {
                 <dt>Components</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'structuredComponents'}
                     onOpen={() => openField('structuredComponents')}
                     onClose={closeField}
@@ -2300,6 +2385,7 @@ export function IssueDetailPage() {
                 <dt>Environment</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'environment'}
                     onOpen={() => openField('environment')}
                     onClose={saveEnvironment}
@@ -2327,6 +2413,7 @@ export function IssueDetailPage() {
                 <dt>Resolution</dt>
                 <dd>
                   <InlineField
+                    canEdit={canEditIssue}
                     editing={editingField === 'resolution'}
                     onOpen={() => openField('resolution')}
                     onClose={saveResolution}

@@ -42,6 +42,9 @@ export function usePermissions(projectId) {
         canCreateProject: false,
         canEditWorkflows: false,
         canAddComment: false,
+        canLogWork: false,
+        canAddAttachment: false,
+        canLinkIssues: false,
       }
     }
 
@@ -109,6 +112,12 @@ export function usePermissions(projectId) {
 
       // Comment permissions
       canAddComment: effectiveRank >= ROLE_RANK.Member,
+
+      // JL-284: additional IssueDetailPage write capabilities — same tier as
+      // canEditIssue (project Member+). Viewers get a read-only issue view.
+      canLogWork: effectiveRank >= ROLE_RANK.Member,
+      canAddAttachment: effectiveRank >= ROLE_RANK.Member,
+      canLinkIssues: effectiveRank >= ROLE_RANK.Member,
     }
   }, [currentMember, projectId])
 }
