@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireProjectWrite } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 import { getStorage } from '../services/storage.js'
 import { generateThumbnail } from '../services/thumbnails.js'
 import { scanBuffer } from '../services/virusScan.js'
@@ -125,7 +125,7 @@ function mapAttachment(row) {
 }
 
 // GET /api/issues/:issueId/attachments — list metadata
-router.get('/issues/:issueId/attachments', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/attachments', requireProjectRead(attachmentIssueProject), asyncHandler(async (req, res) => {
   // JL-185: block listing attachments of an issue the caller cannot view.
   if (!(await canAccessIssueAttachments(req.params.issueId, req.user))) {
     res.status(403).json({ error: 'Not authorized to view this issue' })
@@ -196,7 +196,7 @@ router.post('/issues/:issueId/attachments', requireProjectWrite(attachmentIssueP
 }))
 
 // GET /api/attachments/:id/download — stream the file
-router.get('/attachments/:id/download', asyncHandler(async (req, res) => {
+router.get('/attachments/:id/download', requireProjectRead(attachmentIdProject), asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM attachments WHERE id = ?', [Number(req.params.id)])
   if (!row) { res.status(404).json({ error: 'Attachment not found' }); return }
   // JL-185: prevent IDOR — the caller must be able to view the parent issue.
@@ -216,7 +216,7 @@ router.get('/attachments/:id/download', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/attachments/:id/thumbnail — stream the image thumbnail
-router.get('/attachments/:id/thumbnail', asyncHandler(async (req, res) => {
+router.get('/attachments/:id/thumbnail', requireProjectRead(attachmentIdProject), asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM attachments WHERE id = ?', [Number(req.params.id)])
   if (!row || !row.thumbnail_key) { res.status(404).json({ error: 'Thumbnail not found' }); return }
   // JL-185: prevent IDOR — the caller must be able to view the parent issue.

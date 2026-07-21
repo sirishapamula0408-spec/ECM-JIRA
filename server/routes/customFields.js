@@ -1,9 +1,19 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectWrite } from '../middleware/authorize.js'
 
 const router = Router()
+
+// JL-286: resolve the project a custom-field VALUE mutation acts on, from the
+// issue id, for the project-access write guard. Field-definition CRUD stays
+// Admin-gated (requireRole) — those are project-configuration changes.
+const fieldValueIssueProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
 
 // JL-37 base types + JL-113 extended types
 const FIELD_TYPES = [
@@ -197,7 +207,7 @@ router.get('/issues/:issueId/custom-fields', asyncHandler(async (req, res) => {
 }))
 
 // PUT /api/issues/:issueId/custom-fields/:fieldId — set a value (empty clears)
-router.put('/issues/:issueId/custom-fields/:fieldId', requireRole('Member'), asyncHandler(async (req, res) => {
+router.put('/issues/:issueId/custom-fields/:fieldId', requireProjectWrite(fieldValueIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const fieldId = Number(req.params.fieldId)
   const raw = req.body?.value

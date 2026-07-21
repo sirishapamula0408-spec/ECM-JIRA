@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireProjectWrite, requireRole } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
 import { extractMentions, processMentions } from '../services/mentions.js'
 import { runCommentAutomations } from '../services/automation.js'
@@ -17,6 +17,18 @@ const commentIssueProject = async (req) => {
   const issueId = Number(req.params.issueId)
   if (!Number.isInteger(issueId)) return null
   const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
+
+// JL-286: resolve the project a reaction acts on, from the comment id, via
+// comment → issue → project_id, for the project-access write guard.
+const reactionCommentProject = async (req) => {
+  const commentId = Number(req.params.id)
+  if (!Number.isInteger(commentId)) return null
+  const row = await get(
+    `SELECT i.project_id FROM comments c JOIN issues i ON i.id = c.issue_id WHERE c.id = ?`,
+    [commentId],
+  )
   return row?.project_id ?? null
 }
 
@@ -72,7 +84,7 @@ async function resolveAuthorDisplay(author) {
 }
 
 // GET /api/issues/:issueId/comments
-router.get('/:issueId/comments', asyncHandler(async (req, res) => {
+router.get('/:issueId/comments', requireProjectRead(commentIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     'SELECT id, issue_id, author, text, created_at, edited_at FROM comments WHERE issue_id = ? ORDER BY created_at DESC',
@@ -170,7 +182,7 @@ router.post('/:issueId/comments', requireProjectWrite(commentIssueProject), asyn
 
 // POST /api/comments/:id/reactions — toggle an emoji reaction (JL-139).
 // Mounted at /api/comments in index.js, so the router path is /:id/reactions.
-router.post('/:id/reactions', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/:id/reactions', requireProjectWrite(reactionCommentProject), asyncHandler(async (req, res) => {
   const commentId = Number(req.params.id)
   const emoji = String(req.body?.emoji || '').trim()
 

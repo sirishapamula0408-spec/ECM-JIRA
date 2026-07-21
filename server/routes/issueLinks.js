@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireProjectWrite } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 
 const router = Router()
@@ -41,7 +41,7 @@ const issueBrief = (row, alias) => ({
 })
 
 // GET /api/issues/:issueId/links — links in both directions, from this issue's perspective
-router.get('/issues/:issueId/links', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/links', requireProjectRead(linkSourceProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     `SELECT il.id, il.link_type, il.source_issue_id, il.target_issue_id,
