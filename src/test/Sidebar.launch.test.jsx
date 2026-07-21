@@ -61,6 +61,16 @@ describe('JL-277 launch sidebar', () => {
     expect(screen.getByRole('link', { name: 'Audit Log' })).toHaveAttribute('href', '/audit-log')
   })
 
+  it('JL-283: shows the Filters-box utility items as links', () => {
+    renderSidebar()
+    expect(screen.getByRole('link', { name: 'Dashboards' })).toHaveAttribute('href', '/dashboard')
+    expect(screen.getByRole('link', { name: 'Portfolio' })).toHaveAttribute('href', '/portfolio')
+    expect(screen.getByRole('link', { name: 'Report Builder' })).toHaveAttribute('href', '/report-builder')
+    expect(screen.getByRole('link', { name: 'Advanced Roadmap' })).toHaveAttribute('href', '/advanced-roadmap')
+    expect(screen.getByRole('link', { name: 'Shared Dashboards' })).toHaveAttribute('href', '/shared-dashboards')
+    expect(screen.getByRole('link', { name: 'Cross-Project Boards' })).toHaveAttribute('href', '/cross-project-boards')
+  })
+
   it('hides all non-launch nav items', () => {
     renderSidebar()
     const hidden = [
@@ -78,12 +88,6 @@ describe('JL-277 launch sidebar', () => {
       'Incidents',
       'Apps',
       'BI Export',
-      'Dashboards',
-      'Portfolio',
-      'Report Builder',
-      'Advanced Roadmap',
-      'Shared Dashboards',
-      'Cross-Project Boards',
     ]
     hidden.forEach((label) => {
       expect(screen.queryByText(label)).toBeNull()
