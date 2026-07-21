@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { forgotPassword, resetPassword, fetchSsoStatus, startOidcLogin, startSamlLogin } from '../../api/authApi'
 import sedinLogo from '../../assets/sedin-logo.svg'
@@ -15,7 +15,21 @@ export function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState('')
+  // JL-267: full list of password-policy violations (400 with { errors: [...] }).
+  const [authErrors, setAuthErrors] = useState([])
   const [authLoading, setAuthLoading] = useState(false)
+
+  // JL-265: inline email validation + Caps Lock hint.
+  const [emailError, setEmailError] = useState('')
+  const [capsLockOn, setCapsLockOn] = useState(false)
+
+  // JL-266: lockout (429) live countdown. `lockoutRemaining` seconds > 0 disables submit.
+  const [lockoutRemaining, setLockoutRemaining] = useState(0)
+  const lockoutTimerRef = useRef(null)
+
+  // JL-265: refs used to autofocus the first field on mount + after mode switches.
+  const emailRef = useRef(null)
+  const forgotEmailRef = useRef(null)
 
   // JL-81: MFA — when the backend replies mfaRequired, reveal a code field.
   const [mfaRequired, setMfaRequired] = useState(false)
@@ -25,6 +39,8 @@ export function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotError, setForgotError] = useState('')
+  // JL-267: password-policy violations on the reset form.
+  const [forgotErrors, setForgotErrors] = useState([])
   const [resetToken, setResetToken] = useState('')
   const [forgotStep, setForgotStep] = useState('email') // 'email' | 'token' | 'done'
   const [newPassword, setNewPassword] = useState('')
@@ -59,19 +75,116 @@ export function LoginPage() {
     }
   }
 
+  // JL-265: descriptive document title for the login screen (other pages reset it).
+  useEffect(() => {
+    const titles = {
+      login: 'Sign in — ECM JIRA',
+      signup: 'Sign up — ECM JIRA',
+      forgot: 'Reset password — ECM JIRA',
+    }
+    document.title = titles[mode] || 'Sign in — ECM JIRA'
+  }, [mode])
+
+  // JL-265: autofocus the first field on initial render and after every mode switch.
+  useEffect(() => {
+    if (mode === 'login' || mode === 'signup') {
+      emailRef.current?.focus()
+    } else if (mode === 'forgot' && forgotStep === 'email') {
+      forgotEmailRef.current?.focus()
+    }
+  }, [mode, forgotStep])
+
+  // JL-266: clear any running lockout timer on unmount to avoid leaks.
+  useEffect(() => () => {
+    if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current)
+  }, [])
+
+  function clearLockout() {
+    if (lockoutTimerRef.current) {
+      clearInterval(lockoutTimerRef.current)
+      lockoutTimerRef.current = null
+    }
+    setLockoutRemaining(0)
+  }
+
+  // JL-266: start a live m:ss countdown; submit stays disabled until it elapses.
+  function startLockout(seconds) {
+    clearLockout()
+    setLockoutRemaining(seconds)
+    lockoutTimerRef.current = setInterval(() => {
+      setLockoutRemaining((s) => {
+        if (s <= 1) {
+          clearInterval(lockoutTimerRef.current)
+          lockoutTimerRef.current = null
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+  }
+
+  function handleEmailBlur() {
+    const value = form.email.trim()
+    if (value && !isValidEmail(value)) {
+      setEmailError('Enter a valid email address.')
+    } else {
+      setEmailError('')
+    }
+  }
+
+  // JL-265: reflect Caps Lock state from any password key event.
+  function handleCapsLock(e) {
+    if (typeof e.getModifierState === 'function') {
+      setCapsLockOn(e.getModifierState('CapsLock'))
+    }
+  }
+
+  function formatCountdown(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60)
+    const s = totalSeconds % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  const lockoutMessage = lockoutRemaining > 0
+    ? `Too many failed attempts. Try again in ${formatCountdown(lockoutRemaining)}.`
+    : ''
+  // JL-266/267: the auth error region shows (in priority): live lockout, policy list, or message.
+  const displayAuthError = lockoutMessage || (authErrors.length ? '' : authError)
+
   const canSubmit = form.email.trim() && form.password.trim()
 
   function switchMode(newMode) {
     setMode(newMode)
     setAuthError('')
+    setAuthErrors([])
+    setEmailError('')
+    setCapsLockOn(false)
     setMfaRequired(false)
     setMfaCode('')
+    clearLockout()
+  }
+
+  // JL-264: Left/Right arrow navigation between the Log In / Sign Up tabs.
+  function onTabsKeyDown(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const next = mode === 'login' ? 'signup' : 'login'
+    switchMode(next)
+    // Move focus to the newly selected tab (roving tabindex).
+    const id = next === 'login' ? 'login-tab-login' : 'login-tab-signup'
+    requestAnimationFrame(() => document.getElementById(id)?.focus())
   }
 
   function openForgotPassword(e) {
     e.preventDefault()
+    clearLockout()
     setForgotEmail(form.email)
     setForgotError('')
+    setForgotErrors([])
     setResetToken('')
     setNewPassword('')
     setConfirmPassword('')
@@ -83,7 +196,10 @@ export function LoginPage() {
   function backToLogin() {
     setMode('login')
     setAuthError('')
+    setAuthErrors([])
     setForgotError('')
+    setForgotErrors([])
+    clearLockout()
   }
 
   async function handleForgotSubmit(e) {
@@ -106,6 +222,7 @@ export function LoginPage() {
   async function handleResetSubmit(e) {
     e.preventDefault()
     setForgotError('')
+    setForgotErrors([])
     if (newPassword.length < 6) {
       setForgotError('Password must be at least 6 characters')
       return
@@ -120,7 +237,13 @@ export function LoginPage() {
       setResetSuccess(result.message || 'Password reset successfully!')
       setForgotStep('done')
     } catch (error) {
-      setForgotError(error?.message || 'Failed to reset password')
+      // JL-267: render every password-policy violation when the API returns a list.
+      const errors = error?.data?.errors
+      if (Array.isArray(errors) && errors.length > 1) {
+        setForgotErrors(errors)
+      } else {
+        setForgotError(error?.message || 'Failed to reset password')
+      }
     } finally {
       setForgotLoading(false)
     }
@@ -129,20 +252,35 @@ export function LoginPage() {
   async function onSubmit(e) {
     e.preventDefault()
     setAuthError('')
+    setAuthErrors([])
     setAuthLoading(true)
     try {
       const credentials = { email: form.email.trim(), password: form.password, remember: form.remember }
       // Include the MFA code once the field is shown.
       if (mfaRequired && mfaCode.trim()) credentials.mfaCode = mfaCode.trim()
       await handleAuth(mode, credentials)
-      // Success — reset any MFA prompt state.
+      // Success — reset any MFA prompt / lockout state.
       setMfaRequired(false)
       setMfaCode('')
+      clearLockout()
     } catch (error) {
       // Backend signals a second factor is needed via { mfaRequired: true }.
       if (error?.data?.mfaRequired) {
         setMfaRequired(true)
         setAuthError(mfaCode ? (error?.message || 'Invalid MFA code') : '')
+      } else if (error?.status === 429) {
+        // JL-266: account lockout — start a live countdown from retryAfter (seconds).
+        const secs = Number(error?.data?.retryAfter)
+        if (Number.isFinite(secs) && secs > 0) {
+          setAuthError('')
+          startLockout(Math.ceil(secs))
+        } else {
+          // retryAfter missing/unparsable — show the server message, leave submit enabled.
+          setAuthError(error?.message || 'Too many failed attempts. Please try again later.')
+        }
+      } else if (Array.isArray(error?.data?.errors) && error.data.errors.length > 1) {
+        // JL-267: render every password-policy violation from signup.
+        setAuthErrors(error.data.errors)
       } else {
         setAuthError(error?.message || 'Authentication failed')
       }
@@ -284,9 +422,11 @@ export function LoginPage() {
                 <p>{mode === 'login' ? 'Sign in to continue to your workspace.' : 'Get started with your free account today.'}</p>
               </div>
 
-              <div className="login-tabs">
+              <div className="login-tabs" role="group" aria-label="Authentication mode" onKeyDown={onTabsKeyDown}>
                 <button
                   type="button"
+                  id="login-tab-login"
+                  aria-pressed={mode === 'login'}
                   className={`login-tab${mode === 'login' ? ' active' : ''}`}
                   onClick={() => switchMode('login')}
                 >
@@ -294,6 +434,8 @@ export function LoginPage() {
                 </button>
                 <button
                   type="button"
+                  id="login-tab-signup"
+                  aria-pressed={mode === 'signup'}
                   className={`login-tab${mode === 'signup' ? ' active' : ''}`}
                   onClick={() => switchMode('signup')}
                 >
@@ -310,13 +452,25 @@ export function LoginPage() {
                     </span>
                     <input
                       id="login-email"
+                      ref={emailRef}
                       value={form.email}
-                      onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
+                      onChange={(e) => {
+                        setForm((c) => ({ ...c, email: e.target.value }))
+                        if (emailError) setEmailError('')
+                      }}
+                      onBlur={handleEmailBlur}
                       placeholder="name@company.com"
                       type="email"
-                      autoComplete="email"
+                      autoComplete="username email"
+                      aria-invalid={emailError ? 'true' : undefined}
+                      aria-describedby={emailError ? 'login-email-error' : undefined}
                     />
                   </div>
+                  {emailError && (
+                    <div className="login-field-error" id="login-email-error" role="alert" aria-live="assertive">
+                      {emailError}
+                    </div>
+                  )}
                 </div>
 
                 <div className="login-field">
@@ -334,15 +488,19 @@ export function LoginPage() {
                       id="login-password"
                       value={form.password}
                       onChange={(e) => setForm((c) => ({ ...c, password: e.target.value }))}
+                      onKeyDown={handleCapsLock}
+                      onKeyUp={handleCapsLock}
                       placeholder={mode === 'signup' ? 'Min. 6 characters' : 'Enter your password'}
                       type={showPassword ? 'text' : 'password'}
                       autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      aria-describedby={mode === 'signup' ? 'login-password-hint' : undefined}
                     />
                     <button
                       type="button"
                       className="login-password-toggle"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
                     >
                       {showPassword ? (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -351,6 +509,17 @@ export function LoginPage() {
                       )}
                     </button>
                   </div>
+                  {capsLockOn && (
+                    <div className="login-caps-hint" role="alert" aria-live="assertive">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 8 6-6 6 6"/><path d="M6 12v-2h12v2"/><rect x="6" y="16" width="12" height="4" rx="1"/></svg>
+                      <span>Caps Lock is on</span>
+                    </div>
+                  )}
+                  {mode === 'signup' && (
+                    <small className="login-hint" id="login-password-hint">
+                      Use at least 6 characters. A mix of letters, numbers, and symbols is recommended.
+                    </small>
+                  )}
                 </div>
 
                 {mode === 'login' && (
@@ -379,23 +548,31 @@ export function LoginPage() {
                         inputMode="numeric"
                         autoComplete="one-time-code"
                         autoFocus
+                        aria-invalid={authError ? 'true' : undefined}
+                        aria-describedby={authError ? 'login-auth-error' : undefined}
                       />
                     </div>
                     <small className="login-hint">Enter the code from your authenticator app.</small>
                   </div>
                 )}
 
-                {authError && (
-                  <div className="login-error">
+                {(displayAuthError || authErrors.length > 0) && (
+                  <div className="login-error" id="login-auth-error" role="alert" aria-live="assertive">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    <span>{authError}</span>
+                    {authErrors.length > 0 ? (
+                      <ul className="login-error-list">
+                        {authErrors.map((msg, i) => <li key={i}>{msg}</li>)}
+                      </ul>
+                    ) : (
+                      <span>{displayAuthError}</span>
+                    )}
                   </div>
                 )}
 
                 <button
                   className="login-submit-btn"
                   type="submit"
-                  disabled={!canSubmit || authLoading || (mfaRequired && mfaCode.length !== 6)}
+                  disabled={!canSubmit || authLoading || lockoutRemaining > 0 || (mfaRequired && mfaCode.length !== 6)}
                 >
                   {authLoading ? (
                     <span className="login-spinner" />
@@ -426,7 +603,7 @@ export function LoginPage() {
                     </button>
                   )}
                   {ssoError && (
-                    <div className="login-error">
+                    <div className="login-error" role="alert" aria-live="assertive">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                       <span>{ssoError}</span>
                     </div>
@@ -465,6 +642,7 @@ export function LoginPage() {
                       </span>
                       <input
                         id="forgot-email"
+                        ref={forgotEmailRef}
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
                         placeholder="name@company.com"
@@ -476,7 +654,7 @@ export function LoginPage() {
                   </div>
 
                   {forgotError && (
-                    <div className="login-error">
+                    <div className="login-error" role="alert" aria-live="assertive">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                       <span>{forgotError}</span>
                     </div>
@@ -523,6 +701,8 @@ export function LoginPage() {
                         id="new-password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
+                        onKeyDown={handleCapsLock}
+                        onKeyUp={handleCapsLock}
                         placeholder="Min. 6 characters"
                         type={showNewPassword ? 'text' : 'password'}
                         autoComplete="new-password"
@@ -541,6 +721,12 @@ export function LoginPage() {
                         )}
                       </button>
                     </div>
+                    {capsLockOn && (
+                      <div className="login-caps-hint" role="alert" aria-live="assertive">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 8 6-6 6 6"/><path d="M6 12v-2h12v2"/><rect x="6" y="16" width="12" height="4" rx="1"/></svg>
+                        <span>Caps Lock is on</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="login-field">
@@ -553,18 +739,28 @@ export function LoginPage() {
                         id="confirm-password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        onKeyDown={handleCapsLock}
+                        onKeyUp={handleCapsLock}
                         placeholder="Re-enter new password"
                         type={showNewPassword ? 'text' : 'password'}
                         autoComplete="new-password"
                         required
+                        aria-invalid={forgotError ? 'true' : undefined}
+                        aria-describedby={forgotError ? 'reset-error' : undefined}
                       />
                     </div>
                   </div>
 
-                  {forgotError && (
-                    <div className="login-error">
+                  {(forgotError || forgotErrors.length > 0) && (
+                    <div className="login-error" id="reset-error" role="alert" aria-live="assertive">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                      <span>{forgotError}</span>
+                      {forgotErrors.length > 0 ? (
+                        <ul className="login-error-list">
+                          {forgotErrors.map((msg, i) => <li key={i}>{msg}</li>)}
+                        </ul>
+                      ) : (
+                        <span>{forgotError}</span>
+                      )}
                     </div>
                   )}
 
@@ -581,7 +777,7 @@ export function LoginPage() {
 
               {forgotStep === 'done' && (
                 <div className="login-form">
-                  <div className="login-success">
+                  <div className="login-success" role="alert" aria-live="assertive">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     <span>{resetSuccess}</span>
                   </div>
