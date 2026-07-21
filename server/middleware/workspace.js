@@ -39,16 +39,28 @@ export function pickWorkspaceId(headerVal, userDefault, fallbackDefault) {
 /**
  * Membership check helper (exported for unit testing).
  *
- * Returns true when `email` has a row in `workspace_members` for `workspaceId`.
- * Case-insensitive on the email. Returns false for missing args.
+ * Returns true when `email` belongs to `workspaceId`. Case-insensitive on the
+ * email. Returns false for missing args.
+ *
+ * JL-291: the authoritative directory is the `members` table (populated by
+ * seed / invite / admin-provision), while `workspace_members` is only written by
+ * the signup flow — so the two drift out of sync and real members (including the
+ * workspace Owner and Admins) could be absent from workspace_members and get
+ * locked out. We therefore accept membership from EITHER source: a
+ * `workspace_members` row, OR a `members` row for this workspace, OR the
+ * workspace Owner (`members.is_owner`). A companion backfill in db.js keeps
+ * workspace_members in sync for code that reads it directly.
  */
 export async function isWorkspaceMember(email, workspaceId) {
   if (!email || !workspaceId) return false
   const row = await get(
     `SELECT 1 AS ok FROM workspace_members
-     WHERE workspace_id = ? AND LOWER(member_email) = LOWER(?)
+      WHERE workspace_id = ? AND LOWER(member_email) = LOWER(?)
+     UNION ALL
+     SELECT 1 FROM members
+      WHERE LOWER(email) = LOWER(?) AND (workspace_id = ? OR is_owner = TRUE)
      LIMIT 1`,
-    [workspaceId, email],
+    [workspaceId, email, email, workspaceId],
   )
   return !!row
 }

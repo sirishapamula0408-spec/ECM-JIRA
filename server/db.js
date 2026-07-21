@@ -1395,6 +1395,25 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace ON workspace_members(workspace_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_email ON workspace_members(member_email)')
 
+  // JL-291: keep workspace_members in sync with the authoritative `members`
+  // directory. Member provisioning (seed / invite / admin-create) writes to
+  // `members` but not `workspace_members`, so real members — including the
+  // workspace Owner and Admins — could be missing from workspace_members and get
+  // locked out of their own workspace by the X-Workspace-Id membership check.
+  // Idempotent (NOT EXISTS guard); runs on every boot so existing installs heal.
+  await pool.query(`
+    INSERT INTO workspace_members (workspace_id, member_email, role)
+    SELECT m.workspace_id, m.email, m.role
+      FROM members m
+     WHERE m.workspace_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM workspace_members wm
+          WHERE wm.workspace_id = m.workspace_id
+            AND LOWER(wm.member_email) = LOWER(m.email)
+       )
+    ON CONFLICT (workspace_id, member_email) DO NOTHING
+  `)
+
   // --- JL-122: Configurable result columns & saved list views ---
   // Per-user named views: an ordered set of visible column keys + optional JQL filter.
   await pool.query(`
