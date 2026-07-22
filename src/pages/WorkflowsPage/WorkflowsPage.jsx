@@ -8,6 +8,7 @@ import './WorkflowsPage.css'
 import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -60,6 +61,11 @@ export function WorkflowsPage() {
   const { profile } = useMembers()
   const { projectId } = useParams()
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
+  // JL-294: gate write controls (row selection, bulk actions, inline create) by
+  // project-scoped permissions so Viewers get a read-only list, matching the
+  // backend requireProjectWrite guards. Reads/sort/group/filter stay available.
+  const { canCreateIssue, canEditIssue, canDeleteIssue } = usePermissions(projectId)
+  const canBulkSelect = canEditIssue || canDeleteIssue
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -253,6 +259,13 @@ export function WorkflowsPage() {
   )
   const bulkCount = activeSelectedIds.length
 
+  // JL-294: if the current bulk action becomes unavailable for this user's
+  // permissions (e.g. only canDeleteIssue, no canEditIssue), snap to a valid one.
+  useEffect(() => {
+    if (bulkAction === 'delete' && !canDeleteIssue) { setBulkAction('status'); setBulkValue('To Do') }
+    else if (bulkAction !== 'delete' && !canEditIssue && canDeleteIssue) { setBulkAction('delete'); setBulkValue('') }
+  }, [canEditIssue, canDeleteIssue, bulkAction])
+
   function changeBulkAction(action) {
     setBulkAction(action)
     if (action === 'status') setBulkValue('To Do')
@@ -440,7 +453,7 @@ export function WorkflowsPage() {
     }
   }
 
-  const totalColSpan = columnOrder.length + 2 // checkbox + "+" column
+  const totalColSpan = columnOrder.length + 1 + (canBulkSelect ? 1 : 0) // (checkbox) + columns + "+" column
 
   async function submitInlineCreate() {
     const title = String(createTitle || '').trim()
@@ -524,13 +537,13 @@ export function WorkflowsPage() {
         </div>
       </div>
 
-      {bulkCount > 0 && (
+      {canBulkSelect && bulkCount > 0 && (
         <div className="jira-list-bulk-bar" role="region" aria-label="Bulk actions">
           <span className="jira-list-bulk-count">{bulkCount} selected</span>
           <select className="jira-list-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={bulkBusy} aria-label="Bulk action">
-            <option value="status">Status</option>
-            <option value="priority">Priority</option>
-            <option value="delete">Delete</option>
+            {canEditIssue && <option value="status">Status</option>}
+            {canEditIssue && <option value="priority">Priority</option>}
+            {canDeleteIssue && <option value="delete">Delete</option>}
           </select>
           {bulkAction === 'status' && (
             <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Status value">
@@ -554,7 +567,9 @@ export function WorkflowsPage() {
           <table className="jira-list-table">
             <thead>
               <tr>
-                <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(event) => toggleSelectAll(event.target.checked)} aria-label="Select all issues on this page" /></th>
+                {canBulkSelect && (
+                  <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(event) => toggleSelectAll(event.target.checked)} aria-label="Select all issues on this page" /></th>
+                )}
                 {columnOrder.map((colKey) => {
                   const def = ALL_COLUMNS[colKey]
                   const isDragging = dragColKey === colKey
@@ -654,7 +669,9 @@ export function WorkflowsPage() {
                     const selected = selectedIds.includes(issue.id)
                     return (
                       <tr key={issue.id} className={selected ? 'row-selected' : ''}>
-                        <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} aria-label={`Select ${issue.key || issue.title || 'issue'}`} /></td>
+                        {canBulkSelect && (
+                          <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} aria-label={`Select ${issue.key || issue.title || 'issue'}`} /></td>
+                        )}
                         {columnOrder.map((colKey) => {
                           const def = ALL_COLUMNS[colKey]
                           const isDragging = dragColKey === colKey
@@ -694,7 +711,7 @@ export function WorkflowsPage() {
           labelRowsPerPage="Rows per page"
           SelectProps={{ native: true, inputProps: { 'aria-label': 'Rows per page' } }}
         />
-        {isCreateOpen ? (
+        {canCreateIssue && (isCreateOpen ? (
           <div className="quick-create-row">
             <input className="quick-create-input" type="text" placeholder="What needs to be done?" value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') submitInlineCreate(); if (event.key === 'Escape') { setIsCreateOpen(false); setCreateTitle(''); setCreateError('') } }} autoFocus />
             <button className="btn btn-primary quick-create-btn" type="button" onClick={submitInlineCreate} disabled={createBusy}>Create</button>
@@ -705,7 +722,7 @@ export function WorkflowsPage() {
           <button className="jira-list-create" type="button" onClick={() => { setIsCreateOpen(true); setCreateError('') }}>
             <span className="plus-create-content"><span className="plus-create-symbol">+</span><span>Create</span></span>
           </button>
-        )}
+        ))}
       </article>
     </section>
   )

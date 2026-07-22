@@ -22,7 +22,7 @@ vi.mock('../context/IssueContext', () => ({
 }))
 vi.mock('../context/SprintContext', () => ({ useSprints: () => ({ sprints: [{ id: 7, name: 'Sprint 7' }] }) }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ authUser: { name: 'Alex Rivera', email: 'alex@test.com' } }) }))
-vi.mock('../context/MemberContext', () => ({ useMembers: () => ({ profile: { full_name: 'Alex Rivera' } }) }))
+vi.mock('../context/MemberContext', () => ({ useMembers: () => ({ profile: { full_name: 'Alex Rivera' }, currentMember: { workspaceRole: 'Admin', isOwner: false, projectRoles: [] } }) }))
 
 import { WorkflowsPage } from '../pages/WorkflowsPage/WorkflowsPage'
 
