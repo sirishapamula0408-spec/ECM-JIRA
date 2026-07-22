@@ -51,7 +51,11 @@ export function ProjectSettingsPage() {
   const { members } = useMembers()
   // JL-227: access management (add/remove/role-edit members) is limited to
   // project admins (project Lead/Admin or workspace Admin/Owner).
-  const { canManageProjectSettings } = usePermissions(projectId)
+  // JL-293: `canManageProjectSettings` also gates Details editing + the Access
+  // tab; `isAdmin` (workspace Admin/Owner) additionally gates the workspace-level
+  // admin config tabs (Fields/Permissions/Screens/Field-config), matching the
+  // backend requireProjectRole('Admin') / requireRole('Admin') guards.
+  const { canManageProjectSettings, isAdmin } = usePermissions(projectId)
 
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(null)
@@ -192,6 +196,18 @@ export function ProjectSettingsPage() {
   useEffect(() => {
     if (activeSection === SECTIONS.SCREENS) loadScreen(screenIssueType)
   }, [activeSection, screenIssueType, loadScreen])
+
+  // JL-293: if the active tab is one the user can't access (e.g. after a role
+  // change, or a deep link that pre-set it), fall back to the always-visible
+  // Details tab so we never render a hidden admin section or its Admin-only fetch.
+  useEffect(() => {
+    const adminOnly = [SECTIONS.FIELDS, SECTIONS.PERMISSIONS, SECTIONS.SCREENS, SECTIONS.FIELD_CONFIG]
+    if (adminOnly.includes(activeSection) && !isAdmin) {
+      setActiveSection(SECTIONS.DETAILS)
+    } else if (activeSection === SECTIONS.ACCESS && !canManageProjectSettings) {
+      setActiveSection(SECTIONS.DETAILS)
+    }
+  }, [activeSection, isAdmin, canManageProjectSettings])
 
   // ── JL-131: Security levels catalog ──
   // Kept with the other hooks (before the early returns) so hook order stays
@@ -621,69 +637,75 @@ export function ProjectSettingsPage() {
             </button>
           )}
 
-          <button
-            className={`ps-nav-link${activeSection === SECTIONS.FIELDS ? ' active' : ''}`}
-            type="button"
-            onClick={() => setActiveSection(SECTIONS.FIELDS)}
-          >
-            <span className="ps-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="21" x2="4" y2="14" />
-                <line x1="4" y1="10" x2="4" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12" y2="3" />
-                <line x1="20" y1="21" x2="20" y2="16" />
-                <line x1="20" y1="12" x2="20" y2="3" />
-                <line x1="1" y1="14" x2="7" y2="14" />
-                <line x1="9" y1="8" x2="15" y2="8" />
-                <line x1="17" y1="16" x2="23" y2="16" />
-              </svg>
-            </span>
-            Statuses &amp; Priorities
-          </button>
+          {/* JL-293: Fields/Permissions/Screens/Field-config are workspace-Admin-only
+              server-side (requireRole('Admin')); hide their nav entries for non-admins. */}
+          {isAdmin && (
+            <>
+              <button
+                className={`ps-nav-link${activeSection === SECTIONS.FIELDS ? ' active' : ''}`}
+                type="button"
+                onClick={() => setActiveSection(SECTIONS.FIELDS)}
+              >
+                <span className="ps-nav-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="4" y1="21" x2="4" y2="14" />
+                    <line x1="4" y1="10" x2="4" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12" y2="3" />
+                    <line x1="20" y1="21" x2="20" y2="16" />
+                    <line x1="20" y1="12" x2="20" y2="3" />
+                    <line x1="1" y1="14" x2="7" y2="14" />
+                    <line x1="9" y1="8" x2="15" y2="8" />
+                    <line x1="17" y1="16" x2="23" y2="16" />
+                  </svg>
+                </span>
+                Statuses &amp; Priorities
+              </button>
 
-          <button
-            className={`ps-nav-link${activeSection === SECTIONS.PERMISSIONS ? ' active' : ''}`}
-            type="button"
-            onClick={() => setActiveSection(SECTIONS.PERMISSIONS)}
-          >
-            <span className="ps-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-            </span>
-            Permissions
-          </button>
+              <button
+                className={`ps-nav-link${activeSection === SECTIONS.PERMISSIONS ? ' active' : ''}`}
+                type="button"
+                onClick={() => setActiveSection(SECTIONS.PERMISSIONS)}
+              >
+                <span className="ps-nav-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </span>
+                Permissions
+              </button>
 
-          <button
-            className={`ps-nav-link${activeSection === SECTIONS.SCREENS ? ' active' : ''}`}
-            type="button"
-            onClick={() => setActiveSection(SECTIONS.SCREENS)}
-          >
-            <span className="ps-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
-            </span>
-            Screens
-          </button>
+              <button
+                className={`ps-nav-link${activeSection === SECTIONS.SCREENS ? ' active' : ''}`}
+                type="button"
+                onClick={() => setActiveSection(SECTIONS.SCREENS)}
+              >
+                <span className="ps-nav-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                    <line x1="8" y1="21" x2="16" y2="21" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                </span>
+                Screens
+              </button>
 
-          <button
-            className={`ps-nav-link${activeSection === SECTIONS.FIELD_CONFIG ? ' active' : ''}`}
-            type="button"
-            onClick={() => setActiveSection(SECTIONS.FIELD_CONFIG)}
-          >
-            <span className="ps-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 11l3 3L22 4" />
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-              </svg>
-            </span>
-            Field configuration
-          </button>
+              <button
+                className={`ps-nav-link${activeSection === SECTIONS.FIELD_CONFIG ? ' active' : ''}`}
+                type="button"
+                onClick={() => setActiveSection(SECTIONS.FIELD_CONFIG)}
+              >
+                <span className="ps-nav-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 11l3 3L22 4" />
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                  </svg>
+                </span>
+                Field configuration
+              </button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -712,6 +734,7 @@ export function ProjectSettingsPage() {
                     value={form.name}
                     onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
                     required
+                    disabled={!canManageProjectSettings}
                   />
                 </label>
 
@@ -725,6 +748,7 @@ export function ProjectSettingsPage() {
                   <select
                     value={form.type}
                     onChange={(e) => setForm((c) => ({ ...c, type: e.target.value }))}
+                    disabled={!canManageProjectSettings}
                   >
                     <option>Scrum</option>
                     <option>Kanban</option>
@@ -737,6 +761,7 @@ export function ProjectSettingsPage() {
                   <select
                     value={form.lead}
                     onChange={(e) => setForm((c) => ({ ...c, lead: e.target.value }))}
+                    disabled={!canManageProjectSettings}
                   >
                     {members.length > 0 ? (
                       members.map((m) => (
@@ -749,42 +774,50 @@ export function ProjectSettingsPage() {
                 </label>
               </div>
 
-              <div className="ps-actions">
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!isDirty || saving}
-                >
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={handleDiscard}
-                  disabled={!isDirty || saving}
-                >
-                  Discard
-                </button>
-              </div>
+              {/* JL-293: PUT /:id requires project Admin — only managers get the
+                  Save/Discard actions; everyone else sees the values read-only. */}
+              {canManageProjectSettings && (
+                <div className="ps-actions">
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={handleSave}
+                    disabled={!isDirty || saving}
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    onClick={handleDiscard}
+                    disabled={!isDirty || saving}
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
             </article>
 
-            <article className="panel ps-archive-panel">
-              <h3>{isArchived ? 'Restore project' : 'Archive project'}</h3>
-              <p className="muted">
-                {isArchived
-                  ? 'This project is archived — it is hidden from the active projects list and pickers. Restore it to make it active again everywhere. Its issues and URLs have stayed accessible.'
-                  : 'Archiving hides this project from the active projects list and pickers without deleting anything. Its issues and URLs remain accessible, and you can restore it anytime.'}
-              </p>
-              <button
-                className={`btn ${isArchived ? 'btn-primary' : 'btn-ghost'}`}
-                type="button"
-                onClick={handleToggleArchive}
-                disabled={saving}
-              >
-                {isArchived ? 'Restore project' : 'Archive project'}
-              </button>
-            </article>
+            {/* JL-293: archive/unarchive requires project Admin (POST
+                /:id/archive|unarchive → requireProjectRole('Admin')). */}
+            {canManageProjectSettings && (
+              <article className="panel ps-archive-panel">
+                <h3>{isArchived ? 'Restore project' : 'Archive project'}</h3>
+                <p className="muted">
+                  {isArchived
+                    ? 'This project is archived — it is hidden from the active projects list and pickers. Restore it to make it active again everywhere. Its issues and URLs have stayed accessible.'
+                    : 'Archiving hides this project from the active projects list and pickers without deleting anything. Its issues and URLs remain accessible, and you can restore it anytime.'}
+                </p>
+                <button
+                  className={`btn ${isArchived ? 'btn-primary' : 'btn-ghost'}`}
+                  type="button"
+                  onClick={handleToggleArchive}
+                  disabled={saving}
+                >
+                  {isArchived ? 'Restore project' : 'Archive project'}
+                </button>
+              </article>
+            )}
           </>
         )}
 
@@ -951,7 +984,7 @@ export function ProjectSettingsPage() {
           </>
         )}
 
-        {activeSection === SECTIONS.FIELDS && (
+        {activeSection === SECTIONS.FIELDS && isAdmin && (
           <>
             <h1>Statuses &amp; Priorities</h1>
             <p className="muted">
@@ -1219,7 +1252,7 @@ export function ProjectSettingsPage() {
           </>
         )}
 
-        {activeSection === SECTIONS.PERMISSIONS && (
+        {activeSection === SECTIONS.PERMISSIONS && isAdmin && (
           <>
             <h1>Permissions</h1>
             <p className="muted">
@@ -1308,7 +1341,7 @@ export function ProjectSettingsPage() {
           </>
         )}
 
-        {activeSection === SECTIONS.SCREENS && (
+        {activeSection === SECTIONS.SCREENS && isAdmin && (
           <>
             <h1>Screens</h1>
             <p className="muted">
@@ -1407,7 +1440,7 @@ export function ProjectSettingsPage() {
           </>
         )}
 
-        {activeSection === SECTIONS.FIELD_CONFIG && (
+        {activeSection === SECTIONS.FIELD_CONFIG && isAdmin && (
           <>
             <h1>Field configuration</h1>
             <p className="muted">
