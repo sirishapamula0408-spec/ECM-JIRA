@@ -5,11 +5,16 @@ import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/fa
 import './ProjectsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
   usePageTitle('Projects')
   const { confirm, confirmDialog } = useConfirm()
   const navigate = useNavigate()
+  // JL-292: these are workspace-level checks (no projectId) — canCreateProject
+  // honors the admins_only/all_members creation policy; isAdmin gates the
+  // per-row Archive/Restore/Move-to-trash actions (backend requireProjectRole('Admin')).
+  const { canCreateProject, isAdmin } = usePermissions()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -139,7 +144,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
             />
             Show archived
           </label>
-          {onCreateProject && (
+          {onCreateProject && canCreateProject && (
             <button className="btn btn-primary create-btn" type="button" onClick={onCreateProject}>
               <span className="plus-create-content">
                 <span className="plus-create-symbol">+</span>
@@ -162,7 +167,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
           <p className="projects-no-access-desc">
             Ask your team admin to add you to a project, or create a new one to get started.
           </p>
-          {onCreateProject && (
+          {onCreateProject && canCreateProject && (
             <button className="btn btn-primary" type="button" onClick={onCreateProject}>
               Create a project
             </button>
@@ -237,21 +242,23 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                     </div>
                   </td>
                   <td>
-                    <div className="projects-action-wrap" onClick={(e) => e.stopPropagation()} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpenMenuId(null) }}>
-                      <button className="icon-btn projects-action-btn" type="button" aria-label="Project actions" onClick={() => setOpenMenuId((cur) => (cur === project.id ? null : project.id))}>...</button>
-                      {openMenuId === project.id && (
-                        <div className="projects-action-menu" role="menu">
-                          <button className="projects-action-item" type="button" onClick={() => { setOpenMenuId(null); navigate(`/projects/${project.id}/settings`) }}>Project settings</button>
-                          {project.archived ? (
-                            <button className="projects-action-item" type="button" onClick={() => handleUnarchive(project)}>Restore from archive</button>
-                          ) : (
-                            <button className="projects-action-item" type="button" onClick={() => handleArchive(project)}>Archive project</button>
-                          )}
-                          <div className="projects-action-divider" />
-                          <button className="projects-action-item projects-action-danger" type="button" onClick={() => handleMoveToTrash(project)}>Move to trash</button>
-                        </div>
-                      )}
-                    </div>
+                    {isAdmin && (
+                      <div className="projects-action-wrap" onClick={(e) => e.stopPropagation()} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpenMenuId(null) }}>
+                        <button className="icon-btn projects-action-btn" type="button" aria-label="Project actions" onClick={() => setOpenMenuId((cur) => (cur === project.id ? null : project.id))}>...</button>
+                        {openMenuId === project.id && (
+                          <div className="projects-action-menu" role="menu">
+                            <button className="projects-action-item" type="button" onClick={() => { setOpenMenuId(null); navigate(`/projects/${project.id}/settings`) }}>Project settings</button>
+                            {project.archived ? (
+                              <button className="projects-action-item" type="button" onClick={() => handleUnarchive(project)}>Restore from archive</button>
+                            ) : (
+                              <button className="projects-action-item" type="button" onClick={() => handleArchive(project)}>Archive project</button>
+                            )}
+                            <div className="projects-action-divider" />
+                            <button className="projects-action-item projects-action-danger" type="button" onClick={() => handleMoveToTrash(project)}>Move to trash</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
