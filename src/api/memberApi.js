@@ -1,6 +1,21 @@
 import { api } from './client.js'
 
 export const fetchMembers = () => api('/api/members')
+
+// JL-281: server-side paginated + filtered members list. Returns the envelope
+// { items, total, limit, offset }. Sends limit/offset plus optional
+// search/role/status filters; omit params to fall back to the legacy array via
+// fetchMembers(). Callers should read `items` / `total`.
+export function fetchMembersPage({ limit = 25, offset = 0, search, role, status } = {}) {
+  const params = new URLSearchParams()
+  params.set('limit', String(limit))
+  params.set('offset', String(offset))
+  if (search) params.set('search', search)
+  if (role && role !== 'all') params.set('role', role)
+  if (status && status !== 'all') params.set('status', status)
+  return api(`/api/members?${params.toString()}`)
+}
+
 export const fetchProfile = () => api('/api/profile')
 
 export function updateProfile(payload) {

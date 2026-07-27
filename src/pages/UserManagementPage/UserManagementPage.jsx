@@ -35,7 +35,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 import {
-  fetchMembers,
+  fetchMembersPage,
   createMember,
   updateMemberRole,
   deleteMember,
@@ -49,6 +49,10 @@ import UserAuditLog from '../../components/users/UserAuditLog.jsx'
 import './UserManagementPage.css'
 
 const ROLE_ORDER = ['Owner', 'Admin', 'Member', 'Viewer']
+
+// JL-281: filter options are fixed constants now that the list is server-paged
+// (we no longer have the full member set client-side to derive them from).
+const MEMBER_STATUSES = ['Active', 'Invited', 'Deactivated']
 
 // Roles an Admin may assign from the UI. The workspace Owner is protected and
 // never offered as a selectable option.
@@ -76,16 +80,23 @@ const EMPTY_ADD_FORM = { name: '', email: '', role: 'Viewer', password: '' }
 
 export function UserManagementPage() {
   usePageTitle('User Management')
-  const [users, setUsers] = useState([])
+  const [items, setItems] = useState([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  // JL-205: client-side pagination over the filtered list.
+  // JL-281: server-side pagination — `items` holds the current page of rows and
+  // `total` is the server's count for the active filters.
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(25)
+
+  // The optimistic mutation handlers below write to the current page of rows;
+  // this alias keeps them terse and unchanged.
+  const setUsers = setItems
 
   // Toast for success/guard-failure feedback.
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -112,13 +123,39 @@ export function UserManagementPage() {
     setToast({ open: true, message, severity })
   const closeToast = () => setToast((prev) => ({ ...prev, open: false }))
 
+  // JL-281: debounce the search box so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 250)
+    return () => clearTimeout(t)
+  }, [query])
+
+  // JL-281: reset to the first page whenever the filter/search criteria change,
+  // so we never request an out-of-range offset. JL-208: also clear any selection
+  // so we never act on now-hidden rows.
+  useEffect(() => {
+    setPage(0)
+    setSelectedIds(new Set())
+  }, [debouncedQuery, roleFilter, statusFilter])
+
+  // JL-281: load the current page from the server whenever paging or filters change.
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError('')
-    fetchMembers()
-      .then((data) => {
-        if (!cancelled) setUsers(Array.isArray(data) ? data : [])
+    fetchMembersPage({
+      limit: rowsPerPage,
+      offset: page * rowsPerPage,
+      search: debouncedQuery || undefined,
+      role: roleFilter,
+      status: statusFilter,
+    })
+      .then((res) => {
+        if (cancelled) return
+        // Tolerate both the paginated envelope and a legacy plain array.
+        const nextItems = Array.isArray(res) ? res : (res?.items || [])
+        const nextTotal = Array.isArray(res) ? res.length : Number(res?.total || 0)
+        setItems(nextItems)
+        setTotal(nextTotal)
       })
       .catch((loadError) => {
         if (!cancelled) setError(loadError.message || 'Failed to load users.')
@@ -129,54 +166,20 @@ export function UserManagementPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [page, rowsPerPage, debouncedQuery, roleFilter, statusFilter])
 
-  const roleOptions = useMemo(() => {
-    const found = new Set(users.map((u) => u.role).filter(Boolean))
-    const known = ROLE_ORDER.filter((role) => found.has(role))
-    const extra = [...found].filter((role) => !ROLE_ORDER.includes(role)).sort()
-    return [...known, ...extra]
-  }, [users])
-
-  const statusOptions = useMemo(
-    () => [...new Set(users.map((u) => u.status).filter(Boolean))].sort(),
-    [users],
-  )
+  const roleOptions = ROLE_ORDER
+  const statusOptions = MEMBER_STATUSES
 
   const hasLastActivity = useMemo(
-    () => users.some((u) => u.last_activity_at || u.last_active_at),
-    [users],
+    () => items.some((u) => u.last_activity_at || u.last_active_at),
+    [items],
   )
 
-  const normalizedQuery = query.trim().toLowerCase()
-  const filtered = users.filter((user) => {
-    if (roleFilter !== 'all' && user.role !== roleFilter) return false
-    if (statusFilter !== 'all' && user.status !== statusFilter) return false
-    if (!normalizedQuery) return true
-    return (
-      (user.name || '').toLowerCase().includes(normalizedQuery) ||
-      (user.email || '').toLowerCase().includes(normalizedQuery)
-    )
-  })
+  const hasActiveFilters = query.trim() !== '' || roleFilter !== 'all' || statusFilter !== 'all'
 
-  const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
-
-  // JL-205: reset to the first page whenever the filter/search criteria change,
-  // so you never land on a now-out-of-range page. JL-208: also clear any
-  // selection so we never act on now-hidden rows.
-  useEffect(() => {
-    setPage(0)
-    setSelectedIds(new Set())
-  }, [normalizedQuery, roleFilter, statusFilter])
-
-  // Clamp the page in case the filtered set shrank (e.g. after a delete) and
-  // slice the visible rows for the current page.
-  const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage))
-  const currentPage = Math.min(page, pageCount - 1)
-  const paged = filtered.slice(
-    currentPage * rowsPerPage,
-    currentPage * rowsPerPage + rowsPerPage,
-  )
+  // The server already returns just this page of already-filtered rows.
+  const paged = items
 
   // JL-208: Owner rows can't be deleted, so they aren't selectable. Select-all
   // and the "all selected" state are scoped to the currently visible page.
@@ -218,6 +221,7 @@ export function UserManagementPage() {
       const skipped = result?.skipped || []
       const deletedSet = new Set(deleted)
       setUsers((current) => current.filter((u) => !deletedSet.has(u.id)))
+      setTotal((t) => Math.max(0, t - deleted.length))
       setSelectedIds(new Set())
       setBulkConfirmOpen(false)
       const noun = (n) => `${n} user${n === 1 ? '' : 's'}`
@@ -287,6 +291,7 @@ export function UserManagementPage() {
     try {
       const created = await createMember(payload)
       setUsers((current) => [...current, created])
+      setTotal((t) => t + 1)
       setAddOpen(false)
       setAddForm(EMPTY_ADD_FORM)
       showToast(
@@ -320,6 +325,7 @@ export function UserManagementPage() {
       if (type === 'delete') {
         await deleteMember(user.id)
         setUsers((current) => current.filter((u) => u.id !== user.id))
+        setTotal((t) => Math.max(0, t - 1))
         showToast(`Removed ${user.name || user.email}.`)
       } else if (type === 'deactivate') {
         const updated = await deactivateMember(user.id)
@@ -439,7 +445,7 @@ export function UserManagementPage() {
         </TextField>
         {!loading && !error && (
           <span className="user-management-count" aria-live="polite">
-            {filtered.length} of {users.length} users
+            {total} {total === 1 ? 'user' : 'users'}
           </span>
         )}
       </div>
@@ -468,7 +474,7 @@ export function UserManagementPage() {
             <CircularProgress size={28} />
             <span>Loading users...</span>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : items.length === 0 ? (
           <EmptyState
             icon={<PeopleOutlineIcon fontSize="inherit" />}
             title={hasActiveFilters ? 'No users match your filters' : 'No users yet'}
@@ -614,8 +620,8 @@ export function UserManagementPage() {
           <TablePagination
             component="div"
             className="user-management-pagination"
-            count={filtered.length}
-            page={currentPage}
+            count={total}
+            page={page}
             onPageChange={(_event, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={(event) => {

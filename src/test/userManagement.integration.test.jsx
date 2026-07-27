@@ -8,7 +8,7 @@ import { BrowserRouter } from 'react-router-dom'
 // page and gated to workspace Admins/Owners (JL-195).
 
 vi.mock('../api/memberApi', () => ({
-  fetchMembers: vi.fn(),
+  fetchMembersPage: vi.fn(),
   createMember: vi.fn(),
   updateMemberRole: vi.fn(),
   deleteMember: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock('../context/MemberContext', () => ({
 
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
 import {
-  fetchMembers,
+  fetchMembersPage,
   createMember,
   updateMemberRole,
   deleteMember,
@@ -87,7 +87,9 @@ function changeRole(row, nextRole) {
 describe('User Management epic — integrated surface (JL-196)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchMembers.mockResolvedValue(MEMBERS.map((m) => ({ ...m })))
+    fetchMembersPage.mockImplementation(() =>
+      Promise.resolve({ items: MEMBERS.map((m) => ({ ...m })), total: MEMBERS.length, limit: 25, offset: 0 }),
+    )
     fetchUserAuditLog.mockResolvedValue(AUDIT_ROWS.map((r) => ({ ...r })))
   })
 
@@ -96,7 +98,7 @@ describe('User Management epic — integrated surface (JL-196)', () => {
     expect(screen.getByText('Alice Johnson')).toBeInTheDocument()
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
     expect(screen.getByText('Carol Danvers')).toBeInTheDocument()
-    expect(fetchMembers).toHaveBeenCalledTimes(1)
+    expect(fetchMembersPage).toHaveBeenCalledTimes(1)
   })
 
   it('add-user dialog calls createMember with the form payload', async () => {

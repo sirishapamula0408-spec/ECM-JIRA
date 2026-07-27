@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { BrowserRouter } from 'react-router-dom'
 
 vi.mock('../api/memberApi', () => ({
-  fetchMembers: vi.fn(),
+  fetchMembersPage: vi.fn(),
   createMember: vi.fn(),
   updateMemberRole: vi.fn(),
   deleteMember: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('../api/memberApi', () => ({
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
 import { MemberProvider } from '../context/MemberContext'
 import {
-  fetchMembers,
+  fetchMembersPage,
   createMember,
   updateMemberRole,
   deleteMember,
@@ -61,7 +61,9 @@ function changeRole(row, nextRole) {
 describe('UserManagementPage actions (JL-194)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchMembers.mockResolvedValue(MEMBERS.map((m) => ({ ...m })))
+    fetchMembersPage.mockImplementation(() =>
+      Promise.resolve({ items: MEMBERS.map((m) => ({ ...m })), total: MEMBERS.length, limit: 25, offset: 0 }),
+    )
   })
 
   it('opens the add-user dialog and calls createMember on submit', async () => {

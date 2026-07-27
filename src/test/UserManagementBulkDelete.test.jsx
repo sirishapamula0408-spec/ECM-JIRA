@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { BrowserRouter } from 'react-router-dom'
 
 vi.mock('../api/memberApi', () => ({
-  fetchMembers: vi.fn(),
+  fetchMembersPage: vi.fn(),
   fetchUserAuditLog: vi.fn(() => Promise.resolve([])),
   inviteMember: vi.fn(),
   resendMemberInvite: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('../api/memberApi', () => ({
 
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
 import { MemberProvider } from '../context/MemberContext'
-import { fetchMembers, bulkDeleteMembers } from '../api/memberApi'
+import { fetchMembersPage, bulkDeleteMembers } from '../api/memberApi'
 
 const MEMBERS = [
   { id: 1, name: 'Olivia Owner', email: 'owner@x.com', role: 'Owner', status: 'Active', is_owner: true },
@@ -45,7 +45,9 @@ async function renderLoaded() {
 describe('UserManagementPage — bulk delete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchMembers.mockResolvedValue(MEMBERS)
+    fetchMembersPage.mockImplementation(() =>
+      Promise.resolve({ items: MEMBERS.map((m) => ({ ...m })), total: MEMBERS.length, limit: 25, offset: 0 }),
+    )
   })
 
   it('disables selection for the Owner row but allows others', async () => {
