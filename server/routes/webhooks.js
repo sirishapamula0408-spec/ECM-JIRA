@@ -4,6 +4,93 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { safeAppendAudit } from '../services/auditLog.js'
+import { maxLengthError } from '../utils/validation.js'
+import { EVENT_TYPES } from '../services/events.js'
+import { isWebhookBlockPrivate } from '../config.js'
+
+// JL-236: cap the target URL length (defense-in-depth against absurd inputs).
+const WEBHOOK_URL_MAX = 2000
+
+/**
+ * JL-236: True when `host` is a loopback / link-local / private IP literal or
+ * `localhost`. Pure string/IP-literal inspection — NO live DNS resolution — so
+ * it stays dependency-free and side-effect-free. UNIT-TESTABLE.
+ *
+ * Covers: localhost (and *.localhost), IPv4 127.0.0.0/8, 10.0.0.0/8,
+ * 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 (link-local), 0.0.0.0/8, and
+ * IPv6 ::1 / :: / unique-local (fc00::/7) / link-local (fe80::/10).
+ *
+ * @param {string} host  URL hostname (as from `new URL(url).hostname`)
+ * @returns {boolean}
+ */
+export function isPrivateHost(host) {
+  const bare = String(host || '').toLowerCase().trim().replace(/^\[/, '').replace(/\]$/, '')
+  if (!bare) return true
+  if (bare === 'localhost' || bare.endsWith('.localhost')) return true
+  // IPv6 loopback / unspecified / unique-local / link-local
+  if (bare === '::1' || bare === '::') return true
+  if (/^f[cd][0-9a-f]{2}:/.test(bare)) return true
+  if (/^fe[89ab][0-9a-f]:/.test(bare)) return true
+  // IPv4 literals
+  const m = bare.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (m) {
+    const a = Number(m[1])
+    const b = Number(m[2])
+    if (a === 127) return true                         // loopback 127.0.0.0/8
+    if (a === 10) return true                           // private 10.0.0.0/8
+    if (a === 192 && b === 168) return true             // private 192.168.0.0/16
+    if (a === 172 && b >= 16 && b <= 31) return true    // private 172.16.0.0/12
+    if (a === 169 && b === 254) return true             // link-local 169.254.0.0/16
+    if (a === 0) return true                            // "this" network 0.0.0.0/8
+  }
+  return false
+}
+
+/**
+ * JL-236: Validate a webhook target URL. Returns a 400-ready error string, or
+ * `null` when the URL is acceptable. Rejects non-http(s) schemes and (when
+ * `blockPrivate`) loopback/link-local/private hosts; enforces the length cap.
+ *
+ * @param {string} url  already-trimmed candidate URL
+ * @param {boolean} [blockPrivate=false]
+ * @returns {string|null}
+ */
+export function validateWebhookUrl(url, blockPrivate = false) {
+  const lenErr = maxLengthError('url', url, WEBHOOK_URL_MAX)
+  if (lenErr) return lenErr
+  let parsed
+  try {
+    parsed = new URL(url)
+  } catch {
+    return 'url must be a valid http(s) URL'
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'url must use the http or https scheme'
+  }
+  if (blockPrivate && isPrivateHost(parsed.hostname)) {
+    return 'url host is not allowed (loopback, link-local and private addresses are blocked)'
+  }
+  return null
+}
+
+/**
+ * JL-236: Validate a webhook `events` array against the emitted-event catalog
+ * (server/services/events.js). The `*` wildcard (subscribe-to-all) is allowed.
+ * Returns a 400-ready error string listing the allowed events, or `null`.
+ *
+ * @param {*} events
+ * @returns {string|null}
+ */
+export function validateWebhookEvents(events) {
+  if (events === undefined || events === null) return null
+  if (!Array.isArray(events)) return 'events must be an array'
+  const allowed = new Set([...EVENT_TYPES, '*'])
+  const unknown = events.filter((e) => !allowed.has(e))
+  if (unknown.length > 0) {
+    return `Unknown event(s): ${unknown.join(', ')}. Allowed events: ${[...EVENT_TYPES, '*'].join(', ')}`
+  }
+  return null
+}
 
 /** Compute HMAC-SHA256 signature for webhook payload verification */
 function signPayload(payload, secret) {
@@ -197,9 +284,21 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     res.status(400).json({ error: 'name and url are required' })
     return
   }
+  // JL-236: SSRF hardening — validate scheme/host/length + event-name catalog.
+  const trimmedUrl = url.trim()
+  const urlErr = validateWebhookUrl(trimmedUrl, isWebhookBlockPrivate())
+  if (urlErr) {
+    res.status(400).json({ error: urlErr })
+    return
+  }
+  const eventsErr = validateWebhookEvents(events)
+  if (eventsErr) {
+    res.status(400).json({ error: eventsErr })
+    return
+  }
   const result = await run(
     'INSERT INTO webhooks (name, url, secret, events, project_id, created_by) VALUES (?, ?, ?, ?::jsonb, ?, ?)',
-    [name.trim(), url.trim(), secret, JSON.stringify(events), projectId, req.user.email],
+    [name.trim(), trimmedUrl, secret, JSON.stringify(events), projectId, req.user.email],
   )
   const row = await get(`SELECT ${PUBLIC_WEBHOOK_COLUMNS} FROM webhooks WHERE id = ?`, [result.lastID])
   // JL-132: record webhook creation in the tamper-evident audit log.
@@ -221,9 +320,26 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const params = []
 
   if (name !== undefined) { sets.push('name = ?'); params.push(name.trim()) }
-  if (url !== undefined) { sets.push('url = ?'); params.push(url.trim()) }
+  if (url !== undefined) {
+    // JL-236: SSRF hardening — validate scheme/host/length on update too.
+    const trimmedUrl = url.trim()
+    const urlErr = validateWebhookUrl(trimmedUrl, isWebhookBlockPrivate())
+    if (urlErr) {
+      res.status(400).json({ error: urlErr })
+      return
+    }
+    sets.push('url = ?'); params.push(trimmedUrl)
+  }
   if (secret !== undefined) { sets.push('secret = ?'); params.push(secret) }
-  if (events !== undefined) { sets.push('events = ?::jsonb'); params.push(JSON.stringify(events)) }
+  if (events !== undefined) {
+    // JL-236: validate event names against the emitted-event catalog.
+    const eventsErr = validateWebhookEvents(events)
+    if (eventsErr) {
+      res.status(400).json({ error: eventsErr })
+      return
+    }
+    sets.push('events = ?::jsonb'); params.push(JSON.stringify(events))
+  }
   if (isActive !== undefined) { sets.push('is_active = ?'); params.push(isActive) }
 
   if (sets.length === 0) {

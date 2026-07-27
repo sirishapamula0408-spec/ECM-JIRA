@@ -87,6 +87,18 @@ export const IP_ALLOWLIST = process.env.IP_ALLOWLIST || ''
 // Read via process.env at request time so it can be toggled per-test.
 export const GIT_WEBHOOK_SECRET = process.env.GIT_WEBHOOK_SECRET || ''
 
+// --- JL-236: Webhook SSRF hardening (optional private-host blocking) ---
+// When 'true', webhook create/update rejects target URLs whose host is a
+// loopback / link-local / private IP literal (or `localhost`). Default OFF so
+// existing/local setups (e.g. posting to a localhost dev receiver) keep working.
+// Read via `isWebhookBlockPrivate()` at request time so it can be toggled
+// per-test without re-importing this module.
+export const WEBHOOK_BLOCK_PRIVATE = process.env.WEBHOOK_BLOCK_PRIVATE === 'true'
+
+export function isWebhookBlockPrivate() {
+  return process.env.WEBHOOK_BLOCK_PRIVATE === 'true'
+}
+
 // General API rate limiter (applied early, all /api traffic). Generous defaults
 // so normal usage — and multi-request test suites — never trip it.
 export const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000
