@@ -15,6 +15,7 @@ import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation, res
 import { fetchSecurityPolicy, updateSecurityPolicy } from '../../api/securityPolicyApi'
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
+import { EmptyState } from '../../components/common/EmptyState'
 import './TeamsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -679,11 +680,24 @@ export function TeamsPage() {
             </div>
 
             {sorted.length === 0 ? (
-              <div className="teams-empty">
-                {hasActiveFilters
-                  ? 'No members match your filters.'
-                  : 'No team members yet. Invite someone to get started.'}
-              </div>
+              hasActiveFilters ? (
+                <EmptyState
+                  icon="🔍"
+                  title="No members match your filters"
+                  description="Try adjusting the search, role, or status filters."
+                />
+              ) : (
+                <EmptyState
+                  icon="👥"
+                  title="No team members yet"
+                  description="Invite teammates to collaborate on projects in this workspace."
+                  action={canInviteMembers ? (
+                    <button className="btn btn-primary" type="button" onClick={() => setIsInviteOpen(true)}>
+                      + Invite Member
+                    </button>
+                  ) : null}
+                />
+              )
             ) : (
               <>
                 {/* JL-252: bulk-action toolbar, shown only when rows are selected. */}

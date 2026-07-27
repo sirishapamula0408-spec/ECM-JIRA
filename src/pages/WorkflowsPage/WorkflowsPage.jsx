@@ -9,6 +9,7 @@ import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { EmptyState } from '../../components/common/EmptyState'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -662,6 +663,24 @@ export function WorkflowsPage() {
               </tr>
             </thead>
             <tbody>
+              {totalCount === 0 && (
+                <tr className="jira-list-empty-row">
+                  <td colSpan={totalColSpan}>
+                    <EmptyState
+                      icon="📋"
+                      title={query.trim() || statusFilter !== 'All' ? 'No issues match your filters' : 'No issues in this list yet'}
+                      description={query.trim() || statusFilter !== 'All'
+                        ? 'Try a different search term or clear the status filter.'
+                        : 'Issues you create will show up in this list view.'}
+                      action={canCreateIssue && !isCreateOpen ? (
+                        <button className="btn btn-primary" type="button" onClick={() => { setIsCreateOpen(true); setCreateError('') }}>
+                          + Create issue
+                        </button>
+                      ) : null}
+                    />
+                  </td>
+                </tr>
+              )}
               {groupedRows.map((group) => (
                 <Fragment key={group.label || 'all'}>
                   {group.label && (<tr className="jira-list-group-row"><td colSpan={totalColSpan}><strong>{group.label}</strong> <span>{group.total}</span></td></tr>)}

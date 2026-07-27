@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { EmptyState } from '../../components/common/EmptyState'
 import {
   fetchKbCategories, createKbCategory,
   fetchKbArticles, fetchKbArticle, createKbArticle, updateKbArticle, deleteKbArticle,
@@ -197,7 +198,16 @@ export function KnowledgeBasePage() {
             )}
           </div>
           {articles.length === 0 ? (
-            <p className="kb-empty">No articles found.</p>
+            <EmptyState
+              icon="📚"
+              title="No articles found"
+              description={search || activeCategory || statusFilter
+                ? 'Try a different search, category, or status filter.'
+                : 'Help articles you write will appear here for customers to browse.'}
+              action={canAuthor ? (
+                <button type="button" className="btn btn-primary" onClick={startCreate}>New article</button>
+              ) : null}
+            />
           ) : (
             <ul className="kb-article-list">
               {articles.map((a) => (

@@ -7,6 +7,7 @@ import {
 } from '../../api/goalApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { EmptyState } from '../../components/common/EmptyState'
 import './GoalsPage.css'
 
 const EMPTY_GOAL = { objective: '', description: '', owner: '', status: 'on_track', dueDate: '' }
@@ -127,7 +128,15 @@ export function GoalsPage() {
 
       <div className="goal-list">
         <h3 className="goal-section-title">Objectives ({goals.length})</h3>
-        {goals.length === 0 && <p className="goal-empty">No objectives yet.</p>}
+        {goals.length === 0 && (
+          <EmptyState
+            icon="🎯"
+            title="No objectives yet"
+            description={canCreateIssue
+              ? 'Add your first objective above to start tracking measurable key results.'
+              : 'Objectives will appear here once a team member creates one.'}
+          />
+        )}
         {goals.map((g) => (
           <div key={g.id} className="goal-card">
             <div className="goal-card-head">

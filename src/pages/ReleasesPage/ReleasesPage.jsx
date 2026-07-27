@@ -7,6 +7,7 @@ import {
 } from '../../api/releaseApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { EmptyState } from '../../components/common/EmptyState'
 import './ReleasesPage.css'
 
 const EMPTY = { name: '', description: '', releaseDate: '', status: 'unreleased' }
@@ -106,7 +107,15 @@ export function ReleasesPage() {
       <div className="rel-body">
         <div className="rel-list">
           <h3 className="rel-section-title">Release history ({releases.length})</h3>
-          {releases.length === 0 && <p className="rel-empty">No releases yet.</p>}
+          {releases.length === 0 && (
+            <EmptyState
+              icon="🚀"
+              title="No releases yet"
+              description={canCreateIssue
+                ? 'Create your first release above to plan versions, track readiness, and generate release notes.'
+                : 'Releases will appear here once a team member creates one.'}
+            />
+          )}
           {releases.map((r) => (
             <div key={r.id} className={`rel-card${selected?.id === r.id ? ' rel-card--active' : ''}`}>
               <button type="button" className="rel-card-main" onClick={() => openRelease(r)}>

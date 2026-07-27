@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { GadgetBoard } from '../../components/dashboard/GadgetBoard'
 import { usePermissions } from '../../hooks/usePermissions'
+import { EmptyState } from '../../components/common/EmptyState'
 import './SharedDashboardsPage.css'
 
 export function SharedDashboardsPage() {
@@ -131,7 +132,16 @@ export function SharedDashboardsPage() {
       <div className="sd-section">
         <h2>My Dashboards</h2>
         {myDashboards.length === 0 ? (
-          <p className="sd-empty">No dashboards yet. Create one to get started.</p>
+          <EmptyState
+            icon="📊"
+            title="No dashboards yet"
+            description="Build a dashboard of gadgets and share it with your team, or keep it private."
+            action={canManageDashboards ? (
+              <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                + New Dashboard
+              </button>
+            ) : null}
+          />
         ) : (
           <div className="sd-grid">
             {myDashboards.map((d) => (
