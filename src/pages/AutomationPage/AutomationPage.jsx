@@ -8,6 +8,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { ISSUE_STATUSES } from '../../constants'
 import './AutomationPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const TRIGGERS = [
   { value: 'status_changed', label: 'When status changes' },
@@ -23,6 +24,7 @@ const ACTIONS = [
 const EMPTY = { name: '', triggerType: 'status_changed', conditionValue: '', actionType: 'assign', actionValue: '', scheduleIntervalMinutes: 60 }
 
 export function AutomationPage() {
+  usePageTitle('Automation')
   const { projectId: routeProjectId } = useParams()
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState(routeProjectId ? Number(routeProjectId) : null)

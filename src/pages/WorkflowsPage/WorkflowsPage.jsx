@@ -9,6 +9,7 @@ import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -54,6 +55,7 @@ function formatDate(dateStr) {
 }
 
 export function WorkflowsPage() {
+  usePageTitle('Workflows')
   const { confirm, confirmDialog } = useConfirm()
   const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
   const { sprints } = useSprints()

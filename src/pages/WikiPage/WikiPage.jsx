@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom'
 import { fetchWikiPages, fetchWikiPage, createWikiPage, updateWikiPage, deleteWikiPage, searchWikiPages, fetchWikiVersions, fetchWikiVersion, linkIssueToWiki, unlinkIssueFromWiki } from '../../api/wikiApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import './WikiPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function WikiPage() {
+  usePageTitle('Wiki')
   const { projectId } = useParams()
   const { canEditIssue } = usePermissions(projectId)
   const [pages, setPages] = useState([])

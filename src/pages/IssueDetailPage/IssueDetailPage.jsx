@@ -47,6 +47,7 @@ const TipTapEditor = lazy(() =>
 import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const TYPE_ICON = {
   Epic:       { icon: '\u{1F3F0}', color: '#6554c0' },
@@ -234,6 +235,10 @@ export function IssueDetailPage() {
   }, [id, existing])
 
   const issue = existing || fetchedIssue
+
+  // JL-233: dynamic tab title, e.g. "JL-233 · Fix login bug" (blank until the issue loads)
+  usePageTitle(issue ? `${issue.key || `IT-${issue.id}`} · ${issue.title}` : '')
+
   const {
     isAdmin,
     canEditIssue,

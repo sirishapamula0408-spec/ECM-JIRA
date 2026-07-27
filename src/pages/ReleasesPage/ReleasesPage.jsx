@@ -8,10 +8,12 @@ import {
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './ReleasesPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const EMPTY = { name: '', description: '', releaseDate: '', status: 'unreleased' }
 
 export function ReleasesPage() {
+  usePageTitle('Releases')
   const { projectId: routeProjectId } = useParams()
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState(routeProjectId ? Number(routeProjectId) : null)

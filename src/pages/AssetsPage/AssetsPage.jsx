@@ -16,6 +16,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './AssetsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const STATUS_COLORS = {
   active: 'success', inactive: 'default', maintenance: 'warning', retired: 'error',
@@ -24,6 +25,7 @@ const STATUS_COLORS = {
 const EMPTY_ASSET = { name: '', asset_type_id: '', status: 'active', owner_email: '', attributes: [] }
 
 export function AssetsPage() {
+  usePageTitle('Assets')
   const [assets, setAssets] = useState([])
   const [types, setTypes] = useState([])
   const [search, setSearch] = useState('')

@@ -9,10 +9,12 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import { ISSUE_TYPES } from '../../constants'
 import './InboundEmailPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 // JL-148: Admin section to map an inbound mailbox → project and view the
 // email-processing audit log.
 export function InboundEmailPage() {
+  usePageTitle('Inbound Email')
   const { isAdmin } = usePermissions()
   const [settings, setSettings] = useState([])
   const [log, setLog] = useState([])

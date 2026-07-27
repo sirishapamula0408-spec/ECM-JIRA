@@ -125,7 +125,8 @@ describe('LoginPage UX quick wins (JL-265)', () => {
 
   it('sets a descriptive document title', () => {
     renderLoginPage()
-    expect(document.title).toBe('Sign in — ECM JIRA')
+    // JL-233: login title now goes through usePageTitle (app-name suffix)
+    expect(document.title).toBe('Sign in · ECM Project Tracker')
   })
 
   it('shows a Caps Lock hint when getModifierState reports it on', () => {

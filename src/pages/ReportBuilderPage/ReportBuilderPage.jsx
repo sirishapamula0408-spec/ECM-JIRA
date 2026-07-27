@@ -36,6 +36,7 @@ import {
   deleteSavedReport,
 } from '../../api/reportBuilderApi'
 import './ReportBuilderPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const PIE_COLORS = ['#4c9aff', '#36b37e', '#ff991f', '#de350b', '#6554c0', '#00b8d9', '#ff8b00', '#6b778c']
 
@@ -87,6 +88,7 @@ function SvgPie({ rows }) {
 const emptyFilter = () => ({ field: 'status', value: '' })
 
 export function ReportBuilderPage() {
+  usePageTitle('Report Builder')
   const [dimension, setDimension] = useState('status')
   const [measure, setMeasure] = useState('count')
   const [chartType, setChartType] = useState('bar')

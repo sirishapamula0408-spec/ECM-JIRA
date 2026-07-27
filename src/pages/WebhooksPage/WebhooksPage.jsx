@@ -3,6 +3,7 @@ import { fetchWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import './WebhooksPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const EVENT_OPTIONS = [
   'issue.created', 'issue.updated', 'issue.status_changed',
@@ -11,6 +12,7 @@ const EVENT_OPTIONS = [
 ]
 
 export function WebhooksPage() {
+  usePageTitle('Webhooks')
   const { isAdmin } = usePermissions()
   const [webhooks, setWebhooks] = useState([])
   const [showCreate, setShowCreate] = useState(false)

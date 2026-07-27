@@ -13,6 +13,7 @@ import {
 import EmptyState from '../../components/common/EmptyState'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './CrossProjectBoardPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const SWIMLANE_OPTIONS = [
   { value: 'project', label: 'By project' },
@@ -23,6 +24,7 @@ const SWIMLANE_OPTIONS = [
 const emptyForm = { name: '', projectIds: [], swimlaneBy: 'project' }
 
 export function CrossProjectBoardPage() {
+  usePageTitle('Cross-Project Board')
   const navigate = useNavigate()
   const { confirm, confirmDialog } = useConfirm()
   const [projects, setProjects] = useState([])
