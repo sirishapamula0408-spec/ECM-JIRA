@@ -8,6 +8,7 @@ import './WorkflowsPage.css'
 import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import { usePermissions } from '../../hooks/usePermissions'
 
 /* ── Column definitions ── */
@@ -45,13 +46,6 @@ const SORT_KIND = {
   priority: 'num', assignee: 'text', created: 'date', label: 'text', dueDate: 'date',
 }
 const SORTABLE = new Set(Object.keys(SORT_KIND))
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 export function WorkflowsPage() {
   const { confirm, confirmDialog } = useConfirm()
@@ -443,7 +437,7 @@ export function WorkflowsPage() {
       case 'assignee':
         return issue.assignee || '-'
       case 'created':
-        return formatDate(issue.createdAt || issue.created_at)
+        return <RelativeTime value={issue.createdAt || issue.created_at} fallback="-" />
       case 'label':
         return '-'
       case 'dueDate':

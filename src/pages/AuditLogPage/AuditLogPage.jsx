@@ -8,6 +8,7 @@ import GppMaybeIcon from '@mui/icons-material/GppMaybe'
 import DownloadIcon from '@mui/icons-material/Download'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import { fetchAuditLog, verifyAuditLog, downloadAuditExport } from '../../api/auditLogApi'
 import './AuditLogPage.css'
 
@@ -144,7 +145,7 @@ export function AuditLogPage() {
                   <TableCell className="audit-meta">
                     {e.metadata ? (typeof e.metadata === 'string' ? e.metadata : JSON.stringify(e.metadata)) : '—'}
                   </TableCell>
-                  <TableCell>{e.created_at ? new Date(e.created_at).toLocaleString() : '—'}</TableCell>
+                  <TableCell><RelativeTime value={e.created_at} /></TableCell>
                   <TableCell>
                     <Tooltip title={e.hash || ''}>
                       <code className="audit-hash">{e.hash ? `${e.hash.slice(0, 10)}…` : '—'}</code>
