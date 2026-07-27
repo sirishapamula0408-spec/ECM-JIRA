@@ -4,8 +4,11 @@
   right: 0;
   width: 380px;
   max-height: 480px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  /* JL-298: was var(--surface)/var(--border) — tokens that are not defined in
+     this project (it uses the --jira-* namespace), so the panel rendered with
+     a transparent background. Point at the real tokens with opaque fallbacks. */
+  background: var(--jira-menu-bg, #ffffff);
+  border: 1px solid var(--jira-border, #dfe1e6);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   z-index: 1000;
@@ -19,7 +22,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--jira-border, #dfe1e6);
 }
 
 .notif-header h3 {
@@ -38,7 +41,7 @@
 .notif-clear-read {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--jira-blue, #0052cc);
   font-size: 12px;
   cursor: pointer;
   padding: 4px 8px;
@@ -47,7 +50,7 @@
 
 .notif-mark-all:hover,
 .notif-clear-read:hover {
-  background: var(--hover);
+  background: var(--jira-menu-hover, #f4f5f7);
 }
 
 .notif-list {
@@ -58,7 +61,7 @@
 .notif-empty {
   padding: 32px 16px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--jira-text-muted, #5e6c84);
   font-size: 13px;
 }
 
@@ -66,12 +69,12 @@
   display: flex;
   align-items: flex-start;
   width: 100%;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--jira-border, #dfe1e6);
   transition: background 0.15s;
 }
 
 .notif-item:hover {
-  background: var(--hover);
+  background: var(--jira-menu-hover, #f4f5f7);
 }
 
 .notif-item-main {
@@ -92,7 +95,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--text-tertiary);
+  color: var(--jira-text-muted, #8993a4);
   font-size: 16px;
   line-height: 1;
   padding: 10px 12px 10px 6px;
@@ -100,11 +103,11 @@
 }
 
 .notif-dismiss:hover {
-  color: var(--text-primary);
+  color: var(--jira-text, #172b4d);
 }
 
 .notif-item--unread {
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  background: color-mix(in srgb, var(--jira-blue, #0052cc) 6%, transparent);
 }
 
 .notif-icon {
@@ -115,7 +118,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--hover);
+  background: var(--jira-menu-hover, #f4f5f7);
   font-size: 14px;
 }
 
@@ -130,12 +133,12 @@
 .notif-title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--jira-text, #172b4d);
 }
 
 .notif-message {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--jira-text-muted, #5e6c84);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -143,7 +146,7 @@
 
 .notif-time {
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--jira-text-muted, #8993a4);
 }
 
 .notif-unread-dot {
@@ -151,6 +154,6 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--jira-blue, #0052cc);
   margin-top: 6px;
 }
