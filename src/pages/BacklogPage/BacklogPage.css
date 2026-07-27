@@ -332,6 +332,19 @@
   text-overflow: ellipsis;
 }
 
+/* JL-238: copy-issue-key button — hidden until the row is hovered or the
+   button itself receives keyboard focus (opacity keeps it focusable). */
+.backlog-issue-row .backlog-copy-key {
+  opacity: 0;
+  transition: opacity var(--transition-fast, 0.15s ease);
+}
+
+.backlog-issue-row:hover .backlog-copy-key,
+.backlog-issue-row .backlog-copy-key:focus-visible,
+.backlog-issue-row:focus-within .backlog-copy-key {
+  opacity: 1;
+}
+
 .backlog-issue-actions {
   display: flex;
   align-items: center;

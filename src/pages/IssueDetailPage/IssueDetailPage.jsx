@@ -36,7 +36,7 @@ import PrintIcon from '@mui/icons-material/Print'
 import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import { CopyButton } from '../../components/common/CopyButton'
 import SwapVertIcon from '@mui/icons-material/SwapVert'
 // JL-284: lazy-load the rich-text editor so its heavy editor dependency stays
 // out of the static import graph. It only mounts when a permitted user edits the
@@ -62,31 +62,10 @@ const PRIORITY_ICON = {
   Low:    { icon: '\u2193', color: '#36b37e', bg: '#e3fcef' },
 }
 
-/* ---- Copy issue link button (JL-161) ---- */
+/* ---- Copy issue link button (JL-161; shared CopyButton since JL-238) ---- */
 export function CopyIssueLinkButton({ issueId }) {
-  const [copied, setCopied] = useState(false)
-  const timerRef = useRef(null)
-  useEffect(() => () => clearTimeout(timerRef.current), [])
-
-  async function handleCopy() {
-    const url = `${window.location.origin}/issues/${issueId}`
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => setCopied(false), 1500)
-    } catch {
-      /* clipboard unavailable — silently ignore */
-    }
-  }
-
-  return (
-    <Tooltip title={copied ? 'Copied!' : 'Copy issue link'}>
-      <IconButton size="small" aria-label="Copy issue link" onClick={handleCopy} sx={{ ml: 0.5 }}>
-        <ContentCopyIcon sx={{ fontSize: 14 }} />
-      </IconButton>
-    </Tooltip>
-  )
+  const url = `${window.location.origin}/issues/${issueId}`
+  return <CopyButton value={url} title="Copy issue link" sx={{ ml: 0.5 }} />
 }
 
 /* ---- Inline editable field (JIRA click-to-edit pattern) ---- */

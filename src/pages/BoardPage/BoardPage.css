@@ -393,6 +393,20 @@
   text-decoration: underline;
 }
 
+/* JL-238: copy-issue-key button — hidden until the card is hovered or the
+   button itself receives keyboard focus (opacity keeps it focusable). */
+.card .kanban-copy-key {
+  opacity: 0;
+  margin-left: 4px;
+  transition: opacity var(--transition-fast, 0.15s ease);
+}
+
+.card:hover .kanban-copy-key,
+.card .kanban-copy-key:focus-visible,
+.card:focus-within .kanban-copy-key {
+  opacity: 1;
+}
+
 /* JL-215: flagged-as-impediment cards — JIRA's yellow-card convention */
 .kanban-card-flagged {
   background: #fffae6;

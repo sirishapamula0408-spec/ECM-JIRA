@@ -6,6 +6,7 @@ import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from 
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
+import { CopyButton } from '../../components/common/CopyButton'
 import './BoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -321,6 +322,12 @@ export function BoardPage() {
                       onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropStatus('') } : undefined}
                     >
                       <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+                      <CopyButton
+                        className="kanban-copy-key"
+                        value={issue.key}
+                        title={`Copy issue key ${issue.key}`}
+                        ariaLabel={`Copy issue key ${issue.key}`}
+                      />
                       {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
                       <h4>{issue.title}</h4>
                       <p>{issue.issueType}</p>
