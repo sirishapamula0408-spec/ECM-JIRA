@@ -627,7 +627,7 @@ export function FiltersPage() {
                   return (
                     <tr key={filter.id} className="filters-list-row">
                       <td>
-                        <button className="filters-star-btn" type="button" onClick={() => handleToggleFavorite(filter)} title={filter.isFavorite ? 'Remove favourite' : 'Add favourite'}>
+                        <button className="filters-star-btn" type="button" onClick={() => handleToggleFavorite(filter)} title={filter.isFavorite ? 'Remove favourite' : 'Add favourite'} aria-label={filter.isFavorite ? `Remove "${filter.name}" from favourites` : `Add "${filter.name}" to favourites`}>
                           {filter.isFavorite ? (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffab00" stroke="#ffab00" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                           ) : (

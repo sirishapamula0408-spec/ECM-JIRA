@@ -104,10 +104,10 @@ function InlineField({ editing, onOpen, onClose, display, children, canEdit = tr
       <div className="id-inline-editor">
         {children}
         <div className="id-inline-actions">
-          <button className="id-inline-save" type="button" onClick={onClose} title="Confirm">
+          <button className="id-inline-save" type="button" onClick={onClose} title="Confirm" aria-label="Confirm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
-          <button className="id-inline-cancel" type="button" onClick={onClose} title="Cancel">
+          <button className="id-inline-cancel" type="button" onClick={onClose} title="Cancel" aria-label="Cancel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -685,7 +685,7 @@ export function IssueDetailPage() {
           return (
             <div className="id-cf-chips">
               {selected.map((v) => (
-                <span key={v} className="id-cf-chip">{v}<button type="button" onClick={() => handleSaveCustomField(f.id, selected.filter((x) => x !== v))}>&times;</button></span>
+                <span key={v} className="id-cf-chip">{v}<button type="button" aria-label={`Remove ${v}`} onClick={() => handleSaveCustomField(f.id, selected.filter((x) => x !== v))}>&times;</button></span>
               ))}
               <input
                 className="id-inline-input"
@@ -1800,13 +1800,14 @@ export function IssueDetailPage() {
                           {/* JL-284: add-reaction picker only for canEditIssue */}
                           {canEditIssue && (
                             <div className="id-reaction-picker">
-                              <button type="button" className="id-reaction-add" title="Add reaction">＋</button>
+                              <button type="button" className="id-reaction-add" title="Add reaction" aria-label="Add reaction">＋</button>
                               <div className="id-reaction-menu">
                                 {REACTION_EMOJIS.map((em) => (
                                   <button
                                     key={em}
                                     type="button"
                                     className="id-reaction-option"
+                                    aria-label={`React with ${em}`}
                                     onClick={() => handleReact(entry.id, em)}
                                   >
                                     {em}
@@ -2360,7 +2361,7 @@ export function IssueDetailPage() {
                         {issueComponents.map((c) => (
                           <span key={c.id} className="id-label-chip">
                             {c.name}
-                            <button type="button" className="id-label-remove" onClick={() => removeComponent(c)}>&times;</button>
+                            <button type="button" className="id-label-remove" aria-label={`Remove component ${c.name}`} onClick={() => removeComponent(c)}>&times;</button>
                           </span>
                         ))}
                       </div>
@@ -2449,7 +2450,7 @@ export function IssueDetailPage() {
                 <div className="id-detail-row" key={f.id}>
                   <dt>
                     {f.name}
-                    {isAdmin && <button type="button" className="id-cf-delete" title="Delete field" onClick={() => handleDeleteCustomField(f.id)}>&times;</button>}
+                    {isAdmin && <button type="button" className="id-cf-delete" title="Delete field" aria-label={`Delete field ${f.name}`} onClick={() => handleDeleteCustomField(f.id)}>&times;</button>}
                   </dt>
                   <dd>
                     {renderCustomFieldEditor(f)}
