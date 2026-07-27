@@ -77,10 +77,10 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     // User Management is Admin/Owner-only (JL-195)
     ...(canManageUsers ? [{ label: 'Users', path: '/users', icon: 'teams' }] : []),
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
-    { label: 'Activity', path: '/activity', icon: 'recent' },
+    { label: 'Activity', path: '/activity', icon: 'activity' },
     { label: 'Webhooks', path: '/webhooks', icon: 'workflow' },
     { label: 'Inbound Email', path: '/inbound-email', icon: 'workflow' },
-    { label: 'Audit Log', path: '/audit-log', icon: 'recent' },
+    { label: 'Audit Log', path: '/audit-log', icon: 'audit' },
     { label: 'Automation', path: '/automation', icon: 'workflow' },
     { label: 'Marketplace', path: '/marketplace', icon: 'dashboards' },
     { label: 'Releases', path: '/releases', icon: 'recent' },
