@@ -258,6 +258,12 @@
 }
 
 .sidebar-caret-btn {
+  /* JL-279: now a real <button> — neutralize UA button styles to keep the span look */
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;

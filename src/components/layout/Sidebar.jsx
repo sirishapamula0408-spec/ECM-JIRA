@@ -105,13 +105,19 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   ].filter(launchFilter)
 
   return (
-    <aside className="sidebar" role="complementary" aria-label="Sidebar navigation">
+    <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="sidebar-top">
         <div className="brand jira-brand">
           <img src={sedinLogo} alt="Sedin" className="brand-logo" />
           {!collapsed && <h2>ECM Projects</h2>}
         </div>
-        <button className="icon-btn collapse-btn" type="button" aria-label="Collapse sidebar" onClick={onToggleSidebar}>
+        <button
+          className="icon-btn collapse-btn"
+          type="button"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
+          onClick={onToggleSidebar}
+        >
           {collapsed ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
           ) : (
@@ -127,16 +133,16 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
             return (
               <div key={item.path} className="sidebar-projects-section">
                 <div className={`nav${location.pathname.startsWith('/projects') ? ' active' : ''}`}>
-                  <span
+                  <button
+                    type="button"
                     className="sidebar-caret-btn"
-                    role="button"
-                    tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); setProjectsExpanded((c) => !c); loadProjects() }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProjectsExpanded((c) => !c); loadProjects() } }}
                     aria-label={projectsExpanded ? 'Collapse projects' : 'Expand projects'}
+                    aria-expanded={projectsExpanded}
+                    aria-controls="sidebar-project-list"
                   >
                     <span className={`sidebar-caret${projectsExpanded ? ' sidebar-caret--open' : ''}`} aria-hidden="true" />
-                  </span>
+                  </button>
                   <button
                     type="button"
                     className="sidebar-projects-toggle"
@@ -218,7 +224,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
                 </div>
                 {/* Collapsible project list */}
                 {projectsExpanded && !collapsed && (
-                  <div className="sidebar-project-list">
+                  <div className="sidebar-project-list" id="sidebar-project-list">
                     {[...projects].sort((a, b) => b.id - a.id).slice(0, 4).map((project) => (
                       <NavLink
                         key={project.id}
@@ -247,7 +253,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
           }
           const isDisabled = !hasProjects && item.label !== 'Projects'
           return isDisabled ? (
-            <span key={item.path} className="nav nav-disabled" title={collapsed ? item.label : 'No project access'}>
+            <span key={item.path} className="nav nav-disabled" role="link" aria-disabled="true" title={collapsed ? item.label : 'No project access'}>
               <span className="nav-icon" aria-hidden="true">
                 <SidebarNavIcon name={item.icon} />
               </span>
@@ -278,7 +284,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
       {primaryItems.length > 0 && <div className="sidebar-divider" />}
 
-      <nav>
+      <nav aria-label="Workspace tools">
         {productItems.map((item) => {
           const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Users'
           return isAllowed ? (
@@ -294,7 +300,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
               {!collapsed && <span className="nav-label">{item.label}</span>}
             </NavLink>
           ) : (
-            <span key={`${item.label}-${item.path}`} className="nav nav-disabled" title="No project access">
+            <span key={`${item.label}-${item.path}`} className="nav nav-disabled" role="link" aria-disabled="true" title="No project access">
               <span className="nav-icon" aria-hidden="true">
                 <SidebarNavIcon name={item.icon} />
               </span>
@@ -305,7 +311,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
       </nav>
 
       <div className="sidebar-box">
-        <nav>
+        <nav aria-label="Views and dashboards">
           {utilityItems.map((item) => hasProjects ? (
             <NavLink
               key={`${item.label}-${item.path}`}
@@ -319,7 +325,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
               {!collapsed && <span className="nav-label">{item.label}</span>}
             </NavLink>
           ) : (
-            <span key={`${item.label}-${item.path}`} className="nav nav-disabled" title="No project access">
+            <span key={`${item.label}-${item.path}`} className="nav nav-disabled" role="link" aria-disabled="true" title="No project access">
               <span className="nav-icon" aria-hidden="true">
                 <SidebarNavIcon name={item.icon} />
               </span>
