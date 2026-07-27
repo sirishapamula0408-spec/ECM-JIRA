@@ -4,6 +4,11 @@ import { api } from './client.js'
 
 export const WORKSPACE_STORAGE_KEY = 'jira_active_workspace_id'
 
+// JL-297: slug of the seeded default workspace (mirrors the server's
+// DEFAULT_WORKSPACE_SLUG in server/middleware/workspace.js) — used by the
+// workspace switcher to mark the default option.
+export const DEFAULT_WORKSPACE_SLUG = 'default'
+
 /** Read the selected workspace id from localStorage (or null). */
 export function getActiveWorkspaceId() {
   try {

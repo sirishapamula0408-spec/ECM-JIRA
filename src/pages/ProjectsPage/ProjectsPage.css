@@ -49,6 +49,21 @@
   box-shadow: 0 0 0 1px #4c9aff;
 }
 
+/* JL-297: "Show archived" toggle — match the toolbar's label typography
+   (previously an inline 13px font, larger than sibling labels/inputs). */
+.projects-archived-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-regular);
+  color: var(--jira-text);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
 .projects-table-shell {
   border: 1px solid var(--jira-border);
   border-radius: 8px;

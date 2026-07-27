@@ -136,7 +136,8 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <label className="projects-archived-toggle" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+          {/* JL-297: typography normalized via .projects-archived-toggle (was an inline 13px font, larger than sibling labels) */}
+          <label className="projects-archived-toggle">
             <input
               type="checkbox"
               checked={showArchived}
@@ -244,7 +245,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                   <td>
                     {isAdmin && (
                       <div className="projects-action-wrap" onClick={(e) => e.stopPropagation()} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpenMenuId(null) }}>
-                        <button className="icon-btn projects-action-btn" type="button" aria-label="Project actions" onClick={() => setOpenMenuId((cur) => (cur === project.id ? null : project.id))}>...</button>
+                        <button className="icon-btn projects-action-btn" type="button" aria-label="Project actions" title="Project actions" onClick={() => setOpenMenuId((cur) => (cur === project.id ? null : project.id))}>...</button>
                         {openMenuId === project.id && (
                           <div className="projects-action-menu" role="menu">
                             <button className="projects-action-item" type="button" onClick={() => { setOpenMenuId(null); navigate(`/projects/${project.id}/settings`) }}>Project settings</button>

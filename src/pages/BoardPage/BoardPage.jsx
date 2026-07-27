@@ -186,7 +186,7 @@ export function BoardPage() {
         <div className="board-jira-actions">
           <button className="board-jira-action-btn board-jira-action-btn-boxed board-settings-toggle" type="button" onClick={() => setIsSettingsOpen((c) => !c)}>Board settings</button>
           <div className="board-menu-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setIsBoardMenuOpen(false) }}>
-            <button className="board-jira-action-btn board-jira-action-btn-boxed" type="button" aria-label="More actions" onClick={() => setIsBoardMenuOpen((c) => !c)}>...</button>
+            <button className="board-jira-action-btn board-jira-action-btn-boxed" type="button" aria-label="More actions" title="More actions" onClick={() => setIsBoardMenuOpen((c) => !c)}>...</button>
             {isBoardMenuOpen && (
               <div className="board-menu" role="menu">
                 <button className="board-menu-item board-menu-item-star" type="button" onClick={() => { const next = !isBoardStarred; setIsBoardStarred(next); setBoardMessage(next ? 'Added to starred.' : 'Removed from starred.'); setIsBoardMenuOpen(false) }}>
