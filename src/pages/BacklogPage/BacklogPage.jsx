@@ -40,6 +40,7 @@ export function BacklogPage() {
   const [quickCreateErrorBySprint, setQuickCreateErrorBySprint] = useState({})
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
   const [showImportExport, setShowImportExport] = useState(false)
+  const [importExportTab, setImportExportTab] = useState('export')
   const [showBulkWizard, setShowBulkWizard] = useState(false)
   const [dependencies, setDependencies] = useState(null) // JL-128: { byId, edges, cycles, blockedCount }
   const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)
@@ -48,7 +49,7 @@ export function BacklogPage() {
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
 
   // JL-230: Viewers get a read-only backlog — gate every mutating affordance.
-  const { canCreateIssue, canEditIssue, canDeleteIssue, canManageSprints } = usePermissions(exportProjectId ?? undefined)
+  const { canCreateIssue, canEditIssue, canDeleteIssue, canManageSprints, canExportIssues } = usePermissions(exportProjectId ?? undefined)
   const canBulkEdit = canEditIssue || canDeleteIssue
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -364,9 +365,16 @@ export function BacklogPage() {
             <button className="btn btn-ghost" type="button" onClick={() => setShowBulkWizard(true)} disabled={selectedCount === 0}>Advanced bulk change</button>
           </div>
           )}
+          {/* JL-288: Export is a read op — visible to anyone with canExportIssues
+              (incl. Viewers). Import stays Member+ (canCreateIssue). */}
+          {canExportIssues && (
+            <button className="btn btn-ghost" type="button" onClick={() => { setImportExportTab('export'); setShowImportExport(true) }} disabled={!exportProjectId} title={exportProjectId ? 'Export issues' : 'Open a project backlog to export'}>
+              Export
+            </button>
+          )}
           {canCreateIssue && (
-            <button className="btn btn-ghost" type="button" onClick={() => setShowImportExport(true)} disabled={!exportProjectId} title={exportProjectId ? 'Import / Export issues' : 'Open a project backlog to import/export'}>
-              Import / Export
+            <button className="btn btn-ghost" type="button" onClick={() => { setImportExportTab('import'); setShowImportExport(true) }} disabled={!exportProjectId} title={exportProjectId ? 'Import issues' : 'Open a project backlog to import'}>
+              Import
             </button>
           )}
           <button className="icon-btn" type="button" aria-label="Views">chart</button>
@@ -398,6 +406,8 @@ export function BacklogPage() {
       {showImportExport && exportProjectId && (
         <ImportExportModal
           projectId={exportProjectId}
+          canImport={canCreateIssue}
+          initialTab={importExportTab}
           onClose={() => setShowImportExport(false)}
           onImported={() => { reloadIssues(); setBacklogMessage('Issues imported.') }}
         />
