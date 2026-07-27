@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Chip from '@mui/material/Chip'
+import Select from '@mui/material/Select'
+import IconButton from '@mui/material/IconButton'
+import Tooltip from '@mui/material/Tooltip'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
@@ -15,6 +20,84 @@ import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+
+// JL-234 — client-side backlog sort control
+const SORT_STORAGE_KEY = 'backlogSort'
+const SORT_OPTIONS = [
+  { value: '', label: 'Sort: Default' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'key', label: 'Key' },
+  { value: 'assignee', label: 'Assignee' },
+  { value: 'created', label: 'Created' },
+  { value: 'updated', label: 'Updated' },
+  { value: 'storyPoints', label: 'Story points' },
+]
+const PRIORITY_RANK = Object.fromEntries(PRIORITIES.map((priority, index) => [priority, index]))
+
+function loadStoredSort() {
+  try {
+    const raw = window.localStorage.getItem(SORT_STORAGE_KEY)
+    if (!raw) return { field: '', direction: 'asc' }
+    const parsed = JSON.parse(raw)
+    const field = SORT_OPTIONS.some((option) => option.value === parsed?.field) ? parsed.field : ''
+    const direction = parsed?.direction === 'desc' ? 'desc' : 'asc'
+    return { field, direction }
+  } catch {
+    return { field: '', direction: 'asc' }
+  }
+}
+
+function persistSort(field, direction) {
+  try {
+    window.localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ field, direction }))
+  } catch {
+    // localStorage unavailable — sorting still works for this session
+  }
+}
+
+// Returns the comparable value for a field, or null when missing (missing sorts last).
+function sortValue(issue, field) {
+  switch (field) {
+    case 'priority':
+      return PRIORITY_RANK[issue.priority] ?? null
+    case 'key':
+      return issue.key ? String(issue.key) : null
+    case 'assignee':
+      return issue.assignee ? String(issue.assignee).toLowerCase() : null
+    case 'created': {
+      const time = Date.parse(issue.createdAt)
+      return Number.isNaN(time) ? null : time
+    }
+    case 'updated': {
+      const time = Date.parse(issue.updatedAt)
+      return Number.isNaN(time) ? null : time
+    }
+    case 'storyPoints': {
+      if (issue.storyPoints === null || issue.storyPoints === undefined || issue.storyPoints === '') return null
+      const points = Number(issue.storyPoints)
+      return Number.isNaN(points) ? null : points
+    }
+    default:
+      return null
+  }
+}
+
+function sortIssueList(list, field, direction) {
+  if (!field) return list
+  const dir = direction === 'desc' ? -1 : 1
+  return [...list].sort((a, b) => {
+    const aValue = sortValue(a, field)
+    const bValue = sortValue(b, field)
+    // Issues with no value for the chosen field always sort last, regardless of direction.
+    if (aValue === null && bValue === null) return 0
+    if (aValue === null) return 1
+    if (bValue === null) return -1
+    const cmp = typeof aValue === 'string'
+      ? aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' })
+      : aValue - bValue
+    return cmp * dir
+  })
+}
 
 export function BacklogPage() {
   usePageTitle('Backlog')
@@ -43,6 +126,9 @@ export function BacklogPage() {
   const [showBulkWizard, setShowBulkWizard] = useState(false)
   const [dependencies, setDependencies] = useState(null) // JL-128: { byId, edges, cycles, blockedCount }
   const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)
+  // JL-234: sort field + direction, restored from localStorage on mount ('' = default order)
+  const [sortField, setSortField] = useState(() => loadStoredSort().field)
+  const [sortDirection, setSortDirection] = useState(() => loadStoredSort().direction)
 
   // Import/Export is project-scoped: use the route project, else the project of the visible issues
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
@@ -57,8 +143,13 @@ export function BacklogPage() {
   const visibleIssues = showMyOpenOnly
     ? scopedIssues.filter((issue) => issue.assignee === currentUserName && issue.status !== 'Done')
     : scopedIssues
-  const allBacklogItems = visibleIssues.filter((issue) => issue.status === 'Backlog')
-  const allSprintItems = visibleIssues.filter((issue) => issue.status !== 'Backlog')
+  // JL-234: client-side sort — when no field is chosen the original ordering is untouched
+  const sortedVisibleIssues = useMemo(
+    () => sortIssueList(visibleIssues, sortField, sortDirection),
+    [visibleIssues, sortField, sortDirection],
+  )
+  const allBacklogItems = sortedVisibleIssues.filter((issue) => issue.status === 'Backlog')
+  const allSprintItems = sortedVisibleIssues.filter((issue) => issue.status !== 'Backlog')
   const defaultSprintId = sprints[0]?.id
 
   useEffect(() => {
@@ -210,6 +301,19 @@ export function BacklogPage() {
     setBacklogMessage(`Updated ${ids.length} issue(s).`)
   }
 
+  // JL-234: persist the chosen sort so it survives reloads
+  function handleSortFieldChange(event) {
+    const field = event.target.value
+    setSortField(field)
+    persistSort(field, sortDirection)
+  }
+
+  function toggleSortDirection() {
+    const next = sortDirection === 'asc' ? 'desc' : 'asc'
+    setSortDirection(next)
+    persistSort(sortField, next)
+  }
+
   // Keep the value control in sync with a sensible default when action changes
   function changeBulkAction(action) {
     setBulkAction(action)
@@ -325,6 +429,30 @@ export function BacklogPage() {
             onClick={() => setShowMyOpenOnly((current) => !current)}
             aria-pressed={showMyOpenOnly}
           />
+          <Select
+            native
+            size="small"
+            value={sortField}
+            onChange={handleSortFieldChange}
+            inputProps={{ 'aria-label': 'Sort by' }}
+            className="backlog-sort-select"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+          <Tooltip title={sortDirection === 'asc' ? 'Ascending — click for descending' : 'Descending — click for ascending'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={toggleSortDirection}
+                disabled={!sortField}
+                aria-label={`Sort direction: ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+              >
+                {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
         </div>
         <div className="backlog-toolbar-right">
           {canBulkEdit && (
