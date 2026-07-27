@@ -45,6 +45,7 @@ export function usePermissions(projectId) {
         canLogWork: false,
         canAddAttachment: false,
         canLinkIssues: false,
+        canManageCrossProjectBoards: false,
       }
     }
 
@@ -118,6 +119,10 @@ export function usePermissions(projectId) {
       canLogWork: effectiveRank >= ROLE_RANK.Member,
       canAddAttachment: effectiveRank >= ROLE_RANK.Member,
       canLinkIssues: effectiveRank >= ROLE_RANK.Member,
+
+      // JL-296: mutating shared cross-project boards requires workspace Member+.
+      // Workspace-level capability (not project-scoped) — Viewers are read-only.
+      canManageCrossProjectBoards: wsRank >= ROLE_RANK.Member,
     }
   }, [currentMember, projectId])
 }
