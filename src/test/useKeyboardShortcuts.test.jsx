@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, cleanup } from '@testing-library/react'
-import { useKeyboardShortcuts, isEditableTarget } from '../hooks/useKeyboardShortcuts'
+import {
+  useKeyboardShortcuts,
+  isEditableTarget,
+  NAV_CHORDS,
+  KEYBOARD_SHORTCUTS,
+} from '../hooks/useKeyboardShortcuts'
 
 function press(key, target = document.body) {
   const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
@@ -61,6 +66,51 @@ describe('useKeyboardShortcuts', () => {
     press('g')
     press('d')
     expect(handlers.onNavigate).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it.each([
+    ['p', '/projects'],
+    ['i', '/backlog'],
+    ['l', '/backlog'],
+    ['r', '/roadmap'],
+    ['a', '/activity'],
+    ['t', '/reports'],
+  ])('navigates to %s target for "g" then "%s"', (key, path) => {
+    const handlers = makeHandlers()
+    renderHook(() => useKeyboardShortcuts(handlers))
+    press('g')
+    press(key)
+    expect(handlers.onNavigate).toHaveBeenCalledTimes(1)
+    expect(handlers.onNavigate).toHaveBeenCalledWith(path)
+  })
+
+  it('ignores "g" chords started or completed while typing in an input', () => {
+    const handlers = makeHandlers()
+    renderHook(() => useKeyboardShortcuts(handlers))
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    // Entire chord typed inside an input.
+    press('g', input)
+    press('p', input)
+    // Chord started inside an input, "completed" outside — the `g` never
+    // registered, so a lone follow-up key must not navigate either.
+    press('g', input)
+    press('r')
+    expect(handlers.onNavigate).not.toHaveBeenCalled()
+    document.body.removeChild(input)
+  })
+
+  it('lists every navigation chord in KEYBOARD_SHORTCUTS for the help dialog', () => {
+    for (const { key, description } of NAV_CHORDS) {
+      const entry = KEYBOARD_SHORTCUTS.find(
+        (s) => s.keys.length === 2 && s.keys[0] === 'g' && s.keys[1] === key,
+      )
+      expect(entry, `missing help entry for "g ${key}"`).toBeTruthy()
+      expect(entry.description).toBe(description)
+    }
+    // New JL-243 chords are all present.
+    const chordKeys = NAV_CHORDS.map((c) => c.key)
+    expect(chordKeys).toEqual(expect.arrayContaining(['p', 'i', 'l', 'r', 'a', 't', 'b', 'd']))
   })
 
   it('does not navigate when the "g" chord is not completed with a known key', () => {
