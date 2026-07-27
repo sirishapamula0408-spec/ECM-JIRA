@@ -2,8 +2,22 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
+
+// JL-235: CSV export helpers. When a report endpoint is called with
+// ?format=csv we stream a flat CSV download (Content-Type text/csv +
+// attachment Content-Disposition) instead of the default JSON body. Any other
+// value (including format=json or an omitted format) keeps the JSON behaviour
+// byte-for-byte unchanged.
+const wantsCsv = (req) => String(req.query.format || '').toLowerCase() === 'csv'
+
+const sendCsv = (res, filename, rows, columns) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  res.send(toCsv(rows, columns))
+}
 
 // JL-50: canonical status order for the Cumulative Flow Diagram bands.
 const CFD_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
@@ -205,8 +219,22 @@ router.get('/cycle-time', asyncHandler(async (req, res) => {
     params,
   )
 
+  const CYCLE_CSV_COLUMNS = [
+    { key: 'key', label: 'Issue Key' },
+    { key: 'issueType', label: 'Type' },
+    { key: 'priority', label: 'Priority' },
+    { key: 'assignee', label: 'Assignee' },
+    { key: 'cycleDays', label: 'Cycle Days' },
+    { key: 'leadDays', label: 'Lead Days' },
+    { key: 'doneAt', label: 'Done At' },
+  ]
+
   const emptyResponse = { issues: [], summary: { count: 0, cycle: summarize([]), lead: summarize([]) } }
   if (!issues.length) {
+    if (wantsCsv(req)) {
+      sendCsv(res, 'cycle-time.csv', [], CYCLE_CSV_COLUMNS)
+      return
+    }
     res.json(emptyResponse)
     return
   }
@@ -258,6 +286,11 @@ router.get('/cycle-time', asyncHandler(async (req, res) => {
 
   const cycleValues = perIssue.map((i) => i.cycleDays).filter((v) => v !== null)
   const leadValues = perIssue.map((i) => i.leadDays).filter((v) => v !== null)
+
+  if (wantsCsv(req)) {
+    sendCsv(res, 'cycle-time.csv', perIssue, CYCLE_CSV_COLUMNS)
+    return
+  }
 
   res.json({
     issues: perIssue,
@@ -338,7 +371,17 @@ router.get('/burndown', asyncHandler(async (req, res) => {
   if (!loaded) return
   const { sprint, unit, rows, start, end } = loaded
 
+  const BURNDOWN_CSV_COLUMNS = [
+    { key: 'date', label: 'Date' },
+    { key: 'ideal', label: 'Ideal' },
+    { key: 'remaining', label: 'Remaining' },
+  ]
+
   if (!start || !end) {
+    if (wantsCsv(req)) {
+      sendCsv(res, `burndown-sprint-${sprint.id}.csv`, [], BURNDOWN_CSV_COLUMNS)
+      return
+    }
     res.json({ sprintId: sprint.id, unit, committedPoints: 0, days: [] })
     return
   }
@@ -362,6 +405,11 @@ router.get('/burndown', asyncHandler(async (req, res) => {
     return { date: isoDay(day), ideal, remaining }
   })
 
+  if (wantsCsv(req)) {
+    sendCsv(res, `burndown-sprint-${sprint.id}.csv`, days, BURNDOWN_CSV_COLUMNS)
+    return
+  }
+
   res.json({ sprintId: sprint.id, unit, committedPoints, days })
 }))
 
@@ -373,7 +421,17 @@ router.get('/burnup', asyncHandler(async (req, res) => {
   if (!loaded) return
   const { sprint, unit, rows, start, end } = loaded
 
+  const BURNUP_CSV_COLUMNS = [
+    { key: 'date', label: 'Date' },
+    { key: 'scope', label: 'Scope' },
+    { key: 'completed', label: 'Completed' },
+  ]
+
   if (!start || !end) {
+    if (wantsCsv(req)) {
+      sendCsv(res, `burnup-sprint-${sprint.id}.csv`, [], BURNUP_CSV_COLUMNS)
+      return
+    }
     res.json({ sprintId: sprint.id, unit, days: [] })
     return
   }
@@ -390,6 +448,11 @@ router.get('/burnup', asyncHandler(async (req, res) => {
       .reduce((sum, r) => sum + r.value, 0)
     return { date: isoDay(day), scope, completed }
   })
+
+  if (wantsCsv(req)) {
+    sendCsv(res, `burnup-sprint-${sprint.id}.csv`, days, BURNUP_CSV_COLUMNS)
+    return
+  }
 
   res.json({ sprintId: sprint.id, unit, days })
 }))
@@ -518,6 +581,14 @@ router.get('/cfd', asyncHandler(async (req, res) => {
     ? Number((leadTimes.reduce((sum, v) => sum + v, 0) / leadTimes.length).toFixed(1))
     : 0
 
+  if (wantsCsv(req)) {
+    // One row per sampled day; a column per status band plus the date.
+    const csvRows = daysOut.map((d) => ({ date: d.date, ...d.counts }))
+    const columns = [{ key: 'date', label: 'Date' }, ...CFD_STATUSES.map((s) => ({ key: s, label: s }))]
+    sendCsv(res, 'cfd.csv', csvRows, columns)
+    return
+  }
+
   res.json({
     statuses: CFD_STATUSES,
     granularity,
@@ -624,6 +695,24 @@ router.get('/sprint/:id', asyncHandler(async (req, res) => {
   const notCompletedPoints = notCompleted.reduce((sum, e) => sum + e.points, 0)
   const removedPoints = removed.reduce((sum, e) => sum + e.points, 0)
 
+  if (wantsCsv(req)) {
+    // Flat issue list with a category column derived from the classification.
+    const csvRows = [
+      ...completed.map((e) => ({ category: 'Completed', ...e })),
+      ...notCompleted.map((e) => ({ category: 'Not Completed', ...e })),
+      ...removed.map((e) => ({ category: 'Removed', ...e })),
+    ]
+    sendCsv(res, `sprint-report-${sprint.id}.csv`, csvRows, [
+      { key: 'category', label: 'Category' },
+      { key: 'key', label: 'Issue Key' },
+      { key: 'title', label: 'Title' },
+      { key: 'status', label: 'Status' },
+      { key: 'points', label: 'Points' },
+      { key: 'removedAt', label: 'Removed At' },
+    ])
+    return
+  }
+
   res.json({
     sprint: {
       id: sprint.id,
@@ -721,6 +810,17 @@ router.get('/created-resolved', asyncHandler(async (req, res) => {
     series.push({ date, created, resolved, cumulativeCreated, cumulativeResolved })
   }
 
+  if (wantsCsv(req)) {
+    sendCsv(res, 'created-vs-resolved.csv', series, [
+      { key: 'date', label: 'Date' },
+      { key: 'created', label: 'Created' },
+      { key: 'resolved', label: 'Resolved' },
+      { key: 'cumulativeCreated', label: 'Cumulative Created' },
+      { key: 'cumulativeResolved', label: 'Cumulative Resolved' },
+    ])
+    return
+  }
+
   res.json({
     projectId,
     days,
@@ -804,6 +904,16 @@ router.get('/capacity', asyncHandler(async (req, res) => {
     },
     { committedPoints: 0, capacityPoints: 0 },
   )
+
+  if (wantsCsv(req)) {
+    sendCsv(res, `capacity-sprint-${sprint.id}.csv`, rows, [
+      { key: 'assignee', label: 'Assignee' },
+      { key: 'committedPoints', label: 'Committed Points' },
+      { key: 'capacityPoints', label: 'Capacity Points' },
+      { key: 'utilizationPct', label: 'Utilization %' },
+    ])
+    return
+  }
 
   res.json({
     sprintId: sprint.id,

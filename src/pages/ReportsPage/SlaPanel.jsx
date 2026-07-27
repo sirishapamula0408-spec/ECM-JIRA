@@ -14,8 +14,10 @@ import {
   TextField,
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DownloadIcon from '@mui/icons-material/Download'
 import { PRIORITIES } from '../../constants'
 import { usePermissions } from '../../hooks/usePermissions'
+import { downloadReportCsv } from '../../api/dashboardApi'
 import {
   fetchSlaPolicies,
   createSlaPolicy,
@@ -120,6 +122,20 @@ export function SlaPanel({ projectId }) {
     <article className="panel chart-placeholder sla-panel">
       <div className="reports-panel-header">
         <h3>SLA Tracking &amp; Alerts</h3>
+        <Button
+          size="small"
+          variant="outlined"
+          className="no-print"
+          startIcon={<DownloadIcon />}
+          onClick={() =>
+            downloadReportCsv(
+              `/api/reports/sla?projectId=${numericProjectId}`,
+              `sla-report-${numericProjectId}.csv`,
+            ).catch(() => {})
+          }
+        >
+          Download CSV
+        </Button>
       </div>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
