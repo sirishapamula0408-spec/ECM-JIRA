@@ -29,6 +29,7 @@ import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCre
 import { usePermissions } from '../../hooks/usePermissions'
 import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
+import { fetchProjectTimesheet, downloadProjectTimesheetCsv } from '../../api/worklogApi'
 import { SlaPanel } from './SlaPanel'
 import './ReportsPage.css'
 
@@ -409,6 +410,50 @@ export function ReportsPage() {
     upper: p.upper,
     lower: p.lower,
   }))
+
+  // JL-240: Project worklog timesheet — rollup by user/date (minute totals).
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const defaultFrom = useMemo(() => {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - 30)
+    return d.toISOString().slice(0, 10)
+  }, [])
+  const [tsFrom, setTsFrom] = useState(defaultFrom)
+  const [tsTo, setTsTo] = useState(todayStr)
+  const [timesheet, setTimesheet] = useState(null)
+  const [timesheetError, setTimesheetError] = useState('')
+  const [timesheetLoading, setTimesheetLoading] = useState(false)
+
+  useEffect(() => {
+    if (!projectId) { setTimesheet(null); return }
+    let cancelled = false
+    setTimesheetLoading(true)
+    setTimesheetError('')
+    fetchProjectTimesheet(Number(projectId), { from: tsFrom, to: tsTo })
+      .then((data) => { if (!cancelled) setTimesheet(data) })
+      .catch((err) => { if (!cancelled) { setTimesheet(null); setTimesheetError(err?.message || 'Failed to load timesheet') } })
+      .finally(() => { if (!cancelled) setTimesheetLoading(false) })
+    return () => { cancelled = true }
+  }, [projectId, tsFrom, tsTo])
+
+  const fmtMinutes = (min) => {
+    const m = Number(min) || 0
+    const h = Math.floor(m / 60)
+    const rem = m % 60
+    if (h && rem) return `${h}h ${rem}m`
+    if (h) return `${h}h`
+    return `${rem}m`
+  }
+
+  const handleDownloadTimesheet = async () => {
+    try {
+      await downloadProjectTimesheetCsv(Number(projectId), { from: tsFrom, to: tsTo })
+    } catch (err) {
+      setTimesheetError(err?.message || 'Timesheet export failed')
+    }
+  }
+
+  const timesheetRollup = Array.isArray(timesheet?.rollup) ? timesheet.rollup : []
 
   const handlePrint = () => window.print()
 
@@ -945,6 +990,82 @@ export function ReportsPage() {
           <div className="fake-chart">No created/resolved data available</div>
         )}
       </article>
+
+      {/* JL-240: Project Worklog Timesheet */}
+      {projectId && (
+        <article className="panel chart-placeholder timesheet-panel">
+          <div className="reports-panel-header">
+            <h3>Worklog Timesheet</h3>
+            <Stack direction="row" spacing={1} alignItems="center" className="no-print">
+              <TextField
+                type="date"
+                size="small"
+                label="From"
+                value={tsFrom}
+                onChange={(e) => setTsFrom(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="To"
+                value={tsTo}
+                onChange={(e) => setTsTo(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadTimesheet}
+                disabled={timesheetRollup.length === 0}
+              >
+                Download CSV
+              </Button>
+            </Stack>
+          </div>
+          {timesheetError && (
+            <p className="banner" style={{ color: 'var(--jira-danger, #de350b)' }}>{timesheetError}</p>
+          )}
+          {timesheet && (
+            <div className="cfd-metrics">
+              <span><strong>Total logged:</strong> {fmtMinutes(timesheet.grandTotalMinutes)} ({timesheet.grandTotalMinutes || 0} min)</span>
+            </div>
+          )}
+          {timesheetLoading && !timesheet ? (
+            <div className="fake-chart">Loading timesheet…</div>
+          ) : timesheetRollup.length === 0 ? (
+            <div className="fake-chart">No worklogs logged in this date range.</div>
+          ) : (
+            <Table size="small" className="timesheet-table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>User</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Issues</TableCell>
+                  <TableCell align="right">Time</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {timesheetRollup.map((g) => (
+                  <TableRow key={`${g.user}-${g.date}`}>
+                    <TableCell>{g.user}</TableCell>
+                    <TableCell>{g.date}</TableCell>
+                    <TableCell>
+                      {(g.issues || []).map((iss) => (
+                        <div key={iss.issueId}>
+                          <strong>{iss.issueKey}</strong> {iss.issueTitle} — {fmtMinutes(iss.minutes)}
+                        </div>
+                      ))}
+                    </TableCell>
+                    <TableCell align="right">{fmtMinutes(g.totalMinutes)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </article>
+      )}
 
       {/* JL-52: SLA Tracking & Alerts */}
       <SlaPanel projectId={projectId} />
