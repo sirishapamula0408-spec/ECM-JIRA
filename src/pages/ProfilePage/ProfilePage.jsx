@@ -6,6 +6,7 @@ import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeS
 import { NotificationPreferencesSection } from '../../components/notifications/NotificationPreferencesSection'
 import './ProfilePage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 
 export function ChangePasswordSection() {
   const [currentPassword, setCurrentPassword] = useState('')
@@ -404,14 +405,18 @@ export function ProfilePage() {
     }
   }, [profile])
 
-  if (!form) return null
-
   const isDirty =
-    form.full_name !== (profile?.full_name || '') ||
-    form.job_title !== (profile?.job_title || '') ||
-    form.department !== (profile?.department || '') ||
-    form.timezone !== (profile?.timezone || '') ||
-    form.avatar_url !== (profile?.avatar_url || '')
+    Boolean(form) &&
+    (form.full_name !== (profile?.full_name || '') ||
+      form.job_title !== (profile?.job_title || '') ||
+      form.department !== (profile?.department || '') ||
+      form.timezone !== (profile?.timezone || '') ||
+      form.avatar_url !== (profile?.avatar_url || ''))
+
+  // JL-242: warn on tab close/refresh while there are unsaved profile edits.
+  useUnsavedChangesWarning(isDirty)
+
+  if (!form) return null
 
   async function handleSave() { setSaving(true); try { await onSave(form) } finally { setSaving(false) } }
   function handleDiscard() { setForm(profile) }

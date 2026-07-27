@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import {
   fetchKbCategories, createKbCategory,
@@ -53,6 +54,19 @@ export function KnowledgeBasePage() {
 
   useEffect(() => { loadCategories() }, [loadCategories])
   useEffect(() => { loadArticles() }, [loadArticles])
+
+  // JL-242: warn on tab close/refresh only while the article editor has
+  // genuine unsaved edits — a new article with typed content, or an existing
+  // article whose form differs from the saved values.
+  const hasUnsavedEdits = editing && (
+    selected
+      ? (form.title !== (selected.title || '') ||
+         form.body !== (selected.body || '') ||
+         String(form.categoryId || '') !== String(selected.category_id || '') ||
+         form.status !== (selected.status || 'draft'))
+      : ((form.title || '').trim() !== '' || (form.body || '').trim() !== '')
+  )
+  useUnsavedChangesWarning(hasUnsavedEdits)
 
   const openArticle = useCallback((id) => {
     setEditing(false)
