@@ -1211,6 +1211,13 @@
 .id-subtask-status--in-progress { background: #deebff; color: #0052cc; }
 .id-subtask-status--code-review { background: #eae6ff; color: #5243aa; }
 .id-subtask-form { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+/* JL-300: brief highlight of a newly added sub-task / linked-issue row */
+.id-subtask-row.id-row-flash { animation: id-row-flash 2.5s ease-out; }
+@keyframes id-row-flash {
+  0% { background: #deebff; border-color: #0052cc; }
+  70% { background: #deebff; border-color: #0052cc; }
+  100% { background: transparent; border-color: #dfe1e6; }
+}
 .id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: #0052cc; cursor: pointer; font-size: 13px; padding: 4px 0; }
 
 /* Theme-1 #3: attachments */

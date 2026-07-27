@@ -31,7 +31,7 @@ import { getRealtimeClient } from '../../services/realtimeClient'
 import { MentionInput, MentionText } from '../../components/mentions/MentionInput'
 import { SmartText } from '../../components/common/SmartText'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import { Button } from '@mui/material'
+import { Button, Snackbar, Alert } from '@mui/material'
 import PrintIcon from '@mui/icons-material/Print'
 import { buildIssuePrintHtml, openPrintWindow } from '../../utils/printDocument'
 import IconButton from '@mui/material/IconButton'
@@ -183,6 +183,24 @@ export function IssueDetailPage() {
   const [showAssetLink, setShowAssetLink] = useState(false)
   const [assetToLink, setAssetToLink] = useState('')
   const [showLinkDialog, setShowLinkDialog] = useState(false)
+  // JL-300: post-success feedback — scroll the updated panel into view, show a
+  // success snackbar, and briefly highlight the newly added row.
+  const subtaskPanelRef = useRef(null)
+  const linksPanelRef = useRef(null)
+  const highlightTimerRef = useRef(null)
+  const [successToast, setSuccessToast] = useState({ open: false, message: '' })
+  const [highlightedRow, setHighlightedRow] = useState(null) // { kind: 'subtask' | 'link', id }
+  useEffect(() => () => clearTimeout(highlightTimerRef.current), [])
+
+  function showSuccessFeedback(panelRef, message, highlight) {
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    setSuccessToast({ open: true, message })
+    if (highlight?.id) {
+      setHighlightedRow(highlight)
+      clearTimeout(highlightTimerRef.current)
+      highlightTimerRef.current = setTimeout(() => setHighlightedRow(null), 2500)
+    }
+  }
   // JL-55: Git integration (branches / commits / PRs)
   const [gitLinks, setGitLinks] = useState([])
   const [showGitForm, setShowGitForm] = useState(false)
@@ -441,10 +459,12 @@ export function IssueDetailPage() {
     const title = subtaskTitle.trim()
     if (!title) return
     try {
-      await createSubtask(issue.id, { title })
+      const created = await createSubtask(issue.id, { title })
       setSubtaskTitle('')
       setShowSubtaskForm(false)
       reloadSubtasks()
+      // JL-300: confirm success — scroll the panel into view + snackbar + row highlight
+      showSuccessFeedback(subtaskPanelRef, 'Sub-task created', created?.id ? { kind: 'subtask', id: created.id } : null)
     } catch {
       // keep form open on failure
     }
@@ -768,11 +788,13 @@ export function IssueDetailPage() {
   async function handleAddLink() {
     if (!linkTargetId) return
     try {
-      await createIssueLink(issue.id, { type: linkType, targetIssueId: Number(linkTargetId) })
+      const created = await createIssueLink(issue.id, { type: linkType, targetIssueId: Number(linkTargetId) })
       setShowLinkDialog(false)
       setLinkSearch('')
       setLinkTargetId('')
       reloadLinks()
+      // JL-300: confirm success — scroll the panel into view + snackbar + row highlight
+      showSuccessFeedback(linksPanelRef, 'Issue link added', created?.id ? { kind: 'link', id: created.id } : null)
     } catch {
       // keep dialog open on failure
     }
@@ -1412,7 +1434,7 @@ export function IssueDetailPage() {
           )}
 
           {!issue.parentId && (
-          <div className="id-section">
+          <div className="id-section" ref={subtaskPanelRef}>
             <div className="id-subtask-header">
               <h3 className="id-section-title">Child issues</h3>
               {subtaskProgress.total > 0 && (
@@ -1427,7 +1449,7 @@ export function IssueDetailPage() {
             ) : (
               <ul className="id-subtask-list">
                 {subtasks.map((st) => (
-                  <li key={st.id} className="id-subtask-row" onClick={() => navigate(`/issues/${st.id}`)}>
+                  <li key={st.id} className={`id-subtask-row${highlightedRow?.kind === 'subtask' && highlightedRow.id === st.id ? ' id-row-flash' : ''}`} onClick={() => navigate(`/issues/${st.id}`)}>
                     <span className="id-subtask-key">{st.key}</span>
                     <span className="id-subtask-title">{st.title}</span>
                     <span className={`id-subtask-status id-subtask-status--${String(st.status).toLowerCase().replace(/\s+/g, '-')}`}>{st.status}</span>
@@ -1478,7 +1500,7 @@ export function IssueDetailPage() {
           </div>
           )}
 
-          <div className="id-section">
+          <div className="id-section" ref={linksPanelRef}>
             <div className="id-subtask-header">
               <h3 className="id-section-title">Linked issues</h3>
               {/* JL-284: add-link gated by canLinkIssues */}
@@ -1515,7 +1537,7 @@ export function IssueDetailPage() {
             ) : (
               <ul className="id-subtask-list">
                 {links.map((l) => (
-                  <li key={l.id} className="id-subtask-row">
+                  <li key={l.id} className={`id-subtask-row${highlightedRow?.kind === 'link' && highlightedRow.id === l.id ? ' id-row-flash' : ''}`}>
                     <span className="id-link-type">{l.type}</span>
                     <span className="id-subtask-key" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.key}</span>
                     <span className="id-subtask-title" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.title}</span>
@@ -2548,6 +2570,22 @@ export function IssueDetailPage() {
         </aside>
       </div>
       {confirmDialog}
+      {/* JL-300: success confirmation after linking an issue / creating a sub-task */}
+      <Snackbar
+        open={successToast.open}
+        autoHideDuration={3000}
+        onClose={() => setSuccessToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSuccessToast((prev) => ({ ...prev, open: false }))}
+          severity="success"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {successToast.message}
+        </Alert>
+      </Snackbar>
     </section>
   )
 }
