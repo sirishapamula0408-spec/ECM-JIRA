@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from '../../api/boardConfigApi'
+import { fetchProjectLabels, fetchIssueLabels } from '../../api/labelApi'
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
@@ -43,8 +44,31 @@ export function BoardPage() {
   const [wipLimits, setWipLimits] = useState({})
   // JL-126: configurable estimation statistic (story points / time / count)
   const [estimationStatistic, setEstimationStatistic] = useState('story_points')
-  const [activeFilters, setActiveFilters] = useState([]) // e.g. ['assignee:Alice', 'type:Bug']
+
+  // JL-239: persist the active quick-filter selection per board. The live,
+  // per-user selection is stored in localStorage keyed by project so it is
+  // restored on reload/remount (board config quick-filters, when saved, act as
+  // a shared default seed — see the config load effect below).
+  const filtersStorageKey = projectId ? `jira_board_filters_${projectId}` : 'jira_board_filters'
+  const hadStoredFiltersRef = useRef(false)
+  const [activeFilters, setActiveFilters] = useState(() => { // e.g. ['assignee:Alice', 'type:Bug', 'label:frontend']
+    try {
+      const raw = window.localStorage.getItem(projectId ? `jira_board_filters_${projectId}` : 'jira_board_filters')
+      hadStoredFiltersRef.current = raw != null
+      const parsed = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  // JL-239: project label catalog (chip source) + issue->label-names map (matching).
+  const [projectLabels, setProjectLabels] = useState([])
+  const [labelsByIssue, setLabelsByIssue] = useState({})
+  // JL-239: debounced free-text filter over summary + key.
+  const [textInput, setTextInput] = useState('')
+  const [textFilter, setTextFilter] = useState('')
 
   const [isBoardStarred, setIsBoardStarred] = useState(() => {
     try { return window.localStorage.getItem('jira_board_starred') === '1' } catch { return false }
@@ -65,10 +89,36 @@ export function BoardPage() {
         setSwimlaneBy(cfg.swimlaneBy || 'none')
         setWipLimits(cfg.wipLimits || {})
         setEstimationStatistic(cfg.estimationStatistic || 'story_points')
+        // JL-239: seed active filters from the saved board config only when the
+        // user has no personal (localStorage) selection yet — the shared default.
+        if (!hadStoredFiltersRef.current && Array.isArray(cfg.quickFilters) && cfg.quickFilters.length) {
+          setActiveFilters(cfg.quickFilters)
+        }
       })
       .catch(() => { /* fall back to defaults */ })
     return () => { cancelled = true }
   }, [projectId])
+
+  // JL-239: persist the active quick-filter selection per board (per-user).
+  useEffect(() => {
+    try { window.localStorage.setItem(filtersStorageKey, JSON.stringify(activeFilters)) } catch { /* ignore */ }
+  }, [filtersStorageKey, activeFilters])
+
+  // JL-239: load the project label catalog for the Label quick-filter chip row.
+  useEffect(() => {
+    if (!projectId) { setProjectLabels([]); return }
+    let cancelled = false
+    fetchProjectLabels(projectId)
+      .then((labels) => { if (!cancelled) setProjectLabels(Array.isArray(labels) ? labels : []) })
+      .catch(() => { if (!cancelled) setProjectLabels([]) })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  // JL-239: debounce the free-text input into the applied text filter.
+  useEffect(() => {
+    const handle = setTimeout(() => setTextFilter(textInput), 250)
+    return () => clearTimeout(handle)
+  }, [textInput])
 
   useEffect(() => {
     try { window.localStorage.setItem('jira_board_starred', isBoardStarred ? '1' : '0') } catch { /* ignore */ }
@@ -88,22 +138,62 @@ export function BoardPage() {
     ]
   }, [filteredIssues])
 
-  // Apply active quick filters (AND across categories, OR within a category).
+  // JL-239: Label quick-filter chips from the project label catalog.
+  const labelChips = useMemo(
+    () => projectLabels.map((label) => ({ cat: 'label', value: label.name, key: `label:${label.name}`, color: label.color })),
+    [projectLabels],
+  )
+
+  // JL-239: build the issue -> label-names map so label filters can match.
+  // Keyed on the current issue id set to refetch when the board changes.
+  const issueIdsKey = useMemo(() => filteredIssues.map((issue) => issue.id).join(','), [filteredIssues])
+  useEffect(() => {
+    const ids = filteredIssues.map((issue) => issue.id)
+    if (ids.length === 0) { setLabelsByIssue({}); return }
+    let cancelled = false
+    Promise.all(
+      ids.map((id) =>
+        fetchIssueLabels(id)
+          .then((labels) => [id, (Array.isArray(labels) ? labels : []).map((l) => l.name)])
+          .catch(() => [id, []]),
+      ),
+    ).then((entries) => { if (!cancelled) setLabelsByIssue(Object.fromEntries(entries)) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issueIdsKey])
+
+  // Apply active quick filters + text filter (AND across categories, OR within
+  // a category). JL-239 adds the `label` category and the free-text filter, all
+  // combining with the existing assignee/type filters.
   const visibleIssues = useMemo(() => {
-    if (activeFilters.length === 0) return filteredIssues
+    const text = textFilter.trim().toLowerCase()
+    if (activeFilters.length === 0 && !text) return filteredIssues
     const byCat = {}
     for (const key of activeFilters) {
-      const [cat, ...rest] = key.split(':')
-      ;(byCat[cat] ||= []).push(rest.join(':'))
+      const idx = key.indexOf(':')
+      const cat = key.slice(0, idx)
+      const value = key.slice(idx + 1)
+      ;(byCat[cat] ||= []).push(value)
     }
     return filteredIssues.filter((issue) => {
+      // Free-text filter over the summary (title) and key.
+      if (text) {
+        const haystack = `${issue.title || ''} ${issue.key || ''}`.toLowerCase()
+        if (!haystack.includes(text)) return false
+      }
       for (const [cat, values] of Object.entries(byCat)) {
-        const iv = cat === 'assignee' ? (issue.assignee || 'Unassigned') : issue.issueType
-        if (!values.includes(iv)) return false
+        if (cat === 'assignee') {
+          if (!values.includes(issue.assignee || 'Unassigned')) return false
+        } else if (cat === 'type') {
+          if (!values.includes(issue.issueType)) return false
+        } else if (cat === 'label') {
+          const names = labelsByIssue[issue.id] || []
+          if (!values.some((v) => names.includes(v))) return false
+        }
       }
       return true
     })
-  }, [filteredIssues, activeFilters])
+  }, [filteredIssues, activeFilters, textFilter, labelsByIssue])
 
   // JL-126: board estimation total by the configured statistic.
   const estimationTotal = useMemo(() => {
@@ -170,7 +260,8 @@ export function BoardPage() {
       if (Number.isInteger(n) && n > 0) cleanLimits[status] = n
     }
     try {
-      await saveBoardConfig(projectId, { swimlaneBy, wipLimits: cleanLimits, quickFilters: [], estimationStatistic })
+      // JL-239: persist the active quick-filter selection as the board's shared default.
+      await saveBoardConfig(projectId, { swimlaneBy, wipLimits: cleanLimits, quickFilters: activeFilters, estimationStatistic })
       setWipLimits(cleanLimits)
       setBoardMessage('Board settings saved.')
       setIsSettingsOpen(false)
@@ -217,9 +308,22 @@ export function BoardPage() {
               {chip.cat === 'assignee' ? chip.value : `${chip.value}`}
             </button>
           ))}
-          {activeFilters.length > 0 && (
-            <button type="button" className="board-filter-clear" onClick={() => setActiveFilters([])}>Clear filters</button>
+          {(activeFilters.length > 0 || textInput) && (
+            <button type="button" className="board-filter-clear" onClick={() => { setActiveFilters([]); setTextInput(''); setTextFilter('') }}>Clear filters</button>
           )}
+        </div>
+        {/* JL-239: free-text filter over summary + key (debounced). */}
+        <div className="board-text-filter">
+          <label htmlFor="board-text-filter-input" className="visually-hidden">Filter by text</label>
+          <input
+            id="board-text-filter-input"
+            type="search"
+            className="board-text-filter-input"
+            placeholder="Filter issues..."
+            aria-label="Filter issues by text"
+            value={textInput}
+            onChange={(event) => setTextInput(event.target.value)}
+          />
         </div>
         <div className="board-swimlane-control">
           <label htmlFor="swimlane-select">Swimlanes</label>
@@ -232,6 +336,25 @@ export function BoardPage() {
           <span className="board-estimation-total-value">{estimationTotalDisplay}</span>
         </div>
       </div>
+
+      {/* JL-239: Label quick-filter chip row */}
+      {labelChips.length > 0 && (
+        <div className="board-label-filters" role="group" aria-label="Label filters">
+          {labelChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              className={`board-filter-chip board-label-chip${activeFilters.includes(chip.key) ? ' board-filter-chip-active' : ''}`}
+              aria-pressed={activeFilters.includes(chip.key)}
+              style={chip.color ? { borderColor: chip.color } : undefined}
+              onClick={() => toggleFilter(chip.key)}
+            >
+              {chip.color && <span className="board-label-chip-dot" style={{ backgroundColor: chip.color }} aria-hidden="true" />}
+              {chip.value}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Board settings panel */}
       {isSettingsOpen && (

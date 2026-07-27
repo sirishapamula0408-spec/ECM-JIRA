@@ -156,6 +156,55 @@
   font-size: var(--font-size-sm);
 }
 
+/* JL-239: free-text filter input */
+.board-text-filter {
+  display: inline-flex;
+  align-items: center;
+}
+
+.board-text-filter-input {
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: var(--font-size-sm);
+  min-width: 200px;
+}
+
+/* JL-239: label quick-filter chip row */
+.board-label-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 12px;
+}
+
+.board-label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-label-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Screen-reader-only utility (used by the text filter label) */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .board-swimlane-control {
   display: inline-flex;
   align-items: center;
