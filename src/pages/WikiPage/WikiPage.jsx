@@ -1,8 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 import { fetchWikiPages, fetchWikiPage, createWikiPage, updateWikiPage, deleteWikiPage, searchWikiPages, fetchWikiVersions, fetchWikiVersion, linkIssueToWiki, unlinkIssueFromWiki } from '../../api/wikiApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import './WikiPage.css'
+
+// Numeric issue id (e.g. "42") or issue key (e.g. "ECM-12") — JL-301
+const ISSUE_REF_PATTERN = /^(\d+|[A-Za-z][A-Za-z0-9]*-\d+)$/
 
 export function WikiPage() {
   const { projectId } = useParams()
@@ -19,6 +24,10 @@ export function WikiPage() {
   const [showVersions, setShowVersions] = useState(false)
   const [diffVersion, setDiffVersion] = useState(null)
   const [linkIssueId, setLinkIssueId] = useState('')
+  const [linkError, setLinkError] = useState('')
+  const [feedback, setFeedback] = useState({ open: false, message: '', severity: 'success' })
+
+  const closeFeedback = () => setFeedback((f) => ({ ...f, open: false }))
 
   const loadPages = useCallback(async () => {
     if (!projectId) return
@@ -40,6 +49,7 @@ export function WikiPage() {
       setIsEditing(false)
       setShowVersions(false)
       setDiffVersion(null)
+      setLinkError('')
     } catch {
       // ignore
     } finally {
@@ -116,14 +126,25 @@ export function WikiPage() {
   }
 
   async function handleLinkIssue() {
-    if (!selectedPage || !linkIssueId.trim()) return
+    if (!selectedPage) return
+    const ref = linkIssueId.trim()
+    if (!ref) {
+      setLinkError('Enter an issue key (e.g. ECM-12) or issue ID to link.')
+      return
+    }
+    if (!ISSUE_REF_PATTERN.test(ref)) {
+      setLinkError(`"${ref}" is not a valid issue key or ID. Use a key like ECM-12 or a numeric issue ID.`)
+      return
+    }
+    setLinkError('')
     try {
-      await linkIssueToWiki(selectedPage.id, Number(linkIssueId))
+      const result = await linkIssueToWiki(selectedPage.id, ref)
       setLinkIssueId('')
       const full = await fetchWikiPage(selectedPage.id)
       setSelectedPage(full)
-    } catch {
-      // ignore
+      setFeedback({ open: true, message: `Issue ${result?.issueKey || ref} linked to this page.`, severity: 'success' })
+    } catch (err) {
+      setLinkError(err?.message || 'Failed to link issue.')
     }
   }
 
@@ -323,8 +344,19 @@ export function WikiPage() {
                 )}
                 {canEditIssue && (
                   <div className="wiki-link-form">
-                    <input className="wiki-input" placeholder="Issue ID to link" value={linkIssueId} onChange={(e) => setLinkIssueId(e.target.value)} style={{ width: '120px', display: 'inline-block', marginRight: '8px', marginBottom: 0 }} />
+                    <input
+                      className="wiki-input"
+                      placeholder="Issue key or ID (e.g. ECM-12)"
+                      value={linkIssueId}
+                      onChange={(e) => { setLinkIssueId(e.target.value); setLinkError('') }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleLinkIssue() }}
+                      aria-label="Issue key or ID to link"
+                      style={{ width: '180px', display: 'inline-block', marginRight: '8px', marginBottom: 0 }}
+                    />
                     <button type="button" className="btn btn-ghost btn-sm" onClick={handleLinkIssue}>Link</button>
+                    {linkError && (
+                      <p className="wiki-link-error" role="alert">{linkError}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -357,6 +389,17 @@ export function WikiPage() {
           {loading && <p className="wiki-loading">Loading...</p>}
         </div>
       </div>
+
+      <Snackbar
+        open={feedback.open}
+        autoHideDuration={5000}
+        onClose={closeFeedback}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={closeFeedback} severity={feedback.severity} variant="filled" sx={{ width: '100%' }}>
+          {feedback.message}
+        </Alert>
+      </Snackbar>
     </section>
   )
 }
