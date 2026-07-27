@@ -7,6 +7,7 @@ import { extractMentions, processMentions } from '../services/mentions.js'
 import { runCommentAutomations } from '../services/automation.js'
 import { emitEvent } from '../services/events.js'
 import { publish } from '../services/realtime.js'
+import { maxLengthError, COMMENT_TEXT_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -109,6 +110,13 @@ router.post('/:issueId/comments', requireProjectWrite(commentIssueProject), asyn
 
   if (!normalizedText) {
     res.status(400).json({ error: 'Comment text is required' })
+    return
+  }
+
+  // JL-237: server-side length cap (checked after trim)
+  const lengthErr = maxLengthError('text', normalizedText, COMMENT_TEXT_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
     return
   }
 
@@ -240,6 +248,13 @@ router.patch('/:issueId/comments/:commentId', requireProjectWrite(commentIssuePr
 
   if (!normalizedText) {
     res.status(400).json({ error: 'Comment text is required' })
+    return
+  }
+
+  // JL-237: server-side length cap (checked after trim)
+  const lengthErr = maxLengthError('text', normalizedText, COMMENT_TEXT_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
     return
   }
 

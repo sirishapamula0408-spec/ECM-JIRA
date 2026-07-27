@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { canViewIssue } from '../services/issueSecurity.js'
+import { maxLengthError, FILTER_NAME_MAX, FILTER_DESCRIPTION_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -147,9 +148,19 @@ router.post('/', asyncHandler(async (req, res) => {
   const email = req.user?.email
   const { name, description, criteria, visibility } = req.body
   const trimmedName = String(name || '').trim()
+  const trimmedDescription = String(description || '').trim()
 
   if (!trimmedName) {
     res.status(400).json({ error: 'Filter name is required' })
+    return
+  }
+
+  // JL-237: server-side length caps (checked after trim)
+  const lengthErr =
+    maxLengthError('name', trimmedName, FILTER_NAME_MAX) ||
+    maxLengthError('description', trimmedDescription, FILTER_DESCRIPTION_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
     return
   }
 
@@ -163,7 +174,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
   const result = await run(
     'INSERT INTO filters (name, description, owner_email, criteria, visibility) VALUES (?, ?, ?, ?::jsonb, ?)',
-    [trimmedName, String(description || '').trim(), email, criteriaJson, vis],
+    [trimmedName, trimmedDescription, email, criteriaJson, vis],
   )
 
   const row = await get('SELECT * FROM filters WHERE id = ?', [result.lastID])
@@ -194,6 +205,16 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
   const updatedName = name !== undefined ? String(name).trim() : existing.name
   const updatedDesc = description !== undefined ? String(description).trim() : existing.description
+
+  // JL-237: length caps — only validate fields the caller actually sent
+  const lengthErr =
+    (name !== undefined ? maxLengthError('name', updatedName, FILTER_NAME_MAX) : null) ||
+    (description !== undefined ? maxLengthError('description', updatedDesc, FILTER_DESCRIPTION_MAX) : null)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
   const updatedCriteria = criteria !== undefined ? JSON.stringify(criteria) : (typeof existing.criteria === 'string' ? existing.criteria : JSON.stringify(existing.criteria))
   const updatedStarred = isStarred !== undefined ? Boolean(isStarred) : existing.is_starred
   const updatedVisibility = visibility !== undefined ? visibility : (existing.visibility || 'private')

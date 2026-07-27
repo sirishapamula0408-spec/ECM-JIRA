@@ -3,6 +3,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireProjectWrite } from '../middleware/authorize.js' // JL-286: project-aware write gating
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
+import { maxLengthError, LABEL_NAME_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -49,6 +50,11 @@ router.post('/projects/:projectId/labels', requireProjectWrite(labelParamProject
   if (!name) {
     return sendError(res, 400, 'Label name is required')
   }
+  // JL-237: server-side length cap (checked after trim)
+  const lengthErr = maxLengthError('name', name, LABEL_NAME_MAX)
+  if (lengthErr) {
+    return sendError(res, 400, lengthErr)
+  }
   if (!HEX.test(color)) {
     return sendError(res, 400, 'color must be a hex value like #FF5630')
   }
@@ -92,6 +98,11 @@ router.put('/projects/:projectId/labels/:labelId', requireProjectWrite(labelPara
     name = String(req.body.name || '').trim()
     if (!name) {
       return sendError(res, 400, 'Label name is required')
+    }
+    // JL-237: server-side length cap (checked after trim)
+    const lengthErr = maxLengthError('name', name, LABEL_NAME_MAX)
+    if (lengthErr) {
+      return sendError(res, 400, lengthErr)
     }
     // Duplicate-name guard within the project (excluding this label)
     const clash = await get(

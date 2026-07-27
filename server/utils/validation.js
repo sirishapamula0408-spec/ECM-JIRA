@@ -77,6 +77,20 @@ export const PROJECT_KEY_MAX = 10
 export const SPRINT_NAME_MAX = 120
 export const SPRINT_GOAL_MAX = 1000
 
+/* ----------------------------------------------------------------
+   JL-237 — extend the same length caps to the remaining user-facing
+   text fields: comments, wiki pages, saved filters, labels, and KB
+   articles. Same convention as above: values are checked AFTER trim.
+   ---------------------------------------------------------------- */
+export const COMMENT_TEXT_MAX = 10000
+export const WIKI_TITLE_MAX = 255
+export const WIKI_CONTENT_MAX = 100000
+export const FILTER_NAME_MAX = 120
+export const FILTER_DESCRIPTION_MAX = 1000
+export const LABEL_NAME_MAX = 60
+export const KB_TITLE_MAX = 255
+export const KB_CONTENT_MAX = 100000
+
 /**
  * JL-204 — build a 400-ready error message when a string exceeds its cap.
  * Pure helper: returns `null` when the value is within the limit (or not a
