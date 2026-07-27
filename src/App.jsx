@@ -39,7 +39,7 @@ import { BoardPage } from './pages/BoardPage/BoardPage'
 import { ReportsPage } from './pages/ReportsPage/ReportsPage'
 import { ReportBuilderPage } from './pages/ReportBuilderPage/ReportBuilderPage'
 import { RoadmapPage } from './pages/RoadmapPage/RoadmapPage'
-import { WorkflowsPage } from './pages/WorkflowsPage/WorkflowsPage'
+import { IssueListPage } from './pages/ListPage/IssueListPage'
 import { ProfilePage } from './pages/ProfilePage/ProfilePage'
 import { IssueDetailPage } from './pages/IssueDetailPage/IssueDetailPage'
 import { ActiveSprintPage } from './pages/ActiveSprintPage/ActiveSprintPage'
@@ -183,8 +183,12 @@ function AppContent() {
               <Route path="/projects/:projectId/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
               <Route path="/projects/:projectId/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/list" element={hasProjects ? <WorkflowsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/workflows" element={hasProjects ? <WorkflowsPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/projects/:projectId/list" element={hasProjects ? <IssueListPage /> : <Navigate to="/projects" replace />} />
+              <Route path="/list" element={hasProjects ? <IssueListPage /> : <Navigate to="/projects" replace />} />
+              {/* JL-254: /workflows historically served the issue-list UI (a mis-named
+                  route that collided with the real workflow editor). Redirect it to the
+                  properly-named /list view to avoid breaking any existing bookmarks. */}
+              <Route path="/workflows" element={<Navigate to="/list" replace />} />
               <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
               <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
               <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />

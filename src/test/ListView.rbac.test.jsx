@@ -1,4 +1,4 @@
-// JL-294 — RBAC: the List view (WorkflowsPage.jsx, served at /workflows and
+// JL-294 — RBAC: the List view (IssueListPage.jsx, served at /list and
 // /projects/:id/list) must not show write controls to Viewers. Row selection
 // checkboxes, the bulk Status/Priority/Delete bar, and the inline "+ Create"
 // row are gated by usePermissions(projectId) (canEditIssue / canDeleteIssue /
@@ -31,7 +31,7 @@ vi.mock('../context/SprintContext', () => ({ useSprints: () => ({ sprints: [] })
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ authUser: { name: 'Alex Rivera', email: 'alex@test.com' } }) }))
 vi.mock('../context/MemberContext', () => ({ useMembers: () => ({ profile: { full_name: 'Alex Rivera' } }) }))
 
-import { WorkflowsPage } from '../pages/WorkflowsPage/WorkflowsPage'
+import { IssueListPage } from '../pages/ListPage/IssueListPage'
 
 const VIEWER_PERMS = {
   loaded: true,
@@ -50,7 +50,7 @@ const MEMBER_PERMS = {
 function renderPage() {
   return render(
     <MemoryRouter>
-      <WorkflowsPage />
+      <IssueListPage />
     </MemoryRouter>,
   )
 }
@@ -59,7 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('JL-294 — List view (WorkflowsPage) RBAC gating', () => {
+describe('JL-294 — List view (IssueListPage) RBAC gating', () => {
   describe('Viewer sees a read-only list', () => {
     beforeEach(() => { mockPerms = { ...VIEWER_PERMS } })
 

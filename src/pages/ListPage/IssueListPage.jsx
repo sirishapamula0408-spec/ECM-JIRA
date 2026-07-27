@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import './WorkflowsPage.css'
+import './IssueListPage.css'
 import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -53,7 +53,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export function WorkflowsPage() {
+export function IssueListPage() {
   const { confirm, confirmDialog } = useConfirm()
   const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
   const { sprints } = useSprints()
