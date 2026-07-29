@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { usePermissions } from '../../hooks/usePermissions'
@@ -17,6 +17,13 @@ const SWIMLANE_OPTIONS = [
   { value: 'epic', label: 'Epic' },
   { value: 'priority', label: 'Priority' },
 ]
+
+// JL-310: minimum resizable column width (px) and localStorage key builder.
+const MIN_COL_WIDTH = 200
+const DEFAULT_COL_WIDTH = 270
+function colWidthsStorageKey(projectId) {
+  return `board_col_widths_${projectId || 'default'}`
+}
 
 // Resolve the grouping value for an issue given a swimlane mode.
 function swimlaneValueFor(issue, mode) {
@@ -58,6 +65,12 @@ export function BoardPage() {
   const [isBoardStarred, setIsBoardStarred] = useState(() => {
     try { return window.localStorage.getItem('jira_board_starred') === '1' } catch { return false }
   })
+
+  // JL-310: per-column widths (map of columnId -> px). Persisted in localStorage
+  // keyed per board so each project's board layout is remembered independently.
+  const [colWidths, setColWidths] = useState({})
+  // Tracks an in-flight resize drag so pointermove/up handlers stay scoped to it.
+  const resizeRef = useRef(null)
 
   const filteredIssues = useMemo(
     () => projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues,
@@ -102,6 +115,45 @@ export function BoardPage() {
   useEffect(() => {
     try { window.localStorage.setItem('jira_board_starred', isBoardStarred ? '1' : '0') } catch { /* ignore */ }
   }, [isBoardStarred])
+
+  // JL-310: restore persisted per-column widths for this board on load / project change.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(colWidthsStorageKey(projectId))
+      const parsed = raw ? JSON.parse(raw) : null
+      setColWidths(parsed && typeof parsed === 'object' ? parsed : {})
+    } catch { setColWidths({}) }
+  }, [projectId])
+
+  // JL-310: begin a column resize drag. Scoped to the trailing-edge handle so it
+  // never interferes with card drag-and-drop. Widths persist to localStorage on release.
+  function startColumnResize(event, colId, element) {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startWidth = element?.getBoundingClientRect().width || colWidths[colId] || DEFAULT_COL_WIDTH
+    resizeRef.current = { colId, startX, startWidth }
+    document.body.classList.add('board-col-resizing')
+
+    const onMove = (moveEvent) => {
+      const state = resizeRef.current
+      if (!state) return
+      const next = Math.max(MIN_COL_WIDTH, Math.round(state.startWidth + (moveEvent.clientX - state.startX)))
+      setColWidths((current) => ({ ...current, [state.colId]: next }))
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.classList.remove('board-col-resizing')
+      resizeRef.current = null
+      setColWidths((current) => {
+        try { window.localStorage.setItem(colWidthsStorageKey(projectId), JSON.stringify(current)) } catch { /* ignore */ }
+        return current
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // Available quick-filter chips derived from the current issues.
   const quickFilterChips = useMemo(() => {
@@ -452,11 +504,13 @@ export function BoardPage() {
               const limit = wipLimits[col.name]
               const hasLimit = Number.isInteger(Number(limit)) && Number(limit) > 0
               const isOverLimit = hasLimit && colIssues.length > Number(limit)
+              const width = colWidths[col.id]
               return (
                 <article
                   key={col.id}
                   className={`kanban-col${dropColId === col.id ? ' kanban-col-drop-active' : ''}${isOverLimit ? ' kanban-col-over-wip' : ''}`}
                   data-column={col.name}
+                  style={width ? { flex: `0 0 ${width}px`, width: `${width}px` } : undefined}
                   onDragOver={(event) => { event.preventDefault(); if (dropColId !== col.id) setDropColId(col.id) }}
                   onDrop={() => handleDrop(col)}
                 >
@@ -488,6 +542,16 @@ export function BoardPage() {
                       )}
                     </div>
                   ))}
+                  <div
+                    className="kanban-col-resize-handle"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize column ${col.name}`}
+                    title="Drag to resize column"
+                    draggable={false}
+                    onPointerDown={(event) => startColumnResize(event, col.id, event.currentTarget.closest('.kanban-col'))}
+                    onClick={(event) => event.stopPropagation()}
+                  />
                 </article>
               )
             })}

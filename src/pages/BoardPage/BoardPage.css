@@ -1,9 +1,56 @@
 /* BoardPage (Kanban) styles */
 
+/* JL-310: Atlassian-style single horizontal row. All configured columns render
+   in one row and the container scrolls sideways when they exceed the viewport —
+   only this container scrolls, not the page body. */
 .kanban-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(230px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 6px;
+}
+
+/* JL-310: each column is a fixed-basis, resizable flex item (min width guarded). */
+.kanban-col {
+  position: relative;
+  flex: 0 0 270px;
+  min-width: 200px;
+  box-sizing: border-box;
+}
+
+/* JL-310: trailing-edge drag handle for resizing a column. */
+.kanban-col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+  background: transparent;
+}
+.kanban-col-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.kanban-col-resize-handle:hover::after {
+  background: #b3d4ff;
+}
+body.board-col-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .board-jira-header {
