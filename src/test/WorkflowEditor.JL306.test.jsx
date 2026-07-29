@@ -173,6 +173,34 @@ describe('JL-306 — Publish persists a custom named workflow (regression)', () 
     await waitFor(() => expect(createWorkflowDefinition).toHaveBeenCalledTimes(1))
     expect(createWorkflowDefinition.mock.calls[0][1].name).toBe('Release Flow')
   })
+
+  it('shows a success confirmation after a successful Publish', async () => {
+    render(<WorkflowEditorPage />)
+    await screen.findByRole('button', { name: /Status Backlog/ })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Publish workflow' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Publish' }))
+
+    await waitFor(() => expect(createWorkflowDefinition).toHaveBeenCalledTimes(1))
+    // The success confirmation is surfaced to the user (Snackbar + Alert).
+    expect(
+      await screen.findByText(/as this project's default workflow\./i),
+    ).toBeInTheDocument()
+  })
+
+  it('shows a success confirmation after applying the QA Lifecycle template', async () => {
+    render(<WorkflowEditorPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /Apply QA Lifecycle template/ }))
+
+    const confirmBtn = await screen.findByRole('button', { name: /Apply workflow/ })
+    fireEvent.click(confirmBtn)
+
+    await waitFor(() => expect(applyWorkflowTemplate).toHaveBeenCalledTimes(1))
+    expect(
+      await screen.findByText(/QA Lifecycle applied as the default workflow\./i),
+    ).toBeInTheDocument()
+  })
 })
 
 // ── JL-306: disabled-button UX hardening ──

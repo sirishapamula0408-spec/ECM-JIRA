@@ -4,6 +4,8 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 import { ISSUE_STATUSES } from '../../constants'
 import { fetchProjects } from '../../api/projectApi'
 import { fetchProjectStatuses, createStatus, deleteStatus } from '../../api/issueConfigApi'
@@ -97,6 +99,8 @@ export function WorkflowEditorPage() {
   const [applyingTemplate, setApplyingTemplate] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // JL-306: visible success confirmation after Publish / Apply QA Lifecycle.
+  const [successMsg, setSuccessMsg] = useState('')
 
   // Node positions persisted to localStorage, keyed by status name.
   const [positions, setPositions] = useState({})
@@ -186,6 +190,7 @@ export function WorkflowEditorPage() {
     try {
       await applyWorkflowTemplate(projectId, 'qa-lifecycle')
       await reload(projectId)
+      setSuccessMsg('QA Lifecycle applied as the default workflow.')
     } catch (e) {
       setError(e?.message || 'Failed to apply the QA Lifecycle workflow')
     } finally {
@@ -413,6 +418,7 @@ export function WorkflowEditorPage() {
       })
       setShowPublish(false)
       await reload(projectId)
+      setSuccessMsg(`Published "${name}" as this project's default workflow.`)
     } catch (e) {
       setPublishError(e?.message || 'Failed to publish workflow')
     } finally {
@@ -952,6 +958,23 @@ export function WorkflowEditorPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* JL-306: success confirmation for Publish / Apply QA Lifecycle */}
+      <Snackbar
+        open={!!successMsg}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMsg('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSuccessMsg('')}
+          severity="success"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {successMsg}
+        </Alert>
+      </Snackbar>
 
       {confirmDialog}
     </section>
