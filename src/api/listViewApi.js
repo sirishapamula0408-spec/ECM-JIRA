@@ -19,16 +19,18 @@ export const COLUMN_LABELS = {
   storyPoints: 'Story points',
 }
 
-// List the current user's saved views
-export const fetchListViews = () => api('/api/list-views')
+// List the current user's saved views. Pass a `projectId` to fetch views scoped
+// to that project (List page, JL-255); omit it for global views (Filters page).
+export const fetchListViews = (projectId) =>
+  api(projectId != null && projectId !== '' ? `/api/list-views?projectId=${encodeURIComponent(projectId)}` : '/api/list-views')
 
 // Fetch the allowed column catalog + defaults from the server
 export const fetchColumnCatalog = () => api('/api/list-views/columns')
 
-export function createListView({ name, columns, filterJql, isDefault }) {
+export function createListView({ name, columns, filterJql, isDefault, projectId }) {
   return api('/api/list-views', {
     method: 'POST',
-    body: JSON.stringify({ name, columns, filterJql, isDefault }),
+    body: JSON.stringify({ name, columns, filterJql, isDefault, projectId }),
   })
 }
 
