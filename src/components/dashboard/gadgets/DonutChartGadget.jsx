@@ -27,7 +27,7 @@ export function DonutChartGadget({ issues, config }) {
   for (const seg of segments) {
     const sweep = total > 0 ? (seg.count / total) * 360 : 0
     if (sweep > 0) {
-      sectorPaths.push({ ...seg, path: sectorPath(80, 80, 78, angle, angle + sweep) })
+      sectorPaths.push({ ...seg, path: sectorPath(80, 80, 78, angle, angle + sweep), startAngle: angle, endAngle: angle + sweep })
     }
     angle += sweep
   }
@@ -40,16 +40,37 @@ export function DonutChartGadget({ issues, config }) {
             <strong>{grandTotal}</strong>
             <span>Total</span>
           </div>
-          <svg viewBox="0 0 160 160" className="pie-gadget-svg">
+          {/* onMouseLeave lives on the <svg>, not each slice: clearing the
+              hovered label per-slice made the tooltip flicker as the pointer
+              crossed sector seams (JL-299). */}
+          <svg viewBox="0 0 160 160" className="pie-gadget-svg" onMouseLeave={() => setHoveredLabel(null)}>
             {sectorPaths.map((s) => (
               <path
                 key={s.label}
                 d={s.path}
                 fill="transparent"
                 onMouseEnter={() => setHoveredLabel(s.label)}
-                onMouseLeave={() => setHoveredLabel(null)}
               />
             ))}
+            {config.showLabels !== false && sectorPaths.map((s) => {
+              if (s.endAngle - s.startAngle < 18) return null
+              const mid = (s.startAngle + s.endAngle) / 2
+              const rad = (mid - 90) * (Math.PI / 180)
+              const x = 80 + 60 * Math.cos(rad)
+              const y = 80 + 60 * Math.sin(rad)
+              return (
+                <text
+                  key={`label-${s.label}`}
+                  x={x}
+                  y={y}
+                  className="pie-gadget-slice-label"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                >
+                  {Math.round((s.count / total) * 100)}%
+                </text>
+              )
+            })}
           </svg>
         </div>
         {hoveredLabel && (

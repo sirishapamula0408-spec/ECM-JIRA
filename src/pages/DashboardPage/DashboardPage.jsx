@@ -136,6 +136,14 @@ export function DashboardPage() {
   const handleDragStart = useCallback((index) => (e) => {
     dragIndexRef.current = index
     e.dataTransfer.effectAllowed = 'move'
+    // Firefox (and some browsers) refuse to start an HTML5 drag unless the
+    // drag data is populated. Without this, dropping never fired and reorder
+    // silently did nothing (JL-299).
+    try {
+      e.dataTransfer.setData('text/plain', String(index))
+    } catch {
+      /* jsdom / older browsers may not implement setData */
+    }
   }, [])
 
   const handleDragOver = useCallback((index) => (e) => {
