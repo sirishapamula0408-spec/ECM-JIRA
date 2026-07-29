@@ -402,3 +402,127 @@
 .kanban-card-flag {
   margin-left: 6px;
 }
+
+/* JL-308: Board column configuration editor */
+.board-settings-columns {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border, #DFE1E6);
+}
+.board-settings-columns-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.board-settings-columns-hint {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  color: var(--color-text-subtle, #6B778C);
+}
+.board-col-add {
+  border: 1px solid var(--color-border, #DFE1E6);
+  background: var(--color-surface, #fff);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.board-col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.board-col-editor {
+  border: 1px solid var(--color-border, #DFE1E6);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--color-surface-sunken, #FAFBFC);
+}
+.board-col-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+.board-col-name-input {
+  flex: 1;
+  border: 1px solid var(--color-border, #DFE1E6);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.board-col-editor-actions {
+  display: flex;
+  gap: 4px;
+}
+.board-col-editor-actions button {
+  border: 1px solid var(--color-border, #DFE1E6);
+  background: var(--color-surface, #fff);
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  line-height: 1;
+}
+.board-col-editor-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.board-col-remove {
+  color: var(--color-danger, #DE350B);
+}
+.board-col-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+.board-col-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-primary-subtle, #DEEBFF);
+  color: var(--color-primary, #0052CC);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.board-col-status-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+.board-col-status-chip-unmapped {
+  background: var(--color-surface-sunken, #EBECF0);
+  color: var(--color-text-subtle, #6B778C);
+}
+.board-col-status-add {
+  border: 1px dashed var(--color-border, #C1C7D0);
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+.board-col-unmapped {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+}
+.board-col-unmapped-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-subtle, #6B778C);
+}
+.board-col-unmapped-empty {
+  font-size: 12px;
+  color: var(--color-text-subtle, #6B778C);
+}

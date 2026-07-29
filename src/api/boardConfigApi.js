@@ -5,10 +5,10 @@ import { api } from './client.js'
 export const fetchBoardConfig = (projectId) =>
   api(`/api/projects/${projectId}/board-config`)
 
-export const saveBoardConfig = (projectId, { swimlaneBy, wipLimits, quickFilters, estimationStatistic }) =>
+export const saveBoardConfig = (projectId, { swimlaneBy, wipLimits, quickFilters, estimationStatistic, columns }) =>
   api(`/api/projects/${projectId}/board-config`, {
     method: 'PUT',
-    body: JSON.stringify({ swimlaneBy, wipLimits, quickFilters, estimationStatistic }),
+    body: JSON.stringify({ swimlaneBy, wipLimits, quickFilters, estimationStatistic, columns }),
   })
 
 // JL-126: estimation totals (per sprint + backlog) using the board's

@@ -22,7 +22,50 @@ function defaultConfig(projectId) {
     wipLimits: {},
     quickFilters: [],
     estimationStatistic: DEFAULT_ESTIMATION_STATISTIC,
+    columns: [],
   }
+}
+
+// Validate + normalise the Atlassian-style column configuration (JL-308).
+// Returns { columns } on success or { error } on failure. Each column is
+// { id, name, statuses[] }; a status may belong to at most one column.
+function validateColumns(input) {
+  if (input === undefined || input === null) return { columns: [] }
+  if (!Array.isArray(input)) return { error: 'columns must be an array' }
+  const seenStatuses = new Set()
+  const columns = []
+  input.forEach((col, index) => {
+    if (columns.error) return
+    if (typeof col !== 'object' || col === null || Array.isArray(col)) {
+      columns.error = `columns[${index}] must be an object`
+      return
+    }
+    const name = String(col.name ?? '').trim()
+    if (!name) {
+      columns.error = `columns[${index}].name is required`
+      return
+    }
+    const rawStatuses = col.statuses ?? []
+    if (!Array.isArray(rawStatuses)) {
+      columns.error = `columns[${index}].statuses must be an array`
+      return
+    }
+    const statuses = []
+    for (const s of rawStatuses) {
+      const status = String(s ?? '').trim()
+      if (!status) continue
+      if (seenStatuses.has(status)) {
+        columns.error = `status "${status}" is mapped to more than one column`
+        return
+      }
+      seenStatuses.add(status)
+      statuses.push(status)
+    }
+    const id = String(col.id ?? '').trim() || `col_${index}_${Math.random().toString(36).slice(2, 8)}`
+    columns.push({ id, name, statuses })
+  })
+  if (columns.error) return { error: columns.error }
+  return { columns }
 }
 
 // JSONB columns come back as parsed objects from pg, but be defensive in case
@@ -42,11 +85,12 @@ function serialize(row) {
     wipLimits: parseJson(row.wip_limits, {}),
     quickFilters: parseJson(row.quick_filters, []),
     estimationStatistic: row.estimation_statistic || DEFAULT_ESTIMATION_STATISTIC,
+    columns: parseJson(row.columns, []),
   }
 }
 
 const CONFIG_COLUMNS =
-  'project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic'
+  'project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic, columns'
 
 // GET the board config for a project (returns defaults when none saved).
 router.get('/projects/:projectId/board-config', asyncHandler(async (req, res) => {
@@ -98,16 +142,24 @@ router.put('/projects/:projectId/board-config', requireRole('Admin'), asyncHandl
     return
   }
 
+  const columnsResult = validateColumns(req.body?.columns)
+  if (columnsResult.error) {
+    res.status(400).json({ error: columnsResult.error })
+    return
+  }
+  const columns = columnsResult.columns
+
   await run(
-    `INSERT INTO board_configs (project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic, updated_at)
-     VALUES (?, ?, ?::jsonb, ?::jsonb, ?, NOW())
+    `INSERT INTO board_configs (project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic, columns, updated_at)
+     VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?::jsonb, NOW())
      ON CONFLICT (project_id) DO UPDATE SET
        swimlane_by = EXCLUDED.swimlane_by,
        wip_limits = EXCLUDED.wip_limits,
        quick_filters = EXCLUDED.quick_filters,
        estimation_statistic = EXCLUDED.estimation_statistic,
+       columns = EXCLUDED.columns,
        updated_at = NOW()`,
-    [projectId, swimlaneBy, JSON.stringify(wipLimits), JSON.stringify(quickFilters), estimationStatistic],
+    [projectId, swimlaneBy, JSON.stringify(wipLimits), JSON.stringify(quickFilters), estimationStatistic, JSON.stringify(columns)],
   )
 
   const row = await get(

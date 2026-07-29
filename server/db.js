@@ -1187,6 +1187,14 @@ export async function initializeDatabase() {
   await pool.query(
     "ALTER TABLE board_configs ADD COLUMN IF NOT EXISTS estimation_statistic TEXT NOT NULL DEFAULT 'story_points'",
   )
+
+  // --- JL-308: Atlassian-style board column configuration ---
+  // Ordered list of board columns, each mapped to one or more workflow statuses:
+  //   [{ id, name, statuses: ['To Do', ...] }]. Empty array = default columns
+  //   (one column per workflow status). A status belongs to at most one column.
+  await pool.query(
+    "ALTER TABLE board_configs ADD COLUMN IF NOT EXISTS columns JSONB NOT NULL DEFAULT '[]'",
+  )
   // Ensure story_points can hold fractional/large values (JIRA allows decimals).
   if (!(await columnExists('issues', 'story_points'))) {
     await pool.query('ALTER TABLE issues ADD COLUMN story_points NUMERIC')
