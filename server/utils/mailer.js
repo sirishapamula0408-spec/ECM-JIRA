@@ -115,3 +115,65 @@ export function buildInviteEmail({ recipientName, invitedBy, role, appUrl }) {
 
   return { subject, html, text }
 }
+
+// Minimal HTML escaping so notification titles/messages can't break the markup.
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * JL-303: Build a single digest email summarising a batch of unread
+ * notifications for one recipient. Follows the buildInviteEmail style.
+ *
+ * @param {object} args
+ * @param {string} args.recipientEmail
+ * @param {Array<{ title?: string, message?: string, type?: string }>} args.notifications
+ * @param {string} [args.appUrl]
+ * @returns {{ subject: string, html: string, text: string }}
+ */
+export function buildDigestEmail({ recipientEmail, notifications = [], appUrl }) {
+  const url = appUrl || APP_URL || 'http://localhost:5173'
+  const count = notifications.length
+  const noun = count === 1 ? 'notification' : 'notifications'
+  const subject = `ECM-JIRA: ${count} unread ${noun}`
+
+  const rows = notifications
+    .map((n) => {
+      const title = escapeHtml(n.title || 'Notification')
+      const message = n.message ? `<p style="margin:4px 0 0;font-size:13px;line-height:1.5;color:#6b778c;">${escapeHtml(n.message)}</p>` : ''
+      return `
+        <li style="list-style:none;padding:12px 0;border-bottom:1px solid #dfe1e6;">
+          <p style="margin:0;font-size:14px;font-weight:600;color:#172b4d;">${title}</p>
+          ${message}
+        </li>`
+    })
+    .join('')
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#172b4d;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <h2 style="margin:0 0 4px;font-size:20px;color:#0052cc;">ECM-JIRA</h2>
+        <p style="margin:0;font-size:12px;color:#6b778c;">Project Management Platform</p>
+      </div>
+      <p style="font-size:14px;line-height:1.6;">You have <strong>${count}</strong> unread ${noun} waiting for you.</p>
+      <ul style="margin:16px 0;padding:0;">${rows}</ul>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="${url}" style="display:inline-block;padding:12px 32px;background:#0052cc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">View in ECM-JIRA</a>
+      </div>
+      <hr style="border:none;border-top:1px solid #dfe1e6;margin:24px 0;" />
+      <p style="font-size:11px;color:#97a0af;text-align:center;">You're receiving this digest because email digests are enabled for ${escapeHtml(recipientEmail)}. Change this in your notification preferences.</p>
+    </div>
+  `
+
+  const lines = notifications.map((n) => {
+    const title = n.title || 'Notification'
+    return n.message ? `• ${title} — ${n.message}` : `• ${title}`
+  })
+  const text = `You have ${count} unread ${noun} on ECM-JIRA:\n\n${lines.join('\n')}\n\nView in ECM-JIRA: ${url}`
+
+  return { subject, html, text }
+}

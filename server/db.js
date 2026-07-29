@@ -631,6 +631,13 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-303: Email digest bookkeeping ---
+  // Tracks the last time an unread-notification digest was sent to this user, so
+  // the digest runner can select only notifications created since (idempotent).
+  if (!(await columnExists('notification_preferences', 'last_digest_sent_at'))) {
+    await pool.query('ALTER TABLE notification_preferences ADD COLUMN last_digest_sent_at TIMESTAMPTZ')
+  }
+
   // --- JL-48: Wiki Page Versions ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wiki_page_versions (
