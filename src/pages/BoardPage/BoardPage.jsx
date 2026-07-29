@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from '../../api/boardConfigApi'
+import { fetchProjectStatuses } from '../../api/issueConfigApi'
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
@@ -46,6 +47,11 @@ export function BoardPage() {
   // JL-308: Atlassian-style column configuration ([{ id, name, statuses[] }]).
   // Empty = fall back to the default one-column-per-workflow-status board.
   const [columns, setColumns] = useState([])
+  // JL-309: the project's actual workflow status names (from GET /api/projects/:id/statuses).
+  // Sourced per-project so the columns editor + board grouping reflect custom
+  // workflows; falls back to the standard ISSUE_STATUSES set when the project has
+  // no custom statuses configured (empty/absent response or fetch failure).
+  const [projectStatuses, setProjectStatuses] = useState(ISSUE_STATUSES)
   const [activeFilters, setActiveFilters] = useState([]) // e.g. ['assignee:Alice', 'type:Bug']
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
@@ -71,6 +77,25 @@ export function BoardPage() {
         setColumns(Array.isArray(cfg.columns) ? cfg.columns : [])
       })
       .catch(() => { /* fall back to defaults */ })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  // JL-309: load the project's effective workflow statuses. The endpoint returns
+  // rows shaped like { id, name, position, color, category }; we take the ordered
+  // names. When the project has no statuses (empty response) or the fetch fails,
+  // keep the standard ISSUE_STATUSES fallback so existing boards are unaffected.
+  useEffect(() => {
+    if (!projectId) { setProjectStatuses(ISSUE_STATUSES); return }
+    let cancelled = false
+    fetchProjectStatuses(projectId)
+      .then((rows) => {
+        if (cancelled) return
+        const names = Array.isArray(rows)
+          ? rows.map((row) => (typeof row === 'string' ? row : row?.name)).filter(Boolean)
+          : []
+        setProjectStatuses(names.length > 0 ? names : ISSUE_STATUSES)
+      })
+      .catch(() => { if (!cancelled) setProjectStatuses(ISSUE_STATUSES) })
     return () => { cancelled = true }
   }, [projectId])
 
@@ -143,6 +168,15 @@ export function BoardPage() {
       .map(([value, laneIssues]) => ({ key: value, label: value, issues: laneIssues }))
   }, [visibleIssues, swimlaneBy])
 
+  // JL-309: default one-column-per-status set derived from the project's own
+  // workflow statuses (Backlog excluded, mirroring the historical STATUS_COLUMNS
+  // default). Falls back to STATUS_COLUMNS when the project has no custom
+  // statuses, keeping existing boards unchanged.
+  const defaultColumnStatuses = useMemo(() => {
+    const names = projectStatuses.filter((status) => status !== 'Backlog')
+    return names.length > 0 ? names : STATUS_COLUMNS
+  }, [projectStatuses])
+
   // JL-308: the columns actually rendered on the board. When no column config
   // is saved, fall back to the historical default: one column per non-backlog
   // workflow status.
@@ -150,22 +184,24 @@ export function BoardPage() {
     if (Array.isArray(columns) && columns.length > 0) {
       return columns.map((col) => ({ id: col.id, name: col.name, statuses: col.statuses || [] }))
     }
-    return STATUS_COLUMNS.map((status) => ({ id: status, name: status, statuses: [status] }))
-  }, [columns])
+    return defaultColumnStatuses.map((status) => ({ id: status, name: status, statuses: [status] }))
+  }, [columns, defaultColumnStatuses])
 
   // Materialised columns for the settings editor — defaults are shown so an
   // admin can start from the current board rather than a blank slate.
   const editorColumns = useMemo(() => (
     Array.isArray(columns) && columns.length > 0
       ? columns
-      : STATUS_COLUMNS.map((status) => ({ id: status, name: status, statuses: [status] }))
-  ), [columns])
+      : defaultColumnStatuses.map((status) => ({ id: status, name: status, statuses: [status] }))
+  ), [columns, defaultColumnStatuses])
 
   // Workflow statuses not mapped to any column (Jira's backlog/unmapped area).
+  // JL-309: sourced from the project's effective statuses rather than the
+  // hardcoded ISSUE_STATUSES constant.
   const unmappedStatuses = useMemo(() => {
     const mapped = new Set(editorColumns.flatMap((col) => col.statuses || []))
-    return ISSUE_STATUSES.filter((status) => !mapped.has(status))
-  }, [editorColumns])
+    return projectStatuses.filter((status) => !mapped.has(status))
+  }, [editorColumns, projectStatuses])
 
   function addColumn() {
     setColumns([...editorColumns, { id: `col_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name: 'New column', statuses: [] }])
@@ -315,7 +351,7 @@ export function BoardPage() {
           </div>
           <div className="board-settings-wip">
             <span className="board-settings-wip-title">WIP limits (per column)</span>
-            {STATUS_COLUMNS.map((status) => (
+            {defaultColumnStatuses.map((status) => (
               <div className="board-settings-row" key={status}>
                 <label htmlFor={`wip-${status}`}>{status}</label>
                 <input
@@ -445,7 +481,7 @@ export function BoardPage() {
                       <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
                       {canEditIssue ? (
                         <select value={issue.status} onChange={(event) => handleMove(issue.id, event.target.value, issue.sprintId ?? null)}>
-                          {ISSUE_STATUSES.map((item) => (<option key={item} value={item}>{item}</option>))}
+                          {projectStatuses.map((item) => (<option key={item} value={item}>{item}</option>))}
                         </select>
                       ) : (
                         <span className="kanban-status-readonly" aria-label={`Status for ${issue.key}`}>{issue.status}</span>
