@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { sendMail } from '../utils/mailer.js'
+import { sendMail, buildNotificationEmail } from '../utils/mailer.js'
 
 const router = Router()
 
@@ -132,9 +132,8 @@ export async function createNotification({ recipientEmail, type, title, message 
   )
 
   // Best-effort email delivery — fire-and-forget so it never blocks or breaks
-  // the caller. Send only when the recipient has email notifications enabled and
-  // this notification type isn't muted.
-  maybeSendNotificationEmail({ recipientEmail, type, title, message }).catch((err) => {
+  // the caller. Send only when the recipient opts in (see maybeSendNotificationEmail).
+  maybeSendNotificationEmail({ recipientEmail, type, title, message, actorEmail }).catch((err) => {
     console.error(`[notifications] email delivery failed: ${err.message}`)
   })
 
@@ -142,15 +141,26 @@ export async function createNotification({ recipientEmail, type, title, message 
 }
 
 /**
- * Send a notification email if the recipient's preferences opt in.
+ * Send an immediate notification email if the recipient's preferences opt in.
+ * Gated on: email_enabled = TRUE, the notification type is NOT muted, and the
+ * digest mode is 'off' (or absent). Daily/weekly digests are batched separately
+ * (JL-303), so we never send an immediate email for those. If the user has no
+ * preferences row, email is treated as OFF (the schema default).
+ *
  * Never throws — resolves quietly on any error or when email is disabled/muted.
  */
-async function maybeSendNotificationEmail({ recipientEmail, type, title, message }) {
+async function maybeSendNotificationEmail({ recipientEmail, type, title, message, actorEmail = null }) {
   const prefs = await get(
-    'SELECT email_enabled, muted_types FROM notification_preferences WHERE user_email = ?',
+    'SELECT email_enabled, email_digest, muted_types FROM notification_preferences WHERE user_email = ?',
     [recipientEmail],
   )
+  // No prefs row → default OFF. Also require email to be enabled.
   if (!prefs || !prefs.email_enabled) return
+
+  // Immediate email only when digest is 'off' (or unset). Daily/weekly are
+  // handled by the digest job (JL-303) — do not send an immediate email.
+  const digest = prefs.email_digest || 'off'
+  if (digest !== 'off') return
 
   let muted = prefs.muted_types
   if (typeof muted === 'string') {
@@ -158,12 +168,6 @@ async function maybeSendNotificationEmail({ recipientEmail, type, title, message
   }
   if (Array.isArray(muted) && muted.includes(type)) return
 
-  const subject = title || 'New notification from ECM-JIRA'
-  const text = message ? `${title}\n\n${message}` : title
-  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#172b4d;">`
-    + `<h3 style="color:#0052cc;margin:0 0 8px;">${title || 'Notification'}</h3>`
-    + (message ? `<p style="font-size:14px;line-height:1.6;">${message}</p>` : '')
-    + `</div>`
-
-  await sendMail({ to: recipientEmail, subject, text, html })
+  const { subject, html, text } = buildNotificationEmail({ title, message, type, actorEmail })
+  await sendMail({ to: recipientEmail, subject, html, text })
 }
