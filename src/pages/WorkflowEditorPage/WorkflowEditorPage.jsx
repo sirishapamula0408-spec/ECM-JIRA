@@ -16,6 +16,7 @@ import {
 import {
   fetchWorkflowDefinitions,
   applyWorkflowTemplate,
+  createWorkflowDefinition,
 } from '../../api/workflowDefinitionApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -88,6 +89,7 @@ export function WorkflowEditorPage() {
 
   // ── Shared, project-scoped state (drives BOTH the canvas and the Rules panel) ──
   const [projects, setProjects] = useState([])
+  const [projectsError, setProjectsError] = useState(false) // JL-306: surface load failures
   const [projectId, setProjectId] = useState('')
   const [statuses, setStatuses] = useState([])
   const [transitions, setTransitions] = useState([])
@@ -117,6 +119,13 @@ export function WorkflowEditorPage() {
   const [newTransFrom, setNewTransFrom] = useState('')
   const [newTransTo, setNewTransTo] = useState('')
 
+  // JL-306: Publish (create a custom named workflow from the current canvas) modal
+  const [showPublish, setShowPublish] = useState(false)
+  const [publishName, setPublishName] = useState('')
+  const [publishInitial, setPublishInitial] = useState('')
+  const [publishBusy, setPublishBusy] = useState(false)
+  const [publishError, setPublishError] = useState('')
+
   const dragging = useRef(null)
   const didDrag = useRef(false)
   const canvasWrapperRef = useRef(null)
@@ -129,9 +138,11 @@ export function WorkflowEditorPage() {
     fetchProjects()
       .then((list) => {
         setProjects(list || [])
+        setProjectsError(false)
         if (list && list.length > 0) setProjectId(String(list[0].id))
       })
-      .catch(() => setProjects([]))
+      // JL-306: don't silently swallow — remember the failure so the UI can explain it.
+      .catch(() => { setProjects([]); setProjectsError(true) })
   }, [])
 
   // ── Load statuses + transitions for the selected project (single source) ──
@@ -360,6 +371,55 @@ export function WorkflowEditorPage() {
     }
   }
 
+  // ── Publish (JL-306): persist the customised canvas as a named custom workflow ──
+  // Statuses/transitions already persist individually as they are added; Publish
+  // captures the current graph into a project_workflows row and marks it the
+  // project default (which is what drives status-change enforcement). ensureStatuses
+  // / ensureTransitions on the backend are idempotent, so re-sending the current
+  // graph is safe.
+  const openPublish = () => {
+    setPublishError('')
+    const currentDefault = workflowDefs.find((w) => w.isDefault)
+    setPublishName(currentDefault?.name || 'Custom Workflow')
+    setPublishInitial(statusNames[0] || '')
+    setShowPublish(true)
+  }
+
+  const handlePublish = async () => {
+    const name = publishName.trim()
+    if (!name || !projectId || statuses.length === 0) return
+    setPublishBusy(true)
+    setPublishError('')
+    try {
+      const states = statuses.map((s) => ({
+        name: typeof s === 'string' ? s : s?.name,
+        category: normalizeCategory(typeof s === 'object' ? s?.category : 'todo'),
+        color: (typeof s === 'object' ? s?.color : null) || undefined,
+      }))
+      const transitionsPayload = transitions.map((t) => ({
+        fromStatus: t.fromStatus,
+        toStatus: t.toStatus,
+      }))
+      const terminalStatuses = states
+        .filter((s) => s.category === 'done')
+        .map((s) => s.name)
+      await createWorkflowDefinition(projectId, {
+        name,
+        states,
+        transitions: transitionsPayload,
+        initialStatus: publishInitial || null,
+        terminalStatuses,
+        isDefault: true,
+      })
+      setShowPublish(false)
+      await reload(projectId)
+    } catch (e) {
+      setPublishError(e?.message || 'Failed to publish workflow')
+    } finally {
+      setPublishBusy(false)
+    }
+  }
+
   // ── Delete node (status) ──
   const requestDeleteNode = useCallback(async (node) => {
     if (!node || node.id == null) return
@@ -462,6 +522,14 @@ export function WorkflowEditorPage() {
               ))}
             </select>
           </label>
+          {/* JL-306: make a failed/empty project load visible instead of dead buttons */}
+          {projectsError ? (
+            <span className="wfe-project-hint wfe-project-hint--error" role="alert">
+              Couldn’t load projects — is the server running?
+            </span>
+          ) : projects.length === 0 ? (
+            <span className="wfe-project-hint muted">No projects yet</span>
+          ) : null}
         </div>
         <div className="wfe-header-actions">
           <button type="button" className="btn btn-ghost" onClick={handleResetLayout}>
@@ -481,6 +549,7 @@ export function WorkflowEditorPage() {
                 className="wfe-toolbar-btn"
                 onClick={openAddStatus}
                 disabled={!projectId}
+                title={!projectId ? 'Select a project first' : 'Add a new status to this workflow'}
                 aria-label="Add status"
               >
                 <span aria-hidden="true">+</span> Add status
@@ -491,6 +560,13 @@ export function WorkflowEditorPage() {
                 className="wfe-toolbar-btn"
                 onClick={openAddTransition}
                 disabled={!projectId || !canAddTransition}
+                title={
+                  !projectId
+                    ? 'Select a project first'
+                    : !canAddTransition
+                      ? 'Add at least two statuses first'
+                      : 'Add a transition between two statuses'
+                }
                 aria-label="Add transition"
               >
                 <span aria-hidden="true">→</span> Add transition
@@ -500,9 +576,26 @@ export function WorkflowEditorPage() {
                 className="wfe-toolbar-btn"
                 onClick={handleApplyQaLifecycle}
                 disabled={!projectId || applyingTemplate}
+                title={!projectId ? 'Select a project first' : 'Seed the built-in QA Lifecycle workflow'}
                 aria-label="Apply QA Lifecycle template"
               >
                 <span aria-hidden="true">✔</span> {applyingTemplate ? 'Applying…' : 'Apply QA Lifecycle'}
+              </button>
+              <button
+                type="button"
+                className="wfe-toolbar-btn wfe-toolbar-btn--primary"
+                onClick={openPublish}
+                disabled={!projectId || statusNames.length === 0 || publishBusy}
+                title={
+                  !projectId
+                    ? 'Select a project first'
+                    : statusNames.length === 0
+                      ? 'Add at least one status first'
+                      : 'Publish the current statuses & transitions as this project’s default workflow'
+                }
+                aria-label="Publish workflow"
+              >
+                <span aria-hidden="true">⇧</span> {publishBusy ? 'Publishing…' : 'Publish workflow'}
               </button>
             </>
           ) : (
@@ -805,6 +898,57 @@ export function WorkflowEditorPage() {
             variant="contained"
           >
             {modalBusy ? 'Adding…' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Publish Workflow Modal (JL-306) */}
+      <Dialog
+        open={showPublish}
+        onClose={() => !publishBusy && setShowPublish(false)}
+        aria-labelledby="wfe-publish-title"
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle id="wfe-publish-title">Publish workflow</DialogTitle>
+        <DialogContent>
+          <div className="wfe-modal-form">
+            {publishError && <div className="alert alert-error" style={{ color: '#bf2600' }}>{publishError}</div>}
+            <p className="muted" style={{ marginTop: 0 }}>
+              Saves the current statuses and transitions as a named workflow and makes it this
+              project’s default (used to enforce status changes).
+            </p>
+            <div className="wfe-modal-row">
+              <label htmlFor="wfe-publish-name">Workflow name</label>
+              <input
+                id="wfe-publish-name"
+                type="text"
+                value={publishName}
+                onChange={(e) => setPublishName(e.target.value)}
+                placeholder="e.g. Custom Workflow"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handlePublish() }}
+              />
+            </div>
+            <div className="wfe-modal-row">
+              <label htmlFor="wfe-publish-initial">Initial status</label>
+              <select
+                id="wfe-publish-initial"
+                value={publishInitial}
+                onChange={(e) => setPublishInitial(e.target.value)}
+              >
+                <option value="">None</option>
+                {statusNames.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPublish(false)} disabled={publishBusy} color="inherit">Cancel</Button>
+          <Button onClick={handlePublish} disabled={!publishName.trim() || publishBusy} variant="contained">
+            {publishBusy ? 'Publishing…' : 'Publish'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -22,12 +22,13 @@ vi.mock('../api/workflowTransitionApi', () => ({
 vi.mock('../api/workflowDefinitionApi', () => ({
   fetchWorkflowDefinitions: vi.fn(),
   applyWorkflowTemplate: vi.fn(),
+  createWorkflowDefinition: vi.fn(),
 }))
 
 import { fetchProjects } from '../api/projectApi'
 import { fetchProjectStatuses, createStatus } from '../api/issueConfigApi'
 import { fetchWorkflowTransitions, createWorkflowTransition } from '../api/workflowTransitionApi'
-import { fetchWorkflowDefinitions, applyWorkflowTemplate } from '../api/workflowDefinitionApi'
+import { fetchWorkflowDefinitions, applyWorkflowTemplate, createWorkflowDefinition } from '../api/workflowDefinitionApi'
 import { WorkflowEditorPage } from '../pages/WorkflowEditorPage/WorkflowEditorPage'
 
 // The 8 QA lifecycle states.
@@ -68,6 +69,7 @@ beforeEach(() => {
   createStatus.mockResolvedValue({ id: 9 })
   createWorkflowTransition.mockResolvedValue({ id: 200 })
   applyWorkflowTemplate.mockResolvedValue(QA_DEFAULT_WORKFLOW)
+  createWorkflowDefinition.mockResolvedValue({ id: 2, name: 'QA Lifecycle', isDefault: true })
 })
 
 describe('JL-306 — QA Lifecycle in the Workflow Editor', () => {
@@ -131,5 +133,71 @@ describe('JL-306 — QA Lifecycle in the Workflow Editor', () => {
 
     await waitFor(() => expect(applyWorkflowTemplate).toHaveBeenCalledTimes(1))
     expect(applyWorkflowTemplate).toHaveBeenCalledWith('1', 'qa-lifecycle')
+  })
+})
+
+// ── JL-306 fix: the Publish control was previously unwired (no-op). It must now
+// persist the customised canvas as a named custom workflow set as project default. ──
+describe('JL-306 — Publish persists a custom named workflow (regression)', () => {
+  it('clicking Publish workflow → Publish calls createWorkflowDefinition with the current graph as default', async () => {
+    render(<WorkflowEditorPage />)
+    await screen.findByRole('button', { name: /Status Backlog/ })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Publish workflow' }))
+    const dialog = await screen.findByRole('dialog')
+
+    // Name is prefilled from the current default workflow; confirm publish.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Publish' }))
+
+    await waitFor(() => expect(createWorkflowDefinition).toHaveBeenCalledTimes(1))
+    const [pid, body] = createWorkflowDefinition.mock.calls[0]
+    expect(pid).toBe('1')
+    expect(body.isDefault).toBe(true)
+    expect(body.states.map((s) => s.name)).toEqual(QA_STATUSES.map((s) => s.name))
+    expect(body.transitions).toEqual(
+      QA_TRANSITIONS.map((t) => ({ fromStatus: t.fromStatus, toStatus: t.toStatus })),
+    )
+    // Done + Cancelled are the 'done'-category terminal states.
+    expect(body.terminalStatuses).toEqual(['Done', 'Cancelled'])
+    // Reloads the workflow definitions after publishing.
+    await waitFor(() => expect(fetchWorkflowDefinitions).toHaveBeenCalledTimes(2))
+  })
+
+  it('lets the admin rename the workflow before publishing', async () => {
+    render(<WorkflowEditorPage />)
+    await screen.findByRole('button', { name: /Status Backlog/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Publish workflow' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Workflow name'), { target: { value: 'Release Flow' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Publish' }))
+    await waitFor(() => expect(createWorkflowDefinition).toHaveBeenCalledTimes(1))
+    expect(createWorkflowDefinition.mock.calls[0][1].name).toBe('Release Flow')
+  })
+})
+
+// ── JL-306: disabled-button UX hardening ──
+describe('JL-306 — disabled toolbar buttons explain why / project-load hints', () => {
+  it('when no project is selected, Add status & Publish are disabled with explanatory titles', async () => {
+    fetchProjects.mockResolvedValue([]) // no projects → projectId stays empty
+    render(<WorkflowEditorPage />)
+    const addStatus = await screen.findByRole('button', { name: 'Add status' })
+    expect(addStatus).toBeDisabled()
+    expect(addStatus).toHaveAttribute('title', 'Select a project first')
+
+    const publish = screen.getByRole('button', { name: 'Publish workflow' })
+    expect(publish).toBeDisabled()
+    expect(publish).toHaveAttribute('title', 'Select a project first')
+  })
+
+  it('shows a "server running?" hint when fetchProjects rejects', async () => {
+    fetchProjects.mockRejectedValue(new Error('network down'))
+    render(<WorkflowEditorPage />)
+    expect(await screen.findByText(/Couldn.t load projects/i)).toBeInTheDocument()
+  })
+
+  it('shows a "No projects yet" hint when the project list is empty', async () => {
+    fetchProjects.mockResolvedValue([])
+    render(<WorkflowEditorPage />)
+    expect(await screen.findByText(/No projects yet/i)).toBeInTheDocument()
   })
 })
