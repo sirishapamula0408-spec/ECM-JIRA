@@ -863,6 +863,25 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workflow_transitions_project ON workflow_transitions(project_id)')
 
+  // --- JL-306: Named workflow definitions (metadata for the QA Lifecycle + custom
+  // workflows). States + transitions live in issue_statuses + workflow_transitions;
+  // this table stores the workflow's name, initial/terminal states, the
+  // cancel-from-any capability, and which workflow is the project default. ---
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS project_workflows (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      initial_status TEXT,
+      terminal_statuses JSONB NOT NULL DEFAULT '[]'::jsonb,
+      cancel_from_any BOOLEAN NOT NULL DEFAULT FALSE,
+      cancel_status TEXT,
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_project_workflows_project ON project_workflows(project_id)')
+
   // --- Theme-1 #7: Custom Fields (EAV) ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS custom_fields (

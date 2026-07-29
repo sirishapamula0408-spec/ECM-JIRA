@@ -1,6 +1,19 @@
 import crypto from 'node:crypto'
 
-export const validStatuses = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+// JL-306: QA-lifecycle statuses appended to the accepted-status list so the
+// configurable "QA Lifecycle" workflow can transition through them. Legacy flow
+// (Backlog → To Do → In Progress → Code Review → Done) is unchanged.
+export const validStatuses = [
+  'Backlog',
+  'To Do',
+  'In Progress',
+  'Code Review',
+  'In Testing',
+  'In Rework',
+  'In UAT',
+  'Done',
+  'Cancelled',
+]
 export const validPriorities = ['Low', 'Medium', 'High']
 export const validIssueTypes = ['Epic', 'Story', 'Bug', 'Task', 'Sub-task']
 

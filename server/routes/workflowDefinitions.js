@@ -1,0 +1,216 @@
+import { Router } from 'express'
+import { all, get, run } from '../db.js'
+import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole } from '../middleware/authorize.js'
+import { listTemplates, getTemplate } from '../services/workflowTemplates.js'
+
+// JL-306: Named workflow definitions API.
+//  - Built-in templates (the QA Lifecycle) can be listed and applied to a project.
+//  - Custom workflows can be created/edited: name, initial state, terminal state(s),
+//    a cancel-from-any flag, and which one is the project default.
+// States + the transition graph live in issue_statuses + workflow_transitions; this
+// router manages the project_workflows metadata rows and the apply-template seeding.
+
+const router = Router()
+
+function mapWorkflow(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    name: row.name,
+    initialStatus: row.initial_status,
+    terminalStatuses: Array.isArray(row.terminal_statuses)
+      ? row.terminal_statuses
+      : (row.terminal_statuses ?? []),
+    cancelFromAny: row.cancel_from_any === true || row.cancel_from_any === 't' || row.cancel_from_any === 1,
+    cancelStatus: row.cancel_status,
+    isDefault: row.is_default === true || row.is_default === 't' || row.is_default === 1,
+    createdAt: row.created_at,
+  }
+}
+
+function normalizeTerminal(value) {
+  if (Array.isArray(value)) return value.map((s) => String(s)).filter(Boolean)
+  return []
+}
+
+// GET /api/workflow-templates — built-in reusable workflow definitions
+router.get('/workflow-templates', asyncHandler(async (_req, res) => {
+  res.json(listTemplates())
+}))
+
+// GET /api/projects/:projectId/workflow-definitions — this project's named workflows
+router.get('/projects/:projectId/workflow-definitions', asyncHandler(async (req, res) => {
+  const rows = await all(
+    'SELECT * FROM project_workflows WHERE project_id = ? ORDER BY is_default DESC, id ASC',
+    [Number(req.params.projectId)],
+  )
+  res.json(rows.map(mapWorkflow))
+}))
+
+// Insert missing project statuses for a set of state definitions ({ name, category, color }).
+async function ensureStatuses(projectId, states) {
+  const existing = await all(
+    'SELECT LOWER(name) AS lname FROM issue_statuses WHERE project_id = ?',
+    [projectId],
+  )
+  const have = new Set(existing.map((r) => r.lname))
+  let position = existing.length
+  for (const st of states) {
+    const name = typeof st === 'string' ? st : st?.name
+    if (!name || have.has(name.toLowerCase())) continue
+    const category = (typeof st === 'object' && st?.category) || 'todo'
+    const color = (typeof st === 'object' && st?.color) || '#42526E'
+    await run(
+      'INSERT INTO issue_statuses (project_id, name, position, color, category) VALUES (?, ?, ?, ?, ?)',
+      [projectId, name, position, color, category],
+    )
+    have.add(name.toLowerCase())
+    position += 1
+  }
+}
+
+// Insert transitions ([from,to] pairs or {fromStatus,toStatus}) skipping duplicates.
+async function ensureTransitions(projectId, transitions) {
+  for (const t of transitions) {
+    const fromStatus = Array.isArray(t) ? t[0] : t?.fromStatus
+    const toStatus = Array.isArray(t) ? t[1] : t?.toStatus
+    if (!fromStatus || !toStatus || fromStatus === toStatus) continue
+    const dup = await get(
+      'SELECT id FROM workflow_transitions WHERE project_id = ? AND from_status = ? AND to_status = ?',
+      [projectId, fromStatus, toStatus],
+    )
+    if (dup) continue
+    await run(
+      'INSERT INTO workflow_transitions (project_id, from_status, to_status, validators, post_functions) VALUES (?, ?, ?, ?::jsonb, ?::jsonb)',
+      [projectId, fromStatus, toStatus, '[]', '[]'],
+    )
+  }
+}
+
+// Upsert the project_workflows metadata row; when isDefault, clears the flag on others.
+async function upsertWorkflowMeta(projectId, meta) {
+  if (meta.isDefault) {
+    await run('UPDATE project_workflows SET is_default = FALSE WHERE project_id = ?', [projectId])
+  }
+  const created = await run(
+    `INSERT INTO project_workflows
+       (project_id, name, initial_status, terminal_statuses, cancel_from_any, cancel_status, is_default)
+     VALUES (?, ?, ?, ?::jsonb, ?, ?, ?)`,
+    [
+      projectId,
+      meta.name,
+      meta.initialStatus ?? null,
+      JSON.stringify(normalizeTerminal(meta.terminalStatuses)),
+      meta.cancelFromAny === true,
+      meta.cancelStatus ?? null,
+      meta.isDefault === true,
+    ],
+  )
+  return get('SELECT * FROM project_workflows WHERE id = ?', [created.lastID])
+}
+
+// POST /api/projects/:projectId/workflow-definitions/apply-template (Admin)
+// Seeds the template's states + transitions and creates a default workflow row.
+router.post(
+  '/projects/:projectId/workflow-definitions/apply-template',
+  requireRole('Admin'),
+  asyncHandler(async (req, res) => {
+    const projectId = Number(req.params.projectId)
+    const template = getTemplate(req.body?.template || 'qa-lifecycle')
+    if (!template) {
+      res.status(400).json({ error: `Unknown workflow template "${req.body?.template}"` })
+      return
+    }
+
+    await ensureStatuses(projectId, template.states)
+    await ensureTransitions(projectId, template.transitions)
+    const row = await upsertWorkflowMeta(projectId, {
+      name: template.name,
+      initialStatus: template.initialStatus,
+      terminalStatuses: template.terminalStatuses,
+      cancelFromAny: template.cancelFromAny,
+      cancelStatus: template.cancelStatus,
+      isDefault: true,
+    })
+
+    res.status(201).json(mapWorkflow(row))
+  }),
+)
+
+// POST /api/projects/:projectId/workflow-definitions (Admin) — create a custom workflow.
+// Optionally seeds provided states + transitions; always creates the metadata row.
+router.post(
+  '/projects/:projectId/workflow-definitions',
+  requireRole('Admin'),
+  asyncHandler(async (req, res) => {
+    const projectId = Number(req.params.projectId)
+    const name = String(req.body?.name || '').trim()
+    if (!name) {
+      res.status(400).json({ error: 'name is required' })
+      return
+    }
+    const states = Array.isArray(req.body?.states) ? req.body.states : []
+    const transitions = Array.isArray(req.body?.transitions) ? req.body.transitions : []
+
+    if (states.length > 0) await ensureStatuses(projectId, states)
+    if (transitions.length > 0) await ensureTransitions(projectId, transitions)
+
+    const row = await upsertWorkflowMeta(projectId, {
+      name,
+      initialStatus: req.body?.initialStatus,
+      terminalStatuses: req.body?.terminalStatuses,
+      cancelFromAny: req.body?.cancelFromAny === true,
+      cancelStatus: req.body?.cancelStatus,
+      isDefault: req.body?.isDefault === true,
+    })
+    res.status(201).json(mapWorkflow(row))
+  }),
+)
+
+// PATCH /api/workflow-definitions/:id (Admin) — edit metadata / set as default.
+router.patch('/workflow-definitions/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const existing = await get('SELECT * FROM project_workflows WHERE id = ?', [id])
+  if (!existing) {
+    res.status(404).json({ error: 'Workflow not found' })
+    return
+  }
+
+  const sets = []
+  const params = []
+  if (req.body?.name !== undefined) {
+    const name = String(req.body.name || '').trim()
+    if (!name) { res.status(400).json({ error: 'name cannot be empty' }); return }
+    sets.push('name = ?'); params.push(name)
+  }
+  if (req.body?.initialStatus !== undefined) { sets.push('initial_status = ?'); params.push(req.body.initialStatus ?? null) }
+  if (req.body?.terminalStatuses !== undefined) {
+    sets.push('terminal_statuses = ?::jsonb')
+    params.push(JSON.stringify(normalizeTerminal(req.body.terminalStatuses)))
+  }
+  if (req.body?.cancelFromAny !== undefined) { sets.push('cancel_from_any = ?'); params.push(req.body.cancelFromAny === true) }
+  if (req.body?.cancelStatus !== undefined) { sets.push('cancel_status = ?'); params.push(req.body.cancelStatus ?? null) }
+
+  if (req.body?.isDefault === true) {
+    await run('UPDATE project_workflows SET is_default = FALSE WHERE project_id = ?', [existing.project_id])
+    sets.push('is_default = ?'); params.push(true)
+  } else if (req.body?.isDefault === false) {
+    sets.push('is_default = ?'); params.push(false)
+  }
+
+  if (sets.length === 0) { res.json(mapWorkflow(existing)); return }
+  params.push(id)
+  await run(`UPDATE project_workflows SET ${sets.join(', ')} WHERE id = ?`, params)
+  const row = await get('SELECT * FROM project_workflows WHERE id = ?', [id])
+  res.json(mapWorkflow(row))
+}))
+
+// DELETE /api/workflow-definitions/:id (Admin)
+router.delete('/workflow-definitions/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+  await run('DELETE FROM project_workflows WHERE id = ?', [Number(req.params.id)])
+  res.json({ success: true })
+}))
+
+export default router

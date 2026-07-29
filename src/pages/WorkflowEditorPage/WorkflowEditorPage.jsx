@@ -13,6 +13,10 @@ import {
   updateWorkflowTransition,
   deleteWorkflowTransition,
 } from '../../api/workflowTransitionApi'
+import {
+  fetchWorkflowDefinitions,
+  applyWorkflowTemplate,
+} from '../../api/workflowDefinitionApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './WorkflowEditorPage.css'
@@ -87,6 +91,8 @@ export function WorkflowEditorPage() {
   const [projectId, setProjectId] = useState('')
   const [statuses, setStatuses] = useState([])
   const [transitions, setTransitions] = useState([])
+  const [workflowDefs, setWorkflowDefs] = useState([]) // JL-306: named workflows
+  const [applyingTemplate, setApplyingTemplate] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -141,14 +147,40 @@ export function WorkflowEditorPage() {
     return Promise.all([
       fetchProjectStatuses(id).catch((e) => { throw e }),
       fetchWorkflowTransitions(id).catch((e) => { throw e }),
+      // JL-306: named workflow metadata is optional — never fail the load on it.
+      fetchWorkflowDefinitions(id).catch(() => []),
     ])
-      .then(([sts, trs]) => {
+      .then(([sts, trs, defs]) => {
         setStatuses(sts || [])
         setTransitions(trs || [])
+        setWorkflowDefs(defs || [])
       })
       .catch((e) => setError(e?.message || 'Failed to load workflow'))
       .finally(() => setLoading(false))
   }, [projectId])
+
+  // JL-306: apply the built-in QA Lifecycle template to the selected project. Seeds
+  // the QA states + transition graph and marks it the project's default workflow.
+  const handleApplyQaLifecycle = useCallback(async () => {
+    if (!projectId) return
+    const ok = await confirm({
+      title: 'Apply QA Lifecycle workflow?',
+      message:
+        'This seeds the QA Lifecycle states (Backlog, To Do, In Progress, In Testing, In Rework, In UAT, Done, Cancelled) and its transitions, and sets it as this project’s default workflow. Cancel is allowed from any active state.',
+      confirmLabel: 'Apply workflow',
+    })
+    if (!ok) return
+    setApplyingTemplate(true)
+    setError('')
+    try {
+      await applyWorkflowTemplate(projectId, 'qa-lifecycle')
+      await reload(projectId)
+    } catch (e) {
+      setError(e?.message || 'Failed to apply the QA Lifecycle workflow')
+    } finally {
+      setApplyingTemplate(false)
+    }
+  }, [projectId, confirm, reload])
 
   useEffect(() => {
     if (!projectId) return
@@ -405,6 +437,8 @@ export function WorkflowEditorPage() {
   // ── Helpers ──
   const selectedNode = nodeByName(selectedNodeName)
   const selectedTrans = transitions.find((t) => t.id === selectedTransId)
+  // JL-306: the project's active (default) named workflow, if one has been applied.
+  const defaultWorkflow = workflowDefs.find((w) => w.isDefault) || null
 
   const canAddTransition = statusNames.length >= 2
 
@@ -461,9 +495,24 @@ export function WorkflowEditorPage() {
               >
                 <span aria-hidden="true">→</span> Add transition
               </button>
+              <button
+                type="button"
+                className="wfe-toolbar-btn"
+                onClick={handleApplyQaLifecycle}
+                disabled={!projectId || applyingTemplate}
+                aria-label="Apply QA Lifecycle template"
+              >
+                <span aria-hidden="true">✔</span> {applyingTemplate ? 'Applying…' : 'Apply QA Lifecycle'}
+              </button>
             </>
           ) : (
             <span className="wfe-readonly-hint muted">Workspace Admins can configure the workflow.</span>
+          )}
+          {defaultWorkflow && (
+            <span className="wfe-default-workflow-badge chip" data-testid="wfe-default-workflow">
+              Default workflow: {defaultWorkflow.name}
+              {defaultWorkflow.cancelFromAny && ' · cancel from any'}
+            </span>
           )}
         </div>
         <div className="wfe-toolbar-right">
