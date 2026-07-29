@@ -1,9 +1,40 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { sendMail } from '../utils/mailer.js'
+import { requireRole } from '../middleware/authorize.js'
+import { sendMail, verifyMailer, isSmtpConfigured } from '../utils/mailer.js'
 
 const router = Router()
+
+// POST /api/notifications/mail-test — JL-304: Admin-only SMTP connectivity check
+// plus a test email to the requesting admin's own address. Verifies the SMTP
+// transport, then attempts delivery. Never throws — reports structured status so
+// the admin can distinguish "configured + ok + sent" from a verify/send failure
+// or the console-fallback mode (SMTP env unset).
+router.post('/mail-test', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const to = req.user.email
+  const verification = await verifyMailer()
+
+  const subject = 'ECM-JIRA — SMTP test email'
+  const text = `This is a test email from ECM-JIRA.\n\nIf you received this, your outbound SMTP configuration is working. Requested by ${to}.`
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#172b4d;">`
+    + `<h3 style="color:#0052cc;margin:0 0 8px;">SMTP test email</h3>`
+    + `<p style="font-size:14px;line-height:1.6;">This is a test email from ECM-JIRA. If you received this, your outbound SMTP configuration is working.</p>`
+    + `<p style="font-size:12px;color:#6b778c;">Requested by ${to}.</p>`
+    + `</div>`
+
+  const result = await sendMail({ to, subject, text, html })
+  const consoleFallback = Boolean(result.skipped) || !isSmtpConfigured()
+
+  res.json({
+    configured: verification.configured,
+    ok: verification.ok,
+    sent: Boolean(result.ok),
+    consoleFallback,
+    to,
+    error: verification.error || result.error || null,
+  })
+}))
 
 // GET /api/notifications — list notifications for current user
 router.get('/', asyncHandler(async (req, res) => {

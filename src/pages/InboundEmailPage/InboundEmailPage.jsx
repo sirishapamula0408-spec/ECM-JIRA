@@ -4,6 +4,7 @@ import {
   createInboundEmailSetting,
   deleteInboundEmailSetting,
 } from '../../api/inboundEmailApi'
+import { sendTestEmail } from '../../api/notificationApi'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
@@ -19,6 +20,9 @@ export function InboundEmailPage() {
   const [projects, setProjects] = useState([])
   const [form, setForm] = useState({ mailboxAddress: '', projectId: '', defaultIssueType: 'Task' })
   const [error, setError] = useState('')
+  // JL-304: outbound SMTP test state
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
 
   const load = useCallback(() => {
     fetchInboundEmailSettings()
@@ -61,6 +65,32 @@ export function InboundEmailPage() {
   async function handleDelete(id) {
     await deleteInboundEmailSetting(id)
     load()
+  }
+
+  // JL-304: verify SMTP connectivity and send a test email to the current admin.
+  async function handleSendTestEmail() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await sendTestEmail()
+      let message
+      let kind
+      if (!res.configured) {
+        kind = 'warn'
+        message = `SMTP is not configured — emails are logged to the server console (console fallback). Check the server logs for the test message.`
+      } else if (res.ok && res.sent) {
+        kind = 'ok'
+        message = `SMTP connection verified and a test email was sent to ${res.to}.`
+      } else {
+        kind = 'error'
+        message = `SMTP test failed${res.error ? `: ${res.error}` : '.'}`
+      }
+      setTestResult({ kind, message })
+    } catch (err) {
+      setTestResult({ kind: 'error', message: err?.message || 'Failed to send test email' })
+    } finally {
+      setTesting(false)
+    }
   }
 
   return (
@@ -109,6 +139,37 @@ export function InboundEmailPage() {
           <button type="button" className="btn btn-primary btn-sm" onClick={handleCreate}>
             Add mapping
           </button>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="ie-create-form">
+          <h3>Outbound email (SMTP)</h3>
+          <p className="ie-subtitle">
+            Verify your SMTP configuration and send a test email to your own address ({/* current admin */}).
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleSendTestEmail}
+            disabled={testing}
+          >
+            {testing ? 'Sending…' : 'Send test email'}
+          </button>
+          {testResult && (
+            <div
+              className={
+                testResult.kind === 'ok'
+                  ? 'ie-test-result ie-test-result--ok'
+                  : testResult.kind === 'warn'
+                    ? 'ie-test-result ie-test-result--warn'
+                    : 'ie-error'
+              }
+              role="status"
+            >
+              {testResult.message}
+            </div>
+          )}
         </div>
       )}
 

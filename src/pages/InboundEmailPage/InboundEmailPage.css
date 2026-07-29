@@ -43,6 +43,20 @@
   font-size: 0.85rem;
 }
 
+/* JL-304: outbound SMTP test result banners */
+.ie-test-result {
+  flex-basis: 100%;
+  font-size: 0.85rem;
+}
+
+.ie-test-result--ok {
+  color: #006644;
+}
+
+.ie-test-result--warn {
+  color: #974f0c;
+}
+
 .ie-list {
   display: flex;
   flex-direction: column;

@@ -26,3 +26,8 @@ export const fetchNotificationPreferences = () =>
 
 export const updateNotificationPreferences = (prefs) =>
   api('/api/notifications/preferences', { method: 'PUT', body: JSON.stringify(prefs) })
+
+// JL-304: Admin-only — verify SMTP connectivity and send a test email to the
+// requesting admin. Returns { configured, ok, sent, consoleFallback, to, error }.
+export const sendTestEmail = () =>
+  api('/api/notifications/mail-test', { method: 'POST' })
