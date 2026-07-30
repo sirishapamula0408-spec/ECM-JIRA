@@ -6,6 +6,9 @@ let transporter = null
 /**
  * Returns true when the minimum SMTP settings (host + credentials) are present.
  * When false, sendMail() no-ops gracefully instead of attempting delivery.
+ * JL-305: same predicate as config.isMailConfigured(), applied to the SMTP_*
+ * values imported from config.js (kept local so tests can mock config.js with
+ * a plain settings object).
  */
 export function isSmtpConfigured() {
   return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS)
@@ -91,7 +94,8 @@ export function buildPasswordResetEmail({ token, appUrl }) {
 }
 
 export function buildInviteEmail({ recipientName, invitedBy, role, appUrl }) {
-  const url = appUrl || process.env.APP_URL || 'http://localhost:5173'
+  // JL-305: read APP_URL from config.js — no direct process.env access here.
+  const url = appUrl || APP_URL || 'http://localhost:5173'
   const subject = `You've been invited to join ECM-JIRA`
 
   const html = `

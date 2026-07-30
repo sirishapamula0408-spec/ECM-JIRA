@@ -218,12 +218,24 @@ export function getStorageConfig() {
 // the endpoint is open (dev convenience) so local testing works out of the box.
 export const INBOUND_EMAIL_TOKEN = process.env.INBOUND_EMAIL_TOKEN || ''
 
-// --- SMTP / transactional email (JL-83) ---
+// --- SMTP / transactional email (JL-83, centralized JL-305) ---
 export const SMTP_HOST = process.env.SMTP_HOST || ''
 export const SMTP_PORT = Number(process.env.SMTP_PORT) || 587
 export const SMTP_USER = process.env.SMTP_USER || ''
 export const SMTP_PASS = process.env.SMTP_PASS || ''
 export const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@ecm-jira.local'
+
+/**
+ * JL-305: true when the minimum SMTP settings (host + credentials) are all set.
+ * Pure and unit-testable — pass an explicit env object for tests; defaults to
+ * `process.env` so callers can check runtime state without re-importing this
+ * module. Mirrors `isSmtpConfigured()` in server/utils/mailer.js, which is the
+ * same predicate applied to this module's load-time SMTP_* snapshot.
+ */
+export function isMailConfigured(env = process.env) {
+  const has = (v) => v !== undefined && v !== null && String(v).trim() !== ''
+  return has(env.SMTP_HOST) && has(env.SMTP_USER) && has(env.SMTP_PASS)
+}
 
 // --- JL-102: Secrets management / startup config validation ---
 //
