@@ -128,19 +128,21 @@ describe('SharedDashboardsPage', () => {
 
   it('shows create button', () => {
     renderWithRouter(<SharedDashboardsPage />)
-    expect(screen.getByText('+ New Dashboard')).toBeInTheDocument()
+    // JL-244: the create CTA appears in the header and inside the EmptyState.
+    expect(screen.getAllByText('+ New Dashboard').length).toBeGreaterThan(0)
   })
 
   it('shows empty state when no dashboards', async () => {
     renderWithRouter(<SharedDashboardsPage />)
+    // JL-244: the ad-hoc ".sd-empty" text was replaced by the shared <EmptyState>.
     await waitFor(() => {
-      expect(screen.getByText('No dashboards yet. Create one to get started.')).toBeInTheDocument()
+      expect(screen.getByText('No dashboards yet')).toBeInTheDocument()
     })
   })
 
   it('shows create form when button clicked', async () => {
     renderWithRouter(<SharedDashboardsPage />)
-    fireEvent.click(screen.getByText('+ New Dashboard'))
+    fireEvent.click(screen.getAllByText('+ New Dashboard')[0])
     expect(screen.getByText('New Dashboard')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Dashboard name')).toBeInTheDocument()
   })

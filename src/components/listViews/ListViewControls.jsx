@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ConfirmDialog } from '../common/ConfirmDialog'
+import { EmptyState } from '../common/EmptyState'
 import {
   fetchListViews,
   createListView,
@@ -184,7 +185,11 @@ export function ListViewControls({
             ) : loadError ? (
               <p className="lvc-error" role="alert">{loadError}</p>
             ) : views.length === 0 ? (
-              <div className="lvc-menu-empty">No saved views yet</div>
+              <EmptyState
+                icon="🔖"
+                title="No saved views yet"
+                description="Save the current columns and filter as a reusable view below."
+              />
             ) : (
               <ul className="lvc-view-list">
                 {views.map((v) => (
