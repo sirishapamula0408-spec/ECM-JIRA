@@ -27,8 +27,12 @@ export const fetchWikiVersions = (pageId) =>
 export const fetchWikiVersion = (pageId, versionId) =>
   api(`/api/wiki/${pageId}/versions/${versionId}`)
 
-export const linkIssueToWiki = (pageId, issueId) =>
-  api(`/api/wiki/${pageId}/link-issue`, { method: 'POST', body: JSON.stringify({ issueId }) })
+// issueRef may be a numeric issue id or an issue key string like "ECM-12" (JL-301)
+export const linkIssueToWiki = (pageId, issueRef) => {
+  const ref = String(issueRef).trim()
+  const body = /^\d+$/.test(ref) ? { issueId: Number(ref) } : { issueKey: ref }
+  return api(`/api/wiki/${pageId}/link-issue`, { method: 'POST', body: JSON.stringify(body) })
+}
 
 export const unlinkIssueFromWiki = (pageId, issueId) =>
   api(`/api/wiki/${pageId}/link-issue/${issueId}`, { method: 'DELETE' })

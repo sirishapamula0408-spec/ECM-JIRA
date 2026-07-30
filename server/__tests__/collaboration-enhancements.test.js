@@ -181,6 +181,7 @@ describe('Wiki Enhancements (JL-48)', () => {
 
   describe('Issue-Wiki linking', () => {
     it('links an issue to a wiki page', async () => {
+      get.mockResolvedValue({ id: 5, issue_key: 'TP-5' }) // JL-301: issue must exist
       run.mockResolvedValue({ lastID: 1 })
       const res = await request(app).post('/api/1/link-issue').send({ issueId: 5 })
       expect(res.status).toBe(201)

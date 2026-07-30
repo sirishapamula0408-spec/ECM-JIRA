@@ -178,18 +178,46 @@ router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
 }))
 
 // POST /api/wiki/:id/link-issue — link an issue to a wiki page
+// Accepts { issueId } (numeric id) or { issueKey } (e.g. "ECM-12"); the issue
+// must exist — a non-existent reference returns 404 instead of silently linking nothing (JL-301).
 router.post('/:id/link-issue', requireRole('Member'), asyncHandler(async (req, res) => {
   const pageId = Number(req.params.id)
-  const { issueId } = req.body
-  if (!issueId) {
-    res.status(400).json({ error: 'issueId is required' })
+  const { issueId, issueKey } = req.body
+  if (!issueId && !issueKey) {
+    res.status(400).json({ error: 'issueId or issueKey is required' })
     return
   }
+
+  let issue
+  if (issueKey !== undefined && issueKey !== null && issueKey !== '') {
+    const key = String(issueKey).trim()
+    if (!key) {
+      res.status(400).json({ error: 'issueKey cannot be empty' })
+      return
+    }
+    issue = await get('SELECT id, issue_key FROM issues WHERE UPPER(issue_key) = UPPER(?)', [key])
+    if (!issue) {
+      res.status(404).json({ error: `Issue ${key} not found` })
+      return
+    }
+  } else {
+    const numericId = Number(issueId)
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      res.status(400).json({ error: 'issueId must be a valid issue id' })
+      return
+    }
+    issue = await get('SELECT id, issue_key FROM issues WHERE id = ?', [numericId])
+    if (!issue) {
+      res.status(404).json({ error: `Issue ${numericId} not found` })
+      return
+    }
+  }
+
   await run(
     'INSERT INTO issue_wiki_links (issue_id, wiki_page_id, created_by) VALUES (?, ?, ?) ON CONFLICT (issue_id, wiki_page_id) DO NOTHING',
-    [Number(issueId), pageId, req.user.email],
+    [issue.id, pageId, req.user.email],
   )
-  res.status(201).json({ success: true })
+  res.status(201).json({ success: true, issueId: issue.id, issueKey: issue.issue_key })
 }))
 
 // DELETE /api/wiki/:id/link-issue/:issueId — unlink an issue
