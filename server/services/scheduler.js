@@ -1,5 +1,6 @@
 import { all, run } from '../db.js'
 import { executeAction, logExecution } from './automation.js'
+import { runDigests } from './notificationDigest.js'
 
 // --- JL-119: Scheduled (time-based) automation triggers ---
 // A dependency-free, in-process scheduler. Scheduled rules run on a fixed
@@ -79,6 +80,11 @@ export function startScheduler({ intervalMs = 60000 } = {}) {
   timer = setInterval(() => {
     runScheduledRules(new Date()).catch((err) => {
       console.error('Scheduled automation run failed:', err)
+    })
+    // JL-303: piggyback the notification digest onto the same in-process timer.
+    // isDigestDue() gates cadence, so a 60s tick still yields daily/weekly emails.
+    runDigests(new Date()).catch((err) => {
+      console.error('Notification digest run failed:', err)
     })
   }, intervalMs)
   if (typeof timer.unref === 'function') timer.unref()
