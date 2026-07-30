@@ -114,9 +114,13 @@ export function useDashboardLayout() {
   }, [persist])
 
   const updateGadgetSize = useCallback((id, size) => {
+    // A resize is an explicit user choice — persist it as-is. Running the
+    // gap-filling reflow here would immediately re-expand the just-resized
+    // gadget back to its old span, which made resizing appear to do nothing
+    // (JL-299). Reflow only runs on removal, where it fills freed space.
     persist((prev) => ({
       ...prev,
-      gadgets: reflowGadgets(prev.gadgets.map((g) => (g.id === id ? { ...g, size } : g))),
+      gadgets: prev.gadgets.map((g) => (g.id === id ? { ...g, size } : g)),
     }))
   }, [persist])
 
@@ -130,9 +134,18 @@ export function useDashboardLayout() {
   const reorderGadgets = useCallback((fromIndex, toIndex) => {
     persist((prev) => {
       const list = [...prev.gadgets].sort((a, b) => a.order - b.order)
+      if (
+        fromIndex < 0 || fromIndex >= list.length ||
+        toIndex < 0 || toIndex >= list.length
+      ) {
+        return prev
+      }
       const [moved] = list.splice(fromIndex, 1)
       list.splice(toIndex, 0, moved)
-      return { ...prev, gadgets: reflowGadgets(list) }
+      // Reindex order only. Reordering must NOT resize gadgets — running the
+      // gap-filling reflow here mutated widget sizes mid-drag, which made
+      // drag-and-drop feel broken (JL-299). Gadgets keep the size the user set.
+      return { ...prev, gadgets: list.map((g, i) => ({ ...g, order: i })) }
     })
   }, [persist])
 

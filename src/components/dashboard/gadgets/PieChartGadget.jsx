@@ -36,16 +36,37 @@ export function PieChartGadget({ issues, config }) {
     <div className="pie-gadget">
       <div className="pie-gadget-chart">
         <div className="pie-gadget-disc" style={{ background: buildConicGradient(segments, total) }}>
-          <svg viewBox="0 0 160 160" className="pie-gadget-svg">
+          {/* onMouseLeave lives on the <svg>, not each slice: clearing the
+              hovered label per-slice made the tooltip flicker as the pointer
+              crossed sector seams (JL-299). */}
+          <svg viewBox="0 0 160 160" className="pie-gadget-svg" onMouseLeave={() => setHoveredLabel(null)}>
             {sectorPaths.map((s) => (
               <path
                 key={s.label}
                 d={s.path}
                 fill="transparent"
                 onMouseEnter={() => setHoveredLabel(s.label)}
-                onMouseLeave={() => setHoveredLabel(null)}
               />
             ))}
+            {config.showLabels !== false && sectorPaths.map((s) => {
+              if (s.endAngle - s.startAngle < 18) return null
+              const mid = (s.startAngle + s.endAngle) / 2
+              const rad = (mid - 90) * (Math.PI / 180)
+              const x = 80 + 50 * Math.cos(rad)
+              const y = 80 + 50 * Math.sin(rad)
+              return (
+                <text
+                  key={`label-${s.label}`}
+                  x={x}
+                  y={y}
+                  className="pie-gadget-slice-label"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                >
+                  {Math.round((s.count / total) * 100)}%
+                </text>
+              )
+            })}
           </svg>
         </div>
         {hoveredLabel && (
