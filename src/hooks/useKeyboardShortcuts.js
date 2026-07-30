@@ -13,15 +13,36 @@ export function isEditableTarget(target) {
 }
 
 /**
+ * Navigation `g`-chord definitions (JL-164, extended by JL-243) — the
+ * single source of truth used by both the keydown handler and the `?`
+ * help dialog, so new chords automatically appear in the dialog.
+ * `g` then <key> navigates to <path>.
+ */
+export const NAV_CHORDS = [
+  { key: 'b', path: '/board', description: 'Go to Board' },
+  { key: 'd', path: '/dashboard', description: 'Go to Dashboard' },
+  { key: 'p', path: '/projects', description: 'Go to Projects' },
+  { key: 'i', path: '/backlog', description: 'Go to Backlog' },
+  { key: 'l', path: '/backlog', description: 'Go to Backlog' },
+  { key: 'r', path: '/roadmap', description: 'Go to Roadmap' },
+  { key: 'a', path: '/activity', description: 'Go to Activity' },
+  { key: 't', path: '/reports', description: 'Go to Reports' },
+]
+
+const NAV_CHORD_MAP = Object.fromEntries(NAV_CHORDS.map(({ key, path }) => [key, path]))
+
+/**
  * Global keyboard-shortcut layer (JL-164).
  *
  * Listens for document-level keydown events and fires the injected
  * callbacks for power-user shortcuts:
- *   c        -> onCreate       (open Create Issue modal)
- *   /        -> onFocusSearch  (focus the Topbar global search)
- *   g then b -> onNavigate('/board')
- *   g then d -> onNavigate('/dashboard')
- *   ?        -> onShowHelp      (open the Shortcuts help dialog)
+ *   c              -> onCreate       (open Create Issue modal)
+ *   /              -> onFocusSearch  (focus the Topbar global search)
+ *   g then <chord> -> onNavigate(path) for each entry in NAV_CHORDS
+ *                     (g b Board, g d Dashboard, g p Projects,
+ *                      g i / g l Backlog, g r Roadmap, g a Activity,
+ *                      g t Reports)
+ *   ?              -> onShowHelp     (open the Shortcuts help dialog)
  *
  * Shortcuts are ignored while typing in an input/textarea/select/
  * contentEditable, and while a modifier key (Ctrl/Meta/Alt) is held.
@@ -74,14 +95,10 @@ export function useKeyboardShortcuts({
       // Second key of a `g` chord.
       if (gPendingRef.current) {
         clearSequence()
-        if (key === 'b') {
+        const chordPath = NAV_CHORD_MAP[key]
+        if (chordPath) {
           event.preventDefault()
-          navigate?.('/board')
-          return
-        }
-        if (key === 'd') {
-          event.preventDefault()
-          navigate?.('/dashboard')
+          navigate?.(chordPath)
           return
         }
         // Unrecognised follow-up key: fall through to normal handling.
@@ -121,11 +138,13 @@ export function useKeyboardShortcuts({
   }, [enabled, sequenceTimeout])
 }
 
-/** Shortcut definitions shared by the help dialog. */
+/**
+ * Shortcut definitions shared by the help dialog. Navigation chords are
+ * derived from NAV_CHORDS so new chords auto-appear in the dialog.
+ */
 export const KEYBOARD_SHORTCUTS = [
   { keys: ['c'], description: 'Create a new issue' },
   { keys: ['/'], description: 'Focus the search box' },
-  { keys: ['g', 'b'], description: 'Go to Board' },
-  { keys: ['g', 'd'], description: 'Go to Dashboard' },
+  ...NAV_CHORDS.map(({ key, description }) => ({ keys: ['g', key], description })),
   { keys: ['?'], description: 'Show this help dialog' },
 ]
