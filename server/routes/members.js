@@ -158,7 +158,7 @@ router.get('/', asyncHandler(async (req, res) => {
   // Legacy path: no pagination/filter params → return the full list as an array.
   if (!paginated) {
     const rows = await all(
-      'SELECT id, name, email, role, status, task_count, invited_by FROM members ORDER BY id ASC',
+      'SELECT id, name, email, role, status, task_count, invited_by, is_owner FROM members ORDER BY id ASC',
     )
     res.json(rows)
     return
@@ -166,7 +166,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const { limit, offset } = parsePagination(req.query, { defaultLimit: 25, maxLimit: 200 })
   const rows = await all(
-    `SELECT id, name, email, role, status, task_count, invited_by
+    `SELECT id, name, email, role, status, task_count, invited_by, is_owner
        FROM members ${where}
        ORDER BY id ASC
        LIMIT ? OFFSET ?`,
@@ -282,9 +282,14 @@ router.patch('/:id/deactivate', requireRole('Admin'), asyncHandler(async (req, r
     res.status(400).json({ error: 'Invalid member id' })
     return
   }
-  const member = await get('SELECT id, name, email, role, status FROM members WHERE id = ?', [id])
+  const member = await get('SELECT id, name, email, role, status, is_owner FROM members WHERE id = ?', [id])
   if (!member) {
     res.status(404).json({ error: 'Member not found' })
+    return
+  }
+  // The workspace Owner cannot be deactivated (would lock them out of the workspace).
+  if (member.is_owner) {
+    res.status(403).json({ error: 'Cannot deactivate the workspace Owner' })
     return
   }
   await run('UPDATE members SET status = ? WHERE id = ?', ['Deactivated', id])
