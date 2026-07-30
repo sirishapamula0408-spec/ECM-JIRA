@@ -46,6 +46,7 @@ function renderBoard() {
 }
 
 beforeEach(() => {
+  window.localStorage.clear() // JL-239: isolate persisted quick-filter selection between tests
   mockIssues = [...baseIssues]
   mockHandleMove.mockReset().mockResolvedValue({})
   mockFetchBoardConfig.mockReset().mockResolvedValue({ projectId: 1, swimlaneBy: 'none', wipLimits: {}, quickFilters: [] })
