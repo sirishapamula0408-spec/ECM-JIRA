@@ -160,12 +160,6 @@ function escapeHtml(value) {
 /**
  * JL-303: Build a single digest email summarising a batch of unread
  * notifications for one recipient. Follows the buildInviteEmail style.
- *
- * @param {object} args
- * @param {string} args.recipientEmail
- * @param {Array<{ title?: string, message?: string, type?: string }>} args.notifications
- * @param {string} [args.appUrl]
- * @returns {{ subject: string, html: string, text: string }}
  */
 export function buildDigestEmail({ recipientEmail, notifications = [], appUrl }) {
   const url = appUrl || APP_URL || 'http://localhost:5173'
@@ -206,6 +200,39 @@ export function buildDigestEmail({ recipientEmail, notifications = [], appUrl })
     return n.message ? `• ${title} — ${n.message}` : `• ${title}`
   })
   const text = `You have ${count} unread ${noun} on ECM-JIRA:\n\n${lines.join('\n')}\n\nView in ECM-JIRA: ${url}`
+
+  return { subject, html, text }
+}
+
+/**
+ * Build the in-app notification email (subject/html/text) for a notification
+ * that is being mirrored to the recipient's inbox.
+ */
+export function buildNotificationEmail({ title, message, type, actorEmail, appUrl }) {
+  const url = appUrl || APP_URL || 'http://localhost:5173'
+  const heading = title || 'New notification'
+  const subject = title || 'New notification from ECM-JIRA'
+  const actorLine = actorEmail ? `${actorEmail} · ` : ''
+  const typeLabel = type ? String(type).replace(/_/g, ' ') : 'notification'
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#172b4d;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <h2 style="margin:0 0 4px;font-size:20px;color:#0052cc;">ECM-JIRA</h2>
+        <p style="margin:0;font-size:12px;color:#6b778c;">Project Management Platform</p>
+      </div>
+      <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:#6b778c;margin:0 0 6px;">${actorLine}${typeLabel}</p>
+      <h3 style="margin:0 0 12px;font-size:16px;color:#172b4d;">${heading}</h3>
+      ${message ? `<p style="font-size:14px;line-height:1.6;">${message}</p>` : ''}
+      <div style="text-align:center;margin:28px 0;">
+        <a href="${url}" style="display:inline-block;padding:12px 32px;background:#0052cc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">View in ECM-JIRA</a>
+      </div>
+      <hr style="border:none;border-top:1px solid #dfe1e6;margin:24px 0;" />
+      <p style="font-size:11px;color:#97a0af;text-align:center;">You're receiving this because email notifications are enabled. You can change this in your notification preferences.</p>
+    </div>
+  `
+
+  const text = `${actorLine}${typeLabel}\n${heading}${message ? `\n\n${message}` : ''}\n\nView in ECM-JIRA: ${url}\n\nYou're receiving this because email notifications are enabled. You can change this in your notification preferences.`
 
   return { subject, html, text }
 }
