@@ -9,7 +9,7 @@ import { useRecentIssues } from '../../hooks/useRecentIssues'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import { searchIssues } from '../../api/issueApi'
-import { fetchWorkspaces, getActiveWorkspaceId, setActiveWorkspaceId } from '../../api/workspaceApi'
+import { fetchWorkspaces, getActiveWorkspaceId, setActiveWorkspaceId, DEFAULT_WORKSPACE_SLUG } from '../../api/workspaceApi'
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { NotificationDropdown } from '../notifications/NotificationDropdown'
@@ -127,9 +127,10 @@ export function Topbar({ onCreate, hasProjects }) {
               onChange={handleWorkspaceChange}
               aria-label="Active workspace"
             >
+              {/* JL-297: clearly mark the seeded default workspace */}
               {workspaces.map((w) => (
                 <option key={w.id} value={String(w.id)}>
-                  {w.name}
+                  {w.slug === DEFAULT_WORKSPACE_SLUG ? `${w.name} (default)` : w.name}
                 </option>
               ))}
             </select>
@@ -203,17 +204,17 @@ export function Topbar({ onCreate, hasProjects }) {
           </button>
         )}
         <div className="topbar-notif-wrap" style={{ position: 'relative' }}>
-          <button className="icon-btn icon-badge" type="button" aria-label="Notifications" onClick={() => setIsNotifOpen((c) => !c)}>
+          <button className="icon-btn icon-badge" type="button" aria-label="Notifications" title="Notifications" onClick={() => setIsNotifOpen((c) => !c)}>
             <HeaderPanelIcon name="notifications" />
             {unreadCount > 0 && <span className="dot notif-count-dot">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             {unreadCount === 0 && <span className="dot" style={{ display: 'none' }} />}
           </button>
           <NotificationDropdown open={isNotifOpen} onClose={handleCloseNotif} />
         </div>
-        <button className="icon-btn" type="button" aria-label="Help">
+        <button className="icon-btn" type="button" aria-label="Help" title="Help">
           <HeaderPanelIcon name="help" />
         </button>
-        <button className="icon-btn" type="button" aria-label="Settings">
+        <button className="icon-btn" type="button" aria-label="Settings" title="Settings">
           <HeaderPanelIcon name="settings" />
         </button>
         <div className="topbar-live-clock">
@@ -233,6 +234,7 @@ export function Topbar({ onCreate, hasProjects }) {
             className="avatar avatar-btn"
             type="button"
             aria-label="Open user menu"
+            title="Open user menu"
             onClick={() => setIsUserMenuOpen((current) => !current)}
           >
             {avatarText}
