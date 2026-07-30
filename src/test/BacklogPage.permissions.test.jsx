@@ -69,6 +69,8 @@ const VIEWER_PERMS = {
   canEditIssue: false,
   canDeleteIssue: false,
   canManageSprints: false,
+  // JL-288: Viewers may export (read op) but not import.
+  canExportIssues: true,
 }
 
 const MEMBER_PERMS = {
@@ -77,6 +79,7 @@ const MEMBER_PERMS = {
   canEditIssue: true,
   canDeleteIssue: false,
   canManageSprints: false,
+  canExportIssues: true,
 }
 
 const ADMIN_PERMS = {
@@ -85,6 +88,7 @@ const ADMIN_PERMS = {
   canEditIssue: true,
   canDeleteIssue: true,
   canManageSprints: true,
+  canExportIssues: true,
 }
 
 function renderBacklog() {
@@ -119,13 +123,15 @@ describe('JL-230 — Viewer sees a read-only Backlog', () => {
     expect(screen.getByText('My open issues')).toBeInTheDocument()
   })
 
-  it('hides the bulk-action toolbar and Import / Export', () => {
+  it('hides the bulk-action toolbar and Import (but allows Export)', () => {
     renderBacklog()
     expect(screen.queryByLabelText('Bulk action')).toBeNull()
     expect(screen.queryByText('Apply')).toBeNull()
     expect(screen.queryByText('Advanced bulk change')).toBeNull()
     expect(screen.queryByText(/selected/)).toBeNull()
-    expect(screen.queryByText('Import / Export')).toBeNull()
+    // JL-288: Import stays Member+, but Export is available to Viewers.
+    expect(screen.queryByRole('button', { name: 'Import' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument()
   })
 
   it('hides selection checkboxes on sections and rows', () => {
@@ -178,10 +184,11 @@ describe('JL-230 — Member sees create/edit controls', () => {
     expect(options).not.toContain('delete')
   })
 
-  it('shows Import / Export, row checkboxes, status selects and inline create', () => {
+  it('shows Import + Export, row checkboxes, status selects and inline create', () => {
     renderBacklog()
     expandSprintPanel()
-    expect(screen.getByText('Import / Export')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument()
     expect(screen.getByLabelText('Select TP-1')).toBeInTheDocument()
     expect(screen.getByLabelText('Status for TP-1')).toBeInTheDocument()
     expect(document.querySelector('.sprint-inline-create')).toBeTruthy()

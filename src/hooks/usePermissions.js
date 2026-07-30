@@ -32,6 +32,7 @@ export function usePermissions(projectId) {
         canCreateIssue: false,
         canEditIssue: false,
         canDeleteIssue: false,
+        canExportIssues: false,
         canManageSprints: false,
         canManageProjectSettings: false,
         canManageMembers: false,
@@ -85,6 +86,11 @@ export function usePermissions(projectId) {
       // JL-228: project Members (and above) can delete issues/tasks/stories/epics
       // — same tier as create/edit. Viewers stay blocked (rank < Member).
       canDeleteIssue: effectiveRank >= ROLE_RANK.Member,
+
+      // JL-288: exporting issue data is a READ operation — any project member,
+      // including Viewers, may export ("if permitted"). Backend export endpoint
+      // is gated on project READ; import stays Member+ (canCreateIssue).
+      canExportIssues: effectiveRank >= ROLE_RANK.Viewer,
 
       // Sprint permissions
       canManageSprints: isProjectAdmin,

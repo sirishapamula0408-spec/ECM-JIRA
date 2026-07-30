@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { downloadProjectExport, importIssues } from '../../api/importExportApi'
 import './ImportExportModal.css'
 
-export function ImportExportModal({ projectId, onClose, onImported }) {
-  const [tab, setTab] = useState('export')
+export function ImportExportModal({ projectId, onClose, onImported, canImport = true, initialTab = 'export' }) {
+  // JL-288: Viewers (canImport=false) may only export. Force the Export tab and
+  // hide the Import tab/section entirely for them.
+  const [tab, setTab] = useState(canImport ? initialTab : 'export')
   const [csv, setCsv] = useState('')
   const [preview, setPreview] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -50,12 +52,14 @@ export function ImportExportModal({ projectId, onClose, onImported }) {
     <div className="ie-overlay" onClick={onClose}>
       <div className="ie-modal" onClick={(e) => e.stopPropagation()}>
         <div className="ie-header">
-          <h3>Import / Export issues</h3>
+          <h3>{canImport ? 'Import / Export issues' : 'Export issues'}</h3>
           <button className="ie-close" type="button" onClick={onClose} aria-label="Close">&times;</button>
         </div>
         <div className="ie-tabs">
           <button type="button" className={`ie-tab${tab === 'export' ? ' active' : ''}`} onClick={() => setTab('export')}>Export</button>
-          <button type="button" className={`ie-tab${tab === 'import' ? ' active' : ''}`} onClick={() => setTab('import')}>Import</button>
+          {canImport && (
+            <button type="button" className={`ie-tab${tab === 'import' ? ' active' : ''}`} onClick={() => setTab('import')}>Import</button>
+          )}
         </div>
 
         {tab === 'export' && (
@@ -68,7 +72,7 @@ export function ImportExportModal({ projectId, onClose, onImported }) {
           </div>
         )}
 
-        {tab === 'import' && (
+        {canImport && tab === 'import' && (
           <div className="ie-body">
             <p className="ie-hint">
               Paste CSV with a header row. Recognized columns: <code>title, description, priority, assignee, status, issue_type, sprint_id</code>. Only <code>title</code> is required.
