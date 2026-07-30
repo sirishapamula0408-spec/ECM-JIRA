@@ -19,8 +19,12 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import './WorkflowEditorPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
-const NODE_WIDTH = 180
-const NODE_HEIGHT = 60
+// JL-307: compact Atlassian-style status nodes (previously 180×60 boxes). These
+// constants are the single source of truth for node size — they drive BOTH the
+// inline node dimensions and the SVG arrow start/end geometry, so drag,
+// positioning and transition arrows stay in sync.
+const NODE_WIDTH = 140
+const NODE_HEIGHT = 44
 const NUDGE_STEP = 10
 
 // JL-276: quick-pick presets for the Add Status dialog. Backend `category` only
@@ -577,6 +581,8 @@ export function WorkflowEditorPage() {
                     style={{
                       left: node.x,
                       top: node.y,
+                      width: NODE_WIDTH,
+                      height: NODE_HEIGHT,
                       backgroundColor: node.color || style.bg,
                       borderColor: style.border,
                       color: node.color ? undefined : style.color,
