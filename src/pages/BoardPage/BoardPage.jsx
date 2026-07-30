@@ -4,6 +4,7 @@ import { useIssues } from '../../context/IssueContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from '../../api/boardConfigApi'
 import { fetchProjectLabels, fetchIssueLabels } from '../../api/labelApi'
+import { fetchProjectStatuses } from '../../api/issueConfigApi'
 import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
@@ -18,6 +19,47 @@ const SWIMLANE_OPTIONS = [
   { value: 'epic', label: 'Epic' },
   { value: 'priority', label: 'Priority' },
 ]
+
+// JL-310: minimum resizable column width (px) and localStorage key builder.
+const MIN_COL_WIDTH = 200
+const DEFAULT_COL_WIDTH = 270
+function colWidthsStorageKey(projectId) {
+  return `board_col_widths_${projectId || 'default'}`
+}
+
+// JL-311: fallback status→category inference for boards whose statuses carry no
+// explicit category (e.g. the default/unconfigured board on ISSUE_STATUSES, or a
+// legacy status the project-statuses endpoint didn't tag).
+function defaultCategoryForStatus(name) {
+  if (name === 'Done') return 'done'
+  if (name === 'In Progress' || name === 'Code Review') return 'inprogress'
+  return 'todo'
+}
+
+// JL-312: a cancellation status (e.g. "Cancelled"/"Canceled") is terminal
+// (done-category) but NOT a success, so its column must stay neutral grey
+// rather than green. Identified by name — matches /cancel/i.
+function isCancelStatus(name) {
+  return /cancel/i.test(name || '')
+}
+
+// JL-311: derive a board column's category from its mapped statuses' categories
+// (loaded per-project via JL-309). Atlassian colors the Done column green, so a
+// column is "done" when it has statuses and they are ALL in the done category;
+// likewise "inprogress" when all statuses are in-progress. Mixed columns stay
+// neutral. `categoryMap` is name→category; unknown statuses fall back by name.
+// JL-312: any cancellation status in the column keeps it neutral (no accent).
+function columnCategory(statuses, categoryMap) {
+  const list = statuses || []
+  if (list.some((s) => isCancelStatus(s))) return null
+  const cats = list
+    .map((s) => categoryMap[s] || defaultCategoryForStatus(s))
+    .filter(Boolean)
+  if (cats.length === 0) return null
+  if (cats.every((c) => c === 'done')) return 'done'
+  if (cats.every((c) => c === 'inprogress')) return 'inprogress'
+  return null
+}
 
 // Resolve the grouping value for an issue given a swimlane mode.
 function swimlaneValueFor(issue, mode) {
@@ -36,7 +78,7 @@ export function BoardPage() {
   const { canManageProjectSettings, canEditIssue } = usePermissions(projectId)
 
   const [dragIssueId, setDragIssueId] = useState(null)
-  const [dropStatus, setDropStatus] = useState('')
+  const [dropColId, setDropColId] = useState('')
   const [isBoardMenuOpen, setIsBoardMenuOpen] = useState(false)
   const [boardMessage, setBoardMessage] = useState('')
 
@@ -62,6 +104,17 @@ export function BoardPage() {
       return []
     }
   })
+  // JL-308: Atlassian-style column configuration ([{ id, name, statuses[] }]).
+  // Empty = fall back to the default one-column-per-workflow-status board.
+  const [columns, setColumns] = useState([])
+  // JL-309: the project's actual workflow status names (from GET /api/projects/:id/statuses).
+  // Sourced per-project so the columns editor + board grouping reflect custom
+  // workflows; falls back to the standard ISSUE_STATUSES set when the project has
+  // no custom statuses configured (empty/absent response or fetch failure).
+  const [projectStatuses, setProjectStatuses] = useState(ISSUE_STATUSES)
+  // JL-311: name→category map from the per-project statuses, used to color
+  // columns (Done = green) by their mapped statuses' category.
+  const [statusCategories, setStatusCategories] = useState({})
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // JL-239: project label catalog (chip source) + issue->label-names map (matching).
@@ -74,6 +127,12 @@ export function BoardPage() {
   const [isBoardStarred, setIsBoardStarred] = useState(() => {
     try { return window.localStorage.getItem('jira_board_starred') === '1' } catch { return false }
   })
+
+  // JL-310: per-column widths (map of columnId -> px). Persisted in localStorage
+  // keyed per board so each project's board layout is remembered independently.
+  const [colWidths, setColWidths] = useState({})
+  // Tracks an in-flight resize drag so pointermove/up handlers stay scoped to it.
+  const resizeRef = useRef(null)
 
   const filteredIssues = useMemo(
     () => projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues,
@@ -95,6 +154,7 @@ export function BoardPage() {
         if (!hadStoredFiltersRef.current && Array.isArray(cfg.quickFilters) && cfg.quickFilters.length) {
           setActiveFilters(cfg.quickFilters)
         }
+        setColumns(Array.isArray(cfg.columns) ? cfg.columns : [])
       })
       .catch(() => { /* fall back to defaults */ })
     return () => { cancelled = true }
@@ -121,9 +181,72 @@ export function BoardPage() {
     return () => clearTimeout(handle)
   }, [textInput])
 
+  // JL-309: load the project's effective workflow statuses. The endpoint returns
+  // rows shaped like { id, name, position, color, category }; we take the ordered
+  // names. When the project has no statuses (empty response) or the fetch fails,
+  // keep the standard ISSUE_STATUSES fallback so existing boards are unaffected.
+  useEffect(() => {
+    if (!projectId) { setProjectStatuses(ISSUE_STATUSES); setStatusCategories({}); return }
+    let cancelled = false
+    fetchProjectStatuses(projectId)
+      .then((rows) => {
+        if (cancelled) return
+        const list = Array.isArray(rows) ? rows : []
+        const names = list.map((row) => (typeof row === 'string' ? row : row?.name)).filter(Boolean)
+        // Build a name→category map from the row objects (JL-311).
+        const cats = {}
+        for (const row of list) {
+          if (row && typeof row === 'object' && row.name && row.category) cats[row.name] = row.category
+        }
+        setStatusCategories(cats)
+        setProjectStatuses(names.length > 0 ? names : ISSUE_STATUSES)
+      })
+      .catch(() => { if (!cancelled) { setProjectStatuses(ISSUE_STATUSES); setStatusCategories({}) } })
+    return () => { cancelled = true }
+  }, [projectId])
+
   useEffect(() => {
     try { window.localStorage.setItem('jira_board_starred', isBoardStarred ? '1' : '0') } catch { /* ignore */ }
   }, [isBoardStarred])
+
+  // JL-310: restore persisted per-column widths for this board on load / project change.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(colWidthsStorageKey(projectId))
+      const parsed = raw ? JSON.parse(raw) : null
+      setColWidths(parsed && typeof parsed === 'object' ? parsed : {})
+    } catch { setColWidths({}) }
+  }, [projectId])
+
+  // JL-310: begin a column resize drag. Scoped to the trailing-edge handle so it
+  // never interferes with card drag-and-drop. Widths persist to localStorage on release.
+  function startColumnResize(event, colId, element) {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startWidth = element?.getBoundingClientRect().width || colWidths[colId] || DEFAULT_COL_WIDTH
+    resizeRef.current = { colId, startX, startWidth }
+    document.body.classList.add('board-col-resizing')
+
+    const onMove = (moveEvent) => {
+      const state = resizeRef.current
+      if (!state) return
+      const next = Math.max(MIN_COL_WIDTH, Math.round(state.startWidth + (moveEvent.clientX - state.startX)))
+      setColWidths((current) => ({ ...current, [state.colId]: next }))
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.classList.remove('board-col-resizing')
+      resizeRef.current = null
+      setColWidths((current) => {
+        try { window.localStorage.setItem(colWidthsStorageKey(projectId), JSON.stringify(current)) } catch { /* ignore */ }
+        return current
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // Available quick-filter chips derived from the current issues.
   const quickFilterChips = useMemo(() => {
@@ -230,19 +353,93 @@ export function BoardPage() {
       .map(([value, laneIssues]) => ({ key: value, label: value, issues: laneIssues }))
   }, [visibleIssues, swimlaneBy])
 
+  // JL-309: default one-column-per-status set derived from the project's own
+  // workflow statuses (Backlog excluded, mirroring the historical STATUS_COLUMNS
+  // default). Falls back to STATUS_COLUMNS when the project has no custom
+  // statuses, keeping existing boards unchanged.
+  const defaultColumnStatuses = useMemo(() => {
+    const names = projectStatuses.filter((status) => status !== 'Backlog')
+    return names.length > 0 ? names : STATUS_COLUMNS
+  }, [projectStatuses])
+
+  // JL-308: the columns actually rendered on the board. When no column config
+  // is saved, fall back to the historical default: one column per non-backlog
+  // workflow status.
+  const boardColumns = useMemo(() => {
+    // JL-311: tag each column with its category (done/inprogress/null) so the
+    // board can color it (Done = green) via the kanban-col-cat-* class.
+    const withCategory = (col) => ({ ...col, category: columnCategory(col.statuses, statusCategories) })
+    if (Array.isArray(columns) && columns.length > 0) {
+      return columns.map((col) => withCategory({ id: col.id, name: col.name, statuses: col.statuses || [] }))
+    }
+    return defaultColumnStatuses.map((status) => withCategory({ id: status, name: status, statuses: [status] }))
+  }, [columns, defaultColumnStatuses, statusCategories])
+
+  // Materialised columns for the settings editor — defaults are shown so an
+  // admin can start from the current board rather than a blank slate.
+  const editorColumns = useMemo(() => (
+    Array.isArray(columns) && columns.length > 0
+      ? columns
+      : defaultColumnStatuses.map((status) => ({ id: status, name: status, statuses: [status] }))
+  ), [columns, defaultColumnStatuses])
+
+  // Workflow statuses not mapped to any column (Jira's backlog/unmapped area).
+  // JL-309: sourced from the project's effective statuses rather than the
+  // hardcoded ISSUE_STATUSES constant.
+  const unmappedStatuses = useMemo(() => {
+    const mapped = new Set(editorColumns.flatMap((col) => col.statuses || []))
+    return projectStatuses.filter((status) => !mapped.has(status))
+  }, [editorColumns, projectStatuses])
+
+  function addColumn() {
+    setColumns([...editorColumns, { id: `col_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name: 'New column', statuses: [] }])
+  }
+  function renameColumn(id, name) {
+    setColumns(editorColumns.map((col) => (col.id === id ? { ...col, name } : col)))
+  }
+  function removeColumn(id) {
+    setColumns(editorColumns.filter((col) => col.id !== id))
+  }
+  function moveColumn(id, direction) {
+    const next = [...editorColumns]
+    const index = next.findIndex((col) => col.id === id)
+    const target = index + direction
+    if (index < 0 || target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setColumns(next)
+  }
+  function assignStatus(colId, status) {
+    if (!status) return
+    setColumns(editorColumns.map((col) => ({
+      ...col,
+      statuses: col.id === colId
+        ? [...(col.statuses || []).filter((s) => s !== status), status]
+        : (col.statuses || []).filter((s) => s !== status),
+    })))
+  }
+  function unassignStatus(colId, status) {
+    setColumns(editorColumns.map((col) => (
+      col.id === colId ? { ...col, statuses: (col.statuses || []).filter((s) => s !== status) } : col
+    )))
+  }
+
   function toggleFilter(key) {
     setActiveFilters((current) =>
       current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
     )
   }
 
-  async function handleDrop(nextStatus) {
+  async function handleDrop(col) {
     if (!canEditIssue) return
     if (!dragIssueId) return
+    const targetStatus = (col.statuses || [])[0]
     const issue = filteredIssues.find((item) => item.id === dragIssueId)
-    if (!issue || issue.status === nextStatus) { setDragIssueId(null); setDropStatus(''); return }
-    await handleMove(issue.id, nextStatus, issue.sprintId ?? null)
-    setDragIssueId(null); setDropStatus('')
+    // Ignore drops onto unmapped columns or when the card already sits in this column.
+    if (!targetStatus || !issue || (col.statuses || []).includes(issue.status)) {
+      setDragIssueId(null); setDropColId(''); return
+    }
+    await handleMove(issue.id, targetStatus, issue.sprintId ?? null)
+    setDragIssueId(null); setDropColId('')
   }
 
   async function handleDeleteBoard() {
@@ -262,7 +459,7 @@ export function BoardPage() {
     }
     try {
       // JL-239: persist the active quick-filter selection as the board's shared default.
-      await saveBoardConfig(projectId, { swimlaneBy, wipLimits: cleanLimits, quickFilters: activeFilters, estimationStatistic })
+      await saveBoardConfig(projectId, { swimlaneBy, wipLimits: cleanLimits, quickFilters: activeFilters, estimationStatistic, columns })
       setWipLimits(cleanLimits)
       setBoardMessage('Board settings saved.')
       setIsSettingsOpen(false)
@@ -375,7 +572,7 @@ export function BoardPage() {
           </div>
           <div className="board-settings-wip">
             <span className="board-settings-wip-title">WIP limits (per column)</span>
-            {STATUS_COLUMNS.map((status) => (
+            {defaultColumnStatuses.map((status) => (
               <div className="board-settings-row" key={status}>
                 <label htmlFor={`wip-${status}`}>{status}</label>
                 <input
@@ -397,6 +594,59 @@ export function BoardPage() {
               </div>
             ))}
           </div>
+          {/* JL-308: Atlassian-style column configuration */}
+          <div className="board-settings-columns" aria-label="Board columns">
+            <div className="board-settings-columns-head">
+              <span className="board-settings-wip-title">Columns</span>
+              <button type="button" className="board-col-add" onClick={addColumn}>Add column</button>
+            </div>
+            <p className="board-settings-columns-hint">Map each column to one or more workflow statuses. A status belongs to exactly one column.</p>
+            <div className="board-col-list">
+              {editorColumns.map((col, index) => (
+                <div className="board-col-editor" key={col.id} data-col-id={col.id}>
+                  <div className="board-col-editor-head">
+                    <input
+                      className="board-col-name-input"
+                      aria-label={`Column ${index + 1} name`}
+                      value={col.name}
+                      onChange={(event) => renameColumn(col.id, event.target.value)}
+                    />
+                    <div className="board-col-editor-actions">
+                      <button type="button" aria-label={`Move column ${index + 1} left`} disabled={index === 0} onClick={() => moveColumn(col.id, -1)}>&#8592;</button>
+                      <button type="button" aria-label={`Move column ${index + 1} right`} disabled={index === editorColumns.length - 1} onClick={() => moveColumn(col.id, 1)}>&#8594;</button>
+                      <button type="button" className="board-col-remove" aria-label={`Remove column ${index + 1}`} onClick={() => removeColumn(col.id)}>&times;</button>
+                    </div>
+                  </div>
+                  <div className="board-col-statuses">
+                    {(col.statuses || []).map((status) => (
+                      <span className="board-col-status-chip" key={status}>
+                        {status}
+                        <button type="button" aria-label={`Remove status ${status} from column ${index + 1}`} onClick={() => unassignStatus(col.id, status)}>&times;</button>
+                      </span>
+                    ))}
+                    {unmappedStatuses.length > 0 && (
+                      <select
+                        className="board-col-status-add"
+                        aria-label={`Add status to column ${index + 1}`}
+                        value=""
+                        onChange={(event) => { assignStatus(col.id, event.target.value); event.target.value = '' }}
+                      >
+                        <option value="">+ Add status</option>
+                        {unmappedStatuses.map((status) => (<option key={status} value={status}>{status}</option>))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="board-col-unmapped" aria-label="Unmapped statuses">
+              <span className="board-col-unmapped-label">Unmapped</span>
+              {unmappedStatuses.length === 0
+                ? <span className="board-col-unmapped-empty">All statuses mapped</span>
+                : unmappedStatuses.map((status) => (<span className="board-col-status-chip board-col-status-chip-unmapped" key={status}>{status}</span>))}
+            </div>
+          </div>
+
           <div className="board-settings-actions">
             {canManageProjectSettings ? (
               <button type="button" className="board-settings-save" onClick={handleSaveConfig}>Save</button>
@@ -418,21 +668,24 @@ export function BoardPage() {
             </div>
           )}
           <div className="kanban-grid">
-            {STATUS_COLUMNS.map((status) => {
-              const colIssues = lane.issues.filter((issue) => issue.status === status)
-              const limit = wipLimits[status]
+            {boardColumns.map((col) => {
+              const colIssues = lane.issues.filter((issue) => col.statuses.includes(issue.status))
+              const limit = wipLimits[col.name]
               const hasLimit = Number.isInteger(Number(limit)) && Number(limit) > 0
               const isOverLimit = hasLimit && colIssues.length > Number(limit)
+              const width = colWidths[col.id]
               return (
                 <article
-                  key={status}
-                  className={`kanban-col${dropStatus === status ? ' kanban-col-drop-active' : ''}${isOverLimit ? ' kanban-col-over-wip' : ''}`}
-                  onDragOver={(event) => { event.preventDefault(); if (dropStatus !== status) setDropStatus(status) }}
-                  onDrop={() => handleDrop(status)}
+                  key={col.id}
+                  className={`kanban-col${col.category ? ` kanban-col-cat-${col.category}` : ''}${dropColId === col.id ? ' kanban-col-drop-active' : ''}${isOverLimit ? ' kanban-col-over-wip' : ''}`}
+                  data-column={col.name}
+                  style={width ? { flex: `0 0 ${width}px`, width: `${width}px` } : undefined}
+                  onDragOver={(event) => { event.preventDefault(); if (dropColId !== col.id) setDropColId(col.id) }}
+                  onDrop={() => handleDrop(col)}
                 >
                   <header>
-                    <h3>{status}</h3>
-                    <span className={`kanban-count${isOverLimit ? ' kanban-count-over' : ''}`} data-status={status}>
+                    <h3>{col.name}</h3>
+                    <span className={`kanban-count${isOverLimit ? ' kanban-count-over' : ''}`} data-status={col.name}>
                       {colIssues.length}{hasLimit ? ` / ${limit}` : ''}
                     </span>
                   </header>
@@ -442,7 +695,7 @@ export function BoardPage() {
                       key={issue.id}
                       draggable={canEditIssue}
                       onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
-                      onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropStatus('') } : undefined}
+                      onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropColId('') } : undefined}
                     >
                       <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
                       <CopyButton
@@ -457,13 +710,23 @@ export function BoardPage() {
                       <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
                       {canEditIssue ? (
                         <select value={issue.status} onChange={(event) => handleMove(issue.id, event.target.value, issue.sprintId ?? null)}>
-                          {ISSUE_STATUSES.map((item) => (<option key={item} value={item}>{item}</option>))}
+                          {projectStatuses.map((item) => (<option key={item} value={item}>{item}</option>))}
                         </select>
                       ) : (
                         <span className="kanban-status-readonly" aria-label={`Status for ${issue.key}`}>{issue.status}</span>
                       )}
                     </div>
                   ))}
+                  <div
+                    className="kanban-col-resize-handle"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize column ${col.name}`}
+                    title="Drag to resize column"
+                    draggable={false}
+                    onPointerDown={(event) => startColumnResize(event, col.id, event.currentTarget.closest('.kanban-col'))}
+                    onClick={(event) => event.stopPropagation()}
+                  />
                 </article>
               )
             })}

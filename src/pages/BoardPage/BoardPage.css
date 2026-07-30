@@ -1,9 +1,56 @@
 /* BoardPage (Kanban) styles */
 
+/* JL-310: Atlassian-style single horizontal row. All configured columns render
+   in one row and the container scrolls sideways when they exceed the viewport —
+   only this container scrolls, not the page body. */
 .kanban-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(230px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 6px;
+}
+
+/* JL-310: each column is a fixed-basis, resizable flex item (min width guarded). */
+.kanban-col {
+  position: relative;
+  flex: 0 0 270px;
+  min-width: 200px;
+  box-sizing: border-box;
+}
+
+/* JL-310: trailing-edge drag handle for resizing a column. */
+.kanban-col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+  background: transparent;
+}
+.kanban-col-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.kanban-col-resize-handle:hover::after {
+  background: #b3d4ff;
+}
+body.board-col-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .board-jira-header {
@@ -365,6 +412,55 @@
   background: #e6edf8;
 }
 
+/* JL-311: category-based column coloring (Atlassian-style).
+   A column whose mapped statuses are all in the "done" category renders with a
+   subtle GREEN accent (top bar + header text + count pill); in-progress columns
+   get a matching blue accent. Uses the shared --jira-success / --jira-blue
+   tokens; dark-theme overrides below keep it legible. Neutral columns are
+   unchanged. */
+.kanban-col-cat-done {
+  border-top: 3px solid var(--jira-success);
+}
+.kanban-col-cat-done header h3 {
+  color: var(--jira-success);
+}
+.kanban-col-cat-done header span {
+  background: rgba(0, 135, 90, 0.15);
+  color: var(--jira-success);
+}
+.kanban-col-cat-inprogress {
+  border-top: 3px solid var(--jira-blue);
+}
+.kanban-col-cat-inprogress header h3 {
+  color: var(--jira-blue);
+}
+.kanban-col-cat-inprogress header span {
+  background: rgba(0, 82, 204, 0.15);
+  color: var(--jira-blue);
+}
+
+/* Dark theme: brighter Atlassian green (#4bce97) / blue (#579dff) for contrast. */
+.app-theme-dark .kanban-col-cat-done {
+  border-top-color: #4bce97;
+}
+.app-theme-dark .kanban-col-cat-done header h3,
+.app-theme-dark .kanban-col-cat-done header span {
+  color: #4bce97;
+}
+.app-theme-dark .kanban-col-cat-done header span {
+  background: rgba(75, 206, 151, 0.2);
+}
+.app-theme-dark .kanban-col-cat-inprogress {
+  border-top-color: #579dff;
+}
+.app-theme-dark .kanban-col-cat-inprogress header h3,
+.app-theme-dark .kanban-col-cat-inprogress header span {
+  color: #579dff;
+}
+.app-theme-dark .kanban-col-cat-inprogress header span {
+  background: rgba(87, 157, 255, 0.2);
+}
+
 .kanban-col header {
   display: flex;
   justify-content: space-between;
@@ -464,4 +560,128 @@
 
 .kanban-card-flag {
   margin-left: 6px;
+}
+
+/* JL-308: Board column configuration editor */
+.board-settings-columns {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border, #DFE1E6);
+}
+.board-settings-columns-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.board-settings-columns-hint {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  color: var(--color-text-subtle, #6B778C);
+}
+.board-col-add {
+  border: 1px solid var(--color-border, #DFE1E6);
+  background: var(--color-surface, #fff);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.board-col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.board-col-editor {
+  border: 1px solid var(--color-border, #DFE1E6);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--color-surface-sunken, #FAFBFC);
+}
+.board-col-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+.board-col-name-input {
+  flex: 1;
+  border: 1px solid var(--color-border, #DFE1E6);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.board-col-editor-actions {
+  display: flex;
+  gap: 4px;
+}
+.board-col-editor-actions button {
+  border: 1px solid var(--color-border, #DFE1E6);
+  background: var(--color-surface, #fff);
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  line-height: 1;
+}
+.board-col-editor-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.board-col-remove {
+  color: var(--color-danger, #DE350B);
+}
+.board-col-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+.board-col-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-primary-subtle, #DEEBFF);
+  color: var(--color-primary, #0052CC);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.board-col-status-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+.board-col-status-chip-unmapped {
+  background: var(--color-surface-sunken, #EBECF0);
+  color: var(--color-text-subtle, #6B778C);
+}
+.board-col-status-add {
+  border: 1px dashed var(--color-border, #C1C7D0);
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+.board-col-unmapped {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+}
+.board-col-unmapped-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-subtle, #6B778C);
+}
+.board-col-unmapped-empty {
+  font-size: 12px;
+  color: var(--color-text-subtle, #6B778C);
 }
