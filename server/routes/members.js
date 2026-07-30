@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { sendMail, buildInviteEmail } from '../utils/mailer.js'
 import { requireRole } from '../middleware/authorize.js'
 import { isAllowedEmail, hashPassword } from '../middleware/validate.js'
+import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
 
 const router = Router()
 
@@ -115,11 +116,66 @@ router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
-router.get('/', asyncHandler(async (_req, res) => {
+// JL-281: server-side pagination + search/filtering for the members list.
+//
+// Backward compatibility: the historical response is a plain array of all
+// members. Several callers (App.jsx bootstrap, TeamsPage, ActivityFeedPage)
+// rely on that shape and call GET /api/members with no query params — they keep
+// getting the plain array. The paginated envelope
+//   { items, total, limit, offset }
+// is returned only when the request explicitly asks for it, i.e. when any of
+// the pagination params (limit/offset/page) or the filter params
+// (search/role/status) are present.
+router.get('/', asyncHandler(async (req, res) => {
+  const { search, role, status } = req.query
+  const paginated =
+    isPaginationRequested(req.query) ||
+    search !== undefined ||
+    role !== undefined ||
+    status !== undefined
+
+  // Build the shared WHERE clause from the filter params.
+  const clauses = []
+  const params = []
+
+  const term = String(search ?? '').trim()
+  if (term) {
+    clauses.push('(name ILIKE ? OR email ILIKE ?)')
+    params.push(`%${term}%`, `%${term}%`)
+  }
+  const roleVal = String(role ?? '').trim()
+  if (roleVal) {
+    clauses.push('role = ?')
+    params.push(roleVal)
+  }
+  const statusVal = String(status ?? '').trim()
+  if (statusVal) {
+    clauses.push('status = ?')
+    params.push(statusVal)
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+
+  // Legacy path: no pagination/filter params → return the full list as an array.
+  if (!paginated) {
+    const rows = await all(
+      'SELECT id, name, email, role, status, task_count, invited_by FROM members ORDER BY id ASC',
+    )
+    res.json(rows)
+    return
+  }
+
+  const { limit, offset } = parsePagination(req.query, { defaultLimit: 25, maxLimit: 200 })
   const rows = await all(
-    'SELECT id, name, email, role, status, task_count, invited_by FROM members ORDER BY id ASC',
+    `SELECT id, name, email, role, status, task_count, invited_by
+       FROM members ${where}
+       ORDER BY id ASC
+       LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   )
-  res.json(rows)
+  const totalRow = await get(`SELECT COUNT(*)::int AS total FROM members ${where}`, params)
+  const total = Number(totalRow?.total || 0)
+
+  res.json({ items: rows, total, limit, offset })
 }))
 
 // JL-192: Admin provisions an account directly. Optionally sets a temporary
