@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { fetchProjectById } from '../../api/projectApi'
 import { useIssues } from '../../context/IssueContext'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import './ProjectDetailPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -88,9 +89,7 @@ export function ProjectDetailPage() {
             <div className="pd-detail-row">
               <dt>Created</dt>
               <dd>
-                {project.created_at
-                  ? new Date(project.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                  : 'Unknown'}
+                <RelativeTime value={project.created_at} fallback="Unknown" />
               </dd>
             </div>
           </dl>

@@ -5,6 +5,7 @@ import Alert from '@mui/material/Alert'
 import { fetchWikiPages, fetchWikiPage, createWikiPage, updateWikiPage, deleteWikiPage, searchWikiPages, fetchWikiVersions, fetchWikiVersion, linkIssueToWiki, unlinkIssueFromWiki } from '../../api/wikiApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import './WikiPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -292,14 +293,14 @@ export function WikiPage() {
               </div>
               <div className="wiki-meta">
                 <span>Created by {selectedPage.created_by}</span>
-                <span>Updated {new Date(selectedPage.updated_at).toLocaleDateString()}</span>
+                <span>Updated <RelativeTime value={selectedPage.updated_at} /></span>
               </div>
 
               {/* Version diff view */}
               {diffVersion && (
                 <div className="wiki-diff-panel">
                   <div className="wiki-diff-header">
-                    <strong>Version {diffVersion.version_number}</strong> by {diffVersion.edited_by} on {new Date(diffVersion.created_at).toLocaleDateString()}
+                    <strong>Version {diffVersion.version_number}</strong> by {diffVersion.edited_by} <RelativeTime value={diffVersion.created_at} />
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDiffVersion(null)}>Close</button>
                   </div>
                   <pre className="wiki-content-pre wiki-diff-content">{diffVersion.content}</pre>
@@ -320,7 +321,7 @@ export function WikiPage() {
                       <button key={v.id} type="button" className="wiki-version-item" onClick={() => handleViewVersion(v.id)}>
                         <span>v{v.version_number}</span>
                         <span>{v.edited_by}</span>
-                        <span>{new Date(v.created_at).toLocaleDateString()}</span>
+                        <span><RelativeTime value={v.created_at} /></span>
                       </button>
                     ))
                   )}

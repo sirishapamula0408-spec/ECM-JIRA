@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { fetchWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook, fetchWebhookLogs, fetchEventCatalog, fetchDeliveries, fetchDelivery, replayDelivery } from '../../api/webhookApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import './WebhooksPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -182,7 +183,7 @@ export function WebhooksPage() {
                       {d.success ? `${d.response_status} OK` : `${d.response_status || 'ERR'} Failed`}
                     </span>
                   </td>
-                  <td>{new Date(d.created_at).toLocaleString()}</td>
+                  <td><RelativeTime value={d.created_at} /></td>
                   <td className="wh-delivery-actions">
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleShowDelivery(d.id)}>Detail</button>
                     {isAdmin && (
@@ -312,7 +313,7 @@ export function WebhooksPage() {
                 <span className={`wh-log-status${log.success ? ' wh-log-status--ok' : ''}`}>
                   {log.success ? `${log.response_status} OK` : `${log.response_status || 'ERR'} Failed`}
                 </span>
-                <span className="wh-log-time">{new Date(log.created_at).toLocaleString()}</span>
+                <span className="wh-log-time"><RelativeTime value={log.created_at} /></span>
               </div>
             ))}
           </div>

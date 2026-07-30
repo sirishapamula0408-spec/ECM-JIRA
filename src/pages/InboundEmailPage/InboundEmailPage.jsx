@@ -8,6 +8,7 @@ import { sendTestEmail } from '../../api/notificationApi'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import { ISSUE_TYPES } from '../../constants'
 import './InboundEmailPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -217,7 +218,7 @@ export function InboundEmailPage() {
             {entry.matched_issue_key && (
               <span className="ie-log-key">{entry.matched_issue_key}</span>
             )}
-            <span className="ie-log-time">{new Date(entry.created_at).toLocaleString()}</span>
+            <span className="ie-log-time"><RelativeTime value={entry.created_at} /></span>
           </div>
         ))}
       </div>

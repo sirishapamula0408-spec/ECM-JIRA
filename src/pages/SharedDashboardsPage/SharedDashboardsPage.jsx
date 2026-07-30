@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { GadgetBoard } from '../../components/dashboard/GadgetBoard'
 import { usePermissions } from '../../hooks/usePermissions'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import './SharedDashboardsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -144,7 +145,7 @@ export function SharedDashboardsPage() {
                 </div>
                 {d.description && <p className="sd-card-desc">{d.description}</p>}
                 <div className="sd-card-meta">
-                  Updated {new Date(d.updated_at).toLocaleDateString()}
+                  Updated <RelativeTime value={d.updated_at} />
                 </div>
                 <div className="sd-card-actions">
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setViewing(d)}>Open</button>
@@ -172,7 +173,7 @@ export function SharedDashboardsPage() {
                 </div>
                 {d.description && <p className="sd-card-desc">{d.description}</p>}
                 <div className="sd-card-meta">
-                  By {d.owner_email} &middot; Updated {new Date(d.updated_at).toLocaleDateString()}
+                  By {d.owner_email} &middot; Updated <RelativeTime value={d.updated_at} />
                 </div>
                 <div className="sd-card-actions">
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setViewing(d)}>Open</button>

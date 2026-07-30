@@ -6,6 +6,7 @@ import {
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import {
   fetchIncidents, fetchIncident, createIncident, updateIncident, addTimelineEntry,
   fetchSchedules, createSchedule, deleteSchedule, fetchShifts, createShift, deleteShift,
@@ -266,7 +267,7 @@ export function IncidentsPage() {
                   <ListItem key={t.id} disableGutters>
                     <ListItemText
                       primary={t.note}
-                      secondary={`${t.kind}${t.actor ? ` · ${t.actor}` : ''} · ${new Date(t.created_at).toLocaleString()}`}
+                      secondary={<>{t.kind}{t.actor ? ` · ${t.actor}` : ''} · <RelativeTime value={t.created_at} /></>}
                     />
                   </ListItem>
                 ))}
