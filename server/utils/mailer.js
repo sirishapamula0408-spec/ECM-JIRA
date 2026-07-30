@@ -65,6 +65,34 @@ export async function sendMail({ to, subject, html, text }) {
 }
 
 /**
+ * JL-304: Verify SMTP connectivity using nodemailer's transporter.verify().
+ * Never throws — returns a structured result so callers (e.g. an admin
+ * "test connection" endpoint) can report status without crashing.
+ *
+ * @returns {Promise<{ configured: boolean, ok: boolean, error?: string }>}
+ *   - configured:false → SMTP env unset (console-fallback mode); ok is false.
+ *   - configured:true, ok:true  → transporter.verify() succeeded.
+ *   - configured:true, ok:false → verify() failed; `error` carries the reason.
+ */
+export async function verifyMailer() {
+  if (!isSmtpConfigured()) {
+    return { configured: false, ok: false }
+  }
+
+  const transport = getTransporter()
+  if (!transport) {
+    return { configured: false, ok: false }
+  }
+
+  try {
+    await transport.verify()
+    return { configured: true, ok: true }
+  } catch (err) {
+    return { configured: true, ok: false, error: err.message }
+  }
+}
+
+/**
  * Build the password-reset email (subject/html/text) for a given reset token.
  */
 export function buildPasswordResetEmail({ token, appUrl }) {
