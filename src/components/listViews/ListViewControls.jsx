@@ -10,8 +10,6 @@ import {
 } from '../../api/listViewApi'
 import './ListViewControls.css'
 
-const ALL_COLUMNS = Object.keys(COLUMN_LABELS)
-
 /**
  * Column picker (checkbox list + up/down reorder) and saved-views dropdown for
  * the issue list / search results (JL-122).
@@ -19,10 +17,24 @@ const ALL_COLUMNS = Object.keys(COLUMN_LABELS)
  * Props:
  *  - columns: string[]  currently visible column keys (ordered)
  *  - onColumnsChange: (cols) => void
- *  - filterJql?: string  optional JQL to persist with a saved view
+ *  - filterJql?: string  optional JQL / serialized filter+sort to persist with a saved view
  *  - onApplyView?: (view) => void  called when a saved view is switched to
+ *  - projectId?: number|string  when set, views are scoped to this project (JL-255)
+ *  - columnLabels?: object  key→label map for the column picker (defaults to the search catalog)
+ *  - allColumns?: string[]  full list of selectable column keys (defaults to keys of columnLabels)
+ *  - defaultColumns?: string[]  the "reset to default" column set
  */
-export function ListViewControls({ columns, onColumnsChange, filterJql = null, onApplyView }) {
+export function ListViewControls({
+  columns,
+  onColumnsChange,
+  filterJql = null,
+  onApplyView,
+  projectId = null,
+  columnLabels = COLUMN_LABELS,
+  allColumns,
+  defaultColumns = DEFAULT_COLUMNS,
+}) {
+  const allColumnKeys = allColumns || Object.keys(columnLabels)
   const [views, setViews] = useState([])
   const [activeViewId, setActiveViewId] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -41,7 +53,7 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
     let active = true
     setLoading(true)
     setLoadError('')
-    fetchListViews()
+    fetchListViews(projectId)
       .then((data) => {
         if (!active) return
         setViews(Array.isArray(data) ? data : [])
@@ -54,7 +66,7 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
         if (active) setLoading(false)
       })
     return () => { active = false }
-  }, [])
+  }, [projectId])
 
   // Apply the user's default view (if any) once on first load.
   useEffect(() => {
@@ -96,7 +108,7 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
   }
 
   function resetColumns() {
-    onColumnsChange([...DEFAULT_COLUMNS])
+    onColumnsChange([...defaultColumns])
     setActiveViewId(null)
   }
 
@@ -113,7 +125,7 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
     if (!saveName.trim()) { setError('View name is required'); return }
     setSaving(true)
     try {
-      const created = await createListView({ name: saveName.trim(), columns, filterJql })
+      const created = await createListView({ name: saveName.trim(), columns, filterJql, projectId })
       setViews((prev) => [created, ...prev])
       setActiveViewId(created.id)
       setSaveName('')
@@ -229,20 +241,20 @@ export function ListViewControls({ columns, onColumnsChange, filterJql = null, o
                 <li key={key} className="lvc-col-item">
                   <label className="lvc-col-label">
                     <input type="checkbox" checked onChange={() => toggleColumn(key)} />
-                    {COLUMN_LABELS[key] || key}
+                    {columnLabels[key] || key}
                   </label>
                   <span className="lvc-col-reorder">
-                    <button type="button" className="link-btn" disabled={i === 0} onClick={() => move(i, -1)} title="Move up" aria-label={`Move ${COLUMN_LABELS[key] || key} up`}>↑</button>
-                    <button type="button" className="link-btn" disabled={i === columns.length - 1} onClick={() => move(i, 1)} title="Move down" aria-label={`Move ${COLUMN_LABELS[key] || key} down`}>↓</button>
+                    <button type="button" className="link-btn" disabled={i === 0} onClick={() => move(i, -1)} title="Move up" aria-label={`Move ${columnLabels[key] || key} up`}>↑</button>
+                    <button type="button" className="link-btn" disabled={i === columns.length - 1} onClick={() => move(i, 1)} title="Move down" aria-label={`Move ${columnLabels[key] || key} down`}>↓</button>
                   </span>
                 </li>
               ))}
               {/* Unselected columns */}
-              {ALL_COLUMNS.filter((k) => !columns.includes(k)).map((key) => (
+              {allColumnKeys.filter((k) => !columns.includes(k)).map((key) => (
                 <li key={key} className="lvc-col-item lvc-col-item--off">
                   <label className="lvc-col-label">
                     <input type="checkbox" checked={false} onChange={() => toggleColumn(key)} />
-                    {COLUMN_LABELS[key] || key}
+                    {columnLabels[key] || key}
                   </label>
                 </li>
               ))}

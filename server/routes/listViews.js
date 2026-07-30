@@ -19,6 +19,12 @@ export const ALLOWED_COLUMNS = [
   'created',
   'dueDate',
   'storyPoints',
+  // JL-255: extra keys used by the List page's own column model so its
+  // configuration can be persisted verbatim through saved views.
+  'type',
+  'comments',
+  'sprint',
+  'label',
 ]
 
 // Sensible default column set (order matters).
@@ -31,6 +37,7 @@ function mapView(row) {
     ownerEmail: row.owner_email,
     columns: typeof row.columns === 'string' ? JSON.parse(row.columns || '[]') : (row.columns || []),
     filterJql: row.filter_jql ?? null,
+    projectId: row.project_id ?? null,
     isDefault: Boolean(row.is_default),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -59,13 +66,26 @@ function validateColumns(columns) {
   return { columns }
 }
 
-// List the current user's views
+// List the current user's views. When a `projectId` query param is supplied the
+// list is scoped to that project (List page, JL-255); otherwise only global
+// views (project_id IS NULL, e.g. Filters/search page) are returned.
 router.get('/', asyncHandler(async (req, res) => {
   const email = req.user?.email
-  const rows = await all(
-    'SELECT * FROM list_views WHERE owner_email = ? ORDER BY is_default DESC, updated_at DESC',
-    [email],
-  )
+  const rawProjectId = req.query.projectId
+  const projectId = rawProjectId != null && rawProjectId !== '' ? Number(rawProjectId) : null
+
+  let rows
+  if (projectId != null && Number.isFinite(projectId)) {
+    rows = await all(
+      'SELECT * FROM list_views WHERE owner_email = ? AND project_id = ? ORDER BY is_default DESC, updated_at DESC',
+      [email, projectId],
+    )
+  } else {
+    rows = await all(
+      'SELECT * FROM list_views WHERE owner_email = ? AND project_id IS NULL ORDER BY is_default DESC, updated_at DESC',
+      [email],
+    )
+  }
   res.json(rows.map(mapView))
 }))
 
@@ -77,8 +97,11 @@ router.get('/columns', asyncHandler(async (_req, res) => {
 // Create a new view
 router.post('/', asyncHandler(async (req, res) => {
   const email = req.user?.email
-  const { name, columns, filterJql, isDefault } = req.body || {}
+  const { name, columns, filterJql, isDefault, projectId } = req.body || {}
   const trimmedName = String(name || '').trim()
+  const scopedProjectId = projectId != null && projectId !== '' && Number.isFinite(Number(projectId))
+    ? Number(projectId)
+    : null
 
   if (!trimmedName) {
     res.status(400).json({ error: 'View name is required' })
@@ -92,14 +115,19 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   const makeDefault = Boolean(isDefault)
-  // Setting this view as default unsets any other default for this user.
+  // Setting this view as default unsets any other default within the same scope
+  // (per-project when scoped, else across the user's global views).
   if (makeDefault) {
-    await run('UPDATE list_views SET is_default = FALSE WHERE owner_email = ?', [email])
+    if (scopedProjectId != null) {
+      await run('UPDATE list_views SET is_default = FALSE WHERE owner_email = ? AND project_id = ?', [email, scopedProjectId])
+    } else {
+      await run('UPDATE list_views SET is_default = FALSE WHERE owner_email = ? AND project_id IS NULL', [email])
+    }
   }
 
   const result = await run(
-    'INSERT INTO list_views (owner_email, name, columns, filter_jql, is_default) VALUES (?, ?, ?::jsonb, ?, ?)',
-    [email, trimmedName, JSON.stringify(validColumns), filterJql ? String(filterJql) : null, makeDefault],
+    'INSERT INTO list_views (owner_email, name, columns, filter_jql, is_default, project_id) VALUES (?, ?, ?::jsonb, ?, ?, ?)',
+    [email, trimmedName, JSON.stringify(validColumns), filterJql ? String(filterJql) : null, makeDefault, scopedProjectId],
   )
 
   const row = await get('SELECT * FROM list_views WHERE id = ?', [result.lastID])
@@ -143,9 +171,14 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   const updatedFilter = filterJql !== undefined ? (filterJql ? String(filterJql) : null) : existing.filter_jql
   const makeDefault = isDefault !== undefined ? Boolean(isDefault) : Boolean(existing.is_default)
 
-  // Setting this view as default unsets any other default for this user.
+  // Setting this view as default unsets any other default within the same scope
+  // (per-project when the view is project-scoped, else across global views).
   if (makeDefault && !existing.is_default) {
-    await run('UPDATE list_views SET is_default = FALSE WHERE owner_email = ?', [email])
+    if (existing.project_id != null) {
+      await run('UPDATE list_views SET is_default = FALSE WHERE owner_email = ? AND project_id = ?', [email, existing.project_id])
+    } else {
+      await run('UPDATE list_views SET is_default = FALSE WHERE owner_email = ? AND project_id IS NULL', [email])
+    }
   }
 
   await run(

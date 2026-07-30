@@ -56,12 +56,12 @@ vi.mock('../context/MemberContext', () => ({
   useMembers: () => ({ profile: { full_name: 'Alex Rivera' } }),
 }))
 
-import { WorkflowsPage } from '../pages/WorkflowsPage/WorkflowsPage'
+import { IssueListPage } from '../pages/ListPage/IssueListPage'
 
 function renderPage() {
   return render(
     <MemoryRouter>
-      <WorkflowsPage />
+      <IssueListPage />
     </MemoryRouter>,
   )
 }

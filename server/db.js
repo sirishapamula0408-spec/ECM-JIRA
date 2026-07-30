@@ -1464,6 +1464,14 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_list_views_owner ON list_views(owner_email)')
 
+  // JL-255: allow list views to be scoped to a single project (nullable → global
+  // view when NULL, e.g. those created from the Filters/search page). Added
+  // idempotently so existing rows keep project_id = NULL (global).
+  if (!(await columnExists('list_views', 'project_id'))) {
+    await pool.query('ALTER TABLE list_views ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_list_views_project ON list_views(owner_email, project_id)')
+  }
+
   // Seed a single default workspace (idempotent via the unique slug).
   await pool.query(
     "INSERT INTO workspaces (name, slug) VALUES ('Default Workspace', 'default') ON CONFLICT (slug) DO NOTHING",

@@ -4,13 +4,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
-import './WorkflowsPage.css'
+import './IssueListPage.css'
 import { useMembers } from '../../context/MemberContext'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { RelativeTime } from '../../components/common/RelativeTime'
 import { usePermissions } from '../../hooks/usePermissions'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { ListViewControls } from '../../components/listViews/ListViewControls'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -30,6 +31,13 @@ const ALL_COLUMNS = {
 const DEFAULT_COL_KEYS = ['type', 'key', 'summary', 'status', 'comments', 'sprint']
 const EXTRA_COL_KEYS = ['priority', 'assignee', 'created', 'label', 'dueDate']
 
+/* JL-255: expose the List page's own column vocabulary to the shared
+ * ListViewControls so saved views persist this page's columns verbatim. */
+const LIST_COLUMN_LABELS = Object.fromEntries(
+  Object.entries(ALL_COLUMNS).map(([key, def]) => [key, def.label]),
+)
+const LIST_ALL_COLUMN_KEYS = Object.keys(ALL_COLUMNS)
+
 const DEFAULT_WIDTHS = {
   type: 90, key: 110, summary: 300, status: 130,
   comments: 150, sprint: 120, priority: 100,
@@ -48,8 +56,8 @@ const SORT_KIND = {
 }
 const SORTABLE = new Set(Object.keys(SORT_KIND))
 
-export function WorkflowsPage() {
-  usePageTitle('Workflows')
+export function IssueListPage() {
+  usePageTitle('List')
   const { confirm, confirmDialog } = useConfirm()
   const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
   const { sprints } = useSprints()
@@ -153,6 +161,26 @@ export function WorkflowsPage() {
 
   // Reset to the first page when filters, sort, or page size change (JL-263)
   useEffect(() => { setPage(0) }, [query, statusFilter, sortKey, sortDir, rowsPerPage])
+
+  /* JL-255: serialize the List page's filter + sort + grouping so a saved view
+   * can restore them alongside its columns. Stored in the view's filter_jql
+   * (free-text) column and decoded by handleApplyView below. */
+  const viewFilterState = useMemo(
+    () => JSON.stringify({ statusFilter, groupBy, sortKey, sortDir }),
+    [statusFilter, groupBy, sortKey, sortDir],
+  )
+
+  const handleApplyView = useCallback((view) => {
+    const raw = view?.filterJql
+    if (!raw) return
+    let parsed
+    try { parsed = JSON.parse(raw) } catch { return } // not our serialized format
+    if (!parsed || typeof parsed !== 'object') return
+    if (typeof parsed.statusFilter === 'string') setStatusFilter(parsed.statusFilter)
+    if (typeof parsed.groupBy === 'string') setGroupBy(parsed.groupBy)
+    if (parsed.sortKey === null || typeof parsed.sortKey === 'string') setSortKey(parsed.sortKey)
+    if (parsed.sortDir === 'asc' || parsed.sortDir === 'desc') setSortDir(parsed.sortDir)
+  }, [])
 
   function handleSort(colKey) {
     if (!SORTABLE.has(colKey)) return
@@ -492,6 +520,18 @@ export function WorkflowsPage() {
           </select>
         </div>
         <div className="jira-list-toolbar-right">
+          {/* JL-255: saved views (columns + filter/sort) persisted via /api/list-views,
+              scoped to this project when the route carries a projectId. */}
+          <ListViewControls
+            columns={columnOrder}
+            onColumnsChange={setColumnOrder}
+            filterJql={viewFilterState}
+            onApplyView={handleApplyView}
+            projectId={projectId ?? null}
+            columnLabels={LIST_COLUMN_LABELS}
+            allColumns={LIST_ALL_COLUMN_KEYS}
+            defaultColumns={DEFAULT_COL_KEYS}
+          />
           <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} className="jira-list-select">
             <option value="none">Group</option>
             <option value="status">Group by status</option>

@@ -47,7 +47,7 @@ export function ProjectTopPanel({ hasProjects }) {
     { id: 'backlog', label: 'Backlog', path: `${prefix}/backlog`, icon: 'backlog' },
     { id: 'active-sprints', label: 'Active sprints', path: `${prefix}/active-sprint`, icon: 'active-sprints' },
     { id: 'reports', label: 'Reports', path: `${prefix}/reports`, icon: 'reports' },
-    { id: 'list', label: 'List', path: projectId ? `${prefix}/list` : '/workflows', icon: 'list' },
+    { id: 'list', label: 'List', path: projectId ? `${prefix}/list` : '/list', icon: 'list' },
     // JL-222: project-scoped tabs (only shown when inside a project)
     ...(projectId
       ? [

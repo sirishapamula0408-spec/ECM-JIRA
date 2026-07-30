@@ -19,7 +19,7 @@
  *   src/pages/ReportsPage/ReportsPage.css
  *   src/pages/ProfilePage/ProfilePage.css
  *   src/pages/IssueDetailPage/IssueDetailPage.css
- *   src/pages/WorkflowsPage/WorkflowsPage.css
+ *   src/pages/ListPage/IssueListPage.css
  *
  * Each component/page imports its own CSS file directly.
  * Global styles (variables, theme, layout, shared) are imported in App.jsx.
