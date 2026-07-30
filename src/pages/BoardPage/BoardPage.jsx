@@ -34,13 +34,23 @@ function defaultCategoryForStatus(name) {
   return 'todo'
 }
 
+// JL-312: a cancellation status (e.g. "Cancelled"/"Canceled") is terminal
+// (done-category) but NOT a success, so its column must stay neutral grey
+// rather than green. Identified by name — matches /cancel/i.
+function isCancelStatus(name) {
+  return /cancel/i.test(name || '')
+}
+
 // JL-311: derive a board column's category from its mapped statuses' categories
 // (loaded per-project via JL-309). Atlassian colors the Done column green, so a
 // column is "done" when it has statuses and they are ALL in the done category;
 // likewise "inprogress" when all statuses are in-progress. Mixed columns stay
 // neutral. `categoryMap` is name→category; unknown statuses fall back by name.
+// JL-312: any cancellation status in the column keeps it neutral (no accent).
 function columnCategory(statuses, categoryMap) {
-  const cats = (statuses || [])
+  const list = statuses || []
+  if (list.some((s) => isCancelStatus(s))) return null
+  const cats = list
     .map((s) => categoryMap[s] || defaultCategoryForStatus(s))
     .filter(Boolean)
   if (cats.length === 0) return null
