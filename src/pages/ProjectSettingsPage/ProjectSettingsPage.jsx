@@ -18,6 +18,7 @@ import { fetchSecurityLevels, createSecurityLevel, deleteSecurityLevel } from '.
 import { ISSUE_TYPES } from '../../constants'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './ProjectSettingsPage.css'
 
@@ -218,13 +219,19 @@ export function ProjectSettingsPage() {
       .catch(() => setSecurityLevels([]))
   }, [])
 
+  const isDirty =
+    Boolean(project) &&
+    Boolean(form) &&
+    (form.name !== project.name ||
+      form.type !== project.type ||
+      form.lead !== project.lead)
+
+  // JL-242: warn on tab close/refresh while there are unsaved detail edits.
+  // Kept with the other hooks (before the early returns) for Rules of Hooks.
+  useUnsavedChangesWarning(isDirty)
+
   if (loading) return <div className="page ps-layout"><p style={{ padding: 24 }}>Loading...</p></div>
   if (!project || !form) return <div className="page ps-layout"><p style={{ padding: 24 }}>Project not found.</p></div>
-
-  const isDirty =
-    form.name !== project.name ||
-    form.type !== project.type ||
-    form.lead !== project.lead
 
   async function handleSave() {
     setSaving(true)

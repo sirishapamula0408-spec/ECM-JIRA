@@ -4,6 +4,7 @@ import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 import { fetchWikiPages, fetchWikiPage, createWikiPage, updateWikiPage, deleteWikiPage, searchWikiPages, fetchWikiVersions, fetchWikiVersion, linkIssueToWiki, unlinkIssueFromWiki } from '../../api/wikiApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import './WikiPage.css'
 
 // Numeric issue id (e.g. "42") or issue key (e.g. "ECM-12") — JL-301
@@ -40,6 +41,14 @@ export function WikiPage() {
   }, [projectId])
 
   useEffect(() => { loadPages() }, [loadPages])
+
+  // JL-242: warn on tab close/refresh while the create form has typed content
+  // or the edit form differs from the saved page.
+  const hasUnsavedEdits =
+    (showCreate && ((form.title || '').trim() !== '' || (form.content || '').trim() !== '')) ||
+    (isEditing && selectedPage != null &&
+      ((form.title || '') !== (selectedPage.title || '') || (form.content || '') !== (selectedPage.content || '')))
+  useUnsavedChangesWarning(hasUnsavedEdits)
 
   async function handleSelectPage(page) {
     setLoading(true)

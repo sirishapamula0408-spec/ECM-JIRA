@@ -14,6 +14,7 @@ import {
   deleteWorkflowTransition,
 } from '../../api/workflowTransitionApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './WorkflowEditorPage.css'
 
@@ -110,6 +111,13 @@ export function WorkflowEditorPage() {
   const [showAddTransition, setShowAddTransition] = useState(false)
   const [newTransFrom, setNewTransFrom] = useState('')
   const [newTransTo, setNewTransTo] = useState('')
+
+  // JL-242: warn on tab close/refresh while an add-status/add-transition
+  // dialog has in-progress input that would be lost (not merely open).
+  const hasUnsavedEdits =
+    (showAddStatus && newStatusName.trim() !== '') ||
+    (showAddTransition && (newTransFrom !== '' || newTransTo !== ''))
+  useUnsavedChangesWarning(hasUnsavedEdits)
 
   const dragging = useRef(null)
   const didDrag = useRef(false)
@@ -822,6 +830,19 @@ function TransitionProperties({ trans, isAdmin, onSaved, onDelete }) {
     const cm = (trans.postFunctions || []).find((f) => f.type === 'add_comment')
     setCommentText(cm?.text || '')
   }, [trans])
+
+  // JL-242: warn on tab close/refresh while this form differs from the
+  // transition's saved validators / post-functions (Admin edit mode only).
+  const savedRequired = (trans.validators || []).find((v) => v.type === 'required_field')?.field || ''
+  const savedSet = (trans.postFunctions || []).find((f) => f.type === 'set_field')
+  const savedComment = (trans.postFunctions || []).find((f) => f.type === 'add_comment')?.text || ''
+  const hasUnsavedEdits = Boolean(isAdmin) && (
+    requiredField !== savedRequired ||
+    setField !== (savedSet?.field || '') ||
+    setValue !== (savedSet?.value || '') ||
+    commentText !== savedComment
+  )
+  useUnsavedChangesWarning(hasUnsavedEdits)
 
   const handleSave = async () => {
     setBusy(true)
