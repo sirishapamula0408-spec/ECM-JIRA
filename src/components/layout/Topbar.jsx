@@ -19,7 +19,11 @@ export function Topbar({ onCreate, hasProjects }) {
   const { authUser: currentUser, handleLogout } = useAuth()
   const { theme, onThemeChange } = useTheme()
   const { profile, currentMember } = useMembers()
-  const { canCreateIssue, workspaceRole } = usePermissions()
+  // JL-295: gate the global Create button on canCreateIssueAnywhere (workspace
+  // rank OR any project role >= Member) — canCreateIssue without a projectId
+  // only reflects workspace rank and hides Create from project Members/Leads
+  // who are workspace Viewers.
+  const { canCreateIssueAnywhere, workspaceRole } = usePermissions()
   const { unreadCount } = useNotifications()
   const navigate = useNavigate()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -195,7 +199,7 @@ export function Topbar({ onCreate, hasProjects }) {
       </div>
 
       <div className="top-actions top-actions-jira">
-        {canCreateIssue && (
+        {canCreateIssueAnywhere && (
           <button className="btn btn-primary create-btn" type="button" onClick={onCreate} disabled={!hasProjects} title={!hasProjects ? 'No project access' : undefined}>
             <span className="plus-create-content">
               <span className="plus-create-symbol">+</span>

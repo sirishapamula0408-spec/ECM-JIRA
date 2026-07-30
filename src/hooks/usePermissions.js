@@ -30,6 +30,7 @@ export function usePermissions(projectId) {
         isOwner: false,
         isAdmin: false,
         canCreateIssue: false,
+        canCreateIssueAnywhere: false,
         canEditIssue: false,
         canDeleteIssue: false,
         canExportIssues: false,
@@ -73,6 +74,16 @@ export function usePermissions(projectId) {
     const isAdmin = isOwner || wsRank >= ROLE_RANK.Admin
     const isProjectAdmin = isAdmin || projRank >= ROLE_RANK.Admin
 
+    // JL-295: global (project-agnostic) create eligibility — true when the
+    // workspace rank alone allows creating, OR the user holds a project role
+    // >= Member on at least one project. Used by UI that isn't scoped to a
+    // single project (e.g. the Topbar "+ Create" button), so a workspace
+    // Viewer who is a Member/Lead somewhere still sees the button. A pure
+    // Viewer (no project write role) stays blocked.
+    const hasAnyProjectWriteRole = (projectRoles || []).some(
+      (pr) => (ROLE_RANK[pr.role] || 0) >= ROLE_RANK.Member,
+    )
+
     return {
       loaded: true,
       workspaceRole,
@@ -82,6 +93,9 @@ export function usePermissions(projectId) {
 
       // Issue permissions
       canCreateIssue: effectiveRank >= ROLE_RANK.Member,
+      // JL-295: eligible to create in at least one project (see above)
+      canCreateIssueAnywhere:
+        effectiveRank >= ROLE_RANK.Member || hasAnyProjectWriteRole,
       canEditIssue: effectiveRank >= ROLE_RANK.Member,
       // JL-228: project Members (and above) can delete issues/tasks/stories/epics
       // — same tier as create/edit. Viewers stay blocked (rank < Member).
