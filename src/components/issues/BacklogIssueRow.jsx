@@ -1,6 +1,7 @@
 import { ISSUE_STATUSES } from '../../constants'
 import { DueDateBadge } from './DueDateBadge'
 import { ImpedimentFlagIndicator } from './ImpedimentFlag'
+import { CopyButton } from '../common/CopyButton'
 
 export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
@@ -27,6 +28,12 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         <small>{issue.key}</small>
         <strong>{issue.title}</strong>
       </button>
+      <CopyButton
+        className="backlog-copy-key"
+        value={issue.key}
+        title={`Copy issue key ${issue.key}`}
+        ariaLabel={`Copy issue key ${issue.key}`}
+      />
       {issue.flagged === true && (
         <span className="backlog-flagged-chip" title="Flagged as impediment">
           <ImpedimentFlagIndicator /> Flagged
