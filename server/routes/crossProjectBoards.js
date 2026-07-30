@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -154,7 +155,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/cross-project-boards — create (project ids clamped to accessible).
-router.post('/', asyncHandler(async (req, res) => {
+// JL-296: mutating a shared cross-project board requires workspace Member+.
+router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   const { name, projectIds = [], swimlaneBy = 'project', filter = {} } = req.body
   if (!name?.trim()) {
     res.status(400).json({ error: 'name is required' })
@@ -179,8 +181,8 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json(serialize(row))
 }))
 
-// PATCH /api/cross-project-boards/:id — owner only.
-router.patch('/:id', asyncHandler(async (req, res) => {
+// PATCH /api/cross-project-boards/:id — owner only. JL-296: requires Member+.
+router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM cross_project_boards WHERE id = ?', [id])
   if (!existing) {
@@ -233,8 +235,8 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   res.json(serialize(row))
 }))
 
-// DELETE /api/cross-project-boards/:id — owner only.
-router.delete('/:id', asyncHandler(async (req, res) => {
+// DELETE /api/cross-project-boards/:id — owner only. JL-296: requires Member+.
+router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT owner_email FROM cross_project_boards WHERE id = ?', [id])
   if (!existing) {

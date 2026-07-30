@@ -12,6 +12,7 @@ import {
 } from '../../api/crossProjectBoardApi'
 import EmptyState from '../../components/common/EmptyState'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { usePermissions } from '../../hooks/usePermissions'
 import './CrossProjectBoardPage.css'
 
 const SWIMLANE_OPTIONS = [
@@ -25,6 +26,7 @@ const emptyForm = { name: '', projectIds: [], swimlaneBy: 'project' }
 export function CrossProjectBoardPage() {
   const navigate = useNavigate()
   const { confirm, confirmDialog } = useConfirm()
+  const { canManageCrossProjectBoards } = usePermissions()
   const [projects, setProjects] = useState([])
   const [boards, setBoards] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -122,7 +124,9 @@ export function CrossProjectBoardPage() {
       <div className="board-jira-header">
         <h1 className="board-jira-title">Cross-Project Boards</h1>
         <div className="board-jira-actions">
-          <Button variant="contained" size="small" onClick={openCreate}>New board</Button>
+          {canManageCrossProjectBoards && (
+            <Button variant="contained" size="small" onClick={openCreate}>New board</Button>
+          )}
         </div>
       </div>
 
@@ -135,7 +139,9 @@ export function CrossProjectBoardPage() {
           icon={<span style={{ fontSize: 40 }}>🗂️</span>}
           title="No cross-project boards yet"
           description="Create a board that aggregates issues from multiple projects into one Kanban view."
-          action={<Button variant="contained" onClick={openCreate}>Create board</Button>}
+          action={canManageCrossProjectBoards
+            ? <Button variant="contained" onClick={openCreate}>Create board</Button>
+            : undefined}
         />
       ) : (
         <>
@@ -151,8 +157,12 @@ export function CrossProjectBoardPage() {
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedId(b.id) }}
               >
                 <span className="cpb-board-tab-name">{b.name}</span>
-                <button type="button" className="cpb-tab-btn" title="Edit" onClick={(e) => { e.stopPropagation(); openEdit(b) }}>Edit</button>
-                <button type="button" className="cpb-tab-btn cpb-tab-btn-danger" title="Delete" onClick={(e) => { e.stopPropagation(); handleDelete(b.id) }}>Delete</button>
+                {canManageCrossProjectBoards && (
+                  <>
+                    <button type="button" className="cpb-tab-btn" title="Edit" onClick={(e) => { e.stopPropagation(); openEdit(b) }}>Edit</button>
+                    <button type="button" className="cpb-tab-btn cpb-tab-btn-danger" title="Delete" onClick={(e) => { e.stopPropagation(); handleDelete(b.id) }}>Delete</button>
+                  </>
+                )}
               </div>
             ))}
           </div>
