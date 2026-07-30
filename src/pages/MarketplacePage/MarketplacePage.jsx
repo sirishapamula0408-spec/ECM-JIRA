@@ -9,10 +9,12 @@ import {
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import './MarketplacePage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const CATEGORIES = ['', 'Communication', 'Developer Tools', 'Reporting', 'Automation', 'Other']
 
 export function MarketplacePage() {
+  usePageTitle('Marketplace')
   const { isAdmin } = usePermissions()
   const [tab, setTab] = useState(0)
   const [search, setSearch] = useState('')

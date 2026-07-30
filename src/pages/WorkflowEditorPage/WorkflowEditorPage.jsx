@@ -17,6 +17,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './WorkflowEditorPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const NODE_WIDTH = 180
 const NODE_HEIGHT = 60
@@ -79,6 +80,7 @@ function statusNamesOf(list) {
 }
 
 export function WorkflowEditorPage() {
+  usePageTitle('Workflow Editor')
   // JL-269: workflow config (statuses/transitions) is workspace-Admin only.
   const { isAdmin } = usePermissions()
   const { confirm, confirmDialog } = useConfirm()

@@ -7,8 +7,10 @@ import { useAuth } from '../../context/AuthContext'
 import { GadgetBoard } from '../../components/dashboard/GadgetBoard'
 import { usePermissions } from '../../hooks/usePermissions'
 import './SharedDashboardsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function SharedDashboardsPage() {
+  usePageTitle('Shared Dashboards')
   const { authUser } = useAuth()
   const { canCreateIssue: canManageDashboards } = usePermissions()
   const [dashboards, setDashboards] = useState([])

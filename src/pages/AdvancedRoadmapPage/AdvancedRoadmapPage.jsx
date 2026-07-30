@@ -11,6 +11,7 @@ import {
   createTeamCapacity, deleteTeamCapacity,
 } from '../../api/advancedRoadmapApi'
 import './AdvancedRoadmapPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const DAY_MS = 1000 * 60 * 60 * 24
 const ROW_H = 40
@@ -44,6 +45,7 @@ function computeWindow(epics) {
 }
 
 export function AdvancedRoadmapPage() {
+  usePageTitle('Advanced Roadmap')
   const { isAdmin, isOwner } = usePermissions()
   const canManage = isAdmin || isOwner
 

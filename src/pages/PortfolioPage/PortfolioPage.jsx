@@ -19,10 +19,12 @@ import { SvgBarChart } from '../../components/charts/SvgBarChart'
 import { StatCard } from '../../components/ui/StatCard'
 import { fetchPortfolioSummary } from '../../api/dashboardApi'
 import './PortfolioPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 // JL-154: Cross-project portfolio analytics — rolls up KPIs across every
 // project the caller can see, with a per-project table + completion bar chart.
 export function PortfolioPage() {
+  usePageTitle('Portfolio')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)

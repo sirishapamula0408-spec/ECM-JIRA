@@ -21,6 +21,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './ProjectSettingsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', SCREENS: 'screens', FIELD_CONFIG: 'fieldconfig' }
 const STATUS_CATEGORIES = ['todo', 'inprogress', 'done']
@@ -46,6 +47,7 @@ const CONFIGURABLE_FIELDS = [
 ]
 
 export function ProjectSettingsPage() {
+  usePageTitle('Project Settings')
   const { confirm, confirmDialog } = useConfirm()
   const { projectId } = useParams()
   const navigate = useNavigate()

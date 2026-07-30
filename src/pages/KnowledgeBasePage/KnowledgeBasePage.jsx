@@ -7,6 +7,7 @@ import {
   fetchKbArticles, fetchKbArticle, createKbArticle, updateKbArticle, deleteKbArticle,
 } from '../../api/kbApi'
 import './KnowledgeBasePage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 // Minimal, safe markdown-ish renderer: escapes HTML then applies a few inline
 // rules. Good enough for help-article previews without pulling in a dependency.
@@ -29,6 +30,7 @@ function renderMarkdown(md) {
 const EMPTY_ARTICLE = { title: '', body: '', categoryId: '', status: 'draft' }
 
 export function KnowledgeBasePage() {
+  usePageTitle('Knowledge Base')
   const { isAdmin, canCreateIssue: canAuthor } = usePermissions()
   const { confirm, confirmDialog } = useConfirm()
   const [categories, setCategories] = useState([])

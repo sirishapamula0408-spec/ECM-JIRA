@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { fetchProjectById } from '../../api/projectApi'
 import { useIssues } from '../../context/IssueContext'
 import './ProjectDetailPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function ProjectDetailPage() {
+  usePageTitle('Project Details')
   const { projectId } = useParams()
   const navigate = useNavigate()
   const { issues } = useIssues()

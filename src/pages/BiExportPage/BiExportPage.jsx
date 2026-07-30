@@ -8,11 +8,13 @@ import { fetchBiSchema, downloadIssuesExport, downloadDimensionExport } from '..
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import './BiExportPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const FORMATS = ['json', 'csv', 'ndjson']
 const DIMENSIONS = ['projects', 'users', 'statuses', 'priorities', 'types']
 
 export function BiExportPage() {
+  usePageTitle('BI Export')
   const { isAdmin } = usePermissions()
   const [schema, setSchema] = useState(null)
   const [error, setError] = useState('')

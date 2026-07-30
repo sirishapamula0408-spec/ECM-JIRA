@@ -10,10 +10,12 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import { fetchAuditLog, verifyAuditLog, downloadAuditExport } from '../../api/auditLogApi'
 import './AuditLogPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const EMPTY_FILTERS = { actor: '', action: '', dateFrom: '', dateTo: '' }
 
 export function AuditLogPage() {
+  usePageTitle('Audit Log')
   const { isAdmin } = usePermissions()
   const [entries, setEntries] = useState([])
   const [total, setTotal] = useState(0)

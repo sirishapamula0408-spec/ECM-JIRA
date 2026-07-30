@@ -12,6 +12,7 @@ import {
   fetchCurrentOnCall,
 } from '../../api/incidentApi'
 import './IncidentsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const SEVERITIES = ['SEV1', 'SEV2', 'SEV3', 'SEV4']
 const STATUSES = ['open', 'investigating', 'identified', 'monitoring', 'resolved']
@@ -32,6 +33,7 @@ function durationLabel(startedAt, resolvedAt) {
 }
 
 export function IncidentsPage() {
+  usePageTitle('Incidents')
   const { isAdmin } = usePermissions()
   const [incidents, setIncidents] = useState([])
   const [filter, setFilter] = useState({ status: '', severity: '' })

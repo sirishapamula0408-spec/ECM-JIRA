@@ -4,6 +4,7 @@ import { forgotPassword, resetPassword, fetchSsoStatus, startOidcLogin, startSam
 import sedinLogo from '../../assets/sedin-logo.svg'
 import sedinLogoFull from '../../assets/sedin-logo-full.svg'
 import './LoginPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function LoginPage() {
   const { handleAuth } = useAuth()
@@ -75,15 +76,9 @@ export function LoginPage() {
     }
   }
 
-  // JL-265: descriptive document title for the login screen (other pages reset it).
-  useEffect(() => {
-    const titles = {
-      login: 'Sign in — ECM JIRA',
-      signup: 'Sign up — ECM JIRA',
-      forgot: 'Reset password — ECM JIRA',
-    }
-    document.title = titles[mode] || 'Sign in — ECM JIRA'
-  }, [mode])
+  // JL-265/JL-233: descriptive tab title per auth mode, via the shared hook so
+  // the app-name suffix and unread-count prefix conventions are preserved.
+  usePageTitle({ login: 'Sign in', signup: 'Sign up', forgot: 'Reset password' }[mode] || 'Sign in')
 
   // JL-265: autofocus the first field on initial render and after every mode switch.
   useEffect(() => {

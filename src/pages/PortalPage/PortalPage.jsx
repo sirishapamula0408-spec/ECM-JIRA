@@ -11,6 +11,7 @@ import {
 } from '../../api/portalApi'
 import { ISSUE_TYPES } from '../../constants'
 import './PortalPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const STATUS_COLORS = {
   Backlog: 'default',
@@ -21,6 +22,7 @@ const STATUS_COLORS = {
 }
 
 export function PortalPage() {
+  usePageTitle('Portal')
   const { isAdmin } = usePermissions()
   const [catalog, setCatalog] = useState([])
   const [selected, setSelected] = useState(null)

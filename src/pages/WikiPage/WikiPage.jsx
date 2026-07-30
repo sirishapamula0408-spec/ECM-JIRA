@@ -6,11 +6,13 @@ import { fetchWikiPages, fetchWikiPage, createWikiPage, updateWikiPage, deleteWi
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import './WikiPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 // Numeric issue id (e.g. "42") or issue key (e.g. "ECM-12") — JL-301
 const ISSUE_REF_PATTERN = /^(\d+|[A-Za-z][A-Za-z0-9]*-\d+)$/
 
 export function WikiPage() {
+  usePageTitle('Wiki')
   const { projectId } = useParams()
   const { canEditIssue } = usePermissions(projectId)
   const [pages, setPages] = useState([])

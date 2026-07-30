@@ -8,6 +8,7 @@ import {
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './GoalsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const EMPTY_GOAL = { objective: '', description: '', owner: '', status: 'on_track', dueDate: '' }
 const EMPTY_KR = { title: '', targetValue: 100, currentValue: 0, unit: '' }
@@ -17,6 +18,7 @@ const STATUS_LABEL = {
 }
 
 export function GoalsPage() {
+  usePageTitle('Goals')
   const { projectId: routeProjectId } = useParams()
   const [projects, setProjects] = useState([])
   const [projectId, setProjectId] = useState(routeProjectId ? Number(routeProjectId) : null)

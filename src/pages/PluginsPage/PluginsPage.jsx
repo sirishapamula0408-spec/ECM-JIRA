@@ -3,6 +3,7 @@ import { fetchPlugins, registerPlugin, updatePlugin, deletePlugin } from '../../
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import './PluginsPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const EXTENSION_POINTS = ['issue-panel', 'nav-item', 'issue-action', 'dashboard-gadget', 'webhook']
 
@@ -21,6 +22,7 @@ const SAMPLE_MANIFEST = JSON.stringify(
 )
 
 export function PluginsPage() {
+  usePageTitle('Plugins')
   const { isAdmin } = usePermissions()
   const [plugins, setPlugins] = useState([])
   const [showForm, setShowForm] = useState(false)

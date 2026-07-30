@@ -18,6 +18,7 @@ import {
 import { EmptyState } from '../../components/common/EmptyState.jsx'
 import { useConfirm } from '../../components/common/ConfirmDialog.jsx'
 import './QueuesPage.css'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const SLA_CHIP_COLOR = { breached: 'error', at_risk: 'warning', ok: 'success' }
 const SLA_CHIP_LABEL = { breached: 'Breached', at_risk: 'At risk', ok: 'On track' }
@@ -148,6 +149,7 @@ function QueueEditor({ open, onClose, onSave, projects, initial }) {
 }
 
 export function QueuesPage() {
+  usePageTitle('Queues')
   const navigate = useNavigate()
   const { isAdmin } = usePermissions()
   const { confirm, confirmDialog } = useConfirm()
