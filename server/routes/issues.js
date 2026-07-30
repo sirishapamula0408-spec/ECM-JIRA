@@ -4,7 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireProjectRead, requireProjectWrite, ROLE_RANK } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
-import { loadTransitions, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
+import { loadTransitions, loadWorkflowMeta, cancelOptionsFromMeta, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearchAsync } from '../services/jqlSearch.js'
 import { emitEvent } from '../services/events.js'
 import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
@@ -772,10 +772,14 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
     return
   }
 
-  // JL-79: enforce the project's configurable workflow. Backward compatible —
-  // a project with no transitions configured allows every status change.
+  // JL-79 / JL-306: enforce the project's configurable workflow. Backward compatible —
+  // a project with no transitions configured allows every status change. When a
+  // default named workflow exists (e.g. the QA Lifecycle), its cancel-from-any and
+  // terminal-state rules are also enforced.
   const transitions = await loadTransitions(existing.project_id)
-  if (!isTransitionAllowed(transitions, existing.status, status)) {
+  const workflowMeta = await loadWorkflowMeta(existing.project_id)
+  const transitionOptions = cancelOptionsFromMeta(workflowMeta)
+  if (!isTransitionAllowed(transitions, existing.status, status, transitionOptions)) {
     res.status(409).json({
       error: `Transition from "${existing.status}" to "${status}" is not allowed by the workflow`,
     })

@@ -1,4 +1,4 @@
-import { all } from '../db.js'
+import { all, get } from '../db.js'
 
 // JL-79: Configurable workflow engine.
 // Pure, testable helpers plus a thin loader. The engine is BACKWARD COMPATIBLE:
@@ -32,10 +32,35 @@ function isBlank(v) {
 
 // True if the transition is permitted. No transitions configured => allow all
 // (backward compat). A no-op (from === to) is always allowed.
-export function isTransitionAllowed(transitions, from, to) {
-  if (!Array.isArray(transitions) || transitions.length === 0) return true
+//
+// JL-306: `options.cancelFromAny` + `options.cancelStatus` express the QA-lifecycle
+// "cancel from any non-terminal state" capability. When enabled, a move INTO the
+// cancel status is always allowed from a non-terminal state, even if no explicit
+// transition row exists for it. `options.terminalStatuses` marks states that can no
+// longer transition (Done/Cancelled).
+export function isTransitionAllowed(transitions, from, to, options = {}) {
   if (from === to) return true
+  const { cancelFromAny = false, cancelStatus = null, terminalStatuses = [] } = options || {}
+  const terminal = Array.isArray(terminalStatuses) ? terminalStatuses : []
+  // Cancel-from-any: allow the cancel transition from any non-terminal state.
+  if (cancelFromAny && cancelStatus && to === cancelStatus && !terminal.includes(from)) {
+    return true
+  }
+  // Terminal states have no outgoing transitions.
+  if (terminal.includes(from)) return false
+  if (!Array.isArray(transitions) || transitions.length === 0) return true
   return transitions.some((t) => t.from_status === from && t.to_status === to)
+}
+
+// JL-306: normalise a project_workflows metadata row into cancel/terminal options
+// for isTransitionAllowed(). Returns {} when there is no default workflow.
+export function cancelOptionsFromMeta(meta) {
+  if (!meta) return {}
+  return {
+    cancelFromAny: meta.cancel_from_any === true || meta.cancel_from_any === 't' || meta.cancel_from_any === 1,
+    cancelStatus: meta.cancel_status ?? null,
+    terminalStatuses: normalizeList(meta.terminal_statuses),
+  }
 }
 
 // Find the transition row matching from -> to (or null).
@@ -82,4 +107,15 @@ export async function applyPostFunctions(transition, issueId, db) {
 export async function loadTransitions(projectId) {
   if (!projectId) return []
   return all('SELECT * FROM workflow_transitions WHERE project_id = ?', [projectId])
+}
+
+// JL-306: load the project's DEFAULT workflow metadata row (initial/terminal states,
+// cancel-from-any). Returns null when the project has no configured workflow, in
+// which case the engine falls back to the transition-list-only behaviour.
+export async function loadWorkflowMeta(projectId) {
+  if (!projectId) return null
+  return get(
+    'SELECT * FROM project_workflows WHERE project_id = ? AND is_default = TRUE ORDER BY id DESC LIMIT 1',
+    [projectId],
+  )
 }
