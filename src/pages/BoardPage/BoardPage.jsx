@@ -5,7 +5,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { fetchBoardConfig, saveBoardConfig, ESTIMATION_STATISTIC_OPTIONS } from '../../api/boardConfigApi'
 import { fetchProjectLabels, fetchIssueLabels } from '../../api/labelApi'
 import { fetchProjectStatuses } from '../../api/issueConfigApi'
-import { ISSUE_STATUSES, STATUS_COLUMNS } from '../../constants'
+import { STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
 import { CopyButton } from '../../components/common/CopyButton'
@@ -23,6 +23,12 @@ const SWIMLANE_OPTIONS = [
 // JL-310: minimum resizable column width (px) and localStorage key builder.
 const MIN_COL_WIDTH = 200
 const DEFAULT_COL_WIDTH = 270
+
+// Classic board statuses used when a project has no custom workflow statuses.
+// JL-306 expanded the global ISSUE_STATUSES with QA-lifecycle states, so the board
+// keeps its own conservative default (Backlog + the standard STATUS_COLUMNS) rather
+// than inheriting every global status; custom projects override this from the API.
+const DEFAULT_STATUSES = ['Backlog', ...STATUS_COLUMNS]
 function colWidthsStorageKey(projectId) {
   return `board_col_widths_${projectId || 'default'}`
 }
@@ -111,7 +117,7 @@ export function BoardPage() {
   // Sourced per-project so the columns editor + board grouping reflect custom
   // workflows; falls back to the standard ISSUE_STATUSES set when the project has
   // no custom statuses configured (empty/absent response or fetch failure).
-  const [projectStatuses, setProjectStatuses] = useState(ISSUE_STATUSES)
+  const [projectStatuses, setProjectStatuses] = useState(DEFAULT_STATUSES)
   // JL-311: name→category map from the per-project statuses, used to color
   // columns (Done = green) by their mapped statuses' category.
   const [statusCategories, setStatusCategories] = useState({})
@@ -186,7 +192,7 @@ export function BoardPage() {
   // names. When the project has no statuses (empty response) or the fetch fails,
   // keep the standard ISSUE_STATUSES fallback so existing boards are unaffected.
   useEffect(() => {
-    if (!projectId) { setProjectStatuses(ISSUE_STATUSES); setStatusCategories({}); return }
+    if (!projectId) { setProjectStatuses(DEFAULT_STATUSES); setStatusCategories({}); return }
     let cancelled = false
     fetchProjectStatuses(projectId)
       .then((rows) => {
@@ -199,9 +205,9 @@ export function BoardPage() {
           if (row && typeof row === 'object' && row.name && row.category) cats[row.name] = row.category
         }
         setStatusCategories(cats)
-        setProjectStatuses(names.length > 0 ? names : ISSUE_STATUSES)
+        setProjectStatuses(names.length > 0 ? names : DEFAULT_STATUSES)
       })
-      .catch(() => { if (!cancelled) { setProjectStatuses(ISSUE_STATUSES); setStatusCategories({}) } })
+      .catch(() => { if (!cancelled) { setProjectStatuses(DEFAULT_STATUSES); setStatusCategories({}) } })
     return () => { cancelled = true }
   }, [projectId])
 

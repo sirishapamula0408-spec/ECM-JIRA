@@ -221,7 +221,7 @@ export function Topbar({ onCreate, hasProjects }) {
           </button>
           <NotificationDropdown open={isNotifOpen} onClose={handleCloseNotif} />
         </div>
-        <button className="icon-btn" type="button" aria-label="Help" onClick={() => setIsHelpOpen(true)}>
+        <button className="icon-btn" type="button" aria-label="Help" title="Help" onClick={() => setIsHelpOpen(true)}>
           <HeaderPanelIcon name="help" />
         </button>
         <button

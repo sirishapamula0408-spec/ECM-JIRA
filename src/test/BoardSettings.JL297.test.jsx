@@ -132,7 +132,9 @@ describe('JL-297 — icon-only controls have tooltips and aria-labels', () => {
       </MemoryRouter>,
     )
 
-    for (const name of ['Notifications', 'Help', 'Settings', 'Open user menu']) {
+    // JL-298 replaced the inert Settings gear with a theme toggle, so it is no
+    // longer a title==aria-label icon button; the rest still carry matching tooltips.
+    for (const name of ['Notifications', 'Help', 'Open user menu']) {
       const btn = screen.getByRole('button', { name })
       expect(btn).toHaveAttribute('title', name)
     }

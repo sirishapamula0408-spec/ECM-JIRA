@@ -693,7 +693,7 @@ export function TeamsPage() {
                   description="Invite teammates to collaborate on projects in this workspace."
                   action={canInviteMembers ? (
                     <button className="btn btn-primary" type="button" onClick={() => setIsInviteOpen(true)}>
-                      + Invite Member
+                      Invite a teammate
                     </button>
                   ) : null}
                 />
