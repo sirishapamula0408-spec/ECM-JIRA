@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { generateToken } from '../middleware/apiTokenAuth.js'
+import { safeAppendAudit } from '../services/auditLog.js'
 
 const router = Router()
 
@@ -53,6 +54,9 @@ router.post('/', asyncHandler(async (req, res) => {
     [result.lastID],
   )
 
+  // JL-280: mirror API-token creation into the tamper-evident audit log
+  // (never logs the plaintext/hash — only the id, prefix and scopes).
+  safeAppendAudit({ actor: req.user.email, action: 'apitoken.created', target: `apitoken:${row.id}`, metadata: { name: row.name, prefix: row.token_prefix, scopes: scopeStr } })
   // Plaintext token is returned exactly once and never stored/retrievable again.
   res.status(201).json({ ...row, token: plaintext })
 }))
@@ -69,6 +73,8 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     return
   }
   await run('UPDATE api_tokens SET revoked = TRUE WHERE id = ?', [id])
+  // JL-280: mirror API-token revocation into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'apitoken.revoked', target: `apitoken:${id}` })
   res.json({ success: true })
 }))
 

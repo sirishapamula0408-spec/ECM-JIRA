@@ -353,12 +353,17 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   params.push(id)
   await run(`UPDATE webhooks SET ${sets.join(', ')} WHERE id = ?`, params)
   const row = await get(`SELECT ${PUBLIC_WEBHOOK_COLUMNS} FROM webhooks WHERE id = ?`, [id])
+  // JL-280: mirror webhook updates into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'webhook.updated', target: `webhook:${id}`, metadata: { fields: sets.filter((s) => s !== 'updated_at = NOW()') } })
   res.json(row)
 }))
 
 // DELETE /api/webhooks/:id
 router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
-  await run('DELETE FROM webhooks WHERE id = ?', [Number(req.params.id)])
+  const id = Number(req.params.id)
+  await run('DELETE FROM webhooks WHERE id = ?', [id])
+  // JL-280: mirror webhook deletions into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'webhook.deleted', target: `webhook:${id}` })
   res.json({ success: true })
 }))
 
@@ -369,6 +374,9 @@ router.post('/:id/test', requireRole('Admin'), asyncHandler(async (req, res) => 
     res.status(404).json({ error: 'Webhook not found' })
     return
   }
+
+  // JL-280: mirror webhook test invocations into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'webhook.tested', target: `webhook:${webhook.id}`, metadata: { name: webhook.name, url: webhook.url } })
 
   const testPayload = {
     event: 'test',

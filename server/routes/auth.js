@@ -146,6 +146,8 @@ router.post('/signup', asyncHandler(async (req, res) => {
   }
 
   const token = issueToken(user, '7d')
+  // JL-280: mirror new-account signups into the tamper-evident audit log.
+  safeAppendAudit({ actor: email, action: 'auth.signup', target: email, metadata: { userId: user.id } })
   res.status(201).json({ user, token })
 }))
 
@@ -185,6 +187,8 @@ router.post('/login', asyncHandler(async (req, res) => {
   )
   if (!user || !verifyPassword(password, user.password_hash)) {
     loginLockout.recordFailure(lockKey)
+    // JL-280: mirror failed logins into the tamper-evident audit log.
+    safeAppendAudit({ actor: email, action: 'auth.login.failed', target: email, metadata: { reason: 'invalid_credentials' } })
     res.status(401).json({ error: 'Invalid email or password' })
     return
   }
@@ -219,6 +223,8 @@ router.post('/login', asyncHandler(async (req, res) => {
     }
     if (!verifyTOTP(user.mfa_secret, mfaCode, { window: 1 })) {
       loginLockout.recordFailure(lockKey)
+      // JL-280: mirror failed logins (bad second factor) into the audit log.
+      safeAppendAudit({ actor: user.email, action: 'auth.login.failed', target: user.email, metadata: { reason: 'invalid_mfa' } })
       res.status(401).json({ error: 'Invalid MFA code', mfaRequired: true })
       return
     }
@@ -504,12 +510,16 @@ router.post('/mfa/enable', authGuard, asyncHandler(async (req, res) => {
   }
 
   await run('UPDATE users SET mfa_enabled = TRUE WHERE id = ?', [user.id])
+  // JL-280: mirror MFA enablement into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'auth.mfa.enabled', target: req.user.email, metadata: { userId: user.id } })
   res.json({ enabled: true, message: 'Two-factor authentication enabled' })
 }))
 
 // --- Disable: turn MFA off and clear the secret ---
 router.post('/mfa/disable', authGuard, asyncHandler(async (req, res) => {
   await run('UPDATE users SET mfa_enabled = FALSE, mfa_secret = NULL WHERE id = ?', [req.user.id])
+  // JL-280: mirror MFA disablement into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user.email, action: 'auth.mfa.disabled', target: req.user.email, metadata: { userId: req.user.id } })
   res.json({ enabled: false, message: 'Two-factor authentication disabled' })
 }))
 

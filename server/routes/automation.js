@@ -3,6 +3,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { TRIGGER_TYPES, ACTION_TYPES } from '../services/automation.js'
+import { safeAppendAudit } from '../services/auditLog.js'
 
 const router = Router()
 
@@ -59,6 +60,8 @@ router.post('/projects/:projectId/automation-rules', requireRole('Admin'), async
     [projectId, name, triggerType, conditionValue, actionType, actionValue, scheduleIntervalMinutes],
   )
   const row = await get('SELECT * FROM automation_rules WHERE id = ?', [created.lastID])
+  // JL-280: mirror automation-rule creation into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user?.email, action: 'automation.rule.created', target: `automation-rule:${row.id}`, metadata: { projectId, name, triggerType, actionType } })
   res.status(201).json(mapRule(row))
 }))
 
@@ -84,12 +87,17 @@ router.patch('/automation-rules/:id', requireRole('Admin'), asyncHandler(async (
   params.push(id)
   await run(`UPDATE automation_rules SET ${sets.join(', ')} WHERE id = ?`, params)
   const row = await get('SELECT * FROM automation_rules WHERE id = ?', [id])
+  // JL-280: mirror automation-rule updates into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user?.email, action: 'automation.rule.updated', target: `automation-rule:${id}`, metadata: { fields: sets } })
   res.json(mapRule(row))
 }))
 
 // DELETE /api/automation-rules/:id (Admin)
 router.delete('/automation-rules/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
-  await run('DELETE FROM automation_rules WHERE id = ?', [Number(req.params.id)])
+  const id = Number(req.params.id)
+  await run('DELETE FROM automation_rules WHERE id = ?', [id])
+  // JL-280: mirror automation-rule deletions into the tamper-evident audit log.
+  safeAppendAudit({ actor: req.user?.email, action: 'automation.rule.deleted', target: `automation-rule:${id}` })
   res.json({ success: true })
 }))
 

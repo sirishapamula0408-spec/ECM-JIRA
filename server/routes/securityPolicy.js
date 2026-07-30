@@ -4,6 +4,7 @@ import { get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { normalizePolicy } from '../services/passwordPolicy.js'
+import { safeAppendAudit } from '../services/auditLog.js'
 
 const router = Router()
 
@@ -58,6 +59,20 @@ router.put('/security-policy', requireRole('Admin'), asyncHandler(async (req, re
   )
 
   const policy = await getSecurityPolicy()
+  // JL-280: mirror org security-policy changes into the tamper-evident audit log.
+  safeAppendAudit({
+    actor: updatedBy,
+    action: 'security.policy.updated',
+    target: 'security-policy',
+    metadata: {
+      require_mfa: next.require_mfa,
+      min_password_length: next.min_password_length,
+      require_uppercase: next.require_uppercase,
+      require_number: next.require_number,
+      require_symbol: next.require_symbol,
+      password_max_age_days: next.password_max_age_days,
+    },
+  })
   res.json(policy)
 }))
 
