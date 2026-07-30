@@ -3,8 +3,12 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { createNotification } from './notifications.js'
+import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
+
+// JL-235: emit ?format=csv as a flat CSV download; any other value keeps JSON.
+const wantsCsv = (req) => String(req.query.format || '').toLowerCase() === 'csv'
 
 const VALID_APPLIES_TO = ['resolution', 'response']
 const MS_PER_HOUR = 1000 * 60 * 60
@@ -224,6 +228,31 @@ router.get('/reports/sla', asyncHandler(async (req, res) => {
     if (state === 'breached' && issue.status !== 'Done') {
       alertBreach(issue, targetHours, elapsedHours, req.user?.email ?? null)
     }
+  }
+
+  if (wantsCsv(req)) {
+    // One row per issue across all buckets, carrying its computed SLA fields.
+    // noPolicy issues have no target/elapsed — those cells stay empty.
+    const csvRows = [
+      ...buckets.breached,
+      ...buckets.at_risk,
+      ...buckets.ok,
+      ...noPolicy.map((e) => ({ ...e, slaStatus: 'no_policy' })),
+    ]
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="sla-report-${projectId}.csv"`)
+    res.send(toCsv(csvRows, [
+      { key: 'key', label: 'Issue Key' },
+      { key: 'title', label: 'Title' },
+      { key: 'priority', label: 'Priority' },
+      { key: 'status', label: 'Status' },
+      { key: 'assignee', label: 'Assignee' },
+      { key: 'targetHours', label: 'Target Hours' },
+      { key: 'elapsedHours', label: 'Elapsed Hours' },
+      { key: 'percent', label: 'Percent' },
+      { key: 'slaStatus', label: 'SLA Status' },
+    ]))
+    return
   }
 
   res.json({

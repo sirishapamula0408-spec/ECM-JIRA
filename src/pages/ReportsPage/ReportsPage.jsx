@@ -25,7 +25,7 @@ import { StatCard } from '../../components/ui/StatCard'
 import { SvgBarChart } from '../../components/charts/SvgBarChart'
 import { SvgLineChart } from '../../components/charts/SvgLineChart'
 import { SvgAreaChart } from '../../components/charts/SvgAreaChart'
-import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCreatedResolved, fetchCapacity, setCapacity, fetchTimeInStatus, fetchControlChart } from '../../api/dashboardApi'
+import { fetchBurndown, fetchBurnup, fetchCycleTime, fetchSprintReport, fetchCreatedResolved, fetchCapacity, setCapacity, fetchTimeInStatus, fetchControlChart, downloadReportCsv } from '../../api/dashboardApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { api } from '../../api/client'
 import { downloadCSV } from '../../utils/reportExport'
@@ -412,6 +412,23 @@ export function ReportsPage() {
 
   const handlePrint = () => window.print()
 
+  // JL-235: server-side CSV downloads for the individual report endpoints.
+  // Each hits its report endpoint with ?format=csv via a raw fetch (Bearer),
+  // reflecting the same filters the panel is showing.
+  const projectQs = projectId ? `?projectId=${projectId}` : ''
+  const csvButton = (label, path, filename, disabled = false) => (
+    <Button
+      size="small"
+      variant="outlined"
+      className="no-print"
+      startIcon={<DownloadIcon />}
+      disabled={disabled}
+      onClick={() => downloadReportCsv(path, filename).catch(() => {})}
+    >
+      {label}
+    </Button>
+  )
+
   return (
     <section className="page reports-page">
       <div className="reports-header no-print">
@@ -493,6 +510,18 @@ export function ReportsPage() {
           <ToggleButton value="points">Points</ToggleButton>
           <ToggleButton value="count">Issues</ToggleButton>
         </ToggleButtonGroup>
+        {csvButton(
+          'Burndown CSV',
+          `/api/reports/burndown?sprintId=${selectedSprintId}&unit=${unit}`,
+          `burndown-sprint-${selectedSprintId}.csv`,
+          !selectedSprintId,
+        )}
+        {csvButton(
+          'Burnup CSV',
+          `/api/reports/burnup?sprintId=${selectedSprintId}&unit=${unit}`,
+          `burnup-sprint-${selectedSprintId}.csv`,
+          !selectedSprintId,
+        )}
       </div>
 
       {chartError && (
@@ -571,6 +600,11 @@ export function ReportsPage() {
               <MenuItem value="daily">Daily</MenuItem>
               <MenuItem value="weekly">Weekly</MenuItem>
             </TextField>
+            {csvButton(
+              'Download CSV',
+              `/api/reports/cfd?days=${cfdDays}&granularity=${cfdGranularity}${projectId ? `&projectId=${projectId}` : ''}`,
+              'cfd.csv',
+            )}
           </Stack>
         </div>
 
@@ -607,7 +641,10 @@ export function ReportsPage() {
       </article>
 
       <div className="cycle-time-section">
-        <h2>Cycle Time Analytics</h2>
+        <div className="reports-panel-header">
+          <h2>Cycle Time Analytics</h2>
+          {csvButton('Download CSV', `/api/reports/cycle-time${projectQs}`, 'cycle-time.csv')}
+        </div>
         {cycleLoading ? (
           <p className="banner" style={{ color: 'var(--jira-text-muted)', padding: '12px' }}>Loading cycle time…</p>
         ) : cycleIssues.length === 0 ? (
@@ -759,6 +796,12 @@ export function ReportsPage() {
               ))}
             </Select>
           </FormControl>
+          {csvButton(
+            'Download CSV',
+            `/api/reports/sprint/${selectedSprintId}`,
+            `sprint-report-${selectedSprintId}.csv`,
+            !selectedSprintId,
+          )}
         </div>
         {sprintError && <p className="banner" style={{ color: 'var(--jira-danger, #de350b)' }}>{sprintError}</p>}
         {!sprintOptions.length && <div className="fake-chart">No sprints available</div>}
@@ -833,6 +876,12 @@ export function ReportsPage() {
               ))}
             </Select>
           </FormControl>
+          {csvButton(
+            'Download CSV',
+            `/api/reports/capacity?sprintId=${selectedSprintId}`,
+            `capacity-sprint-${selectedSprintId}.csv`,
+            !selectedSprintId,
+          )}
         </div>
         {capacityError && <p className="banner" style={{ color: 'var(--jira-danger, #de350b)' }}>{capacityError}</p>}
         {!selectedSprintId && <div className="fake-chart">Select a sprint to plan capacity</div>}
@@ -928,6 +977,11 @@ export function ReportsPage() {
               <MenuItem value={90}>Last 90 days</MenuItem>
             </Select>
           </FormControl>
+          {csvButton(
+            'Download CSV',
+            `/api/reports/created-resolved?days=${crDays}${projectId ? `&projectId=${projectId}` : ''}`,
+            'created-vs-resolved.csv',
+          )}
         </div>
         <div className="velocity-legend">
           <span><i className="velocity-legend-dot committed" />Created ({createdResolved?.totals?.created ?? 0})</span>

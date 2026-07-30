@@ -1,5 +1,34 @@
 import { api } from './client.js'
 
+const TOKEN_KEY = 'jira_auth_token'
+function getToken() {
+  try {
+    return window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+// JL-235: trigger a CSV download for a report endpoint. Uses a raw fetch with
+// the Bearer header because the shared api() client always parses JSON, which
+// would corrupt the CSV payload. Appends format=csv to the given path.
+export async function downloadReportCsv(path, filename) {
+  const sep = path.includes('?') ? '&' : '?'
+  const res = await fetch(`${path}${sep}format=csv`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  })
+  if (!res.ok) throw new Error('CSV export failed')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export const fetchDashboard = () => api('/api/dashboard')
 export const fetchReports = (projectId) =>
   api(projectId ? `/api/reports?projectId=${projectId}` : '/api/reports')
