@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { maxLengthError, KB_TITLE_MAX, KB_CONTENT_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -207,10 +208,30 @@ router.post('/kb/articles', requireRole('Admin'), asyncHandler(async (req, res) 
     res.status(400).json({ error: "status must be 'draft' or 'published'" })
     return
   }
-  const slug = await uniqueSlug('kb_articles', title)
+  const trimmedTitle = title.trim()
+  const trimmedBody = String(body ?? '').trim()
+
+  // JL-237: server-side length caps (checked after trim)
+  const lengthErr =
+    maxLengthError('title', trimmedTitle, KB_TITLE_MAX) ||
+    maxLengthError('body', trimmedBody, KB_CONTENT_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
+  // JL-237: reject a duplicate slug case-insensitively (409) rather than
+  // silently auto-suffixing it.
+  const slug = slugify(trimmedTitle) || 'untitled'
+  const dupSlug = await get('SELECT id FROM kb_articles WHERE LOWER(slug) = LOWER(?)', [slug])
+  if (dupSlug) {
+    res.status(409).json({ error: 'An article with that slug already exists' })
+    return
+  }
+
   const result = await run(
     'INSERT INTO kb_articles (category_id, title, slug, body, status, author_email) VALUES (?, ?, ?, ?, ?, ?)',
-    [categoryId, title.trim(), slug, body, status, req.user.email],
+    [categoryId, trimmedTitle, slug, trimmedBody, status, req.user.email],
   )
   const row = await get('SELECT * FROM kb_articles WHERE id = ?', [result.lastID])
   res.status(201).json(row)
@@ -225,13 +246,32 @@ router.patch('/kb/articles/:id', requireRole('Admin'), asyncHandler(async (req, 
     return
   }
   const { title, body, categoryId, status } = req.body
+  const nextTitle = title !== undefined ? String(title).trim() : undefined
+  const nextBody = body !== undefined ? String(body ?? '').trim() : undefined
+
+  // JL-237: length caps — only validate the fields the caller actually sent
+  const lengthErr =
+    (nextTitle !== undefined ? maxLengthError('title', nextTitle, KB_TITLE_MAX) : null) ||
+    (nextBody !== undefined ? maxLengthError('body', nextBody, KB_CONTENT_MAX) : null)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
   const sets = []
   const params = []
   if (title !== undefined) {
-    sets.push('title = ?'); params.push(title.trim())
-    sets.push('slug = ?'); params.push(await uniqueSlug('kb_articles', title, id))
+    // JL-237: reject a duplicate slug case-insensitively (409)
+    const slug = slugify(nextTitle) || 'untitled'
+    const dupSlug = await get('SELECT id FROM kb_articles WHERE LOWER(slug) = LOWER(?) AND id <> ?', [slug, id])
+    if (dupSlug) {
+      res.status(409).json({ error: 'An article with that slug already exists' })
+      return
+    }
+    sets.push('title = ?'); params.push(nextTitle)
+    sets.push('slug = ?'); params.push(slug)
   }
-  if (body !== undefined) { sets.push('body = ?'); params.push(body) }
+  if (body !== undefined) { sets.push('body = ?'); params.push(nextBody) }
   if (categoryId !== undefined) { sets.push('category_id = ?'); params.push(categoryId) }
   if (status !== undefined) {
     if (status !== 'draft' && status !== 'published') {

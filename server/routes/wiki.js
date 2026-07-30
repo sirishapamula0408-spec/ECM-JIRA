@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
+import { maxLengthError, WIKI_TITLE_MAX, WIKI_CONTENT_MAX } from '../utils/validation.js'
 
 const router = Router()
 
@@ -87,15 +88,27 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     res.status(400).json({ error: 'projectId and title are required' })
     return
   }
+  const trimmedTitle = String(title).trim()
+  const trimmedContent = String(content ?? '').trim()
+
+  // JL-237: server-side length caps (checked after trim)
+  const lengthErr =
+    maxLengthError('title', trimmedTitle, WIKI_TITLE_MAX) ||
+    maxLengthError('content', trimmedContent, WIKI_CONTENT_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
   const email = req.user.email
   const result = await run(
     'INSERT INTO wiki_pages (project_id, title, content, parent_id, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)',
-    [projectId, title.trim(), content, parentId, email, email],
+    [projectId, trimmedTitle, trimmedContent, parentId, email, email],
   )
   // Save initial version
   await run(
     'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?)',
-    [result.lastID, 1, title.trim(), content, email],
+    [result.lastID, 1, trimmedTitle, trimmedContent, email],
   )
   const row = await get('SELECT * FROM wiki_pages WHERE id = ?', [result.lastID])
   res.status(201).json(row)
@@ -111,11 +124,23 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   const { title, content, parentId } = req.body
+  const nextTitle = title !== undefined ? String(title).trim() : undefined
+  const nextContent = content !== undefined ? String(content ?? '').trim() : undefined
+
+  // JL-237: length caps — only validate the fields the caller actually sent
+  const lengthErr =
+    (nextTitle !== undefined ? maxLengthError('title', nextTitle, WIKI_TITLE_MAX) : null) ||
+    (nextContent !== undefined ? maxLengthError('content', nextContent, WIKI_CONTENT_MAX) : null)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
   const sets = []
   const params = []
 
-  if (title !== undefined) { sets.push('title = ?'); params.push(title.trim()) }
-  if (content !== undefined) { sets.push('content = ?'); params.push(content) }
+  if (title !== undefined) { sets.push('title = ?'); params.push(nextTitle) }
+  if (content !== undefined) { sets.push('content = ?'); params.push(nextContent) }
   if (parentId !== undefined) { sets.push('parent_id = ?'); params.push(parentId) }
 
   if (sets.length === 0) {
@@ -138,7 +163,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     )
     await run(
       'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?)',
-      [id, (lastVersion?.max_ver || 0) + 1, title ?? existing.title, content ?? existing.content, req.user.email],
+      [id, (lastVersion?.max_ver || 0) + 1, nextTitle ?? existing.title, nextContent ?? existing.content, req.user.email],
     )
   }
 
