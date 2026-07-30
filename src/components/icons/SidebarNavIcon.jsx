@@ -8,6 +8,7 @@ export function SidebarNavIcon({ name }) {
     strokeWidth: 1.5,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
+    'data-icon': name,
   }
 
   if (name === 'for-you') return <svg {...common}><circle cx="8" cy="8" r="5" /><circle cx="8" cy="8" r="1.6" /></svg>
@@ -40,5 +41,9 @@ export function SidebarNavIcon({ name }) {
   if (name === 'dashboards') return <svg {...common}><rect x="3" y="3" width="10" height="10" /><path d="M8 3v10M3 8h10" /></svg>
   if (name === 'workflow') return <svg {...common}><circle cx="3.5" cy="8" r="1.8" /><circle cx="12.5" cy="4" r="1.8" /><circle cx="12.5" cy="12" r="1.8" /><path d="M5.3 7.2l5.4-2.4M5.3 8.8l5.4 2.4" /></svg>
   if (name === 'roadmap') return <svg {...common}><rect x="2.5" y="4" width="6" height="2.5" rx="0.5" /><rect x="6" y="9" width="7.5" height="2.5" rx="0.5" /><path d="M4 6.5v3.75h2" /></svg>
+  // JL-278: distinct pulse glyph for the Activity feed (was reusing 'recent' clock)
+  if (name === 'activity') return <svg {...common}><path d="M2 8.5h2.4l1.6-4.5 2.4 8 1.6-4.5H14" /></svg>
+  // JL-278: shield-check glyph for the Audit Log (was reusing 'recent' clock)
+  if (name === 'audit') return <svg {...common}><path d="M8 2l4.5 1.8v3.4c0 3-1.9 5.2-4.5 6.4-2.6-1.2-4.5-3.4-4.5-6.4V3.8z" /><path d="M6 8l1.5 1.5 2.7-3" /></svg>
   return <svg {...common}><circle cx="8" cy="8" r="5" /></svg>
 }
