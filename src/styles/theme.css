@@ -1,3 +1,48 @@
+/* JL-298: dark-theme surface for floating menus/dropdowns so they render
+   opaque (not see-through) on dark backgrounds. */
+.app-theme-dark {
+  --jira-menu-bg: #282e33;
+  --jira-menu-hover: #2c333a;
+}
+
+.app-theme-dark .notif-dropdown {
+  background: #282e33;
+  border-color: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .notif-header,
+.app-theme-dark .notif-item {
+  border-color: #2c333a;
+}
+
+.app-theme-dark .notif-title {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .notif-icon {
+  background: #2c333a;
+}
+
+.app-theme-dark .topbar-user-menu,
+.app-theme-dark .topbar-user-submenu {
+  background: #282e33;
+  border-color: #2c333a;
+  color: #dfe1e6;
+}
+
+.app-theme-dark .topbar-user-header strong {
+  color: #dfe1e6;
+}
+
+.app-theme-dark .topbar-user-item {
+  color: #c7d1db;
+}
+
+.app-theme-dark .topbar-user-item:hover {
+  background: #2c333a;
+}
+
 .app-theme-dark body,
 .app-theme-dark .content,
 .app-theme-dark .page,

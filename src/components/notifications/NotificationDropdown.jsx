@@ -43,7 +43,13 @@ export function NotificationDropdown({ open, onClose }) {
   }
 
   return (
-    <div className="notif-dropdown" ref={ref}>
+    <div
+      className="notif-dropdown"
+      ref={ref}
+      /* JL-298: guarantee an opaque background even if the stylesheet fails to
+         load / a token is missing, so the panel is never see-through. */
+      style={{ background: 'var(--jira-menu-bg, #ffffff)' }}
+    >
       <div className="notif-header">
         <h3>Notifications</h3>
         <div className="notif-header-actions">

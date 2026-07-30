@@ -13,6 +13,7 @@ import { fetchWorkspaces, getActiveWorkspaceId, setActiveWorkspaceId, DEFAULT_WO
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { NotificationDropdown } from '../notifications/NotificationDropdown'
+import { KeyboardShortcutsDialog } from '../shortcuts/KeyboardShortcutsDialog'
 import { displayNameFromEmail } from '../../utils/helpers'
 
 export function Topbar({ onCreate, hasProjects }) {
@@ -29,7 +30,12 @@ export function Topbar({ onCreate, hasProjects }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
   const handleCloseNotif = useCallback(() => setIsNotifOpen(false), [])
+  // JL-298: sun icon toggles between light/dark themes.
+  const toggleTheme = useCallback(() => {
+    onThemeChange(theme === 'dark' ? 'light' : 'dark')
+  }, [onThemeChange, theme])
   const email = String(currentUser?.email || '').trim()
   const fullName = String(displayNameFromEmail(email) || profile?.full_name || 'User')
   const avatarText = (fullName || 'U').trim().charAt(0).toUpperCase() || 'U'
@@ -215,11 +221,18 @@ export function Topbar({ onCreate, hasProjects }) {
           </button>
           <NotificationDropdown open={isNotifOpen} onClose={handleCloseNotif} />
         </div>
-        <button className="icon-btn" type="button" aria-label="Help" title="Help">
+        <button className="icon-btn" type="button" aria-label="Help" onClick={() => setIsHelpOpen(true)}>
           <HeaderPanelIcon name="help" />
         </button>
-        <button className="icon-btn" type="button" aria-label="Settings" title="Settings">
-          <HeaderPanelIcon name="settings" />
+        <button
+          className="icon-btn"
+          type="button"
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          aria-pressed={theme === 'dark'}
+          title="Toggle theme"
+          onClick={toggleTheme}
+        >
+          <HeaderPanelIcon name="sun" />
         </button>
         <div className="topbar-live-clock">
           <span className="topbar-clock-time">{liveTime}</span>
@@ -261,48 +274,54 @@ export function Topbar({ onCreate, hasProjects }) {
                 </div>
               </div>
 
+              {/* JL-298: Profile and "Account settings" both routed to /profile
+                  (redundant). Profile is the account page in this app, so the
+                  duplicate item was removed and Profile kept. */}
               <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/profile') }}>
                 <span className="topbar-user-item-icon"><HeaderPanelIcon name="profile" /></span>
                 Profile
               </button>
-              <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/profile') }}>
-                <span className="topbar-user-item-icon"><HeaderPanelIcon name="account" /></span>
-                Account settings
-              </button>
 
+              {/* JL-298: the theme options previously rendered as an absolutely
+                  positioned flyout inside a container with overflow:hidden, so
+                  they were clipped and never visible. Render them inline instead. */}
               <div className="topbar-user-submenu-wrap">
                 <button
                   className="topbar-user-item"
                   type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={isThemeMenuOpen}
                   onClick={() => setIsThemeMenuOpen((current) => !current)}
                 >
                   <span className="topbar-user-item-icon"><HeaderPanelIcon name="theme" /></span>
                   Theme
-                  <span className="topbar-user-item-arrow" aria-hidden="true">&gt;</span>
+                  <span className="topbar-user-item-arrow" aria-hidden="true">{isThemeMenuOpen ? '⌄' : '›'}</span>
                 </button>
                 {isThemeMenuOpen && (
-                  <div className="topbar-user-submenu" role="menu">
-                    <button className="topbar-user-item" type="button" onClick={() => { onThemeChange('light'); setIsThemeMenuOpen(false); setIsUserMenuOpen(false) }}>
-                      Light {theme === 'light' ? '?' : ''}
+                  <div className="topbar-user-submenu topbar-user-submenu--inline" role="menu">
+                    <button className="topbar-user-item topbar-user-subitem" type="button" role="menuitemradio" aria-checked={theme === 'light'} onClick={() => { onThemeChange('light'); setIsThemeMenuOpen(false); setIsUserMenuOpen(false) }}>
+                      Light {theme === 'light' ? '✓' : ''}
                     </button>
-                    <button className="topbar-user-item" type="button" onClick={() => { onThemeChange('dark'); setIsThemeMenuOpen(false); setIsUserMenuOpen(false) }}>
-                      Dark {theme === 'dark' ? '?' : ''}
+                    <button className="topbar-user-item topbar-user-subitem" type="button" role="menuitemradio" aria-checked={theme === 'dark'} onClick={() => { onThemeChange('dark'); setIsThemeMenuOpen(false); setIsUserMenuOpen(false) }}>
+                      Dark {theme === 'dark' ? '✓' : ''}
                     </button>
                   </div>
                 )}
               </div>
 
-              <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/dashboard') }}>
+              {/* JL-298: quickstart previously opened /dashboard; route it to the
+                  knowledge base (help/guide surface) instead. */}
+              <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/knowledge-base') }}>
                 <span className="topbar-user-item-icon"><HeaderPanelIcon name="quickstart" /></span>
                 Open Quickstart
               </button>
 
               <div className="topbar-user-divider" />
 
-              <button className="topbar-user-item" type="button" onClick={handleLogout}>
-                <span className="topbar-user-item-icon"><HeaderPanelIcon name="switch" /></span>
-                Switch account
-              </button>
+              {/* JL-298: a "Switch account" item that just called handleLogout was
+                  deceptive — this app has no multi-account switching. It was
+                  removed rather than silently logging the user out. Log out below
+                  is the only session-ending action. */}
               <button className="topbar-user-item" type="button" onClick={handleLogout}>
                 <span className="topbar-user-item-icon"><HeaderPanelIcon name="logout" /></span>
                 Log out
@@ -311,6 +330,8 @@ export function Topbar({ onCreate, hasProjects }) {
           )}
         </div>
       </div>
+      {/* JL-298: the question-mark icon opens the keyboard-shortcuts / help dialog. */}
+      <KeyboardShortcutsDialog open={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </header>
   )
 }

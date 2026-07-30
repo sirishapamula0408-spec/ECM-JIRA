@@ -233,6 +233,21 @@
   z-index: calc(var(--z-sticky) + 1);
 }
 
+/* JL-298: inline theme submenu — rendered in normal flow so the parent
+   .topbar-user-menu (overflow: hidden) no longer clips it. */
+.topbar-user-submenu--inline {
+  position: static;
+  width: auto;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.topbar-user-subitem {
+  padding-left: 42px;
+}
+
 .topbar-user-divider {
   border-top: 1px solid #ebecf0;
   margin: 4px 0;
