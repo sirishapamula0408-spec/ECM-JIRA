@@ -25,6 +25,30 @@ function colWidthsStorageKey(projectId) {
   return `board_col_widths_${projectId || 'default'}`
 }
 
+// JL-311: fallback status→category inference for boards whose statuses carry no
+// explicit category (e.g. the default/unconfigured board on ISSUE_STATUSES, or a
+// legacy status the project-statuses endpoint didn't tag).
+function defaultCategoryForStatus(name) {
+  if (name === 'Done') return 'done'
+  if (name === 'In Progress' || name === 'Code Review') return 'inprogress'
+  return 'todo'
+}
+
+// JL-311: derive a board column's category from its mapped statuses' categories
+// (loaded per-project via JL-309). Atlassian colors the Done column green, so a
+// column is "done" when it has statuses and they are ALL in the done category;
+// likewise "inprogress" when all statuses are in-progress. Mixed columns stay
+// neutral. `categoryMap` is name→category; unknown statuses fall back by name.
+function columnCategory(statuses, categoryMap) {
+  const cats = (statuses || [])
+    .map((s) => categoryMap[s] || defaultCategoryForStatus(s))
+    .filter(Boolean)
+  if (cats.length === 0) return null
+  if (cats.every((c) => c === 'done')) return 'done'
+  if (cats.every((c) => c === 'inprogress')) return 'inprogress'
+  return null
+}
+
 // Resolve the grouping value for an issue given a swimlane mode.
 function swimlaneValueFor(issue, mode) {
   if (mode === 'assignee') return issue.assignee || 'Unassigned'
@@ -59,6 +83,9 @@ export function BoardPage() {
   // workflows; falls back to the standard ISSUE_STATUSES set when the project has
   // no custom statuses configured (empty/absent response or fetch failure).
   const [projectStatuses, setProjectStatuses] = useState(ISSUE_STATUSES)
+  // JL-311: name→category map from the per-project statuses, used to color
+  // columns (Done = green) by their mapped statuses' category.
+  const [statusCategories, setStatusCategories] = useState({})
   const [activeFilters, setActiveFilters] = useState([]) // e.g. ['assignee:Alice', 'type:Bug']
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
@@ -98,17 +125,22 @@ export function BoardPage() {
   // names. When the project has no statuses (empty response) or the fetch fails,
   // keep the standard ISSUE_STATUSES fallback so existing boards are unaffected.
   useEffect(() => {
-    if (!projectId) { setProjectStatuses(ISSUE_STATUSES); return }
+    if (!projectId) { setProjectStatuses(ISSUE_STATUSES); setStatusCategories({}); return }
     let cancelled = false
     fetchProjectStatuses(projectId)
       .then((rows) => {
         if (cancelled) return
-        const names = Array.isArray(rows)
-          ? rows.map((row) => (typeof row === 'string' ? row : row?.name)).filter(Boolean)
-          : []
+        const list = Array.isArray(rows) ? rows : []
+        const names = list.map((row) => (typeof row === 'string' ? row : row?.name)).filter(Boolean)
+        // Build a name→category map from the row objects (JL-311).
+        const cats = {}
+        for (const row of list) {
+          if (row && typeof row === 'object' && row.name && row.category) cats[row.name] = row.category
+        }
+        setStatusCategories(cats)
         setProjectStatuses(names.length > 0 ? names : ISSUE_STATUSES)
       })
-      .catch(() => { if (!cancelled) setProjectStatuses(ISSUE_STATUSES) })
+      .catch(() => { if (!cancelled) { setProjectStatuses(ISSUE_STATUSES); setStatusCategories({}) } })
     return () => { cancelled = true }
   }, [projectId])
 
@@ -233,11 +265,14 @@ export function BoardPage() {
   // is saved, fall back to the historical default: one column per non-backlog
   // workflow status.
   const boardColumns = useMemo(() => {
+    // JL-311: tag each column with its category (done/inprogress/null) so the
+    // board can color it (Done = green) via the kanban-col-cat-* class.
+    const withCategory = (col) => ({ ...col, category: columnCategory(col.statuses, statusCategories) })
     if (Array.isArray(columns) && columns.length > 0) {
-      return columns.map((col) => ({ id: col.id, name: col.name, statuses: col.statuses || [] }))
+      return columns.map((col) => withCategory({ id: col.id, name: col.name, statuses: col.statuses || [] }))
     }
-    return defaultColumnStatuses.map((status) => ({ id: status, name: status, statuses: [status] }))
-  }, [columns, defaultColumnStatuses])
+    return defaultColumnStatuses.map((status) => withCategory({ id: status, name: status, statuses: [status] }))
+  }, [columns, defaultColumnStatuses, statusCategories])
 
   // Materialised columns for the settings editor — defaults are shown so an
   // admin can start from the current board rather than a blank slate.
@@ -508,7 +543,7 @@ export function BoardPage() {
               return (
                 <article
                   key={col.id}
-                  className={`kanban-col${dropColId === col.id ? ' kanban-col-drop-active' : ''}${isOverLimit ? ' kanban-col-over-wip' : ''}`}
+                  className={`kanban-col${col.category ? ` kanban-col-cat-${col.category}` : ''}${dropColId === col.id ? ' kanban-col-drop-active' : ''}${isOverLimit ? ' kanban-col-over-wip' : ''}`}
                   data-column={col.name}
                   style={width ? { flex: `0 0 ${width}px`, width: `${width}px` } : undefined}
                   onDragOver={(event) => { event.preventDefault(); if (dropColId !== col.id) setDropColId(col.id) }}

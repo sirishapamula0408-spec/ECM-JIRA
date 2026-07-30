@@ -363,6 +363,55 @@ body.board-col-resizing {
   background: #e6edf8;
 }
 
+/* JL-311: category-based column coloring (Atlassian-style).
+   A column whose mapped statuses are all in the "done" category renders with a
+   subtle GREEN accent (top bar + header text + count pill); in-progress columns
+   get a matching blue accent. Uses the shared --jira-success / --jira-blue
+   tokens; dark-theme overrides below keep it legible. Neutral columns are
+   unchanged. */
+.kanban-col-cat-done {
+  border-top: 3px solid var(--jira-success);
+}
+.kanban-col-cat-done header h3 {
+  color: var(--jira-success);
+}
+.kanban-col-cat-done header span {
+  background: rgba(0, 135, 90, 0.15);
+  color: var(--jira-success);
+}
+.kanban-col-cat-inprogress {
+  border-top: 3px solid var(--jira-blue);
+}
+.kanban-col-cat-inprogress header h3 {
+  color: var(--jira-blue);
+}
+.kanban-col-cat-inprogress header span {
+  background: rgba(0, 82, 204, 0.15);
+  color: var(--jira-blue);
+}
+
+/* Dark theme: brighter Atlassian green (#4bce97) / blue (#579dff) for contrast. */
+.app-theme-dark .kanban-col-cat-done {
+  border-top-color: #4bce97;
+}
+.app-theme-dark .kanban-col-cat-done header h3,
+.app-theme-dark .kanban-col-cat-done header span {
+  color: #4bce97;
+}
+.app-theme-dark .kanban-col-cat-done header span {
+  background: rgba(75, 206, 151, 0.2);
+}
+.app-theme-dark .kanban-col-cat-inprogress {
+  border-top-color: #579dff;
+}
+.app-theme-dark .kanban-col-cat-inprogress header h3,
+.app-theme-dark .kanban-col-cat-inprogress header span {
+  color: #579dff;
+}
+.app-theme-dark .kanban-col-cat-inprogress header span {
+  background: rgba(87, 157, 255, 0.2);
+}
+
 .kanban-col header {
   display: flex;
   justify-content: space-between;
