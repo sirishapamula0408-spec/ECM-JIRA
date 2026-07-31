@@ -11,6 +11,11 @@ export const ROLE_RANK = {
   Member: 2,
   Admin: 3,
   Lead: 4,
+  // JL-317: the workspace Owner is normally granted via the isOwner bypass, but
+  // ranking the literal 'Owner' role string keeps a member whose role column is
+  // 'Owner' (with is_owner=false) from falling to rank 0 — i.e. below Viewer —
+  // and being locked out of every role-gated route.
+  Owner: 5,
 }
 
 /**

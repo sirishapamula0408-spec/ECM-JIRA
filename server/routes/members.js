@@ -374,6 +374,13 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     res.status(400).json({ error: `Invalid role. Allowed roles: ${VALID_ROLES.join(', ')}` })
     return
   }
+  // JL-317: 'Owner' is tracked via the is_owner flag and must not be assignable
+  // through the API (mirrors CREATABLE_ROLES on POST). Assigning role='Owner' to a
+  // member with is_owner=false would rank them below Viewer and lock them out.
+  if (role === 'Owner') {
+    res.status(400).json({ error: 'The Owner role cannot be assigned' })
+    return
+  }
 
   const member = await get(
     'SELECT id, name, email, role, status, task_count, invited_by, is_owner FROM members WHERE id = ?',
