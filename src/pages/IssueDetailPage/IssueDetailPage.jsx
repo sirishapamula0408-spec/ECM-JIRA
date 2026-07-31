@@ -49,12 +49,43 @@ import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
-const TYPE_ICON = {
-  Epic:       { icon: '\u{1F3F0}', color: '#6554c0' },
-  Story:      { icon: '\u{1F4D7}', color: '#36b37e' },
-  Bug:        { icon: '\u{1F41B}', color: '#ff5630' },
-  Task:       { icon: '\u2705',     color: '#0065ff' },
-  'Sub-task': { icon: '\u{1F517}', color: '#5243aa' },
+// JL-321: Atlassian-style issue-type icon \u2014 a colored rounded square with a
+// white glyph, using Jira's colour coding (Story green, Task blue, Bug red,
+// Epic purple, Sub-task blue). Shows a tooltip (title) with the type name.
+const TYPE_ATLAS = {
+  Epic:       { color: '#904EE2', label: 'Epic' },
+  Story:      { color: '#63BA3C', label: 'Story' },
+  Bug:        { color: '#E5493A', label: 'Bug' },
+  Task:       { color: '#4BADE8', label: 'Task' },
+  'Sub-task': { color: '#4BADE8', label: 'Sub-task' },
+}
+
+function TypeGlyph({ type }) {
+  switch (type) {
+    case 'Epic':
+      return <path d="M8.7 3 5 9h2.3l-.8 4L11 6.5H8.1z" fill="#fff" />
+    case 'Story':
+      return <path d="M5.4 4h5.2a.6.6 0 0 1 .6.6v7.6l-3.2-2-3.2 2V4.6A.6.6 0 0 1 5.4 4z" fill="#fff" />
+    case 'Bug':
+      return <circle cx="8" cy="8" r="3.1" fill="#fff" />
+    case 'Sub-task':
+      return <path d="M4.6 5.6h6.8M4.6 8h6.8M4.6 10.4h4" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+    case 'Task':
+    default:
+      return <path d="M4.7 8.2 6.9 10.4 11.3 5.9" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  }
+}
+
+export function IssueTypeIcon({ type, size = 16 }) {
+  const meta = TYPE_ATLAS[type] || TYPE_ATLAS.Task
+  return (
+    <span className="id-type-icon" title={meta.label} aria-label={meta.label} role="img">
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1" y="1" width="14" height="14" rx="3" fill={meta.color} />
+        <TypeGlyph type={type} />
+      </svg>
+    </span>
+  )
 }
 
 const PRIORITY_ICON = {
@@ -226,12 +257,18 @@ export function IssueDetailPage() {
   const currentUserName = profile?.full_name || authUser?.email || 'You'
   const currentUserInitials = currentUserName.slice(0, 2).toUpperCase()
 
+  // JL-321: always fetch the full issue (even when a lighter copy exists in the
+  // context list) so detail-only fields — parentKey, fix/affects versions — are
+  // available; the context copy still wins for shared fields via the merge below.
   useEffect(() => {
-    if (existing || !id) return
+    if (!id) return
     fetchIssueById(id).then(setFetchedIssue).catch(() => setFetchedIssue(null))
-  }, [id, existing])
+  }, [id])
 
-  const issue = existing || fetchedIssue
+  // JL-321: overlay the context copy on the fully-fetched issue so detail-only
+  // fields (e.g. parentKey for the sub-task breadcrumb, fix/affects versions)
+  // survive, while context/optimistic updates still win for shared fields.
+  const issue = existing ? { ...fetchedIssue, ...existing } : fetchedIssue
 
   // JL-233: dynamic tab title, e.g. "JL-233 · Fix login bug" (blank until the issue loads)
   usePageTitle(issue ? `${issue.key || `IT-${issue.id}`} · ${issue.title}` : '')
@@ -910,7 +947,6 @@ export function IssueDetailPage() {
 
   if (!issue) return <section className="page">Issue not found.</section>
 
-  const typeMeta = TYPE_ICON[issue.issueType] || TYPE_ICON.Task
   const priorityMeta = PRIORITY_ICON[issue.priority] || PRIORITY_ICON.Medium
   const sprint = sprints.find((s) => s.id === issue.sprintId)
 
@@ -1274,6 +1310,20 @@ export function IssueDetailPage() {
           <span className="id-breadcrumb-sep">/</span>
           <button type="button" className="id-breadcrumb-link" onClick={() => navigate(issue.projectId ? `/projects/${issue.projectId}` : '/projects')}>{projectName || 'Project'}</button>
           <span className="id-breadcrumb-sep">/</span>
+          {/* JL-321: a sub-task shows its parent as a link, like Atlassian
+              (Project / PARENT-KEY / SUBTASK-KEY). */}
+          {issue.parentId && (
+            <>
+              <button
+                type="button"
+                className="id-breadcrumb-link"
+                onClick={() => navigate(`/issues/${issue.parentId}`)}
+              >
+                {issue.parentKey || `#${issue.parentId}`}
+              </button>
+              <span className="id-breadcrumb-sep">/</span>
+            </>
+          )}
           <span className="id-breadcrumb-current">{issue.key || `IT-${issue.id}`}</span>
         </nav>
         <div className="id-top-actions">
@@ -1314,8 +1364,16 @@ export function IssueDetailPage() {
             </div>
           )}
           <div className="id-type-row">
-            <span className="id-type-icon" style={{ color: typeMeta.color }}>{typeMeta.icon}</span>
-            <span className="id-issue-key">{issue.key || `IT-${issue.id}`}</span>
+            <IssueTypeIcon type={issue.issueType} />
+            {/* JL-321: the issue key is a link to the issue (like Atlassian). */}
+            <a
+              className="id-issue-key"
+              href={`/issues/${issue.id}`}
+              onClick={(e) => { e.preventDefault(); navigate(`/issues/${issue.id}`) }}
+              title="Open this issue"
+            >
+              {issue.key || `IT-${issue.id}`}
+            </a>
             <CopyIssueLinkButton issueId={issue.id} />
           </div>
 
@@ -1996,7 +2054,7 @@ export function IssueDetailPage() {
                     onClose={closeField}
                     display={
                       <span className="id-type-badge">
-                        <span style={{ color: typeMeta.color }}>{typeMeta.icon}</span>
+                        <IssueTypeIcon type={issue.issueType} size={14} />
                         {issue.issueType}
                         <span className="id-edit-pencil">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>

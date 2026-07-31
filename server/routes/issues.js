@@ -325,6 +325,14 @@ router.get('/:id', requireProjectRead(issueParamProject('id')), asyncHandler(asy
     return
   }
 
+  // JL-321: include the parent's key so a sub-task's breadcrumb can link to it
+  // (Atlassian shows Project / PARENT-KEY / SUBTASK-KEY).
+  issue.parentKey = null
+  if (issue.parentId) {
+    const parent = await get('SELECT issue_key FROM issues WHERE id = ?', [issue.parentId])
+    issue.parentKey = parent?.issue_key || null
+  }
+
   // JL-112: include fix/affects versions in the issue detail (best-effort).
   issue.fixVersions = []
   issue.affectsVersions = []
