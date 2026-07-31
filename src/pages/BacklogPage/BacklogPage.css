@@ -16,6 +16,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  /* JL-320: wrap onto a second row instead of overflowing the viewport (the
+     toolbar's buttons could push ~120px past the page edge, creating a
+     page-level horizontal scrollbar). The 12px gap doubles as the row-gap. */
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 10px;
   padding: 0;
