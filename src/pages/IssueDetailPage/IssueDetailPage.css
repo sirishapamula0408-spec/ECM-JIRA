@@ -130,15 +130,23 @@
 }
 
 .id-type-icon {
-  font-size: var(--font-size-md);
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
 }
 
+/* JL-321: issue key is now a link (Atlassian-style) */
 .id-issue-key {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: #0052cc;
   letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+}
+.id-issue-key:hover,
+.id-issue-key:focus-visible {
+  text-decoration: underline;
 }
 
 /* Title */
