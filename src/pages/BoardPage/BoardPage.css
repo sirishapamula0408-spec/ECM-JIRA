@@ -13,12 +13,26 @@
   padding-bottom: 6px;
 }
 
-/* JL-310: each column is a fixed-basis, resizable flex item (min width guarded). */
+/* JL-310: each column is a resizable flex item.
+   JL-320: columns fit the available width — they grow/shrink equally to fill the
+   row so all configured columns are visible with NO horizontal scrollbar. Only
+   when the count is high enough that the min-width can't be honoured does
+   .kanban-grid fall back to sideways scrolling. A max-width keeps a board with
+   just a few columns from stretching them absurdly wide. Explicitly-resized
+   columns override this via an inline `flex: 0 0 <width>px` (see BoardPage.jsx). */
 .kanban-col {
   position: relative;
-  flex: 0 0 270px;
-  min-width: 200px;
+  flex: 1 1 0;
+  min-width: 150px;
+  max-width: 340px;
   box-sizing: border-box;
+}
+
+/* JL-320: the last column's resize handle sits 6px past the row's right edge
+   (right:-6px), which pushed .kanban-grid a few px into horizontal scroll. Hide
+   it — the final column has no neighbour to resize against anyway. */
+.kanban-col:last-child .kanban-col-resize-handle {
+  display: none;
 }
 
 /* JL-310: trailing-edge drag handle for resizing a column. */

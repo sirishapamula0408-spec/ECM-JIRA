@@ -127,8 +127,17 @@
 }
 
 .jira-list-table {
-  width: 100%;
-  min-width: 980px;
+  /* JL-320: width:auto with max-width lets the fixed-layout table settle at or
+     just under its container instead of rounding 1px past it (which showed a
+     horizontal scrollbar at ~1280px). min-width keeps columns readable — below
+     it the wrapper scrolls, as intended. */
+  /* calc(100% - 1px): fixed-layout tables round their scaled column widths up,
+     which pushed the table 1px past the wrapper at ~1280px and showed a
+     horizontal scrollbar. Reserving 1px keeps it at/under the container at every
+     width (the 1px inset is inside the shell border, so it's invisible). */
+  width: calc(100% - 1px);
+  max-width: calc(100% - 1px);
+  min-width: 900px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;

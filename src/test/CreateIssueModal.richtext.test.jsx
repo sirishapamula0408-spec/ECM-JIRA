@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 // --- Mock contexts used by CreateIssueModal ---
 const handleCreate = vi.fn().mockResolvedValue({ id: 1 })
@@ -31,7 +32,7 @@ describe('CreateIssueModal — rich text description (JL-3)', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('renders the formatting toolbar (Bold/Italic) on the Description field', async () => {
-    render(<CreateIssueModal onClose={() => {}} />)
+    render(<MemoryRouter><CreateIssueModal onClose={() => {}} /></MemoryRouter>)
 
     // Toolbar buttons come from RichTextEditor, keyed by title attribute
     expect(screen.getByTitle('Bold')).toBeInTheDocument()
@@ -42,7 +43,7 @@ describe('CreateIssueModal — rich text description (JL-3)', () => {
   })
 
   it('updates the description value when typing into the editor', () => {
-    render(<CreateIssueModal onClose={() => {}} />)
+    render(<MemoryRouter><CreateIssueModal onClose={() => {}} /></MemoryRouter>)
 
     const textarea = screen.getByPlaceholderText('Add a description...')
     fireEvent.change(textarea, { target: { value: 'Hello **world**' } })
@@ -51,7 +52,7 @@ describe('CreateIssueModal — rich text description (JL-3)', () => {
   })
 
   it('applies bold markdown to the description when the Bold button is clicked', () => {
-    render(<CreateIssueModal onClose={() => {}} />)
+    render(<MemoryRouter><CreateIssueModal onClose={() => {}} /></MemoryRouter>)
 
     const textarea = screen.getByPlaceholderText('Add a description...')
     fireEvent.click(screen.getByTitle('Bold'))
@@ -61,7 +62,7 @@ describe('CreateIssueModal — rich text description (JL-3)', () => {
   })
 
   it('submits the typed description through handleCreate', async () => {
-    render(<CreateIssueModal onClose={() => {}} />)
+    render(<MemoryRouter><CreateIssueModal onClose={() => {}} /></MemoryRouter>)
 
     // Wait for projects to load so the form has a project id
     await waitFor(() =>

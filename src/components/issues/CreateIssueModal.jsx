@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
@@ -33,6 +34,11 @@ export function CreateIssueModal({ onClose }) {
 
   const reporterName = authUser?.email || profile?.full_name || 'Current User'
 
+  // JL-320: the project the user is currently viewing (from a /projects/:id route),
+  // so the Project dropdown defaults to it instead of always the first project.
+  const location = useLocation()
+  const activeProjectId = (location.pathname.match(/\/projects\/([^/]+)/) || [])[1] || null
+
   const [projects, setProjects] = useState([])
   // JL-116: issue-type scheme — the effective allowed types for the selected project.
   const [allowedTypes, setAllowedTypes] = useState(ISSUE_TYPES)
@@ -57,15 +63,19 @@ export function CreateIssueModal({ onClose }) {
   const [submitError, setSubmitError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
-  // Fetch projects on mount and default to first project
+  // Fetch projects on mount and default to the active project (the one being
+  // viewed) when opened from a project page, else the first project (JL-320).
   useEffect(() => {
     fetchProjects().then((data) => {
       setProjects(data)
       if (data.length > 0) {
-        setForm((c) => ({ ...c, projectId: data[0].id }))
+        const match = activeProjectId
+          ? data.find((p) => String(p.id) === String(activeProjectId))
+          : null
+        setForm((c) => ({ ...c, projectId: (match ? match.id : data[0].id) }))
       }
     }).catch(() => {})
-  }, [])
+  }, [activeProjectId])
 
   // JL-116: when the selected project changes, load its effective issue-type
   // scheme and constrain the type picker (defaulting to the scheme's default).
