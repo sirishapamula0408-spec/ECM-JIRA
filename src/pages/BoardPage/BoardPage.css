@@ -102,6 +102,23 @@ body.board-col-resizing {
   background: #ffffff;
 }
 
+/* JL-319: the "Board settings" toggle carries a text label, so it must not
+   inherit the fixed 34x34 icon-button size from .board-jira-action-btn (which
+   squeezed "Board settings" into a square and clipped it to "Board settin…").
+   Size it to its label — auto width, single line, still 34px tall to stay
+   aligned with the adjacent "…" icon button and the board title. */
+.board-settings-toggle {
+  width: auto;
+  height: auto;
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
 .board-menu-wrap {
   position: relative;
 }
