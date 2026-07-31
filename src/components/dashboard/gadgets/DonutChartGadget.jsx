@@ -36,7 +36,12 @@ export function DonutChartGadget({ issues, config }) {
     <div className="pie-gadget">
       <div className="pie-gadget-chart">
         <div className="pie-gadget-disc donut-disc" style={{ background: buildConicGradient(segments, total) }}>
-          <div className="donut-hole">
+          {/* JL-318: the hole overlays the SVG hover paths (z-index:1). Without
+              pointer-events:none, crossing the ring/hole boundary makes the SVG
+              fire mouseleave, clearing hoveredLabel and flickering the tooltip.
+              Letting hover pass through to the sector paths keeps the tooltip
+              stable across the whole disc (the centre included). */}
+          <div className="donut-hole" style={{ pointerEvents: 'none' }}>
             <strong>{grandTotal}</strong>
             <span>Total</span>
           </div>
