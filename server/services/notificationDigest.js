@@ -91,7 +91,7 @@ export async function runDigests(now = new Date()) {
         notifications,
         appUrl: APP_URL,
       })
-      await sendMail({ to: pref.user_email, subject, html, text })
+      await sendMail({ to: pref.user_email, subject, html, text, type: 'digest' })
 
       await run(
         'UPDATE notification_preferences SET last_digest_sent_at = ? WHERE user_email = ?',

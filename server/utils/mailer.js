@@ -1,7 +1,35 @@
 import nodemailer from 'nodemailer'
 import { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, APP_URL } from '../config.js'
+import { run, all } from '../db.js'
 
 let transporter = null
+
+/**
+ * JL-323: Persist the outcome of one send attempt to `email_log`.
+ *
+ * Best-effort by design: logging must never turn a mail problem into a request
+ * failure, so every error here is swallowed after being reported to stderr. A
+ * missing row is strictly less bad than a 500 on an invite.
+ */
+async function recordEmailAttempt({ to, subject, type, relatedEntity, status, messageId, error }) {
+  try {
+    await run(
+      `INSERT INTO email_log (recipient, subject, email_type, related_entity, status, message_id, error)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        String(to || ''),
+        subject == null ? null : String(subject),
+        type || 'other',
+        relatedEntity == null ? null : String(relatedEntity),
+        status,
+        messageId == null ? null : String(messageId),
+        error == null ? null : String(error),
+      ],
+    )
+  } catch (err) {
+    console.error(`[Mailer] Could not write email_log row for ${to}: ${err.message}`)
+  }
+}
 
 /**
  * Returns true when the minimum SMTP settings (host + credentials) are present.
@@ -36,9 +64,24 @@ function getTransporter() {
  * not configured) it logs and returns a result object with a `skipped`/`error`
  * flag so callers can fire-and-forget without crashing the request.
  *
+ * JL-323: every outcome is also written to `email_log`, so delivery is
+ * auditable after the fact. Because this function does not throw, callers MUST
+ * inspect the returned `ok` flag — a `.catch()` on the promise will not fire on
+ * an SMTP rejection.
+ *
+ * @param {object}  opts
+ * @param {string}  opts.to             Recipient address.
+ * @param {string}  opts.subject
+ * @param {string} [opts.html]
+ * @param {string} [opts.text]
+ * @param {string} [opts.type]          Categorises the log row: 'invite',
+ *                                      'password_reset', 'notification',
+ *                                      'digest'. Defaults to 'other'.
+ * @param {string} [opts.relatedEntity] Free-form back-reference for the log row,
+ *                                      e.g. `invitation:42` or `member:7`.
  * @returns {Promise<{ ok: boolean, skipped?: boolean, error?: string, messageId?: string, accepted?: string[] }>}
  */
-export async function sendMail({ to, subject, html, text }) {
+export async function sendMail({ to, subject, html, text, type, relatedEntity }) {
   const from = SMTP_FROM
   const transport = getTransporter()
 
@@ -50,17 +93,58 @@ export async function sendMail({ to, subject, html, text }) {
     console.log(`  Subject: ${subject}`)
     console.log(`  Body:    ${text || '(HTML only)'}`)
     console.log('─────────────────────────────────────────')
+    await recordEmailAttempt({
+      to, subject, type, relatedEntity,
+      status: 'skipped',
+      error: 'SMTP not configured',
+    })
     return { ok: false, skipped: true, accepted: [to], messageId: 'console-fallback' }
   }
 
   try {
     const info = await transport.sendMail({ from, to, subject, html, text })
     console.log(`[Mailer] Sent to ${to} — messageId: ${info.messageId}`)
+    await recordEmailAttempt({
+      to, subject, type, relatedEntity,
+      status: 'sent',
+      messageId: info.messageId,
+    })
     return { ok: true, messageId: info.messageId, accepted: info.accepted }
   } catch (err) {
     // Never throw from the mailer — email is best-effort.
     console.error(`[Mailer] Failed to send to ${to}: ${err.message}`)
+    await recordEmailAttempt({
+      to, subject, type, relatedEntity,
+      status: 'failed',
+      error: err.message,
+    })
     return { ok: false, error: err.message }
+  }
+}
+
+/**
+ * JL-323: Most recent delivery attempt per recipient, for a batch of addresses.
+ * Returns a Map keyed by lower-cased email so list endpoints can decorate rows
+ * without an N+1 query. Best-effort — returns an empty Map on any error.
+ */
+export async function getLatestEmailStatuses(emails = []) {
+  const list = [...new Set(emails.filter(Boolean).map((e) => String(e).toLowerCase()))]
+  if (!list.length) return new Map()
+
+  try {
+    const placeholders = list.map(() => '?').join(', ')
+    const rows = await all(
+      `SELECT DISTINCT ON (LOWER(recipient))
+              LOWER(recipient) AS recipient, status, error, message_id, created_at
+         FROM email_log
+        WHERE LOWER(recipient) IN (${placeholders})
+        ORDER BY LOWER(recipient), created_at DESC, id DESC`,
+      list,
+    )
+    return new Map(rows.map((r) => [r.recipient, r]))
+  } catch (err) {
+    console.error(`[Mailer] Could not read email_log statuses: ${err.message}`)
+    return new Map()
   }
 }
 

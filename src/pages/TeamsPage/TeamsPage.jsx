@@ -19,6 +19,35 @@ import { EmptyState } from '../../components/common/EmptyState'
 import './TeamsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
+// JL-323: the invite list previously showed nothing about whether the email
+// actually left the building — a Gmail rejection looked identical to a delivered
+// invite. `email_status` comes from the newest email_log row for that address.
+const DELIVERY_STYLES = {
+  sent: { label: 'Sent', background: '#e3fcef', color: '#006644' },
+  failed: { label: 'Failed', background: '#ffebe6', color: '#bf2600' },
+  skipped: { label: 'Not sent', background: '#fffae6', color: '#974f0c' },
+  unknown: { label: 'Unknown', background: '#f4f5f7', color: '#5e6c84' },
+}
+
+export function InviteDeliveryBadge({ status, error, sentAt }) {
+  const key = DELIVERY_STYLES[status] ? status : 'unknown'
+  const { label, background, color } = DELIVERY_STYLES[key]
+
+  const title = key === 'unknown'
+    ? 'No delivery attempt recorded for this address'
+    : error
+      ? `${label}: ${error}`
+      : sentAt
+        ? `${label} ${new Date(sentAt).toLocaleString()}`
+        : label
+
+  return (
+    <span className="pill" style={{ background, color }} title={title}>
+      {label}
+    </span>
+  )
+}
+
 export function TeamsPage() {
   usePageTitle('Teams')
   const { handleResendInvite: onResend } = useMembers()
@@ -180,7 +209,9 @@ export function TeamsPage() {
     try {
       await resendInvitation(inv.id)
       await loadInvites()
-      showFeedback(`Invitation for ${inv.email} resent.`, 'success')
+      // JL-323: the send itself is fire-and-forget server-side, so the Delivery
+      // column may briefly still show the previous attempt. Don't claim delivery.
+      showFeedback(`Invitation for ${inv.email} re-issued — see the Delivery column for the result.`, 'success')
     } catch (err) {
       showFeedback(err.message || 'Failed to resend invitation.', 'error')
     } finally {
@@ -495,6 +526,7 @@ export function TeamsPage() {
                   <th>Role</th>
                   <th>Invited By</th>
                   <th>Expires</th>
+                  <th>Delivery</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -515,6 +547,7 @@ export function TeamsPage() {
                         </span>
                       )}
                     </td>
+                    <td><InviteDeliveryBadge status={inv.email_status} error={inv.email_error} sentAt={inv.email_sent_at} /></td>
                     <td>
                       <button
                         className="link-btn"

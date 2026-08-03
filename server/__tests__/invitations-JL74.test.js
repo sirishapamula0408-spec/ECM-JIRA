@@ -23,6 +23,8 @@ vi.mock('../utils/mailer.js', () => ({
   buildInviteEmail: vi.fn().mockReturnValue({ subject: 's', html: 'h', text: 't' }),
   buildPasswordResetEmail: vi.fn().mockReturnValue({ subject: 's', html: 'h', text: 't' }),
   isSmtpConfigured: vi.fn().mockReturnValue(false),
+  // JL-323: the invitations list decorates rows with the latest delivery status.
+  getLatestEmailStatuses: vi.fn().mockResolvedValue(new Map()),
 }))
 
 import { run, all, get } from '../db.js'
