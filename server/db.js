@@ -1130,12 +1130,15 @@ export async function initializeDatabase() {
   }
   const statusSeeded = await get('SELECT 1 FROM issue_statuses WHERE project_id IS NULL LIMIT 1')
   if (!statusSeeded) {
+    // JL-324: these were Atlassian *text* tokens (#42526E N500, #0052CC B400),
+    // used as node fills in the Workflow Editor — dark body text on a dark fill
+    // measured ~1.5:1. Seed the matching light *surface* tokens instead.
     const defaultStatuses = [
-      ['Backlog', 0, '#42526E', 'todo'],
-      ['To Do', 1, '#42526E', 'todo'],
-      ['In Progress', 2, '#0052CC', 'inprogress'],
-      ['Code Review', 3, '#0052CC', 'inprogress'],
-      ['Done', 4, '#36B37E', 'done'],
+      ['Backlog', 0, '#F4F5F7', 'todo'],
+      ['To Do', 1, '#F4F5F7', 'todo'],
+      ['In Progress', 2, '#DEEBFF', 'inprogress'],
+      ['Code Review', 3, '#EAE6FF', 'inprogress'],
+      ['Done', 4, '#E3FCEF', 'done'],
     ]
     for (const [name, position, color, category] of defaultStatuses) {
       await pool.query(
@@ -1143,6 +1146,25 @@ export async function initializeDatabase() {
         [name, position, color, category],
       )
     }
+  }
+
+  // --- JL-324: migrate legacy dark status fills to light Atlassian surfaces ---
+  // Seeds and the QA Lifecycle template previously stored text/icon tokens in
+  // issue_statuses.color. The Workflow Editor paints those as node backgrounds,
+  // giving dark-on-dark text. Remap ONLY the exact known legacy values, so any
+  // colour a user picked themselves is left untouched. Idempotent: after the
+  // first run no rows match.
+  const LEGACY_STATUS_COLORS = [
+    ['#42526E', '#F4F5F7'], // N500 text  -> N20 surface
+    ['#0052CC', '#DEEBFF'], // B400 text  -> B50 surface
+    ['#FF8B00', '#FFF0B3'], // Y400       -> Y75
+    ['#FF7452', '#FFEBE6'], // R300       -> R50
+    ['#6554C0', '#EAE6FF'], // P300       -> P50
+    ['#36B37E', '#E3FCEF'], // G400       -> G50
+    ['#97A0AF', '#F4F5F7'], // N200       -> N20
+  ]
+  for (const [from, to] of LEGACY_STATUS_COLORS) {
+    await pool.query('UPDATE issue_statuses SET color = $1 WHERE UPPER(color) = UPPER($2)', [to, from])
   }
 
   // Relax the hardcoded CHECK constraints on issues so custom values are allowed.

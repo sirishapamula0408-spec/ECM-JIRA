@@ -8,15 +8,19 @@
 // the engine (isTransitionAllowed) honours from every non-terminal state.
 
 // State catalog with board categories ('todo' | 'inprogress' | 'done').
+//
+// JL-324: `color` is used as the node FILL in the Workflow Editor, so these are
+// Atlassian *surface* tokens (light), not text tokens. They were previously
+// N500/B400/Y400/R300/P300/G400, which produced dark-on-dark node labels.
 export const QA_LIFECYCLE_STATES = [
-  { name: 'Backlog', category: 'todo', color: '#42526E' },
-  { name: 'To Do', category: 'todo', color: '#42526E' },
-  { name: 'In Progress', category: 'inprogress', color: '#0052CC' },
-  { name: 'In Testing', category: 'inprogress', color: '#FF8B00' },
-  { name: 'In Rework', category: 'inprogress', color: '#FF7452' },
-  { name: 'In UAT', category: 'inprogress', color: '#6554C0' },
-  { name: 'Done', category: 'done', color: '#36B37E' },
-  { name: 'Cancelled', category: 'done', color: '#97A0AF' },
+  { name: 'Backlog', category: 'todo', color: '#F4F5F7' },
+  { name: 'To Do', category: 'todo', color: '#F4F5F7' },
+  { name: 'In Progress', category: 'inprogress', color: '#DEEBFF' },
+  { name: 'In Testing', category: 'inprogress', color: '#FFF0B3' },
+  { name: 'In Rework', category: 'inprogress', color: '#FFEBE6' },
+  { name: 'In UAT', category: 'inprogress', color: '#EAE6FF' },
+  { name: 'Done', category: 'done', color: '#E3FCEF' },
+  { name: 'Cancelled', category: 'done', color: '#F4F5F7' },
 ]
 
 // Core allowed transitions (excluding cancel edges — see cancelFromAny).
