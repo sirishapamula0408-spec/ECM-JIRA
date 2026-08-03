@@ -120,6 +120,8 @@ export function WorkflowEditorPage() {
   const [statuses, setStatuses] = useState([])
   const [transitions, setTransitions] = useState([])
   const [workflowDefs, setWorkflowDefs] = useState([]) // JL-306: named workflows
+  // JL-334: projectId -> default workflow name, for the dropdown labels.
+  const [projectWorkflowNames, setProjectWorkflowNames] = useState({})
   const [applyingTemplate, setApplyingTemplate] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -176,14 +178,34 @@ export function WorkflowEditorPage() {
 
   // ── Load project list on mount, default to first ──
   useEffect(() => {
+    let cancelled = false
     fetchProjects()
-      .then((list) => {
-        setProjects(list || [])
+      .then(async (list) => {
+        if (cancelled) return
+        const projectList = list || []
+        setProjects(projectList)
         setProjectsError(false)
-        if (list && list.length > 0) setProjectId(String(list[0].id))
+        if (projectList.length > 0) setProjectId(String(projectList[0].id))
+
+        // JL-334: resolve each project's default workflow so the dropdown can
+        // name it. Best-effort and non-blocking — the selector still works if
+        // this fails, options just fall back to the bare project name.
+        const entries = await Promise.all(
+          projectList.map(async (p) => {
+            try {
+              const defs = await fetchWorkflowDefinitions(p.id)
+              const def = (defs || []).find((w) => w.isDefault)
+              return [p.id, def?.name || null]
+            } catch {
+              return [p.id, null]
+            }
+          }),
+        )
+        if (!cancelled) setProjectWorkflowNames(Object.fromEntries(entries))
       })
       // JL-306: don't silently swallow — remember the failure so the UI can explain it.
-      .catch(() => { setProjects([]); setProjectsError(true) })
+      .catch(() => { if (!cancelled) { setProjects([]); setProjectsError(true) } })
+    return () => { cancelled = true }
   }, [])
 
   // ── Load statuses + transitions for the selected project (single source) ──
@@ -491,12 +513,24 @@ export function WorkflowEditorPage() {
       const terminalStatuses = states
         .filter((s) => s.category === 'done')
         .map((s) => s.name)
+      // JL-331: openPublish pre-fills the name with the current default, so
+      // Publish usually name-matches an existing row and updates it. Carry that
+      // row's cancel settings forward explicitly — publishing the diagram must
+      // not quietly disable cancel-from-any (which would make cancelling an
+      // issue impossible). The backend also treats omitted fields as
+      // "unchanged" now; sending them keeps the intent visible at the call site.
+      const existingDefault = workflowDefs.find(
+        (w) => String(w.name).toLowerCase() === name.toLowerCase(),
+      ) || defaultWorkflow
+
       await createWorkflowDefinition(projectId, {
         name,
         states,
         transitions: transitionsPayload,
         initialStatus: publishInitial || null,
         terminalStatuses,
+        cancelFromAny: existingDefault?.cancelFromAny ?? false,
+        cancelStatus: existingDefault?.cancelStatus ?? null,
         isDefault: true,
       })
       setShowPublish(false)
@@ -589,6 +623,16 @@ export function WorkflowEditorPage() {
   // JL-306: the project's active (default) named workflow, if one has been applied.
   const defaultWorkflow = workflowDefs.find((w) => w.isDefault) || null
 
+  // JL-334: keep the dropdown label in step with the toolbar badge after an
+  // Apply-template or Publish changes the current project's default workflow.
+  useEffect(() => {
+    if (!projectId) return
+    const name = defaultWorkflow?.name || null
+    setProjectWorkflowNames((prev) => (
+      prev[projectId] === name ? prev : { ...prev, [projectId]: name }
+    ))
+  }, [projectId, defaultWorkflow])
+
   const canAddTransition = statusNames.length >= 2
 
   return (
@@ -606,9 +650,18 @@ export function WorkflowEditorPage() {
               onChange={(e) => setProjectId(e.target.value)}
             >
               <option value="">Select project…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name || p.key || `Project ${p.id}`}</option>
-              ))}
+              {/* JL-334: show each project's default workflow in the option, so
+                  the workflow is identifiable from the dropdown itself rather
+                  than only from the toolbar badge on the row below. */}
+              {projects.map((p) => {
+                const label = p.name || p.key || `Project ${p.id}`
+                const wf = projectWorkflowNames[p.id]
+                return (
+                  <option key={p.id} value={p.id}>
+                    {wf ? `${label} — ${wf}` : label}
+                  </option>
+                )
+              })}
             </select>
           </label>
           {/* JL-306: make a failed/empty project load visible instead of dead buttons */}
@@ -735,12 +788,27 @@ export function WorkflowEditorPage() {
             <div className="wfe-canvas" style={{ transform: `scale(${zoom})` }}>
               {/* SVG arrow layer */}
               <svg className="wfe-arrows-layer">
+                {/* JL-333: markerUnits defaults to 'strokeWidth', which multiplied
+                    the head by the line width — 20×14px normally and 30×21px when
+                    selected, i.e. half the height of a 44px node, and it grew on
+                    hover. Pin it to userSpaceOnUse so the head is a fixed 8×6px
+                    like Atlassian's. */}
                 <defs>
-                  <marker id="wfe-arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#6b778c" />
+                  <marker
+                    id="wfe-arrowhead"
+                    markerUnits="userSpaceOnUse"
+                    markerWidth="8" markerHeight="6" refX="8" refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 8 3, 0 6" fill="#8993A4" />
                   </marker>
-                  <marker id="wfe-arrowhead-sel" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#0052cc" />
+                  <marker
+                    id="wfe-arrowhead-sel"
+                    markerUnits="userSpaceOnUse"
+                    markerWidth="8" markerHeight="6" refX="8" refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 8 3, 0 6" fill="#0052cc" />
                   </marker>
                 </defs>
                 {transitions.map((t) => {
@@ -764,8 +832,10 @@ export function WorkflowEditorPage() {
                   const py = ux * offsetAmount
                   const startX = from.x + ux * (NODE_WIDTH / 2) + px
                   const startY = from.y + uy * (NODE_HEIGHT / 2) + py
-                  const endX = to.x - ux * (NODE_WIDTH / 2 + 12) + px
-                  const endY = to.y - uy * (NODE_HEIGHT / 2 + 12) + py
+                  // JL-333: the 12px gap was sized for the old oversized head;
+                  // 6px suits the fixed 8×6 marker without touching the node.
+                  const endX = to.x - ux * (NODE_WIDTH / 2 + 6) + px
+                  const endY = to.y - uy * (NODE_HEIGHT / 2 + 6) + py
 
                   const segLen = Math.hypot(endX - startX, endY - startY)
                   const labelText = t.name || `${t.fromStatus} → ${t.toStatus}`
@@ -781,8 +851,8 @@ export function WorkflowEditorPage() {
                       <line
                         className="wfe-arrow-line"
                         x1={startX} y1={startY} x2={endX} y2={endY}
-                        stroke={isSelected ? '#0052cc' : '#6b778c'}
-                        strokeWidth={isSelected ? 3 : 2}
+                        stroke={isSelected ? '#0052cc' : '#8993A4'}
+                        strokeWidth={isSelected ? 2 : 1.5}
                         markerEnd={isSelected ? 'url(#wfe-arrowhead-sel)' : 'url(#wfe-arrowhead)'}
                       />
                       {/* JL-324: the label used to sit exactly at the arrow

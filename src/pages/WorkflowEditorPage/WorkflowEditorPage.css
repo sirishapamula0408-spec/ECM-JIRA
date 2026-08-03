@@ -391,14 +391,17 @@
   cursor: pointer;
 }
 
+/* JL-333: these were stroke-width 3, paired with an arrowhead whose markerUnits
+   defaulted to strokeWidth — so hovering tripled the head to 30x21px. Atlassian
+   connectors stay thin and the head never changes size. */
 .wfe-arrow:hover .wfe-arrow-line {
   stroke: #0052cc;
-  stroke-width: 3;
+  stroke-width: 2;
 }
 
 .wfe-arrow--selected .wfe-arrow-line {
   stroke: #0052cc;
-  stroke-width: 3;
+  stroke-width: 2;
 }
 
 /* JL-307: transition labels sit over the dotted canvas — a white halo

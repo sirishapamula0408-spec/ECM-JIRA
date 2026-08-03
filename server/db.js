@@ -2092,6 +2092,56 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-331 / JL-332: repair workflow config damaged by earlier defects ---
+  // All three steps are idempotent: after the first run nothing matches.
+  //
+  // (a) JL-331 — Publish used to overwrite cancel_from_any/cancel_status with
+  //     false/null because the UPDATE wrote every column whether or not the
+  //     caller supplied it. That disabled cancel-from-any, and with no explicit
+  //     '-> Cancelled' edge in the template it made cancelling an issue
+  //     impossible. Restore it on rows that came from the QA Lifecycle template
+  //     and still have a Cancelled status available.
+  await pool.query(`
+    UPDATE project_workflows pw
+       SET cancel_from_any = TRUE, cancel_status = 'Cancelled'
+     WHERE LOWER(pw.name) = 'qa lifecycle'
+       AND pw.cancel_from_any = FALSE
+       AND pw.cancel_status IS NULL
+       AND EXISTS (
+         SELECT 1 FROM issue_statuses s
+          WHERE s.name = 'Cancelled'
+            AND (s.project_id = pw.project_id OR s.project_id IS NULL)
+       )
+  `)
+
+  // (b) JL-331 — collapse duplicate workflow rows left by the pre-JL-324
+  //     INSERT-only upsert, keeping the default row (or the newest) per
+  //     (project_id, lower(name)).
+  await pool.query(`
+    DELETE FROM project_workflows pw
+     WHERE pw.id NOT IN (
+       SELECT DISTINCT ON (project_id, LOWER(name)) id
+         FROM project_workflows
+        ORDER BY project_id, LOWER(name), is_default DESC, id DESC
+     )
+  `)
+
+  // (c) JL-332 — drop transitions whose endpoints no longer resolve to a status
+  //     for that project. These were left behind by status deletes that did not
+  //     cascade; they stayed in the rules table and stayed enforced by the
+  //     engine while drawing nothing on the canvas.
+  await pool.query(`
+    DELETE FROM workflow_transitions wt
+     WHERE NOT EXISTS (
+             SELECT 1 FROM issue_statuses s
+              WHERE LOWER(s.name) = LOWER(wt.from_status)
+                AND (s.project_id = wt.project_id OR s.project_id IS NULL))
+        OR NOT EXISTS (
+             SELECT 1 FROM issue_statuses s
+              WHERE LOWER(s.name) = LOWER(wt.to_status)
+                AND (s.project_id = wt.project_id OR s.project_id IS NULL))
+  `)
+
   // --- JL-323: Outbound email delivery log ---
   // Every sendMail() attempt writes exactly one row here, so "was the invite
   // actually delivered?" is answerable from the database instead of only from
@@ -2122,6 +2172,17 @@ export async function initializeDatabase() {
   // insert into empty tables, so this stays idempotent when enabled.
   const { seedDemoData } = await import('./seed.js')
   await seedDemoData()
+
+  // --- JL-334: every project gets a default workflow ---
+  // Dynamically imported (like seedDemoData above) because the service depends
+  // on this module's query helpers. Idempotent: projects that already have a
+  // workflow are skipped, so this is a no-op after the first boot.
+  try {
+    const { backfillDefaultWorkflows } = await import('./services/workflowSeed.js')
+    await backfillDefaultWorkflows()
+  } catch (err) {
+    console.error(`[db] Default-workflow backfill failed: ${err.message}`)
+  }
 }
 
 /**

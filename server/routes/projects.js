@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { loadProjectRole, requireProjectRole, requireProjectRead } from '../middleware/authorize.js'
 import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/validation.js'
 import { getProjectCreationPolicy } from './workspaceSettings.js'
+import { seedDefaultWorkflow } from '../services/workflowSeed.js'
 
 const router = Router()
 
@@ -184,6 +185,16 @@ router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => 
       'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?) ON CONFLICT (project_id, member_id) DO NOTHING',
       [projectId, member.id, 'Lead'],
     )
+  }
+
+  // JL-334: give the project a default workflow immediately. Without this a new
+  // project had no project_workflows row at all, so the Workflow Editor showed
+  // "No default workflow" until an admin manually applied a template. Failure
+  // here must not fail project creation — the boot-time backfill will catch it.
+  try {
+    await seedDefaultWorkflow(projectId)
+  } catch (err) {
+    console.error(`[projects] Could not seed default workflow for ${projectId}: ${err.message}`)
   }
 
   res.status(201).json({

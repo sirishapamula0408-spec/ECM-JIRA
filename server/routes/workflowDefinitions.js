@@ -3,6 +3,7 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { listTemplates, getTemplate } from '../services/workflowTemplates.js'
+import { materializeProjectStatuses } from './issueConfig.js'
 
 // JL-306: Named workflow definitions API.
 //  - Built-in templates (the QA Lifecycle) can be listed and applied to a project.
@@ -50,7 +51,15 @@ router.get('/projects/:projectId/workflow-definitions', asyncHandler(async (req,
 }))
 
 // Insert missing project statuses for a set of state definitions ({ name, category, color }).
+//
+// JL-332: this only ever looked at `WHERE project_id = ?`, so applying a template
+// to a project still using the global defaults seeded the template's states and
+// left every global status not in the template — notably "Code Review" — invisible,
+// even with issues still sitting in it. Materialise the effective set first so the
+// template ADDS to what the project had rather than silently replacing it.
 async function ensureStatuses(projectId, states) {
+  await materializeProjectStatuses(projectId)
+
   const existing = await all(
     'SELECT LOWER(name) AS lname FROM issue_statuses WHERE project_id = ?',
     [projectId],
@@ -108,20 +117,40 @@ async function upsertWorkflowMeta(projectId, meta) {
   )
 
   if (existing) {
-    await run(
-      `UPDATE project_workflows
-          SET initial_status = ?, terminal_statuses = ?::jsonb, cancel_from_any = ?,
-              cancel_status = ?, is_default = ?
-        WHERE id = ?`,
-      [
-        meta.initialStatus ?? null,
-        terminal,
-        meta.cancelFromAny === true,
-        meta.cancelStatus ?? null,
-        meta.isDefault === true,
-        existing.id,
-      ],
-    )
+    // JL-331: only write fields the caller actually supplied. The first version
+    // of this UPDATE (JL-324) set all five columns unconditionally, so a Publish
+    // — which sends name/initialStatus/terminalStatuses and nothing else —
+    // coerced cancelFromAny to false and cancelStatus to null. That silently
+    // disabled cancel-from-any, and with no explicit '-> Cancelled' edge in the
+    // template it made cancelling an issue impossible (409 from
+    // isTransitionAllowed). `undefined` now means "leave unchanged".
+    const sets = []
+    const params = []
+    if (meta.initialStatus !== undefined) {
+      sets.push('initial_status = ?')
+      params.push(meta.initialStatus ?? null)
+    }
+    if (meta.terminalStatuses !== undefined) {
+      sets.push('terminal_statuses = ?::jsonb')
+      params.push(terminal)
+    }
+    if (meta.cancelFromAny !== undefined) {
+      sets.push('cancel_from_any = ?')
+      params.push(meta.cancelFromAny === true)
+    }
+    if (meta.cancelStatus !== undefined) {
+      sets.push('cancel_status = ?')
+      params.push(meta.cancelStatus ?? null)
+    }
+    if (meta.isDefault !== undefined) {
+      sets.push('is_default = ?')
+      params.push(meta.isDefault === true)
+    }
+
+    if (sets.length > 0) {
+      params.push(existing.id)
+      await run(`UPDATE project_workflows SET ${sets.join(', ')} WHERE id = ?`, params)
+    }
     return get('SELECT * FROM project_workflows WHERE id = ?', [existing.id])
   }
 
@@ -188,13 +217,20 @@ router.post(
     if (states.length > 0) await ensureStatuses(projectId, states)
     if (transitions.length > 0) await ensureTransitions(projectId, transitions)
 
+    // JL-331: pass `undefined` straight through when a key is absent, so
+    // upsertWorkflowMeta can tell "not supplied" from "explicitly false".
+    // Coercing with `=== true` here turned every omitted flag into false and
+    // defeated the partial-update logic downstream — which is how Publish wiped
+    // cancel_from_any.
+    const boolOrUndefined = (v) => (v === undefined ? undefined : v === true)
+
     const row = await upsertWorkflowMeta(projectId, {
       name,
       initialStatus: req.body?.initialStatus,
       terminalStatuses: req.body?.terminalStatuses,
-      cancelFromAny: req.body?.cancelFromAny === true,
+      cancelFromAny: boolOrUndefined(req.body?.cancelFromAny),
       cancelStatus: req.body?.cancelStatus,
-      isDefault: req.body?.isDefault === true,
+      isDefault: boolOrUndefined(req.body?.isDefault),
     })
     res.status(201).json(mapWorkflow(row))
   }),
