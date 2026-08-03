@@ -4,6 +4,7 @@ import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { sendMail, buildInviteEmail, getLatestEmailStatuses } from '../utils/mailer.js'
+import { unblockSignup } from '../services/signupPolicy.js'
 
 const router = Router()
 
@@ -39,6 +40,14 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
 
   // Revoke any prior pending invites for this email so only the latest is valid.
   await run("UPDATE invitations SET status = 'revoked' WHERE LOWER(email) = LOWER(?) AND status = 'pending'", [email])
+
+  // JL-325: inviting someone who was previously removed is an explicit decision
+  // to re-admit them, so it lifts the signup block. Without this, a removal
+  // would be irreversible through the UI.
+  const wasBlocked = await unblockSignup(email)
+  if (wasBlocked) {
+    console.log(`[invitations] Lifted signup block for ${email} (re-invited by ${req.user?.email || 'unknown'})`)
+  }
 
   const token = crypto.randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString()

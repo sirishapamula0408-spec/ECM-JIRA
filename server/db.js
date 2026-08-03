@@ -2142,6 +2142,25 @@ export async function initializeDatabase() {
                 AND (s.project_id = wt.project_id OR s.project_id IS NULL))
   `)
 
+  // --- JL-325: Blocked signups (offboarding deny-list) ---
+  // Removing a member used to leave nothing preventing that person from simply
+  // signing up again, because POST /api/auth/signup has no invitation gate.
+  // Deleting a member now records the address here and signup refuses it,
+  // regardless of the configured signup policy. Creating a fresh invitation for
+  // the address clears the block — that is an explicit admin decision to re-admit.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blocked_signups (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      reason TEXT,
+      blocked_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_blocked_signups_email ON blocked_signups(LOWER(email))',
+  )
+
   // --- JL-323: Outbound email delivery log ---
   // Every sendMail() attempt writes exactly one row here, so "was the invite
   // actually delivered?" is answerable from the database instead of only from

@@ -25,6 +25,7 @@ import securityPolicyRoutes from './routes/securityPolicy.js'
 import memberRoutes from './routes/members.js'
 import invitationRoutes from './routes/invitations.js'
 import emailLogRoutes from './routes/emailLog.js' // JL-323: outbound email delivery log
+import blockedSignupRoutes from './routes/blockedSignups.js' // JL-325: signup deny-list
 import activityRoutes from './routes/activity.js'
 import projectRoutes from './routes/projects.js'
 import commentRoutes from './routes/comments.js'
@@ -195,6 +196,7 @@ app.use('/api', ...protect, securityPolicyRoutes) // JL-134: /api/security-polic
 app.use('/api/members', ...protect, memberRoutes)
 app.use('/api/invitations', ...protect, invitationRoutes)
 app.use('/api', ...protect, emailLogRoutes) // JL-323: /api/email-log*
+app.use('/api', ...protect, blockedSignupRoutes) // JL-325: /api/blocked-signups*
 app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)
