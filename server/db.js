@@ -2070,6 +2070,30 @@ export async function initializeDatabase() {
     )
   `)
 
+  // --- JL-323: Outbound email delivery log ---
+  // Every sendMail() attempt writes exactly one row here, so "was the invite
+  // actually delivered?" is answerable from the database instead of only from
+  // the host process's stdout. `status` is terminal:
+  //   sent    — the SMTP provider accepted the message (message_id set)
+  //   failed  — the provider rejected it (error set)
+  //   skipped — SMTP is unconfigured, so nothing was attempted (console fallback)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_log (
+      id SERIAL PRIMARY KEY,
+      recipient TEXT NOT NULL,
+      subject TEXT,
+      email_type TEXT NOT NULL DEFAULT 'other',
+      related_entity TEXT,
+      status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'skipped')),
+      message_id TEXT,
+      error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_email_log_recipient ON email_log(LOWER(recipient))')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_email_log_status ON email_log(status)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_email_log_created ON email_log(created_at DESC)')
+
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so
   // production/CI never auto-seed fictional data. The seeders themselves only

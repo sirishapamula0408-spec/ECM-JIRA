@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
-import { sendMail, buildInviteEmail } from '../utils/mailer.js'
+import { sendMail, buildInviteEmail, getLatestEmailStatuses } from '../utils/mailer.js'
 
 const router = Router()
 
@@ -59,9 +59,20 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     invitedBy,
     role,
   })
-  sendMail({ to: email, subject, html, text }).catch((err) => {
-    console.error(`[invitations] Failed to send invite email to ${email}: ${err.message}`)
-  })
+  // JL-323: sendMail resolves with { ok:false } on an SMTP rejection rather than
+  // rejecting, so the outcome must be read off the result — a bare .catch() here
+  // was dead code and let failures pass as successes.
+  sendMail({ to: email, subject, html, text, type: 'invite', relatedEntity: `invitation:${invite.id}` })
+    .then((result) => {
+      if (!result.ok) {
+        console.error(
+          `[invitations] Invite email to ${email} was not delivered (${result.skipped ? 'SMTP not configured' : result.error})`,
+        )
+      }
+    })
+    .catch((err) => {
+      console.error(`[invitations] Unexpected mailer error for ${email}: ${err.message}`)
+    })
 
   res.status(201).json(invite)
 }))
@@ -84,10 +95,19 @@ router.get('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   // pending invites were indistinguishable from live ones. Surface an `expired`
   // flag per row so the client can badge them (and offer a resend).
   const now = Date.now()
-  const decorated = rows.map((r) => ({
-    ...r,
-    expired: r.status === 'pending' && r.expires_at != null && new Date(r.expires_at).getTime() < now,
-  }))
+  // JL-323: attach the most recent delivery attempt per address so the UI can
+  // distinguish "invited" from "invite email never actually arrived".
+  const statuses = await getLatestEmailStatuses(rows.map((r) => r.email))
+  const decorated = rows.map((r) => {
+    const delivery = statuses.get(String(r.email || '').toLowerCase())
+    return {
+      ...r,
+      expired: r.status === 'pending' && r.expires_at != null && new Date(r.expires_at).getTime() < now,
+      email_status: delivery?.status || 'unknown',
+      email_error: delivery?.error || null,
+      email_sent_at: delivery?.created_at || null,
+    }
+  })
   res.json(decorated)
 }))
 
@@ -135,9 +155,18 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
     invitedBy,
     role: invite.role,
   })
-  sendMail({ to: invite.email, subject, html, text }).catch((err) => {
-    console.error(`[invitations] Failed to resend invite email to ${invite.email}: ${err.message}`)
-  })
+  // JL-323: read the result flag; see the note on the create route above.
+  sendMail({ to: invite.email, subject, html, text, type: 'invite', relatedEntity: `invitation:${fresh.id}` })
+    .then((result) => {
+      if (!result.ok) {
+        console.error(
+          `[invitations] Resent invite email to ${invite.email} was not delivered (${result.skipped ? 'SMTP not configured' : result.error})`,
+        )
+      }
+    })
+    .catch((err) => {
+      console.error(`[invitations] Unexpected mailer error for ${invite.email}: ${err.message}`)
+    })
 
   res.json(fresh)
 }))

@@ -259,6 +259,11 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   })
 
   // Send invitation email (skip when a temp password activated the account directly)
+  // JL-323: sendMail resolves with { ok:false } on rejection instead of throwing,
+  // so the try/catch alone never saw delivery failures and the endpoint reported
+  // success unconditionally. Surface the outcome on the response instead.
+  let emailStatus = createdLogin ? 'not_applicable' : 'unknown'
+  let emailError = null
   if (!createdLogin) {
     try {
       const { subject, html, text } = buildInviteEmail({
@@ -266,13 +271,24 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
         invitedBy: inviter,
         role: normalizedRole,
       })
-      await sendMail({ to: normalizedEmail, subject, html, text })
+      const result = await sendMail({
+        to: normalizedEmail, subject, html, text,
+        type: 'invite',
+        relatedEntity: `member:${row.id}`,
+      })
+      emailStatus = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed'
+      emailError = result.ok ? null : result.error || 'SMTP not configured'
+      if (!result.ok) {
+        console.error(`[Members] Invite email to ${normalizedEmail} was not delivered (${emailError})`)
+      }
     } catch (mailErr) {
+      emailStatus = 'failed'
+      emailError = mailErr.message
       console.error('[Members] Failed to send invite email:', mailErr.message)
     }
   }
 
-  res.status(201).json(row)
+  res.status(201).json({ ...row, email_status: emailStatus, email_error: emailError })
 }))
 
 // JL-192: Deactivate a member (soft) — preserves authored data. Blocks login.
@@ -347,19 +363,33 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
     return
   }
 
-  // Resend invitation email
+  // Resend invitation email — JL-323: report the real delivery outcome rather
+  // than always returning ok:true.
+  let emailStatus = 'unknown'
+  let emailError = null
   try {
     const { subject, html, text } = buildInviteEmail({
       recipientName: member.name,
       invitedBy: member.invited_by || 'Team Admin',
       role: member.role,
     })
-    await sendMail({ to: member.email, subject, html, text })
+    const result = await sendMail({
+      to: member.email, subject, html, text,
+      type: 'invite',
+      relatedEntity: `member:${member.id}`,
+    })
+    emailStatus = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed'
+    emailError = result.ok ? null : result.error || 'SMTP not configured'
+    if (!result.ok) {
+      console.error(`[Members] Resent invite email to ${member.email} was not delivered (${emailError})`)
+    }
   } catch (mailErr) {
+    emailStatus = 'failed'
+    emailError = mailErr.message
     console.error('[Members] Failed to resend invite email:', mailErr.message)
   }
 
-  res.json({ ok: true, member })
+  res.json({ ok: emailStatus === 'sent', member, email_status: emailStatus, email_error: emailError })
 }))
 
 router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {

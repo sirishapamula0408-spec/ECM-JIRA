@@ -24,6 +24,7 @@ import profileRoutes from './routes/profile.js'
 import securityPolicyRoutes from './routes/securityPolicy.js'
 import memberRoutes from './routes/members.js'
 import invitationRoutes from './routes/invitations.js'
+import emailLogRoutes from './routes/emailLog.js' // JL-323: outbound email delivery log
 import activityRoutes from './routes/activity.js'
 import projectRoutes from './routes/projects.js'
 import commentRoutes from './routes/comments.js'
@@ -193,6 +194,7 @@ app.use('/api/profile', ...protect, profileRoutes)
 app.use('/api', ...protect, securityPolicyRoutes) // JL-134: /api/security-policy
 app.use('/api/members', ...protect, memberRoutes)
 app.use('/api/invitations', ...protect, invitationRoutes)
+app.use('/api', ...protect, emailLogRoutes) // JL-323: /api/email-log*
 app.use('/api/activity', ...protect, activityRoutes)
 app.use('/api/projects', ...protect, projectRoutes)
 app.use('/api/issues', ...protect, commentRoutes)

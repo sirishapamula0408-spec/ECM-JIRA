@@ -23,7 +23,7 @@ router.post('/mail-test', requireRole('Admin'), asyncHandler(async (req, res) =>
     + `<p style="font-size:12px;color:#6b778c;">Requested by ${to}.</p>`
     + `</div>`
 
-  const result = await sendMail({ to, subject, text, html })
+  const result = await sendMail({ to, subject, text, html, type: 'smtp_test' })
   const consoleFallback = Boolean(result.skipped) || !isSmtpConfigured()
 
   res.json({
@@ -200,5 +200,5 @@ async function maybeSendNotificationEmail({ recipientEmail, type, title, message
   if (Array.isArray(muted) && muted.includes(type)) return
 
   const { subject, html, text } = buildNotificationEmail({ title, message, type, actorEmail })
-  await sendMail({ to: recipientEmail, subject, html, text })
+  await sendMail({ to: recipientEmail, subject, html, text, type: 'notification' })
 }

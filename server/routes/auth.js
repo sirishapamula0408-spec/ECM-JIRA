@@ -306,9 +306,19 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
   // Send the reset link by email (best-effort, fire-and-forget — never block the
   // response on SMTP). sendMail() itself never throws; the catch is a safety net.
   const { subject, html, text } = buildPasswordResetEmail({ token: resetToken })
-  sendMail({ to: user.email, subject, html, text }).catch((err) => {
-    console.error(`[auth] Failed to send password reset email: ${err.message}`)
-  })
+  // JL-323: sendMail resolves with { ok:false } on rejection, so the outcome is
+  // read off the result; the .catch stays as a safety net for unexpected throws.
+  sendMail({ to: user.email, subject, html, text, type: 'password_reset', relatedEntity: `user:${user.id}` })
+    .then((result) => {
+      if (!result.ok) {
+        console.error(
+          `[auth] Password reset email to ${user.email} was not delivered (${result.skipped ? 'SMTP not configured' : result.error})`,
+        )
+      }
+    })
+    .catch((err) => {
+      console.error(`[auth] Unexpected mailer error sending password reset: ${err.message}`)
+    })
 
   const responseBody = {
     message: 'If an account exists with that email, a reset link has been generated.',
