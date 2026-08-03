@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { COG_TEETH_PATH } from '../icons/HeaderPanelIcon'
 import './GadgetWrapper.css'
 
 const SIZE_CLASSES = {
@@ -95,10 +96,10 @@ export function GadgetWrapper({
               </div>
             )}
           </div>
-          <button className="gadget-action-btn" title="Configure" onClick={onConfig}>
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
-              <circle cx="8" cy="8" r="2.5" />
-              <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" />
+          <button className="gadget-action-btn" title="Configure" aria-label="Configure gadget" onClick={onConfig}>
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+              <path d={COG_TEETH_PATH} />
+              <circle cx="8" cy="8" r="2.05" />
             </svg>
           </button>
           <button className="gadget-action-btn" title="Maximize" onClick={onMaximize}>

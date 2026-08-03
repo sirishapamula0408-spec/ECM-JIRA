@@ -229,10 +229,10 @@ export function Topbar({ onCreate, hasProjects }) {
           type="button"
           aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           aria-pressed={theme === 'dark'}
-          title="Toggle theme"
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           onClick={toggleTheme}
         >
-          <HeaderPanelIcon name="sun" />
+          <HeaderPanelIcon name={theme === 'dark' ? 'sun' : 'theme'} />
         </button>
         <div className="topbar-live-clock">
           <span className="topbar-clock-time">{liveTime}</span>
