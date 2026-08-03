@@ -61,7 +61,8 @@ async function ensureStatuses(projectId, states) {
     const name = typeof st === 'string' ? st : st?.name
     if (!name || have.has(name.toLowerCase())) continue
     const category = (typeof st === 'object' && st?.category) || 'todo'
-    const color = (typeof st === 'object' && st?.color) || '#42526E'
+    // JL-324: default to a light surface token, not the N500 text token.
+    const color = (typeof st === 'object' && st?.color) || '#F4F5F7'
     await run(
       'INSERT INTO issue_statuses (project_id, name, position, color, category) VALUES (?, ?, ?, ?, ?)',
       [projectId, name, position, color, category],
@@ -90,10 +91,40 @@ async function ensureTransitions(projectId, transitions) {
 }
 
 // Upsert the project_workflows metadata row; when isDefault, clears the flag on others.
+//
+// JL-324: this used to be INSERT-only despite the name, so every Apply-template /
+// Publish click appended another row — one project accumulated three workflows
+// including two identical "QA Lifecycle" entries. Update in place when a workflow
+// of the same name already exists for the project (case-insensitive).
 async function upsertWorkflowMeta(projectId, meta) {
   if (meta.isDefault) {
     await run('UPDATE project_workflows SET is_default = FALSE WHERE project_id = ?', [projectId])
   }
+
+  const terminal = JSON.stringify(normalizeTerminal(meta.terminalStatuses))
+  const existing = await get(
+    'SELECT id FROM project_workflows WHERE project_id = ? AND LOWER(name) = LOWER(?)',
+    [projectId, meta.name],
+  )
+
+  if (existing) {
+    await run(
+      `UPDATE project_workflows
+          SET initial_status = ?, terminal_statuses = ?::jsonb, cancel_from_any = ?,
+              cancel_status = ?, is_default = ?
+        WHERE id = ?`,
+      [
+        meta.initialStatus ?? null,
+        terminal,
+        meta.cancelFromAny === true,
+        meta.cancelStatus ?? null,
+        meta.isDefault === true,
+        existing.id,
+      ],
+    )
+    return get('SELECT * FROM project_workflows WHERE id = ?', [existing.id])
+  }
+
   const created = await run(
     `INSERT INTO project_workflows
        (project_id, name, initial_status, terminal_statuses, cancel_from_any, cancel_status, is_default)
@@ -102,7 +133,7 @@ async function upsertWorkflowMeta(projectId, meta) {
       projectId,
       meta.name,
       meta.initialStatus ?? null,
-      JSON.stringify(normalizeTerminal(meta.terminalStatuses)),
+      terminal,
       meta.cancelFromAny === true,
       meta.cancelStatus ?? null,
       meta.isDefault === true,

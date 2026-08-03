@@ -90,6 +90,50 @@
   gap: 6px;
 }
 
+/* JL-324: this badge previously had NO rule of its own and fell through to the
+   generic `.chip` — a plain white bordered box at the end of the button row,
+   which read as a 5th disabled toolbar button. Style it as a status indicator:
+   subtle blue-tinted lozenge, separated from the actions by a divider. */
+.wfe-default-workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 3px 10px;
+  border: 1px solid #b3d4ff;
+  border-radius: 12px;
+  background: #deebff;
+  color: #0747a6;
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.wfe-default-workflow-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0052cc;
+  flex-shrink: 0;
+}
+
+/* Shown when a project has no default workflow at all. */
+.wfe-no-default-workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 3px 10px;
+  border: 1px dashed var(--jira-border);
+  border-radius: 12px;
+  background: transparent;
+  color: #6b778c;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+}
+
 .wfe-toolbar-btn {
   display: inline-flex;
   align-items: center;
@@ -286,14 +330,50 @@
   white-space: nowrap;
 }
 
-.wfe-node-category {
-  font-size: 9px;
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.65;
-  text-align: center;
-  margin-top: 1px;
+/* JL-324: `.wfe-node-category` removed — the raw todo/inprogress/done sub-label
+   no longer renders inside the node. Category is conveyed by the fill colour
+   and the node's aria-label. */
+
+/* JL-324: drag-from handle for creating a transition. Sits on the node's
+   trailing edge, revealed on hover/focus so it doesn't add permanent chrome. */
+.wfe-node-connector {
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #0052cc;
+  cursor: crosshair;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.wfe-node:hover .wfe-node-connector,
+.wfe-node:focus-visible .wfe-node-connector,
+.wfe-node--selected .wfe-node-connector,
+.wfe-node--link-source .wfe-node-connector {
+  opacity: 1;
+}
+
+/* Source node stays highlighted for the duration of the link drag. */
+.wfe-node--link-source {
+  box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.45), 0 2px 4px rgba(9, 30, 66, 0.16);
+}
+
+/* Valid drop target under the pointer. */
+.wfe-node--link-target {
+  box-shadow: 0 0 0 3px #36b37e, 0 2px 6px rgba(9, 30, 66, 0.2);
+}
+
+/* Preview line drawn from the source node to the pointer while link-dragging. */
+.wfe-link-preview line {
+  stroke: #0052cc;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
 }
 
 /* ---- SVG Arrows ---- */

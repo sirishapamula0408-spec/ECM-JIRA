@@ -20,6 +20,7 @@ import {
   applyWorkflowTemplate,
   createWorkflowDefinition,
 } from '../../api/workflowDefinitionApi'
+import { readableTextColor, borderFor } from '../../utils/color'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -33,6 +34,16 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 const NODE_WIDTH = 140
 const NODE_HEIGHT = 44
 const NUDGE_STEP = 10
+
+// JL-324: transition-label placement. The label used to sit ON the arrow at its
+// midpoint, which for two side-by-side nodes falls inside the node band and gets
+// clipped by the boxes. Offsetting it by half a node height + a margin lifts it
+// clear of the band entirely, so a label wider than the inter-node gap is still
+// readable rather than overlapping. Labels are only dropped for degenerate
+// arrows between (near-)overlapping nodes, where nothing would be legible.
+const LABEL_OFFSET_SCALE = 1.6
+const LABEL_CLEARANCE = NODE_HEIGHT / 2 + 10
+const MIN_LABEL_SEGMENT = 40
 
 // JL-276: quick-pick presets for the Add Status dialog. Backend `category` only
 // allows 'todo' | 'inprogress' | 'done', so names like "In Code Review" are STATUS
@@ -56,10 +67,16 @@ function normalizeCategory(cat) {
   return 'todo'
 }
 
+// JL-324: Atlassian workflow-diagram surfaces — light fills with dark text.
+// Previously to-do was blue and in-progress was yellow, which matched neither
+// Jira nor STATUS_PRESETS above; all three palettes now agree.
+//   to-do       → neutral  (N20 / N30)
+//   in progress → blue subtle
+//   done        → green subtle
 const CATEGORY_STYLES = {
-  'todo':       { bg: '#DEEBFF', color: '#0052CC', border: '#4C9AFF', label: 'To Do' },
-  'inprogress': { bg: '#FFF0B3', color: '#FF8B00', border: '#FFE380', label: 'In Progress' },
-  'done':       { bg: '#E3FCEF', color: '#006644', border: '#79F2C0', label: 'Done' },
+  'todo':       { bg: '#F4F5F7', color: '#42526E', border: '#DFE1E6', label: 'To Do' },
+  'inprogress': { bg: '#DEEBFF', color: '#0052CC', border: '#B3D4FF', label: 'In Progress' },
+  'done':       { bg: '#E3FCEF', color: '#006644', border: '#ABF5D1', label: 'Done' },
 }
 
 function categoryStyle(cat) {
@@ -116,11 +133,18 @@ export function WorkflowEditorPage() {
   const [selectedTransId, setSelectedTransId] = useState(null)
   const [zoom, setZoom] = useState(1)
 
+  // JL-324: drag-to-create-transition. `linkDrag` is null when idle; while
+  // dragging from a node's connector it holds the source status, the live
+  // pointer position (for the preview line) and the node currently hovered.
+  // Kept separate from `dragging` (node repositioning) so the two never mix.
+  const [linkDrag, setLinkDrag] = useState(null)
+  const [linkError, setLinkError] = useState('')
+
   // Add status modal
   const [showAddStatus, setShowAddStatus] = useState(false)
   const [newStatusName, setNewStatusName] = useState('')
   const [newStatusCategory, setNewStatusCategory] = useState('todo')
-  const [newStatusColor, setNewStatusColor] = useState('#42526E')
+  const [newStatusColor, setNewStatusColor] = useState('#F4F5F7')
   const [newStatusPreset, setNewStatusPreset] = useState('')
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState('')
@@ -281,7 +305,34 @@ export function WorkflowEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeByName, zoom, isAdmin])
 
+  // ── JL-324: drag from a node's connector onto another node to create a transition ──
+  const handleConnectorMouseDown = useCallback((e, name) => {
+    if (!isAdmin) return
+    // Stop the node's own onMouseDown from starting a reposition drag.
+    e.stopPropagation()
+    e.preventDefault()
+    const pos = toCanvasCoords(e)
+    setLinkError('')
+    setLinkDrag({ from: name, x: pos.x, y: pos.y, hoverTarget: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, zoom])
+
+  /** Which status node (if any) sits under the given canvas point. */
+  const nodeAtPoint = useCallback((x, y) => {
+    return nodes.find(
+      (n) => x >= n.x && x <= n.x + NODE_WIDTH && y >= n.y && y <= n.y + NODE_HEIGHT,
+    ) || null
+  }, [nodes])
+
   const handleCanvasMouseMove = useCallback((e) => {
+    if (linkDrag) {
+      const pos = toCanvasCoords(e)
+      const over = nodeAtPoint(pos.x, pos.y)
+      setLinkDrag((prev) => (prev
+        ? { ...prev, x: pos.x, y: pos.y, hoverTarget: over && over.name !== prev.from ? over.name : null }
+        : prev))
+      return
+    }
     if (!dragging.current) return
     didDrag.current = true
     const pos = toCanvasCoords(e)
@@ -289,14 +340,33 @@ export function WorkflowEditorPage() {
     const y = Math.max(0, pos.y - dragging.current.offsetY)
     setPositions((prev) => ({ ...prev, [dragging.current.name]: { x, y } }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom])
+  }, [zoom, linkDrag, nodeAtPoint])
 
-  const handleCanvasMouseUp = useCallback(() => {
+  const handleCanvasMouseUp = useCallback(async () => {
+    if (linkDrag) {
+      const { from, hoverTarget } = linkDrag
+      setLinkDrag(null)
+      // Self-drop and drops on empty canvas are no-ops, not errors.
+      if (!hoverTarget || hoverTarget === from) return
+      const exists = transitions.some((t) => t.fromStatus === from && t.toStatus === hoverTarget)
+      if (exists) {
+        setLinkError(`A transition from "${from}" to "${hoverTarget}" already exists.`)
+        return
+      }
+      try {
+        await createWorkflowTransition(projectId, { fromStatus: from, toStatus: hoverTarget })
+        await reload(projectId)
+      } catch (err) {
+        setLinkError(err?.message || 'Failed to create transition')
+      }
+      return
+    }
     if (dragging.current) {
       dragging.current = null
       setPositions((prev) => { persistPositions(prev); return prev })
     }
-  }, [persistPositions])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistPositions, linkDrag, transitions, projectId])
 
   const handleCanvasClick = useCallback(() => {
     if (didDrag.current) { didDrag.current = false; return }
@@ -329,7 +399,7 @@ export function WorkflowEditorPage() {
   const openAddStatus = () => {
     setNewStatusName('')
     setNewStatusCategory('todo')
-    setNewStatusColor('#42526E')
+    setNewStatusColor('#F4F5F7')
     setNewStatusPreset('')
     setModalError('')
     setShowAddStatus(true)
@@ -620,10 +690,17 @@ export function WorkflowEditorPage() {
           ) : (
             <span className="wfe-readonly-hint muted">Workspace Admins can configure the workflow.</span>
           )}
-          {defaultWorkflow && (
-            <span className="wfe-default-workflow-badge chip" data-testid="wfe-default-workflow">
+          {/* JL-324: previously this rendered nothing at all when a project had
+              no default workflow — indistinguishable from a failed fetch. Say so
+              explicitly instead. */}
+          {defaultWorkflow ? (
+            <span className="wfe-default-workflow-badge" data-testid="wfe-default-workflow">
               Default workflow: {defaultWorkflow.name}
               {defaultWorkflow.cancelFromAny && ' · cancel from any'}
+            </span>
+          ) : projectId && !loading && (
+            <span className="wfe-no-default-workflow-badge" data-testid="wfe-no-default-workflow">
+              No default workflow
             </span>
           )}
         </div>
@@ -690,6 +767,10 @@ export function WorkflowEditorPage() {
                   const endX = to.x - ux * (NODE_WIDTH / 2 + 12) + px
                   const endY = to.y - uy * (NODE_HEIGHT / 2 + 12) + py
 
+                  const segLen = Math.hypot(endX - startX, endY - startY)
+                  const labelText = t.name || `${t.fromStatus} → ${t.toStatus}`
+                  const showArrowLabel = isSelected || segLen >= MIN_LABEL_SEGMENT
+
                   return (
                     <g
                       key={t.id}
@@ -704,35 +785,73 @@ export function WorkflowEditorPage() {
                         strokeWidth={isSelected ? 3 : 2}
                         markerEnd={isSelected ? 'url(#wfe-arrowhead-sel)' : 'url(#wfe-arrowhead)'}
                       />
-                      <text
-                        className="wfe-arrow-label"
-                        x={(startX + endX) / 2}
-                        y={(startY + endY) / 2 - 8}
-                        textAnchor="middle"
-                      >
-                        {t.fromStatus} → {t.toStatus}
-                      </text>
+                      {/* JL-324: the label used to sit exactly at the arrow
+                          midpoint reading "From → To", which for adjacent nodes
+                          landed on top of a status box and duplicated what the
+                          arrow already shows. Push it clear along the segment's
+                          perpendicular and drop the redundant endpoint names —
+                          a white halo (CSS paint-order) keeps it legible over
+                          the dotted canvas. */}
+                      {showArrowLabel && (
+                        <text
+                          className="wfe-arrow-label"
+                          x={(startX + endX) / 2 + px * LABEL_OFFSET_SCALE - uy * LABEL_CLEARANCE}
+                          y={(startY + endY) / 2 + py * LABEL_OFFSET_SCALE + ux * LABEL_CLEARANCE}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          {labelText}
+                        </text>
+                      )}
                     </g>
                   )
                 })}
+
+                {/* JL-324: live preview while dragging a new transition */}
+                {linkDrag && (() => {
+                  const from = getNodeCenter(linkDrag.from)
+                  if (!from) return null
+                  return (
+                    <g className="wfe-link-preview" data-testid="wfe-link-preview">
+                      <line
+                        x1={from.x} y1={from.y}
+                        x2={linkDrag.x} y2={linkDrag.y}
+                        markerEnd="url(#wfe-arrowhead-sel)"
+                      />
+                    </g>
+                  )
+                })()}
               </svg>
 
               {/* Nodes */}
               {nodes.map((node) => {
                 const style = categoryStyle(node.category)
                 const selected = selectedNodeName === node.name
+                const fill = node.color || style.bg
+                const isLinkSource = linkDrag?.from === node.name
+                const isLinkTarget = linkDrag?.hoverTarget === node.name
                 return (
                   <div
                     key={node.name}
-                    className={`wfe-node${selected ? ' wfe-node--selected' : ''}`}
+                    className={
+                      `wfe-node${selected ? ' wfe-node--selected' : ''}` +
+                      `${isLinkSource ? ' wfe-node--link-source' : ''}` +
+                      `${isLinkTarget ? ' wfe-node--link-target' : ''}`
+                    }
+                    data-status={node.name}
                     style={{
                       left: node.x,
                       top: node.y,
                       width: NODE_WIDTH,
                       height: NODE_HEIGHT,
-                      backgroundColor: node.color || style.bg,
-                      borderColor: style.border,
-                      color: node.color ? undefined : style.color,
+                      // JL-324: `node.color` is NOT NULL in the DB, so it used to
+                      // shadow style.bg entirely and `color: undefined` let dark
+                      // body text land on a dark fill (~1.5:1). Derive the label
+                      // and border from whatever fill wins, so legacy and custom
+                      // colours stay legible too.
+                      backgroundColor: fill,
+                      borderColor: selected ? undefined : borderFor(fill),
+                      color: readableTextColor(fill),
                     }}
                     role="button"
                     tabIndex={0}
@@ -742,10 +861,21 @@ export function WorkflowEditorPage() {
                     onClick={(e) => { e.stopPropagation(); setSelectedNodeName(node.name); setSelectedTransId(null) }}
                     onKeyDown={(e) => handleNodeKeyDown(e, node)}
                   >
-                    <div>
-                      <div className="wfe-node-name">{node.name}</div>
-                      <div className="wfe-node-category">{node.category}</div>
-                    </div>
+                    {/* JL-324: the category sub-label (raw `todo`/`inprogress`/
+                        `done`, rendered uppercase as INPROGRESS) is gone — the
+                        category is still conveyed by fill colour and aria-label. */}
+                    <div className="wfe-node-name">{node.name}</div>
+                    {isAdmin && (
+                      <span
+                        className="wfe-node-connector"
+                        role="button"
+                        tabIndex={-1}
+                        aria-label={`Drag from ${node.name} to create a transition`}
+                        title="Drag to another status to create a transition"
+                        onMouseDown={(e) => handleConnectorMouseDown(e, node.name)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
                   </div>
                 )
               })}
@@ -988,6 +1118,23 @@ export function WorkflowEditorPage() {
           sx={{ width: '100%' }}
         >
           {successMsg}
+        </Alert>
+      </Snackbar>
+
+      {/* JL-324: feedback when a drag-to-connect can't create a transition */}
+      <Snackbar
+        open={!!linkError}
+        autoHideDuration={5000}
+        onClose={() => setLinkError('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setLinkError('')}
+          severity="warning"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {linkError}
         </Alert>
       </Snackbar>
 

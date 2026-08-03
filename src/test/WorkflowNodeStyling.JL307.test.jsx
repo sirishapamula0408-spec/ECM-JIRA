@@ -72,11 +72,16 @@ describe('JL-307 — compact Atlassian-style status nodes', () => {
     }
   })
 
-  it('renders the status name and its category sub-label inside the node', async () => {
+  // JL-324 supersedes the original assertion here: the node used to also render
+  // a category sub-label showing the raw DB value ('inprogress', rendered
+  // uppercase as INPROGRESS). That was removed as clutter — category is still
+  // conveyed by the fill colour and the node's aria-label.
+  it('renders the status name inside the node, without a category sub-label', async () => {
     render(<WorkflowEditorPage />)
     const node = await screen.findByRole('button', { name: /Status In Progress/ })
     expect(within(node).getByText('In Progress')).toHaveClass('wfe-node-name')
-    expect(within(node).getByText('inprogress')).toHaveClass('wfe-node-category')
+    expect(within(node).queryByText('inprogress')).not.toBeInTheDocument()
+    expect(node.querySelector('.wfe-node-category')).toBeNull()
   })
 })
 
