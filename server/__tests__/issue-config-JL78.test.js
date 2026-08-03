@@ -39,6 +39,14 @@ function createApp(routeModule, role = 'Admin') {
 let mod
 beforeEach(async () => {
   vi.clearAllMocks()
+  // JL-332: creating a project status now materialises the global defaults
+  // first, which issues extra all()/get() calls. Give the mocks safe baselines
+  // so unqueued calls return empty rather than undefined — without this the
+  // route threw, and the values still queued via mockResolvedValueOnce leaked
+  // into the following tests.
+  all.mockResolvedValue([])
+  get.mockResolvedValue(undefined)
+  run.mockResolvedValue({ lastID: 1, changes: 1 })
   mod = await import('../routes/issueConfig.js')
 })
 
@@ -168,12 +176,110 @@ describe('DELETE priority/status (Admin)', () => {
     expect(res.body.success).toBe(true)
   })
 
-  it('deletes a status', async () => {
+  // JL-332: deleting a status now validates first — it must exist, must be
+  // project-scoped (a global id would delete it for every project), and must
+  // not still hold issues — and it cascades to that project's transitions.
+  it('deletes a project status and cascades to its transitions', async () => {
     const app = createApp(mod)
-    run.mockResolvedValueOnce({ changes: 1 })
+    get.mockImplementation(async (sql) => {
+      if (/FROM issue_statuses WHERE id/.test(sql)) {
+        return { id: 99, project_id: 5, name: 'Blocked' }
+      }
+      if (/COUNT\(\*\)::int AS count FROM issues/.test(sql)) return { count: 0 }
+      return undefined
+    })
+
     const res = await request(app).delete('/api/statuses/99')
+
     expect(res.status).toBe(200)
     expect(res.body.success).toBe(true)
+    const cascade = run.mock.calls.find(
+      ([sql]) => /DELETE FROM workflow_transitions/.test(sql),
+    )
+    expect(cascade).toBeTruthy()
+    expect(cascade[1]).toEqual([5, 'Blocked', 'Blocked'])
+    expect(run.mock.calls.some(([sql]) => /DELETE FROM issue_statuses/.test(sql))).toBe(true)
+  })
+
+  it('returns 404 deleting a status that does not exist', async () => {
+    const app = createApp(mod)
+    const res = await request(app).delete('/api/statuses/12345')
+    expect(res.status).toBe(404)
+    expect(run.mock.calls.some(([sql]) => /DELETE FROM issue_statuses/.test(sql))).toBe(false)
+  })
+
+  it('refuses to delete a GLOBAL status (would remove it for every project)', async () => {
+    const app = createApp(mod)
+    get.mockImplementation(async (sql) =>
+      /FROM issue_statuses WHERE id/.test(sql)
+        ? { id: 1, project_id: null, name: 'To Do' }
+        : undefined)
+
+    const res = await request(app).delete('/api/statuses/1')
+
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/global default/i)
+    expect(run.mock.calls.some(([sql]) => /DELETE FROM issue_statuses/.test(sql))).toBe(false)
+  })
+
+  it('refuses to delete a status that still holds issues', async () => {
+    const app = createApp(mod)
+    get.mockImplementation(async (sql) => {
+      if (/FROM issue_statuses WHERE id/.test(sql)) {
+        return { id: 99, project_id: 5, name: 'Code Review' }
+      }
+      if (/COUNT\(\*\)::int AS count FROM issues/.test(sql)) return { count: 3 }
+      return undefined
+    })
+
+    const res = await request(app).delete('/api/statuses/99')
+
+    expect(res.status).toBe(409)
+    expect(res.body.error).toMatch(/3 issue\(s\) are still in it/)
+    expect(run.mock.calls.some(([sql]) => /DELETE FROM issue_statuses/.test(sql))).toBe(false)
+  })
+})
+
+/* ================= JL-332: materialise before first project write ========= */
+describe('JL-332 — adding a status no longer hides the rest', () => {
+  it('copies the global defaults down before inserting the new status', async () => {
+    const app = createApp(mod)
+    const GLOBALS = [
+      { name: 'Backlog', position: 0, color: '#F4F5F7', category: 'todo' },
+      { name: 'To Do', position: 1, color: '#F4F5F7', category: 'todo' },
+      { name: 'Done', position: 2, color: '#E3FCEF', category: 'done' },
+    ]
+    // The project owns nothing yet, so it is currently displaying the globals.
+    all.mockImplementation(async (sql) =>
+      /project_id IS NULL/.test(sql) ? GLOBALS : [])
+
+    const res = await request(app)
+      .post('/api/projects/5/statuses')
+      .send({ name: 'Blocked', color: '#FF5630', category: 'inprogress' })
+
+    expect(res.status).toBe(201)
+    const inserted = run.mock.calls
+      .filter(([sql]) => /INSERT INTO issue_statuses/.test(sql))
+      .map(([, params]) => params[1])
+    // All three globals were materialised, then the new status added — before
+    // this fix the project was left with only "Blocked" and the diagram emptied.
+    expect(inserted).toEqual(['Backlog', 'To Do', 'Done', 'Blocked'])
+  })
+
+  it('does not re-copy globals when the project already owns statuses', async () => {
+    const app = createApp(mod)
+    all.mockImplementation(async (sql) =>
+      /project_id = /.test(sql) ? [{ id: 7 }] : [])
+
+    const res = await request(app)
+      .post('/api/projects/5/statuses')
+      .send({ name: 'Blocked', color: '#FF5630', category: 'inprogress' })
+
+    expect(res.status).toBe(201)
+    const inserted = run.mock.calls
+      .filter(([sql]) => /INSERT INTO issue_statuses/.test(sql))
+      .map(([, params]) => params[1])
+    expect(inserted).toEqual(['Blocked'])
   })
 })
 

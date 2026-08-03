@@ -159,8 +159,16 @@ describe('JL-306 — Publish persists a custom named workflow (regression)', () 
     )
     // Done + Cancelled are the 'done'-category terminal states.
     expect(body.terminalStatuses).toEqual(['Done', 'Cancelled'])
-    // Reloads the workflow definitions after publishing.
-    await waitFor(() => expect(fetchWorkflowDefinitions).toHaveBeenCalledTimes(2))
+    // JL-331: Publish must carry the existing workflow's cancel settings, or
+    // updating in place silently disables cancel-from-any and makes cancelling
+    // an issue impossible.
+    expect(body.cancelFromAny).toBe(QA_DEFAULT_WORKFLOW.cancelFromAny)
+    expect(body.cancelStatus).toBe(QA_DEFAULT_WORKFLOW.cancelStatus)
+    // Reloads the workflow definitions after publishing. JL-334 also resolves
+    // each project's default workflow for the dropdown label, so assert the
+    // reload happened rather than pinning an exact call count.
+    const callsAfterPublish = fetchWorkflowDefinitions.mock.calls.length
+    await waitFor(() => expect(callsAfterPublish).toBeGreaterThanOrEqual(2))
   })
 
   it('lets the admin rename the workflow before publishing', async () => {

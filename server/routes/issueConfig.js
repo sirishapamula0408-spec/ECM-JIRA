@@ -26,6 +26,54 @@ async function effectiveList(table, projectId, extraCols = '') {
   )
 }
 
+/**
+ * JL-332 — copy the global defaults into a project before it takes its first
+ * project-scoped row.
+ *
+ * The fallback above is all-or-nothing: a project sees the globals only while it
+ * owns ZERO rows. So adding a single status used to flip the whole set off —
+ * five statuses became one, every transition stopped rendering (both endpoints
+ * must resolve to a node), and the damage persisted in the database.
+ *
+ * Materialising first makes the fallback a one-way door taken deliberately, not
+ * a side effect of the first edit. Idempotent: a no-op once the project owns
+ * rows. Returns the number of rows copied.
+ */
+export async function materializeProjectStatuses(projectId) {
+  const own = await all('SELECT id FROM issue_statuses WHERE project_id = ?', [projectId])
+  if (own.length > 0) return 0
+
+  const globals = await all(
+    'SELECT name, position, color, category FROM issue_statuses WHERE project_id IS NULL ORDER BY position ASC, name ASC',
+    [],
+  )
+  for (const g of globals) {
+    await run(
+      'INSERT INTO issue_statuses (project_id, name, position, color, category) VALUES (?, ?, ?, ?, ?)',
+      [projectId, g.name, g.position, g.color, g.category],
+    )
+  }
+  return globals.length
+}
+
+/** Same one-way-door problem for priorities. */
+export async function materializeProjectPriorities(projectId) {
+  const own = await all('SELECT id FROM issue_priorities WHERE project_id = ?', [projectId])
+  if (own.length > 0) return 0
+
+  const globals = await all(
+    'SELECT name, position, color FROM issue_priorities WHERE project_id IS NULL ORDER BY position ASC, name ASC',
+    [],
+  )
+  for (const g of globals) {
+    await run(
+      'INSERT INTO issue_priorities (project_id, name, position, color) VALUES (?, ?, ?, ?)',
+      [projectId, g.name, g.position, g.color],
+    )
+  }
+  return globals.length
+}
+
 /* ================= Priorities ================= */
 
 // GET effective priorities for a project (project overrides or global defaults)
@@ -125,6 +173,10 @@ router.post('/projects/:projectId/statuses', requireRole('Admin'), asyncHandler(
     res.status(400).json({ error: `category must be one of ${CATEGORIES.join(', ')}` })
     return
   }
+  // JL-332: copy the globals down BEFORE inserting, so adding one status no
+  // longer hides every other status the project was displaying.
+  await materializeProjectStatuses(projectId)
+
   const existing = await get(
     'SELECT id FROM issue_statuses WHERE project_id = ? AND LOWER(name) = LOWER(?)',
     [projectId, name],
@@ -176,6 +228,43 @@ router.put('/statuses/:id', requireRole('Admin'), asyncHandler(async (req, res) 
 // DELETE a status (Admin only)
 router.delete('/statuses/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
+  const status = await get('SELECT id, project_id, name FROM issue_statuses WHERE id = ?', [id])
+  if (!status) {
+    res.status(404).json({ error: 'Status not found' })
+    return
+  }
+
+  // JL-332: a status shown via the global fallback carries a GLOBAL id, so the
+  // old unconditional DELETE removed it for every project at once. Refuse, and
+  // point the caller at the per-project route instead.
+  if (status.project_id === null) {
+    res.status(400).json({
+      error:
+        'That status is a global default shared by every project. Add a project-level status set before removing it.',
+    })
+    return
+  }
+
+  // Refuse to delete a status that still holds issues — silently orphaning them
+  // is how issues ended up in statuses their project no longer lists.
+  const inUse = await get(
+    'SELECT COUNT(*)::int AS count FROM issues WHERE project_id = ? AND LOWER(status) = LOWER(?)',
+    [status.project_id, status.name],
+  )
+  if (Number(inUse?.count || 0) > 0) {
+    res.status(409).json({
+      error: `Cannot delete "${status.name}" — ${inUse.count} issue(s) are still in it. Move them first.`,
+    })
+    return
+  }
+
+  // JL-332: cascade to transitions. A bare status DELETE left orphaned
+  // workflow_transitions rows that stayed in the rules table and stayed enforced
+  // by the engine, while drawing nothing on the canvas.
+  await run(
+    'DELETE FROM workflow_transitions WHERE project_id = ? AND (LOWER(from_status) = LOWER(?) OR LOWER(to_status) = LOWER(?))',
+    [status.project_id, status.name, status.name],
+  )
   await run('DELETE FROM issue_statuses WHERE id = ?', [id])
   res.json({ success: true })
 }))
