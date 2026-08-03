@@ -14,6 +14,10 @@ vi.mock('../db.js', () => {
     // JL-94: run the callback with the same mocked helpers so existing
     // run/get assertions still see the transactional writes.
     withTransaction: vi.fn(async (fn) => fn({ run, all, get })),
+    // JL-325: signup now resolves the workspace signup_policy, which reads
+    // through getSetting. Default to the fallback so signup stays 'open' here.
+    getSetting: vi.fn(async (_key, fallback = null) => fallback),
+    setSetting: vi.fn(),
   }
 })
 

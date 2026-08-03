@@ -17,6 +17,10 @@ vi.mock('../db.js', () => ({
   get: vi.fn(),
   columnExists: vi.fn(),
   tableExists: vi.fn(),
+  // JL-325: signup resolves the workspace signup_policy through getSetting;
+  // returning the fallback keeps these tests on the default 'open' policy.
+  getSetting: vi.fn(async (_key, fallback = null) => fallback),
+  setSetting: vi.fn(),
 }))
 
 // --- Mock the audit-log service so we can spy on safeAppendAudit() ---

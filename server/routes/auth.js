@@ -25,6 +25,7 @@ import { upsertSsoUser } from '../services/sso.js'
 import { safeAppendAudit } from '../services/auditLog.js'
 import { validatePassword } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
+import { checkSignupAllowed } from '../services/signupPolicy.js'
 
 // The brute-force lockout tracker used by the login route. Defaults to the
 // shared, process-wide singleton. It is intentionally swappable so tests can
@@ -61,6 +62,16 @@ router.post('/signup', asyncHandler(async (req, res) => {
     res.status(400).json({ error: 'Use a valid office email or Gmail address' })
     return
   }
+  // --- JL-325: is this address allowed to register at all? ---
+  // Checked ahead of every password rule (length and policy alike) so a blocked
+  // or uninvited address gets a clear answer, rather than being sent to fix a
+  // password for an account it could never create.
+  const signupCheck = await checkSignupAllowed(email)
+  if (!signupCheck.allowed) {
+    res.status(signupCheck.status).json({ error: signupCheck.error })
+    return
+  }
+
   if (password.length < 6) {
     res.status(400).json({ error: 'Password must be at least 6 characters' })
     return

@@ -5,6 +5,7 @@ import { sendMail, buildInviteEmail } from '../utils/mailer.js'
 import { requireRole } from '../middleware/authorize.js'
 import { isAllowedEmail, hashPassword } from '../middleware/validate.js'
 import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
+import { blockSignup, unblockSignup } from '../services/signupPolicy.js'
 
 const router = Router()
 
@@ -28,6 +29,39 @@ async function countAdmins() {
     "SELECT COUNT(*) AS count FROM members WHERE role IN ('Admin', 'Owner') OR is_owner = TRUE",
   )
   return Number(row?.count || 0)
+}
+
+/**
+ * JL-325 — actually revoke access when a member is removed.
+ *
+ * Deleting the `members` row on its own left two doors open:
+ *   1. the `users` row survived with status 'Active', so the person could still
+ *      log in — `loadUserRoles` just defaulted them to Viewer;
+ *   2. nothing stopped them re-registering, since signup has no invite gate.
+ *
+ * So: deactivate the login (reusing the JL-192 status, which the login route
+ * already refuses), drop any active sessions, and add the address to the
+ * JL-325 deny-list. Each step is best-effort — bookkeeping must never fail the
+ * delete that has already happened.
+ *
+ * NOTE: an already-issued JWT keeps working until it expires, because authGuard
+ * verifies the token without re-reading user status. Tracked separately.
+ */
+async function revokeAccessFor(email, actorEmail) {
+  if (!email) return
+  try {
+    await run('UPDATE users SET status = ? WHERE LOWER(email) = LOWER(?)', ['Deactivated', email])
+  } catch (err) {
+    console.error(`[members] Could not deactivate login for ${email}: ${err.message}`)
+  }
+  try {
+    if (await tableExists('user_sessions')) {
+      await run('DELETE FROM user_sessions WHERE LOWER(user_email) = LOWER(?)', [email])
+    }
+  } catch (err) {
+    console.error(`[members] Could not clear sessions for ${email}: ${err.message}`)
+  }
+  await blockSignup(email, { reason: 'member removed', blockedBy: actorEmail || null })
 }
 
 /**
@@ -224,6 +258,14 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   if (existingUser) {
     res.status(409).json({ error: 'An account with this email already exists' })
     return
+  }
+
+  // JL-325: re-adding someone who was previously removed is an explicit decision
+  // to re-admit them, so it lifts their signup block — mirroring the same rule on
+  // POST /api/invitations. Otherwise a removal could not be undone from the UI.
+  const wasBlocked = await unblockSignup(normalizedEmail)
+  if (wasBlocked) {
+    console.log(`[members] Lifted signup block for ${normalizedEmail} (re-added by ${req.user?.email || 'unknown'})`)
   }
 
   // If a temporary password is provided, provision a login-capable account.
@@ -506,6 +548,9 @@ router.post('/bulk-delete', requireRole('Admin'), asyncHandler(async (req, res) 
     await run('DELETE FROM members WHERE id = ?', [id])
     if (member.role === 'Admin') adminCount -= 1
 
+    // JL-325: revoke access properly — see the single-delete route below.
+    await revokeAccessFor(member.email, req.user?.email)
+
     await recordActivity(req.user?.email, `removed member ${member.email}`)
     await recordAudit({
       actor: req.user?.email,
@@ -557,6 +602,11 @@ router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   // Clean up project memberships, then remove the workspace member.
   await run('DELETE FROM project_members WHERE member_id = ?', [id])
   await run('DELETE FROM members WHERE id = ?', [id])
+
+  // JL-325: deleting the member row alone did NOT revoke access — the `users`
+  // row survived with status 'Active', so the person could still log in (falling
+  // back to Viewer), and could re-register freely because signup has no gate.
+  await revokeAccessFor(member.email, req.user?.email)
 
   await recordActivity(req.user?.email, `removed member ${member.email}`)
   await recordAudit({

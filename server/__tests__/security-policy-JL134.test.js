@@ -10,6 +10,10 @@ vi.mock('../db.js', () => ({
   columnExists: vi.fn(),
   tableExists: vi.fn(),
   withTransaction: vi.fn(async (fn) => fn({ run: vi.fn(), all: vi.fn(), get: vi.fn() })),
+  // JL-325: signup resolves the workspace signup_policy via getSetting; return
+  // the fallback so these password-policy tests run under the default 'open'.
+  getSetting: vi.fn(async (_key, fallback = null) => fallback),
+  setSetting: vi.fn(),
 }))
 
 import { run, get } from '../db.js'
@@ -205,16 +209,26 @@ describe('PUT /api/security-policy', () => {
    4. Registration enforcement
    ================================================================ */
 describe('POST /api/auth/signup — password policy enforcement', () => {
+  // JL-325 note: signup now also queries `blocked_signups` before validating the
+  // password. These mocks therefore match on SQL rather than using
+  // mockResolvedValueOnce chains, which silently broke when the call order
+  // changed — the block-check consumed the value queued for getSecurityPolicy
+  // and the request 403'd instead of reaching the password rules.
   it('rejects a weak password under a strict policy (400)', async () => {
     const app = makeAuthApp()
-    // getSecurityPolicy → strict policy
-    get.mockResolvedValueOnce({
-      require_mfa: false,
-      min_password_length: 12,
-      require_uppercase: true,
-      require_number: true,
-      require_symbol: true,
-      password_max_age_days: 0,
+    get.mockImplementation(async (sql) => {
+      if (/FROM blocked_signups/.test(sql)) return undefined // not blocked
+      if (/FROM security_policy/i.test(sql)) {
+        return {
+          require_mfa: false,
+          min_password_length: 12,
+          require_uppercase: true,
+          require_number: true,
+          require_symbol: true,
+          password_max_age_days: 0,
+        }
+      }
+      return undefined
     })
 
     const res = await request(app)
@@ -228,11 +242,15 @@ describe('POST /api/auth/signup — password policy enforcement', () => {
 
   it('accepts a compliant password under the default policy (201)', async () => {
     const app = makeAuthApp()
-    get
-      .mockResolvedValueOnce(DEFAULT_ROW) // getSecurityPolicy
-      .mockResolvedValueOnce(null) // existing user check → none
-      .mockResolvedValueOnce({ id: 1, email: 'newuser@gmail.com', created_at: new Date().toISOString() }) // created user
-    get.mockResolvedValue(undefined) // remaining onboarding/bootstrap lookups
+    get.mockImplementation(async (sql) => {
+      if (/FROM blocked_signups/.test(sql)) return undefined // not blocked
+      if (/FROM security_policy/i.test(sql)) return DEFAULT_ROW
+      if (/FROM users WHERE email/.test(sql)) return null // no existing account
+      if (/FROM users WHERE id/.test(sql)) {
+        return { id: 1, email: 'newuser@gmail.com', created_at: new Date().toISOString() }
+      }
+      return undefined // remaining onboarding/bootstrap lookups
+    })
     run.mockResolvedValue({ lastID: 1, changes: 1 })
 
     const res = await request(app)
