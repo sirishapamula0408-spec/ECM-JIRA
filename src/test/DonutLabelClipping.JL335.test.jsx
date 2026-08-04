@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { DonutChartGadget } from '../components/dashboard/gadgets/DonutChartGadget'
 import { PieChartGadget } from '../components/dashboard/gadgets/PieChartGadget'
 // ?raw hands us the stylesheet as a string, so the hole geometry can be asserted
@@ -19,6 +20,10 @@ import dashboardCss from '../pages/DashboardPage/DashboardPage.css?raw'
    so "25%" reached ~47 units — inside the hole — and the opaque hole,
    stacked above the SVG, painted over the digits.
    ================================================================ */
+
+// JL-336: the legend now renders <Link>s into the issue list, so the gadgets
+// need router context even when rendered standalone.
+const renderGadget = (ui) => render(ui, { wrapper: MemoryRouter })
 
 const CENTRE = 80
 const HOLE_RADIUS = 45.7
@@ -49,7 +54,7 @@ function labelPositions(container) {
 
 describe('JL-335 — donut percentage labels are not clipped by the centre hole', () => {
   it('renders a label for every slice', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const labels = labelPositions(container)
@@ -58,7 +63,7 @@ describe('JL-335 — donut percentage labels are not clipped by the centre hole'
   })
 
   it('places every label on the visible ring band, not on the hole edge', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const labels = labelPositions(container)
@@ -73,7 +78,7 @@ describe('JL-335 — donut percentage labels are not clipped by the centre hole'
   })
 
   it('keeps the full label width clear of the hole even where width points radially', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: true }} />,
     )
     labelPositions(container).forEach((l) => {
@@ -89,7 +94,7 @@ describe('JL-335 — donut percentage labels are not clipped by the centre hole'
       ...Array.from({ length: 40 }, (_, i) => ({ id: i + 100, status: 'To Do' })),
       { id: 1, status: 'Done' },
     ]
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={lopsided} config={{ groupBy: 'status', showLabels: true }} />,
     )
     // The 1-of-41 slice sweeps under 18 degrees, so only the dominant slice is labelled.
@@ -97,14 +102,14 @@ describe('JL-335 — donut percentage labels are not clipped by the centre hole'
   })
 
   it('honours showLabels:false', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: false }} />,
     )
     expect(container.querySelectorAll('text.pie-gadget-slice-label')).toHaveLength(0)
   })
 
   it('leaves the centre total readout intact', () => {
-    const { container, getByText } = render(
+    const { container, getByText } = renderGadget(
       <DonutChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: true }} />,
     )
     expect(container.querySelector('.donut-hole')).toBeTruthy()
@@ -113,7 +118,7 @@ describe('JL-335 — donut percentage labels are not clipped by the centre hole'
   })
 
   it('does not disturb the JL-318 hover fix', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: true }} />,
     )
     expect(container.querySelector('.donut-hole')).toHaveStyle({ pointerEvents: 'none' })
@@ -137,7 +142,7 @@ describe('JL-335 — donut percentage labels are not clipped by the centre hole'
   })
 
   it('leaves the pie gadget placement alone — it has no hole to clip against', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <PieChartGadget issues={FOUR_WAY} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const labels = labelPositions(container)

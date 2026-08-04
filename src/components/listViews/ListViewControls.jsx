@@ -19,7 +19,8 @@ import './ListViewControls.css'
  *  - columns: string[]  currently visible column keys (ordered)
  *  - onColumnsChange: (cols) => void
  *  - filterJql?: string  optional JQL / serialized filter+sort to persist with a saved view
- *  - onApplyView?: (view) => void  called when a saved view is switched to
+ *  - onApplyView?: (view, { auto }) => void  called when a saved view is switched to.
+ *      `auto` is true only for the default view applied automatically on load (JL-336).
  *  - projectId?: number|string  when set, views are scoped to this project (JL-255)
  *  - columnLabels?: object  key→label map for the column picker (defaults to the search catalog)
  *  - allColumns?: string[]  full list of selectable column keys (defaults to keys of columnLabels)
@@ -75,7 +76,10 @@ export function ListViewControls({
     if (def && activeViewId === null) {
       setActiveViewId(def.id)
       if (Array.isArray(def.columns) && def.columns.length) onColumnsChange(def.columns)
-      if (onApplyView) onApplyView(def)
+      // JL-336: flag this as the automatic application so consumers can let an
+      // explicit instruction (e.g. a ?status= deep link) outrank it. A view the
+      // user picks from the dropdown goes through applyView() with no flag.
+      if (onApplyView) onApplyView(def, { auto: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [views])

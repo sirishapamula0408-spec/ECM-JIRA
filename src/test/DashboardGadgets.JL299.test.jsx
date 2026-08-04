@@ -46,6 +46,10 @@ function bySize(gadgets, id) {
   return gadgets.find((g) => g.id === id).size
 }
 
+// JL-336: the chart legends now render <Link>s into the issue list, so the
+// gadgets need router context even when rendered standalone.
+const renderGadget = (ui) => render(ui, { wrapper: MemoryRouter })
+
 const STATUS_ISSUES = [
   { id: 1, status: 'To Do' },
   { id: 2, status: 'To Do' },
@@ -143,7 +147,7 @@ describe('JL-299 — dashboard gadget rearrange', () => {
 
 describe('JL-299 — pie/doughnut chart labels', () => {
   it('renders visible percentage labels on pie slices', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <PieChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const labels = container.querySelectorAll('text.pie-gadget-slice-label')
@@ -153,7 +157,7 @@ describe('JL-299 — pie/doughnut chart labels', () => {
   })
 
   it('renders visible percentage labels on doughnut slices', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const labels = container.querySelectorAll('text.pie-gadget-slice-label')
@@ -162,7 +166,7 @@ describe('JL-299 — pie/doughnut chart labels', () => {
   })
 
   it('omits on-slice labels when showLabels is false', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <PieChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status', showLabels: false }} />,
     )
     expect(container.querySelectorAll('text.pie-gadget-slice-label').length).toBe(0)
@@ -171,7 +175,7 @@ describe('JL-299 — pie/doughnut chart labels', () => {
 
 describe('JL-299 — chart hover does not flicker', () => {
   it('keeps a single hovered tooltip; clearing is bound to the svg, not each slice', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const svg = container.querySelector('svg.pie-gadget-svg')

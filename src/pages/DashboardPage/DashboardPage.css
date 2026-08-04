@@ -229,11 +229,57 @@
   text-decoration: line-through;
 }
 
+/* JL-336: the row no longer carries the click handler — the dot toggles the
+   slice and the label links to the filtered issue list, so each gets its own
+   control with its own cursor. */
+.pie-gadget-legend li {
+  cursor: default;
+}
+
+.pie-gadget-legend .legend-dot-btn {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  margin: -2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pie-gadget-legend .legend-dot-btn:focus-visible {
+  outline: 2px solid var(--jira-primary, #0052cc);
+  outline-offset: 1px;
+}
+
 .pie-gadget-legend .legend-dot {
   width: 10px;
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
+  display: block;
+}
+
+.pie-gadget-legend .legend-label-link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+/* the link opts out of underlines, so re-assert the hidden-slice strikethrough */
+.pie-gadget-legend li.legend-hidden .legend-label-link {
+  text-decoration: line-through;
+}
+
+.pie-gadget-legend .legend-label-link:hover {
+  text-decoration: underline;
+  color: var(--jira-primary, #0052cc);
+}
+
+.pie-gadget-legend .legend-label-link:focus-visible {
+  outline: 2px solid var(--jira-primary, #0052cc);
+  outline-offset: 1px;
 }
 
 .pie-gadget-legend strong {

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { DonutChartGadget } from '../components/dashboard/gadgets/DonutChartGadget'
+
+// JL-336: the legend now renders <Link>s into the issue list, so the gadget
+// needs router context even when rendered standalone.
+const renderGadget = (ui) => render(ui, { wrapper: MemoryRouter })
 
 const STATUS_ISSUES = [
   { id: 1, status: 'To Do' },
@@ -18,7 +23,7 @@ const STATUS_ISSUES = [
    ================================================================ */
 describe('JL-318 — donut hover flicker fix', () => {
   it('the centre hole does not capture pointer events (so hover passes through to the slices)', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const hole = container.querySelector('.donut-hole')
@@ -28,7 +33,7 @@ describe('JL-318 — donut hover flicker fix', () => {
   })
 
   it('the hole is non-interactive — no mouse handlers that could clear the hovered slice', () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status' }} />,
     )
     const hole = container.querySelector('.donut-hole')
@@ -40,7 +45,7 @@ describe('JL-318 — donut hover flicker fix', () => {
   })
 
   it('hovering a slice shows one tooltip and only the svg leave clears it', async () => {
-    const { container } = render(
+    const { container } = renderGadget(
       <DonutChartGadget issues={STATUS_ISSUES} config={{ groupBy: 'status', showLabels: true }} />,
     )
     const svg = container.querySelector('svg.pie-gadget-svg')
