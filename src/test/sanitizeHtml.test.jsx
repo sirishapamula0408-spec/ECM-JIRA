@@ -37,9 +37,64 @@ describe('sanitizeHtml (JL-91)', () => {
     expect(out).toContain('<a>click</a>')
   })
 
+  // JL-358: this test used to assert only that the output did not contain the
+  // literal substring "javascript:". That assertion was satisfied purely by the
+  // TAB sitting in the middle of the scheme — the href survived untouched and
+  // the link still executed, because browsers strip TAB/LF/CR from URLs before
+  // resolving them. The test passed while the vulnerability was live.
+  //
+  // The correct assertion is on the *browser-normalized* URL: strip control
+  // characters the way a browser does, then check no executable scheme remains.
+  // We also assert the href attribute is dropped outright, which is what the
+  // sanitizer actually does with an unsafe URL.
+
+  /** A URL as a browser would see it: control characters removed, lowercased. */
+  const asBrowserSees = (value) =>
+    // eslint-disable-next-line no-control-regex
+    String(value).replace(/[\u0000-\u001F\u007F]/g, '').toLowerCase()
+
   it('neutralizes obfuscated javascript: hrefs (whitespace/control chars)', () => {
     const out = sanitizeHtml('<a href=" java\tscript:alert(1)">click</a>')
-    expect(out.toLowerCase()).not.toContain('javascript:')
+    // href must be gone entirely — tag and text kept, URL dropped.
+    expect(out).toBe('<a>click</a>')
+    expect(out).not.toMatch(/href/i)
+    // …and nothing that a browser would read as javascript: may remain.
+    expect(asBrowserSees(out)).not.toContain('javascript:')
+  })
+
+  it.each([
+    ['TAB', '\t'],
+    ['newline', '\n'],
+    ['carriage return', '\r'],
+    ['NUL', '\u0000'],
+    ['vertical tab', '\u000B'],
+    ['form feed', '\u000C'],
+  ])('neutralizes a javascript: href split by %s', (_label, ch) => {
+    const out = sanitizeHtml(`<a href="java${ch}script:alert(1)">click</a>`)
+    expect(out).toBe('<a>click</a>')
+    expect(asBrowserSees(out)).not.toContain('javascript:')
+  })
+
+  it('neutralizes control-char obfuscated data: and vbscript: hrefs', () => {
+    expect(asBrowserSees(sanitizeHtml('<a href="da\tta:text/plain,x">y</a>')))
+      .not.toContain('data:')
+    expect(asBrowserSees(sanitizeHtml('<a href="vb\nscript:msgbox(1)">y</a>')))
+      .not.toContain('vbscript:')
+  })
+
+  it('still keeps legitimate URLs that merely contain hyphens or look odd', () => {
+    // The normalization strips characters only to compare the scheme; it must
+    // not cause safe URLs to be rejected.
+    for (const url of [
+      'https://example.com/my-page?a=1&b=2',
+      'http://example.com',
+      'mailto:someone@example.com',
+      '/relative/path',
+      '#anchor',
+      'my-doc.html',
+    ]) {
+      expect(sanitizeHtml(`<a href="${url}">x</a>`)).toContain('href=')
+    }
   })
 
   it('neutralizes data: URIs in href', () => {

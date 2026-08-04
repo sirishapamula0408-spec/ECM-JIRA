@@ -53,13 +53,30 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
 }
 
+// Characters removed before the scheme is compared.
+//
+// JL-358: this class previously contained only `-` and space, so a scheme split
+// by a control character (`java<TAB>script:`) sailed past every check below and
+// the link executed — browsers strip TAB/LF/CR from URLs before resolving them,
+// and ignore leading C0 controls entirely. The control-character class had been
+// dropped at some point, leaving the `no-control-regex` disable directive below
+// unused, which is what gave the regression away.
+//
+// Covers: C0 controls incl. NUL/TAB/LF/VT/FF/CR (\u0000-\u001F) and space
+// (\u0020), DEL and the C1 controls (\u007F-\u009F), plus the literal
+// hyphen (trailing `-`) that the original normalization stripped. Stripping
+// more than a browser strictly would is safe here: this normalization only
+// ever feeds the scheme comparison, so it can add false *rejections* at worst
+// — and no valid URL scheme contains a control character.
+// eslint-disable-next-line no-control-regex
+const URL_NORMALIZE_STRIP = /[\u0000-\u0020\u007F-\u009F-]+/g
+
 // Reject javascript:/data:/vbscript: URIs. Whitespace, control chars and
 // case are normalized first so obfuscated schemes (e.g. "java\tscript:")
 // cannot slip through.
 function isSafeUrl(value) {
   const normalized = String(value)
-    // eslint-disable-next-line no-control-regex
-    .replace(/[- ]+/g, '')
+    .replace(URL_NORMALIZE_STRIP, '')
     .toLowerCase()
   if (/^javascript:/.test(normalized)) return false
   if (/^data:/.test(normalized)) return false
