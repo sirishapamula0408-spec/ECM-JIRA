@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { groupIssuesBy, buildConicGradient, sectorPath, getColor, getGroupByField } from './gadgetChartUtils'
+import { groupIssuesBy, buildConicGradient, sectorPath, resolveSegmentColors, getGroupByField } from './gadgetChartUtils'
 import { ChartLegend } from './ChartLegend'
 
 // JL-335: where the on-slice "%" labels sit, in viewBox user units.
@@ -31,12 +31,23 @@ export function DonutChartGadget({ issues, config, projectId = null }) {
 
   const groupBy = config.groupBy || 'status'
   const field = getGroupByField(groupBy)
-  const allSegments = groupIssuesBy(issues, field)
-  const segments = allSegments
-    .filter((s) => !hiddenLabels.has(s.label))
-    .map((s, i) => ({ ...s, color: getColor(groupBy, s.label, i) }))
+  // JL-345: colour first, filter second. Colouring the filtered list re-indexed
+  // every slice after a hidden one, so the disc and the legend (which colours
+  // the unfiltered list) drifted apart. Resolving on `allSegments` and carrying
+  // `color` through the filter means both render the same value by construction.
+  const allSegments = resolveSegmentColors(groupIssuesBy(issues, field), groupBy)
+  const segments = allSegments.filter((s) => !hiddenLabels.has(s.label))
   const total = segments.reduce((sum, s) => sum + s.count, 0)
   const grandTotal = allSegments.reduce((sum, s) => sum + s.count, 0)
+
+  // JL-345: with no issues at all this used to render a blank grey ring with a
+  // "0 Total" hole and an empty legend, explaining nothing. Every sibling gadget
+  // states it (BarChartGadget, FilterResultsGadget, ActivityStreamGadget), so
+  // match BarChartGadget's branch and wording verbatim. Safe to return early —
+  // the hooks above have already run.
+  if (allSegments.length === 0) {
+    return <div className="pie-gadget-empty">No data available</div>
+  }
 
   const toggleLabel = (label) => {
     setHiddenLabels((prev) => {
@@ -108,6 +119,11 @@ export function DonutChartGadget({ issues, config, projectId = null }) {
             {hoveredLabel}: {segments.find((s) => s.label === hoveredLabel)?.count || 0}
           </div>
         )}
+        {/* JL-345: "the user hid everything" is NOT the same as "there is no
+            data", so it must not borrow the empty state. There IS data — the
+            hole still reads the real grand total — and the legend is the only
+            way back, so keep both and caption what happened instead. */}
+        {total === 0 && <div className="pie-gadget-all-hidden">All slices hidden</div>}
       </div>
       {(config.showLegend !== false) && (
         <ChartLegend
