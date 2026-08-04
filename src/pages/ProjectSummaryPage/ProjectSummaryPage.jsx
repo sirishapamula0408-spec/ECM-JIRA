@@ -75,9 +75,26 @@ export function ProjectSummaryPage() {
     return counts
   }, [projectIssues])
 
-  const activeSprint = useMemo(() => {
-    return sprints.find((s) => s.status === 'active')
-  }, [sprints])
+  // JL-343: sprints from the API carry an `isStarted` boolean (see mapSprint in
+  // server/routes/sprints.js) — there is no `status` field, so the previous
+  // `s.status === 'active'` predicate never matched and the card always showed
+  // "-". Sprints are also global (not project-scoped) in this schema, so we
+  // scope to sprints referenced by this project's issues via `sprintId`,
+  // mirroring the pattern in ReportsPage.
+  const activeSprintLabel = useMemo(() => {
+    const projectSprintIds = new Set(
+      projectIssues.map((issue) => issue.sprintId).filter(Boolean),
+    )
+    const started = sprints.filter((s) => s.isStarted && projectSprintIds.has(s.id))
+    if (started.length === 0) return null
+    // JL-124 allows parallel sprints, so more than one can be started at once.
+    // A single-value stat card can't list them all; show the first (lowest id,
+    // i.e. oldest — same ordering ReportsPage and ActiveSprintPage rely on)
+    // with a "+N" hint so extra started sprints aren't silently hidden.
+    return started.length > 1
+      ? `${started[0].name} +${started.length - 1}`
+      : started[0].name
+  }, [sprints, projectIssues])
 
   const assigneeCounts = useMemo(() => {
     const counts = {}
@@ -136,7 +153,7 @@ export function ProjectSummaryPage() {
           <span className="ps-stat-label">Complete</span>
         </div>
         <div className="ps-stat-card">
-          <span className="ps-stat-value">{activeSprint ? activeSprint.name : '-'}</span>
+          <span className="ps-stat-value">{activeSprintLabel || '-'}</span>
           <span className="ps-stat-label">Active Sprint</span>
         </div>
       </div>
