@@ -100,8 +100,17 @@ export function CopyIssueLinkButton({ issueId }) {
   return <CopyButton value={url} title="Copy issue link" sx={{ ml: 0.5 }} />
 }
 
+/* JL-354: <input type="date"> only accepts a bare YYYY-MM-DD, but the API may
+   return a full ISO timestamp. Shared by the load effect and the inline-edit
+   cancel handlers so a cancelled date edit restores exactly what was shown. */
+const toDateInput = (v) => (v ? String(v).slice(0, 10) : '')
+/* JL-354: story points are a nullable number rendered into a text input —
+   null/undefined must become '' (not the string "null"). Shared by the load
+   effect, the field's onOpen seed, and its cancel handler. */
+const toStoryPointsInput = (v) => (v === null || v === undefined ? '' : String(v))
+
 /* ---- Inline editable field (JIRA click-to-edit pattern) ---- */
-function InlineField({ editing, onOpen, onClose, display, children, canEdit = true }) {
+function InlineField({ editing, onOpen, onClose, onCancel, display, children, canEdit = true }) {
   // JL-284: read-only sidebar field for Viewers — show the value, no click-to-edit.
   if (!canEdit) {
     return (
@@ -118,7 +127,13 @@ function InlineField({ editing, onOpen, onClose, display, children, canEdit = tr
           <button className="id-inline-save" type="button" onClick={onClose} title="Confirm" aria-label="Confirm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
-          <button className="id-inline-cancel" type="button" onClick={onClose} title="Cancel" aria-label="Cancel">
+          {/* JL-354: ✕ must ABANDON the edit. Most call sites pass a persisting
+              onClose (saveDueDate, handleSaveEstimate, …), so wiring Cancel to
+              onClose silently committed the draft and wrote a history entry.
+              onCancel falls back to onClose for fields that keep no draft
+              (selects/pickers that persist on change) — for those, closing is
+              the whole of cancelling. */}
+          <button className="id-inline-cancel" type="button" onClick={onCancel || onClose} title="Cancel" aria-label="Cancel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -453,13 +468,14 @@ export function IssueDetailPage() {
   // JL-77: sync expanded fields from the loaded issue
   useEffect(() => {
     if (!issue) return
-    const toDateInput = (v) => (v ? String(v).slice(0, 10) : '')
+    // JL-354: seeding now goes through the shared toDateInput/toStoryPointsInput
+    // helpers so the inline-edit cancel handlers can restore drafts identically.
     setDueDate(toDateInput(issue.dueDate))
     setStartDate(toDateInput(issue.startDate))
     setEnvironment(issue.environment || '')
     setResolution(issue.resolution || '')
     setComponents(issue.components || '')
-    setStoryPoints(issue.storyPoints === null || issue.storyPoints === undefined ? '' : String(issue.storyPoints))
+    setStoryPoints(toStoryPointsInput(issue.storyPoints))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue?.id])
 
@@ -605,6 +621,9 @@ export function IssueDetailPage() {
   }, [issue?.id])
 
   async function handleSaveEstimate() {
+    // JL-354: opening the field and confirming without typing anything must not
+    // fire an API write (every other sidebar save already guards prev !== next).
+    if (estimateInput.trim() === (timeSummary.estimateText || '')) { closeField(); return }
     try {
       const summary = await setEstimate(issue.id, estimateInput.trim())
       setTimeSummary(summary)
@@ -1083,34 +1102,38 @@ export function IssueDetailPage() {
     setEditingField(null)
   }
 
-  // JL-77: persist expanded fields on inline-edit close
+  // JL-77: persist expanded fields on inline-edit close.
+  // JL-354: these six savers called addHistoryEntry(), a client-side helper that
+  // JL-82 deleted when history moved server-side — so every successful save threw
+  // a ReferenceError before reaching closeField(), leaving the editor stuck open
+  // and the History panel stale. They now reloadHistory() like the other savers.
   async function saveDueDate() {
-    const prev = issue.dueDate ? String(issue.dueDate).slice(0, 10) : ''
+    const prev = toDateInput(issue.dueDate)
     const next = dueDate || ''
     if (prev !== next) {
       await handleUpdate(issue.id, { dueDate: next || null })
-      addHistoryEntry('Due date', prev || 'None', next || 'None')
+      reloadHistory()
     }
     closeField()
   }
   // JL-126: persist story points on inline-edit close
   async function saveStoryPoints() {
-    const prev = issue.storyPoints === null || issue.storyPoints === undefined ? '' : String(issue.storyPoints)
+    const prev = toStoryPointsInput(issue.storyPoints)
     const raw = storyPoints.trim()
     if (raw !== prev) {
       const next = raw === '' ? null : Number(raw)
       if (next !== null && (!Number.isFinite(next) || next < 0)) { closeField(); return }
       await handleUpdate(issue.id, { storyPoints: next })
-      addHistoryEntry('Story points', prev || 'None', raw || 'None')
+      reloadHistory()
     }
     closeField()
   }
   async function saveStartDate() {
-    const prev = issue.startDate ? String(issue.startDate).slice(0, 10) : ''
+    const prev = toDateInput(issue.startDate)
     const next = startDate || ''
     if (prev !== next) {
       await handleUpdate(issue.id, { startDate: next || null })
-      addHistoryEntry('Start date', prev || 'None', next || 'None')
+      reloadHistory()
     }
     closeField()
   }
@@ -1119,7 +1142,7 @@ export function IssueDetailPage() {
     const next = environment.trim()
     if (prev !== next) {
       await handleUpdate(issue.id, { environment: next || null })
-      addHistoryEntry('Environment', prev || 'None', next || 'None')
+      reloadHistory()
     }
     closeField()
   }
@@ -1128,7 +1151,7 @@ export function IssueDetailPage() {
     const next = resolution.trim()
     if (prev !== next) {
       await handleUpdate(issue.id, { resolution: next || null })
-      addHistoryEntry('Resolution', prev || 'None', next || 'None')
+      reloadHistory()
     }
     closeField()
   }
@@ -1137,10 +1160,31 @@ export function IssueDetailPage() {
     const next = components.trim()
     if (prev !== next) {
       await handleUpdate(issue.id, { components: next || null })
-      addHistoryEntry('Components', prev || 'None', next || 'None')
+      reloadHistory()
     }
     closeField()
   }
+
+  /* ---- JL-354: inline-edit cancel handlers ----------------------------------
+     The ✕ button used to run the same persisting handler as ✓, so there was no
+     way to abandon a sidebar edit: the input's onChange had already written the
+     draft into state and closing committed it (plus an issue-history entry).
+     Each handler below re-seeds its draft from the SAME source the load effect
+     uses — so reopening the field shows the persisted value, not the abandoned
+     draft — and then closes without touching the API. */
+  function cancelStartDate() { setStartDate(toDateInput(issue.startDate)); closeField() }
+  function cancelDueDate() { setDueDate(toDateInput(issue.dueDate)); closeField() }
+  // Estimate is seeded from the worklog summary (timeSummary), NOT from `issue` —
+  // the issue object carries no estimate text, so resetting from it would blank the field.
+  function cancelEstimate() { setEstimateInput(timeSummary.estimateText || ''); closeField() }
+  // Story points are nullable numbers shown in a text input — reuse the seed helper.
+  function cancelStoryPoints() { setStoryPoints(toStoryPointsInput(issue.storyPoints)); closeField() }
+  function cancelEnvironment() { setEnvironment(issue.environment || ''); closeField() }
+  function cancelResolution() { setResolution(issue.resolution || ''); closeField() }
+  function cancelComponents() { setComponents(issue.components || ''); closeField() }
+  // Labels persist on every toggle/add, so the only uncommitted draft is the text
+  // typed into the add box — discard it rather than leaving it for the next open.
+  function cancelLabels() { setLabelInput(''); closeField() }
 
   async function onChangeAssignee(e) {
     const prev = issue.assignee || 'Unassigned'
@@ -1967,6 +2011,12 @@ export function IssueDetailPage() {
             <div className="id-sidebar-section-header"><h4>Details</h4></div>
             <dl className="id-detail-list">
               {/* Assignee — editable */}
+              {/* JL-354: every InlineField below states its cancel behaviour
+                  explicitly. Fields whose editor persists on change (selects,
+                  label/version/component pickers) keep no draft, so their
+                  onCancel is just closeField; fields with a draft (dates,
+                  estimate, story points, components text, environment,
+                  resolution) get a cancel* handler that restores the draft. */}
               <div className="id-detail-row">
                 <dt>Assignee</dt>
                 <dd>
@@ -1975,6 +2025,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'assignee'}
                     onOpen={() => openField('assignee')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <div className="id-detail-user">
                         <span className="id-detail-avatar">{(issue.assignee || 'U').slice(0, 2).toUpperCase()}</span>
@@ -2026,6 +2077,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'priority'}
                     onOpen={() => openField('priority')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <span className="id-priority-badge" style={{ background: priorityMeta.bg, color: priorityMeta.color }}>
                         <span className="id-priority-arrow">{priorityMeta.icon}</span>
@@ -2052,6 +2104,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'type'}
                     onOpen={() => openField('type')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <span className="id-type-badge">
                         <IssueTypeIcon type={issue.issueType} size={14} />
@@ -2079,6 +2132,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'epic'}
                     onOpen={() => openField('epic')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <span className="id-sprint-display">
                         {(() => {
@@ -2111,6 +2165,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'labels'}
                     onOpen={() => openField('labels')}
                     onClose={closeField}
+                    onCancel={cancelLabels}
                     display={
                       <div className="id-labels-wrap">
                         {labels.length > 0 ? labels.map((l) => (
@@ -2146,6 +2201,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'fixVersions'}
                     onOpen={() => openField('fixVersions')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <div className="id-labels-wrap">
                         {fixVersions.length > 0 ? fixVersions.map((v) => (
@@ -2184,6 +2240,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'affectsVersions'}
                     onOpen={() => openField('affectsVersions')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <div className="id-labels-wrap">
                         {affectsVersions.length > 0 ? affectsVersions.map((v) => (
@@ -2222,6 +2279,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'sprint'}
                     onOpen={() => openField('sprint')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <span className="id-sprint-display">
                         {sprint ? sprint.name : <span className="id-empty-value">None</span>}
@@ -2260,6 +2318,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'startDate'}
                     onOpen={() => openField('startDate')}
                     onClose={saveStartDate}
+                    onCancel={cancelStartDate}
                     display={
                       <span className="id-sprint-display">
                         {startDate ? new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="id-empty-value">None</span>}
@@ -2287,6 +2346,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'dueDate'}
                     onOpen={() => openField('dueDate')}
                     onClose={saveDueDate}
+                    onCancel={cancelDueDate}
                     display={
                       <span className="id-sprint-display">
                         {dueDate ? new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="id-empty-value">None</span>}
@@ -2314,6 +2374,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'estimate'}
                     onOpen={() => { setEstimateInput(timeSummary.estimateText || ''); openField('estimate') }}
                     onClose={handleSaveEstimate}
+                    onCancel={cancelEstimate}
                     display={
                       <span className="id-sprint-display">
                         {timeSummary.estimateText ? timeSummary.estimateText : <span className="id-empty-value">None</span>}
@@ -2341,8 +2402,9 @@ export function IssueDetailPage() {
                   <InlineField
                     canEdit={canEditIssue}
                     editing={editingField === 'storyPoints'}
-                    onOpen={() => { setStoryPoints(issue.storyPoints === null || issue.storyPoints === undefined ? '' : String(issue.storyPoints)); openField('storyPoints') }}
+                    onOpen={() => { setStoryPoints(toStoryPointsInput(issue.storyPoints)); openField('storyPoints') }}
                     onClose={saveStoryPoints}
+                    onCancel={cancelStoryPoints}
                     display={
                       <span className="id-sprint-display">
                         {(issue.storyPoints === null || issue.storyPoints === undefined) ? <span className="id-empty-value">None</span> : issue.storyPoints}
@@ -2381,6 +2443,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'components'}
                     onOpen={() => openField('components')}
                     onClose={saveComponents}
+                    onCancel={cancelComponents}
                     display={
                       <span className="id-sprint-display">
                         {components ? components : <span className="id-empty-value">None</span>}
@@ -2409,6 +2472,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'structuredComponents'}
                     onOpen={() => openField('structuredComponents')}
                     onClose={closeField}
+                    onCancel={closeField}
                     display={
                       <div className="id-labels-wrap">
                         {issueComponents.length > 0 ? issueComponents.map((c) => (
@@ -2454,6 +2518,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'environment'}
                     onOpen={() => openField('environment')}
                     onClose={saveEnvironment}
+                    onCancel={cancelEnvironment}
                     display={
                       <span className="id-sprint-display">
                         {environment ? environment : <span className="id-empty-value">None</span>}
@@ -2482,6 +2547,7 @@ export function IssueDetailPage() {
                     editing={editingField === 'resolution'}
                     onOpen={() => openField('resolution')}
                     onClose={saveResolution}
+                    onCancel={cancelResolution}
                     display={
                       <span className="id-sprint-display">
                         {resolution ? resolution : <span className="id-empty-value">Unresolved</span>}
