@@ -1248,10 +1248,12 @@ router.post('/:id/clone', requireProjectWrite(issueParamProject('id')), asyncHan
     const project = await get('SELECT key FROM projects WHERE id = ?', [source.project_id])
     if (project?.key) projectKey = project.key
   }
-  const count = source.project_id
-    ? await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [source.project_id])
-    : await get('SELECT COUNT(*) AS count FROM issues')
-  const issueKey = `${projectKey}-${Number(count.count) + 1}`
+  // JL-352: allocate the key from the monotonic per-project counter (JL-92)
+  // exactly like the create handler. The previous COUNT(*)+1 generation reused
+  // numbers after any delete (COUNT(*) < issue_counter), colliding with the
+  // unique index idx_issues_issue_key and failing the clone with a 500.
+  // nextIssueKey() also covers the legacy project-less fallback.
+  const issueKey = await nextIssueKey(projectKey, source.project_id)
 
   const clonedTitle = `CLONE - ${source.title}`
   const reporter = req.user?.email || source.reporter || null

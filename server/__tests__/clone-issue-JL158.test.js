@@ -121,7 +121,7 @@ describe('JL-158 — Clone / duplicate issue', () => {
     get
       .mockResolvedValueOnce(source) // load source
       .mockResolvedValueOnce({ key: 'ECM' }) // project key lookup
-      .mockResolvedValueOnce({ count: 11 }) // project-scoped COUNT
+      .mockResolvedValueOnce({ issue_counter: 12 }) // JL-352: atomic counter bump (was a COUNT(*))
       .mockResolvedValueOnce(issueRow({ id: 99, issue_key: 'ECM-12', title: 'CLONE - Original title', project_id: 3 }))
     all.mockResolvedValueOnce([])
     run.mockResolvedValue({ lastID: 99, changes: 1 })
