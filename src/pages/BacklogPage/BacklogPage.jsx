@@ -18,6 +18,7 @@ import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { initialsFromName } from '../../utils/helpers'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 
@@ -33,6 +34,39 @@ const SORT_OPTIONS = [
   { value: 'storyPoints', label: 'Story points' },
 ]
 const PRIORITY_RANK = Object.fromEntries(PRIORITIES.map((priority, index) => [priority, index]))
+
+// JL-353: the three panel metric pills (grey / blue / green) are *category*
+// buckets — To Do / In Progress / Done — not exact status matches. The app has
+// more statuses than pills (Backlog, Code Review, and the JL-306 QA Lifecycle
+// set), so exact matching would silently drop those issues from every pill.
+// This mirrors the server's canonical `issue_statuses.category` mapping
+// (server/db.js default seeds + the QA Lifecycle workflow template):
+//   todo:        Backlog, To Do
+//   inprogress:  In Progress, Code Review, In Testing, In Rework, In UAT
+//   done:        Done, Cancelled  (Cancelled is terminal, hence done-category,
+//                even though boards color it neutrally per JL-312)
+// Unknown custom statuses fall back to 'todo' — matching the DB column default
+// and BoardPage's defaultCategoryForStatus (JL-311) — so every issue is always
+// counted in exactly one pill and the three pills sum to the panel total.
+const STATUS_CATEGORY = {
+  Backlog: 'todo',
+  'To Do': 'todo',
+  'In Progress': 'inprogress',
+  'Code Review': 'inprogress',
+  'In Testing': 'inprogress',
+  'In Rework': 'inprogress',
+  'In UAT': 'inprogress',
+  Done: 'done',
+  Cancelled: 'done',
+}
+
+function countByStatusCategory(issueList) {
+  const counts = { todo: 0, inprogress: 0, done: 0 }
+  for (const issue of issueList) {
+    counts[STATUS_CATEGORY[issue.status] || 'todo'] += 1
+  }
+  return counts
+}
 
 function loadStoredSort() {
   try {
@@ -199,8 +233,12 @@ export function BacklogPage() {
 
   const sprintPanels = sprints.map((sprint) => {
     const sprintIssues = allSprintItems.filter((issue) => issue.sprintId === sprint.id).filter(matchesSearch)
-    return { ...sprint, issues: sprintIssues, issueIds: sprintIssues.map((issue) => issue.id) }
+    // JL-353: live To Do / In Progress / Done pill counts (were hardcoded "0").
+    return { ...sprint, issues: sprintIssues, issueIds: sprintIssues.map((issue) => issue.id), counts: countByStatusCategory(sprintIssues) }
   })
+  // JL-353: backlog panel pills come from backlogItems (all Backlog-status, so
+  // they land in the todo bucket) — a different source than the sprint panels.
+  const backlogCounts = countByStatusCategory(backlogItems)
 
   function setPanelExpanded(panelId, expanded) {
     setExpandedPanels((current) => ({ ...current, [panelId]: expanded }))
@@ -411,12 +449,16 @@ export function BacklogPage() {
       <div className="backlog-toolbar">
         <div className="backlog-toolbar-left">
           <input className="backlog-search-input" placeholder="Search backlog..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
-          <div className="backlog-avatars">
-            <span className="assignee-chip">P</span>
-            <span className="assignee-chip">HK</span>
-            <span className="assignee-chip">SS</span>
-            <span className="assignee-chip">S</span>
-          </div>
+          {/* JL-353: real workspace member avatars (previously four hardcoded
+              fake initials). Capped at four; hidden entirely when there are no
+              members so we never render empty chips. */}
+          {members.length > 0 && (
+            <div className="backlog-avatars">
+              {members.slice(0, 4).map((member) => (
+                <span key={member.id} className="assignee-chip" title={member.name}>{initialsFromName(member.name)}</span>
+              ))}
+            </div>
+          )}
           <button className="btn btn-ghost backlog-filter-btn" type="button">
             <span className="filter-glyph" aria-hidden="true"><TopNavIcon name="filter" /></span>
             Filter
@@ -505,9 +547,9 @@ export function BacklogPage() {
               Import
             </button>
           )}
-          <button className="icon-btn" type="button" aria-label="Views">chart</button>
-          <button className="icon-btn" type="button" aria-label="Display settings">settings</button>
-          <button className="icon-btn" type="button" aria-label="More">...</button>
+          {/* JL-353: removed the dead "Views"/"Display settings"/"More" icon
+              buttons — they rendered literal placeholder text ("chart",
+              "settings", "...") and had no onClick or defined behavior. */}
         </div>
       </div>
       {backlogMessage && <p className="backlog-message">{backlogMessage}</p>}
@@ -574,9 +616,10 @@ export function BacklogPage() {
                   </div>
                 </div>
                 <div className="jira-sprint-metrics">
-                  <span className="metric-pill">0</span>
-                  <span className="metric-pill metric-pill-blue">0</span>
-                  <span className="metric-pill metric-pill-green">0</span>
+                  {/* JL-353: live status-category counts (were hardcoded "0"). */}
+                  <span className="metric-pill" title="To Do issues">{sprintPanel.counts.todo}</span>
+                  <span className="metric-pill metric-pill-blue" title="In-progress issues">{sprintPanel.counts.inprogress}</span>
+                  <span className="metric-pill metric-pill-green" title="Done issues">{sprintPanel.counts.done}</span>
                   {canManageSprints && (
                   <button className="btn btn-ghost sprint-action-btn" type="button" onClick={() => handleStartSprintAction(sprintPanel.id)} disabled={isStarted || sprintPanel.issues.length === 0}>
                     {isStarted ? 'Sprint started' : 'Start sprint'}
@@ -641,9 +684,10 @@ export function BacklogPage() {
             <div className="jira-sprint-title"><strong>Backlog</strong><span>({backlogItems.length} work items)</span></div>
           </div>
           <div className="jira-sprint-metrics">
-            <span className="metric-pill">0</span>
-            <span className="metric-pill metric-pill-blue">0</span>
-            <span className="metric-pill metric-pill-green">0</span>
+            {/* JL-353: live status-category counts (were hardcoded "0"). */}
+            <span className="metric-pill" title="To Do issues">{backlogCounts.todo}</span>
+            <span className="metric-pill metric-pill-blue" title="In-progress issues">{backlogCounts.inprogress}</span>
+            <span className="metric-pill metric-pill-green" title="Done issues">{backlogCounts.done}</span>
             {canManageSprints && (
               <button className="btn btn-ghost sprint-action-btn" type="button" onClick={createSprintFromSelection}>Create sprint</button>
             )}

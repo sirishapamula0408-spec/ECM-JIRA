@@ -13,6 +13,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { ListViewControls } from '../../components/listViews/ListViewControls'
 import { EmptyState } from '../../components/common/EmptyState'
+import { initialsFromName } from '../../utils/helpers'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -530,8 +531,8 @@ export function IssueListPage() {
   const emailLocal = currentUserEmail.includes('@') ? currentUserEmail.split('@')[0] : currentUserEmail
   const currentUserName = String(currentUser?.name || '').trim()
   const nameParts = currentUserName.split(/\s+/).filter(Boolean).concat(emailLocal.split(/[._-]+/).filter(Boolean))
-  const userInitials = (nameParts[0]?.[0] || '') + (nameParts[1]?.[0] || nameParts[0]?.[1] || '')
-  const normalizedInitials = (userInitials || 'U').toUpperCase()
+  // JL-353: initials derivation extracted to the shared helper (same behavior).
+  const normalizedInitials = initialsFromName(nameParts.join(' '))
   const userTooltip = currentUserName || currentUserEmail || profile?.full_name || 'User'
 
   return (
