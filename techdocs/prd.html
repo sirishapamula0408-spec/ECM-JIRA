@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECM JIRA Clone — Reverse-Engineered Product Requirements Document</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f7f8fa;
+    --bg-code: #f2f3f5;
+    --fg: #1c2024;
+    --fg-muted: #5b6470;
+    --fg-faint: #7b8794;
+    --rule: #dfe3e8;
+    --rule-strong: #c3c9d1;
+    --accent: #0b5cad;
+    --accent-soft: #e8f0fa;
+    --warn-bg: #fdf4e3;
+    --warn-bd: #e0b25c;
+    --bad-bg: #fdecea;
+    --bad-bd: #d98b84;
+    --ok-bg: #eaf6ed;
+    --ok-bd: #86c096;
+    --max: 900px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --bg-alt: #1c2024;
+      --bg-code: #22272c;
+      --fg: #e3e6e9;
+      --fg-muted: #a6afba;
+      --fg-faint: #828d99;
+      --rule: #2e343b;
+      --rule-strong: #414952;
+      --accent: #6fb2f2;
+      --accent-soft: #1b2836;
+      --warn-bg: #2e2718;
+      --warn-bd: #7a6231;
+      --bad-bg: #33201e;
+      --bad-bd: #8a4f49;
+      --ok-bg: #1a2b20;
+      --ok-bd: #3f6b4d;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 6rem;
+    max-width: var(--max);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-wrap: break-word;
+  }
+
+  h1, h2, h3, h4 { line-height: 1.25; font-weight: 650; margin: 0 0 .6rem; }
+  h1 { font-size: 2rem; letter-spacing: -.015em; }
+  h2 {
+    font-size: 1.45rem;
+    margin-top: 3rem;
+    padding-top: 1.2rem;
+    border-top: 2px solid var(--rule-strong);
+  }
+  h3 { font-size: 1.13rem; margin-top: 2rem; color: var(--fg); }
+  h4 { margin-top: 1.4rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .05em; font-size: .82rem; }
+
+  p, ul, ol { margin: 0 0 1rem; }
+  ul, ol { padding-left: 1.4rem; }
+  li { margin-bottom: .35rem; }
+  li > ul, li > ol { margin-top: .35rem; margin-bottom: .35rem; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code, kbd, pre {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: .87em;
+  }
+  code {
+    background: var(--bg-code);
+    padding: .12em .35em;
+    border-radius: 3px;
+    border: 1px solid var(--rule);
+  }
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: .85rem 1rem;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code { background: none; border: none; padding: 0; }
+
+  /* Wide tables scroll inside their own container */
+  .tw {
+    overflow-x: auto;
+    margin: 0 0 1.4rem;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    -webkit-overflow-scrolling: touch;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: .88rem;
+  }
+  .tw table { min-width: 680px; }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: .5rem .7rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    background: var(--bg-alt);
+    font-weight: 620;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .meta {
+    background: var(--bg-alt);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.2rem;
+    margin: 1.5rem 0 2rem;
+    font-size: .9rem;
+  }
+  .meta dl { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1.2rem; margin: 0; }
+  .meta dt { color: var(--fg-muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+
+  nav.toc {
+    background: var(--bg-alt);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 2.5rem;
+  }
+  nav.toc h2 { margin: 0 0 .7rem; padding: 0; border: none; font-size: 1.05rem; }
+  nav.toc ol { margin: 0; padding-left: 1.3rem; }
+  nav.toc > ol > li { margin-bottom: .3rem; font-weight: 560; }
+  nav.toc ol ol { margin: .25rem 0 .5rem; padding-left: 1.2rem; font-weight: 400; font-size: .92rem; }
+  nav.toc ol ol li { margin-bottom: .12rem; }
+
+  .note, .warn, .bad, .ok {
+    border-left: 4px solid;
+    border-radius: 0 4px 4px 0;
+    padding: .8rem 1rem;
+    margin: 0 0 1.3rem;
+    font-size: .93rem;
+  }
+  .note { background: var(--accent-soft); border-color: var(--accent); }
+  .warn { background: var(--warn-bg); border-color: var(--warn-bd); }
+  .bad  { background: var(--bad-bg);  border-color: var(--bad-bd); }
+  .ok   { background: var(--ok-bg);   border-color: var(--ok-bd); }
+  .note p:last-child, .warn p:last-child, .bad p:last-child, .ok p:last-child,
+  .note ul:last-child, .warn ul:last-child, .bad ul:last-child, .ok ul:last-child { margin-bottom: 0; }
+
+  .tag {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 650;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: .1rem .42rem;
+    border-radius: 3px;
+    border: 1px solid var(--rule-strong);
+    background: var(--bg-alt);
+    color: var(--fg-muted);
+    white-space: nowrap;
+    vertical-align: baseline;
+  }
+  .tag-true  { background: var(--ok-bg);  border-color: var(--ok-bd);  color: inherit; }
+  .tag-false { background: var(--bad-bg); border-color: var(--bad-bd); color: inherit; }
+  .tag-part  { background: var(--warn-bg);border-color: var(--warn-bd);color: inherit; }
+
+  .backlink { font-size: .8rem; font-weight: 400; margin-left: .5rem; }
+
+  footer { margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); font-size: .85rem; color: var(--fg-faint); }
+
+  @media print {
+    :root { --bg:#fff; --bg-alt:#fff; --bg-code:#f5f5f5; --fg:#000; --fg-muted:#333; --rule:#bbb; --rule-strong:#888; --accent:#0b5cad; }
+    body { max-width: none; padding: 0; font-size: 10.5pt; }
+    nav.toc { break-after: page; }
+    h2 { break-before: page; break-after: avoid; }
+    h3, h4 { break-after: avoid; }
+    table, pre, .note, .warn, .bad, .ok { break-inside: avoid; }
+    .tw { overflow: visible; border: none; }
+    a { color: inherit; text-decoration: none; }
+    .backlink { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1 id="top">ECM JIRA Clone &mdash; Product Requirements Document</h1>
+<p style="font-size:1.05rem;color:var(--fg-muted);margin-top:-.3rem">Reverse-engineered from source. Describes the system as implemented, not as intended.</p>
+
+<div class="meta">
+  <dl>
+    <dt>Document type</dt><dd>Reverse-engineered PRD (descriptive, not aspirational)</dd>
+    <dt>Generated on</dt><dd>4 August 2026</dd>
+    <dt>Derived from commit</dt><dd><code>32aa1a3</code> &mdash; <em>Merge JL-336: dashboard chart legends link to the filtered issue list</em></dd>
+    <dt>Branch</dt><dd><code>docs/JL-PRD-techdocs</code>, cut from <code>origin/main</code></dd>
+    <dt>Method</dt><dd>Direct reading of <code>server/</code>, <code>src/</code>, build and deploy configuration, plus three full executions of the test suite. Claims in <code>CLAUDE.md</code> were treated as hypotheses and verified independently; see <a href="#appendix">Appendix A</a>.</dd>
+    <dt>Baseline note</dt><dd>This is a fast-moving branch. Analysis began at <code>6a3e964</code>; <code>origin/main</code> advanced twice during the review, through <code>3fe18c7</code> and on to <code>32aa1a3</code> &mdash; twelve commits and six merges in total. All counts and claims were re-verified against <code>32aa1a3</code>. Three of the intervening merges closed authorization gaps that this document would otherwise have reported as open: <strong>JL-314</strong> (the headline finding in <a href="#gaps-jl314">8.1.6</a>, now partially remediated), <strong>JL-315</strong> and <strong>JL-316</strong>. Each is marked as fixed where relevant. The three test runs described in <a href="#gaps-jl327">8.1.2</a> were executed at <code>6a3e964</code> and <code>3fe18c7</code>; seven test files changed between <code>3fe18c7</code> and <code>32aa1a3</code>, all additions or updates for JL-314 and the JL-336/JL-299 dashboard work, so the failure analysis below is unaffected.</dd>
+  </dl>
+</div>
+
+<div class="note">
+<p><strong>How to read this document.</strong> Every functional claim below was checked against the code at the stated commit. Where a feature is present in the schema or the API but not wired into the product, or where two mechanisms exist for the same job, this document says so inline rather than describing the intended design. <a href="#gaps">Section 8</a> collects the material defects. This is a description of a working system with real debt, not a specification to build against.</p>
+</div>
+
+<nav class="toc">
+<h2>Contents</h2>
+<ol>
+  <li><a href="#overview">Product overview</a>
+    <ol>
+      <li><a href="#overview-what">What the system is</a></li>
+      <li><a href="#overview-who">Who it is for</a></li>
+      <li><a href="#overview-shape">Shape and scale of the implementation</a></li>
+    </ol>
+  </li>
+  <li><a href="#roles">Personas, roles and permissions</a>
+    <ol>
+      <li><a href="#roles-model">The two-tier model</a></li>
+      <li><a href="#roles-server">Server-side enforcement</a></li>
+      <li><a href="#roles-client">Client-side capabilities</a></li>
+      <li><a href="#roles-matrix">Capability matrix</a></li>
+    </ol>
+  </li>
+  <li><a href="#modules">Functional modules</a>
+    <ol>
+      <li><a href="#mod-issues">Issues, sub-tasks and hierarchy</a></li>
+      <li><a href="#mod-agile">Boards, backlog, sprints</a></li>
+      <li><a href="#mod-roadmap">Roadmaps, releases and goals</a></li>
+      <li><a href="#mod-workflow">Workflows and transitions</a></li>
+      <li><a href="#mod-fields">Labels, components, custom fields, attachments, time tracking</a></li>
+      <li><a href="#mod-search">Search, JQL and filters</a></li>
+      <li><a href="#mod-reports">Reporting and dashboards</a></li>
+      <li><a href="#mod-collab">Collaboration</a></li>
+      <li><a href="#mod-automation">Automation, webhooks and integrations</a></li>
+      <li><a href="#mod-servicedesk">Service desk and ITSM</a></li>
+      <li><a href="#mod-admin">Administration and security</a></li>
+      <li><a href="#mod-importexport">Import, export and BI</a></li>
+    </ol>
+  </li>
+  <li><a href="#data">Data model</a>
+    <ol>
+      <li><a href="#data-mechanics">Access layer mechanics</a></li>
+      <li><a href="#data-core">Core entities</a></li>
+      <li><a href="#data-inventory">Table inventory by domain</a></li>
+      <li><a href="#data-integrity">Referential integrity and delete behaviour</a></li>
+    </ol>
+  </li>
+  <li><a href="#api">API surface</a>
+    <ol>
+      <li><a href="#api-pipeline">Request pipeline</a></li>
+      <li><a href="#api-guards">Guard vocabulary</a></li>
+      <li><a href="#api-groups">Route groups</a></li>
+      <li><a href="#api-public">Unauthenticated surface</a></li>
+    </ol>
+  </li>
+  <li><a href="#workflows">Key workflows</a>
+    <ol>
+      <li><a href="#wf-lifecycle">Issue lifecycle</a></li>
+      <li><a href="#wf-signup">Invitation, signup and the deny-list</a></li>
+      <li><a href="#wf-approval">Approval-gated transitions</a></li>
+      <li><a href="#wf-sprint">Sprint lifecycle</a></li>
+    </ol>
+  </li>
+  <li><a href="#nfr">Non-functional characteristics</a>
+    <ol>
+      <li><a href="#nfr-auth">Authentication and session handling</a></li>
+      <li><a href="#nfr-db">Database layer</a></li>
+      <li><a href="#nfr-testing">Testing</a></li>
+      <li><a href="#nfr-lint">Linting and CI</a></li>
+      <li><a href="#nfr-deploy">Deployment</a></li>
+      <li><a href="#nfr-obs">Observability and hardening</a></li>
+    </ol>
+  </li>
+  <li><a href="#gaps">Known gaps and technical debt</a>
+    <ol>
+      <li><a href="#gaps-verified">Verification of the named tickets</a></li>
+      <li><a href="#gaps-other">Further defects found</a></li>
+    </ol>
+  </li>
+  <li><a href="#appendix">Appendix A &mdash; Inaccuracies in CLAUDE.md</a></li>
+</ol>
+</nav>
+
+<!-- ==================================================================== -->
+<h2 id="overview">1. Product overview <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="overview-what">1.1 What the system is</h3>
+
+<p>ECM JIRA Clone (package name <code>jira</code>, referred to internally as "jira-lite") is a self-hosted, multi-project agile work-management application. It reimplements the core of Atlassian Jira &mdash; issue tracking, Scrum and Kanban boards, sprints, workflows, reporting &mdash; and extends into adjacent Atlassian products: a Confluence-style project wiki, a Jira Service Management-style customer portal with queues, SLAs, incidents and an asset registry, and a Compass-style marketplace and plugin registry.</p>
+
+<p>The architecture is a conventional two-tier web application:</p>
+
+<ul>
+  <li><strong>Frontend</strong> &mdash; React 19 single-page application built with Vite, using Material UI v7 components over a CSS-custom-property layout system. State is held in seven React contexts; there is no Redux, no React Query and no client-side data cache beyond context state.</li>
+  <li><strong>Backend</strong> &mdash; Express 5 REST API over PostgreSQL, accessed through the <code>pg</code> driver with a thin hand-written query layer. No ORM, no query builder, no migration framework.</li>
+  <li><strong>Transport</strong> &mdash; JSON over HTTP with JWT bearer authentication, plus one Server-Sent Events endpoint (notification unread count) and one WebSocket hub (issue-detail presence and live updates).</li>
+</ul>
+
+<p>The problem it solves is the standard one for the category: giving a software team a single place to record work items, order them into a backlog, commit them to time-boxed sprints, track them across a board, and report on throughput &mdash; without paying per-seat SaaS fees or sending project data to a third party. The distinguishing characteristic of this particular implementation is <em>breadth over depth</em>: it covers an unusually wide surface of Jira-family features, but many of those features are implemented to a demo or single-happy-path standard rather than to production completeness. That trade-off is documented feature by feature in <a href="#modules">Section 3</a> and collected in <a href="#gaps">Section 8</a>.</p>
+
+<h3 id="overview-who">1.2 Who it is for</h3>
+
+<p>The system assumes a single organisation operating one workspace. A workspace is the tenancy boundary; the schema supports multiple workspaces and the API accepts an <code>X-Workspace-Id</code> header to select one, but the seeded default (<code>slug = 'default'</code>) is what the application actually runs on, and several structural details &mdash; notably a globally unique <code>projects.key</code> and a <code>sprints</code> table with no project or workspace column &mdash; mean true multi-tenancy is not achievable at this commit.</p>
+
+<p>Within that workspace the intended audiences are:</p>
+
+<ul>
+  <li><strong>Delivery teams</strong> &mdash; engineers and QA working issues on boards, logging time, commenting, and running sprint ceremonies including retrospectives.</li>
+  <li><strong>Team leads and project administrators</strong> &mdash; configuring boards, workflows, custom fields, sprints and project membership.</li>
+  <li><strong>Programme and portfolio managers</strong> &mdash; using the portfolio view, advanced roadmap, goals/OKRs, releases and the report builder.</li>
+  <li><strong>Workspace administrators</strong> &mdash; managing users, invitations, the signup deny-list, security policy, audit log, webhooks and integrations.</li>
+  <li><strong>Requesters and customers</strong> &mdash; via the service-desk portal and knowledge base, though note that these are reachable only by authenticated users at this commit (see <a href="#mod-servicedesk">3.10</a>).</li>
+</ul>
+
+<h3 id="overview-shape">1.3 Shape and scale of the implementation</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Dimension</th><th>Count</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Backend route modules</td><td>74</td><td><code>server/routes/*.js</code></td></tr>
+<tr><td>Backend service modules</td><td>25</td><td><code>server/services/*.js</code></td></tr>
+<tr><td>Express middleware modules</td><td>12</td><td><code>server/middleware/*.js</code></td></tr>
+<tr><td>Database tables</td><td>105</td><td>All <code>CREATE TABLE IF NOT EXISTS</code> in <code>server/db.js</code></td></tr>
+<tr><td>Frontend pages</td><td>40</td><td><code>src/pages/*/</code></td></tr>
+<tr><td>Frontend routes</td><td>48</td><td><code>&lt;Route&gt;</code> elements in <code>src/App.jsx</code></td></tr>
+<tr><td>API client modules</td><td>58</td><td><code>src/api/*.js</code></td></tr>
+<tr><td>React contexts</td><td>7</td><td><code>src/context/*.jsx</code></td></tr>
+<tr><td>Test files / assertions</td><td>264 / ~2,679</td><td>10&ndash;37 fail depending on machine load; see <a href="#nfr-testing">7.3</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The single largest file in the system is <code>server/db.js</code> at 2,216 lines, which contains the entire schema definition, all migrations and all seed data. The largest frontend file is <code>src/pages/WorkflowEditorPage/WorkflowEditorPage.jsx</code> at 1,581 lines.</p>
+
+<!-- ==================================================================== -->
+<h2 id="roles">2. Personas, roles and permissions <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="roles-model">2.1 The two-tier model</h3>
+
+<p>Authorisation is organised into two independent tiers that are combined at evaluation time.</p>
+
+<p><strong>Tier 1 &mdash; workspace role.</strong> Every person has exactly one workspace-level role, stored in <code>members.role</code> with a separate boolean <code>members.is_owner</code>. The role vocabulary is <code>Owner &gt; Admin &gt; Member &gt; Viewer</code>. This role applies across the whole workspace and governs administrative capability: user management, invitations, security policy, webhooks, audit log, workflow configuration.</p>
+
+<p><strong>Tier 2 &mdash; project role.</strong> A person may additionally hold a role on any individual project, stored in <code>project_members.role</code>, or be designated project lead via <code>projects.lead_member_id</code>. The vocabulary is <code>Lead &gt; Admin &gt; Member &gt; Viewer</code>.</p>
+
+<p>Both tiers share one numeric rank table, defined in <code>server/middleware/authorize.js</code> and mirrored in <code>src/hooks/usePermissions.js</code>:</p>
+
+<pre><code>Viewer: 1    Member: 2    Admin: 3    Lead: 4    Owner: 5</code></pre>
+
+<p>Note that <strong>project Lead outranks Admin</strong> in this table. The stated intent (comment at <code>authorize.js:5</code>) is that the project Lead is the highest project tier and therefore has full project-admin rights. The <code>Owner: 5</code> entry was added defensively (JL-317) so that a member whose <code>role</code> column literally reads <code>'Owner'</code> but whose <code>is_owner</code> flag is false does not fall to rank 0 &mdash; below Viewer &mdash; and get locked out of every role-gated route.</p>
+
+<h4>How the tiers interact</h4>
+
+<p>Three composition rules are applied, and it matters which one a given endpoint uses:</p>
+
+<ol>
+  <li><strong>Owner bypasses everything.</strong> <code>requireRole()</code> returns immediately if <code>req.user.isOwner</code>, without consulting rank at all.</li>
+  <li><strong>Workspace Admin and Owner bypass all project-level checks.</strong> <code>requireProjectRole()</code>, <code>requireProjectRead()</code> and <code>requireProjectWrite()</code> each short-circuit for <code>isOwner || workspaceRole === 'Admin'</code> before performing any database lookup. A workspace Admin therefore has full access to every project regardless of membership.</li>
+  <li><strong>Otherwise the higher of the two ranks wins.</strong> <code>resolveProjectAccess()</code> returns <code>effectiveRank = max(workspaceRank, projectRank)</code>. A workspace Viewer who holds project Member on one project is treated as a Member <em>on that project</em>. This is the rule that makes it safe to default self-registered users to workspace Viewer.</li>
+</ol>
+
+<p>Access for non-admins is membership-based and deny-by-default: <code>resolveProjectAccess()</code> grants <code>hasAccess</code> only when the caller has an explicit <code>project_members</code> row (any role) or is the project's <code>lead_member_id</code>.</p>
+
+<div class="warn">
+<p><strong>One important asymmetry.</strong> <code>requireProjectRead()</code> deliberately allows the request through when the target project does not exist or cannot be resolved &mdash; for example an issue with a null <code>project_id</code> &mdash; so the handler can return its own 404 or legacy response. <code>requireProjectWrite()</code> in the same situation falls back to the legacy workspace-role gate (Member or above). Neither returns 403 for an unresolvable target. This is intentional backward compatibility for project-less data, but it means the guards are permissive at the edges.</p>
+</div>
+
+<h3 id="roles-server">2.2 Server-side enforcement</h3>
+
+<p>All authorisation primitives live in <code>server/middleware/authorize.js</code>:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Export</th><th>Kind</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td><code>ROLE_RANK</code></td><td>constant</td><td>The five-entry rank table above.</td></tr>
+<tr><td><code>loadUserRoles</code></td><td>middleware</td><td>Reads <code>members</code> by case-insensitive email; sets <code>memberId</code>, <code>workspaceRole</code> (defaulting to <code>Viewer</code> when no member row exists), <code>isOwner</code>.</td></tr>
+<tr><td><code>requireRole(...roles)</code></td><td>factory</td><td>Workspace-rank gate. Owner bypasses. Passes when user rank &ge; the <em>minimum</em> rank among the listed roles. 403 otherwise.</td></tr>
+<tr><td><code>loadProjectRole</code></td><td>middleware</td><td>Resolves project id from <code>params.id</code>, <code>params.projectId</code> or <code>body.projectId</code>; sets <code>projectRole</code> from <code>project_members</code>.</td></tr>
+<tr><td><code>requireProjectRole(...roles)</code></td><td>factory</td><td>Project-rank gate. Workspace Admin/Owner bypass. Requires a project role to exist, then rank comparison.</td></tr>
+<tr><td><code>resolveProjectAccess(user, projectId)</code></td><td>function</td><td>Returns <code>{admin, projectExists, hasAccess, projectRole, effectiveRank}</code>. Treats <code>lead_member_id</code> as an implicit <code>Lead</code> role.</td></tr>
+<tr><td><code>canAccessProject(user, projectId)</code></td><td>predicate</td><td><code>admin || hasAccess</code>.</td></tr>
+<tr><td><code>requireProjectRead(resolveId)</code></td><td>factory</td><td>Read gate. Admin fast-path. Non-existent project falls through.</td></tr>
+<tr><td><code>requireProjectWrite(resolveId)</code></td><td>factory</td><td>Write gate. Requires project access <em>and</em> effective rank &ge; Member.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="bad">
+<p><strong>Adoption of the project-level guards is incomplete.</strong> Only 12 of the 74 route modules import any of <code>loadProjectRole</code>, <code>requireProjectRole</code>, <code>requireProjectRead</code> or <code>requireProjectWrite</code>: <code>issues.js</code>, <code>comments.js</code>, <code>attachments.js</code>, <code>issueLinks.js</code>, <code>worklogs.js</code>, <code>customFields.js</code>, <code>labels.js</code>, <code>importExport.js</code>, <code>projects.js</code>, <code>sprints.js</code>, <code>releases.js</code>, <code>goals.js</code>. Everywhere else, project-scoped data is protected by authentication and (for writes) a workspace-role check only. See <a href="#gaps-jl314">8.1.6</a>.</p>
+</div>
+
+<h3 id="roles-client">2.3 Client-side capabilities</h3>
+
+<p><code>src/hooks/usePermissions.js</code> is the single source of UI gating. It takes an optional <code>projectId</code>, reads the current member from <code>MemberContext</code> (populated by <code>GET /api/auth/me</code>, which returns <code>workspaceRole</code>, <code>isOwner</code>, <code>projectRoles[]</code> and <code>projectCreationPolicy</code>), and returns 21 capability booleans plus four metadata fields.</p>
+
+<p>It fails closed: when <code>currentMember</code> is null &mdash; during load, or if the <code>/me</code> call fails &mdash; it returns <code>loaded: false</code> and every capability hard-set to <code>false</code>.</p>
+
+<p>Declarative gating is available through <code>src/components/auth/RequireRole.jsx</code>, which accepts either a <code>permission</code> key (looked up on <code>usePermissions</code>) or a <code>role</code> name, and supports two modes: <code>hide</code> (render a fallback, the default) and <code>disable</code> (clone children with <code>disabled</code>, dim them, and wrap in a tooltip).</p>
+
+<div class="warn">
+<p><code>RequireRole</code> carries its own local rank table <code>{ Viewer: 1, Member: 2, Admin: 3 }</code> which <strong>omits <code>Lead</code> and <code>Owner</code></strong>. A call of <code>&lt;RequireRole role="Lead"&gt;</code> resolves the required rank to 0 and therefore always passes. Only two routes in the whole application use <code>RequireRole</code> at the route level (<code>/teams</code> and <code>/users</code>, both by <code>permission</code>), so this has not yet caused a live defect &mdash; but the divergence from <code>ROLE_RANK</code> is a latent trap.</p>
+</div>
+
+<h3 id="roles-matrix">2.4 Capability matrix</h3>
+
+<p>The 21 capabilities returned by <code>usePermissions</code>, with the rule behind each. <code>effectiveRank</code> is <code>Admin</code> for any workspace Admin/Owner, otherwise <code>max(workspaceRank, projectRank)</code>. <code>isProjectAdmin</code> is <code>isAdmin || projectRank &ge; Admin</code>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Capability</th><th>Rule</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>isOwner</code></td><td>passthrough</td><td>Workspace owner flag.</td></tr>
+<tr><td><code>isAdmin</code></td><td><code>isOwner || wsRank &ge; Admin</code></td><td>Workspace administrator.</td></tr>
+<tr><td><code>canCreateIssue</code></td><td><code>effectiveRank &ge; Member</code></td><td>Create issues in the current project.</td></tr>
+<tr><td><code>canCreateIssueAnywhere</code></td><td><code>effectiveRank &ge; Member</code> or holds Member+ on <em>any</em> project</td><td>Project-agnostic surfaces such as the Topbar "Create" button (JL-295).</td></tr>
+<tr><td><code>canEditIssue</code></td><td><code>effectiveRank &ge; Member</code></td><td>Edit fields, drag on board.</td></tr>
+<tr><td><code>canDeleteIssue</code></td><td><code>effectiveRank &ge; Member</code></td><td>Deliberately the same tier as create/edit (JL-228); Viewers blocked.</td></tr>
+<tr><td><code>canExportIssues</code></td><td><code>effectiveRank &ge; Viewer</code></td><td>Export treated as a read operation (JL-288); import remains Member+.</td></tr>
+<tr><td><code>canAddComment</code></td><td><code>effectiveRank &ge; Member</code></td><td>Comment on issues.</td></tr>
+<tr><td><code>canLogWork</code></td><td><code>effectiveRank &ge; Member</code></td><td>Worklog entry (JL-284).</td></tr>
+<tr><td><code>canAddAttachment</code></td><td><code>effectiveRank &ge; Member</code></td><td>Upload files (JL-284).</td></tr>
+<tr><td><code>canLinkIssues</code></td><td><code>effectiveRank &ge; Member</code></td><td>Create issue links (JL-284).</td></tr>
+<tr><td><code>canManageSprints</code></td><td><code>isProjectAdmin</code></td><td>Create/start/complete sprints.</td></tr>
+<tr><td><code>canManageProjectSettings</code></td><td><code>isProjectAdmin</code></td><td>Project settings tabs.</td></tr>
+<tr><td><code>canDeleteProject</code></td><td><code>isOwner || isAdmin</code></td><td>Workspace-level only; project Admin cannot delete.</td></tr>
+<tr><td><code>canCreateProject</code></td><td>policy <code>admins_only</code> &rarr; <code>isAdmin</code>; else <code>wsRank &ge; Member</code></td><td>Governed by the <code>project_creation_policy</code> workspace setting (JL-211). Uses <em>workspace</em> rank only &mdash; a project-only Member cannot create projects.</td></tr>
+<tr><td><code>canManageMembers</code></td><td><code>isAdmin</code></td><td>Teams page.</td></tr>
+<tr><td><code>canInviteMembers</code></td><td><code>isAdmin</code></td><td>Send invitations.</td></tr>
+<tr><td><code>canManageUsers</code></td><td><code>isAdmin</code></td><td>User Management page (JL-195).</td></tr>
+<tr><td><code>canDeleteUser</code></td><td><code>isAdmin</code></td><td>Remove a user (JL-195).</td></tr>
+<tr><td><code>canEditWorkflows</code></td><td><code>isAdmin</code></td><td>Workflow editor mutations.</td></tr>
+<tr><td><code>canManageCrossProjectBoards</code></td><td><code>wsRank &ge; Member</code></td><td>Workspace-scoped, not project-scoped (JL-296).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Persona summary</h4>
+
+<div class="tw">
+<table>
+<thead><tr><th>Persona</th><th>Typical role</th><th>Can</th><th>Cannot</th></tr></thead>
+<tbody>
+<tr><td>Workspace Owner</td><td>Owner</td><td>Everything; bypasses every gate unconditionally.</td><td>&mdash;</td></tr>
+<tr><td>Workspace Administrator</td><td>Admin</td><td>All projects without membership; user and invitation management; security policy; webhooks; audit log; workflow, field, scheme and automation configuration; deny-list.</td><td>Nothing gated in code, though some Owner-only protections exist in handler bodies (last-Admin and Owner-demotion guards).</td></tr>
+<tr><td>Team member</td><td>Member (workspace), Member/Admin/Lead on specific projects</td><td>Create, edit, delete, comment, log work, attach, link issues on projects they belong to; create projects if policy allows; manage sprints and project settings where they hold project Admin or Lead.</td><td>User management, security policy, webhooks, audit log, workspace-wide configuration.</td></tr>
+<tr><td>Project lead</td><td>Viewer/Member workspace, <code>lead_member_id</code> on a project</td><td>Full project-admin rights on that project via <code>effectiveRank</code> reaching Lead (4).</td><td>Anything gated on workspace <code>requireRole('Admin')</code> &mdash; the Lead rank does not satisfy a workspace Admin check unless the workspace role itself is Admin.</td></tr>
+<tr><td>Read-only stakeholder</td><td>Viewer</td><td>Read project data they are a member of; export issues (JL-288).</td><td>Any create/edit/delete; the UI renders read-only.</td></tr>
+<tr><td>Self-registered user</td><td>Viewer (default)</td><td>Log in; see nothing until added to a project. The Sidebar renders every nav item except Projects/Teams/Users as a disabled span titled "No project access".</td><td>Everything else.</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================================================================== -->
+<h2 id="modules">3. Functional modules <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="mod-issues">3.1 Issues, sub-tasks and hierarchy</h3>
+
+<p>The issue is the central entity. Types are constrained by a live CHECK constraint to <code>Epic</code>, <code>Story</code>, <code>Bug</code>, <code>Task</code>, <code>Sub-task</code>. Issue keys are generated per project from a monotonic <code>projects.issue_counter</code> (JL-92), backfilled at boot from the maximum existing suffix.</p>
+
+<p><strong>Capabilities.</strong> Create, read, update, delete; status transition as a distinct endpoint; clone; bulk update; field history (<code>issue_history</code>, feeding cycle-time and CFD reports); watchers; votes; comments with emoji reactions; @mentions; attachments; links; worklogs; labels; components; custom field values; security level; flag.</p>
+
+<p><strong>Key endpoints.</strong> <code>GET /api/issues</code> (list with <code>status</code>, <code>q</code> free-text and <code>jql</code> parameters, scoped to accessible projects); <code>GET|PATCH|DELETE /api/issues/:id</code>; <code>PATCH /api/issues/:id/status</code>; <code>POST /api/issues/:id/clone</code>; <code>POST /api/issues/bulk</code>; <code>GET /api/issues/:id/history</code>; <code>GET|POST /api/issues/:parentId/subtasks</code>; <code>GET /api/issues/:id/epic-children</code>.</p>
+
+<p><strong>UI surfaces.</strong> <code>IssueDetailPage</code> (the largest interaction surface: description with rich-text editing, comments, worklog tab, attachments grid, links panel, child-issues panel with progress bar, labels picker, dynamic custom-field section, approvals panel, watchers, votes); <code>CreateIssueModal</code>; <code>IssueListPage</code> (saved list views, sorting, bulk actions); plus the board and backlog.</p>
+
+<h4>Hierarchy &mdash; three unrelated mechanisms</h4>
+
+<p>This is one of the more confusing areas of the product and worth stating precisely.</p>
+
+<ol>
+  <li><strong><code>issues.epic_id</code></strong> &mdash; self-referencing FK, <code>ON DELETE SET NULL</code>. Represents Epic &rarr; child. Validated by <code>validateEpicRef</code>: the target must exist and be of type <code>Epic</code>; an Epic may not have an <code>epic_id</code>; a Sub-task may not have an <code>epic_id</code>.</li>
+  <li><strong><code>issues.parent_id</code></strong> &mdash; self-referencing FK, <code>ON DELETE CASCADE</code>. Used only for Sub-tasks. <code>POST /api/issues/:parentId/subtasks</code> hardcodes the type to <code>Sub-task</code>, inherits project and sprint from the parent, and rejects a parent that itself has a <code>parent_id</code>. Closing a parent with open sub-tasks returns 409.</li>
+  <li><strong>The <code>roadmap_epics</code> table</strong> &mdash; a wholly separate table (<code>id, name, phase, start_date, end_date, project_id</code>) with <strong>no foreign key to <code>issues</code> at all</strong>. Exposed read-only by <code>GET /api/roadmap</code>; there is no create, update or delete endpoint.</li>
+</ol>
+
+<p>A genuine three-level Epic &rarr; Story &rarr; Sub-task hierarchy is therefore only partially enforced. The rules that <em>are</em> enforced are the two listed above. What is not enforced: nothing prevents a Story from carrying both an <code>epic_id</code> and a <code>parent_id</code>; and because the sub-task check tests only "the parent has no parent", a Sub-task <em>can</em> be created directly beneath an Epic through the <code>parent_id</code> path &mdash; contradicting the <code>epic_id</code> rule that forbids the same relationship.</p>
+
+<h3 id="mod-agile">3.2 Boards, backlog, sprints</h3>
+
+<h4>Board</h4>
+
+<p><code>src/pages/BoardPage/BoardPage.jsx</code>. Drag-and-drop uses native HTML5 <code>dragover</code>/<code>drop</code> handlers, not a library. Columns come from <code>board_configs</code> (<code>GET|PUT /api/projects/:projectId/board-config</code>), each column mapping one or more statuses; when no config exists it falls back to the project's workflow statuses and then to a hardcoded default. A full in-page column editor supports add, rename, delete, reorder and status remapping.</p>
+
+<p>Supporting features: swimlanes by <code>none | assignee | epic | priority</code>; quick-filter chips derived from current issues plus project labels (AND across categories, OR within a category), persisted per project in <code>localStorage</code>; an estimation statistic selector (<code>story_points | time_estimate | issue_count</code>); and column width persistence in <code>localStorage</code>.</p>
+
+<div class="warn">
+<p><strong>WIP limits are advisory only.</strong> An over-limit column gains the CSS classes <code>kanban-col-over-wip</code> and <code>kanban-count-over</code> and displays <code>count / limit</code>, but the drop handler does not block the move. There is no server-side enforcement either.</p>
+</div>
+
+<h4>Backlog</h4>
+
+<p><code>src/pages/BacklogPage/BacklogPage.jsx</code>. Renders one collapsible panel per sprint plus a Backlog panel, with drag-and-drop between panels (dropping into Backlog clears <code>sprint_id</code>), inline per-panel quick-create, ranking arrows, and a search filter. The bulk toolbar supports <code>status | sprint | delete | watch | unwatch</code> applied over a checkbox selection, plus a multi-step <code>BulkChangeWizard</code> and the <code>ImportExportModal</code>.</p>
+
+<h4>Sprints</h4>
+
+<p>Sprint state is expressed by <code>is_started</code> plus the timestamps <code>start_date</code>, <code>end_date</code> and <code>completed_at</code>; there is no status enum. Endpoints under <code>/api/sprints</code> cover list, create, patch, start, complete and delete, all Admin-gated except the list. Starting a sprint snapshots committed scope into <code>sprint_scope</code> so burndown and burnup have a stable baseline, and fires a <code>sprint.started</code> webhook. Retrospectives (<code>well | improve | action</code>) and sprint templates are implemented in the same module.</p>
+
+<p><code>ActiveSprintPage</code> renders one board per active sprint and supports parallel sprints, gated by the per-project <code>allow_parallel_sprints</code> flag (JL-124).</p>
+
+<div class="bad">
+<p><strong>The <code>sprints</code> table has no <code>project_id</code> column.</strong> Sprints are global to the installation; project association exists only transitively through <code>issues.sprint_id</code>. Consequences visible in behaviour: <code>GET /api/projects/:id/sprints/active</code> validates the project id but does not use it in the query, returning <em>all</em> globally active sprints; and the parallel-sprint guard counts active sprints across the entire installation rather than per project.</p>
+</div>
+
+<h3 id="mod-roadmap">3.3 Roadmaps, releases and goals</h3>
+
+<p>Two roadmap pages exist and they are backed by entirely different data.</p>
+
+<ul>
+  <li><strong><code>RoadmapPage</code></strong> reads <code>GET /api/roadmap</code> &rarr; the <code>roadmap_epics</code> table. Because that table has no link to issues, the page fabricates the hierarchy: a comment at <code>RoadmapPage.jsx:111</code> reads "Map issues to epics heuristically (distribute across epics by index)", assigning <code>issues[i]</code> to <code>epics[i % epics.length]</code>, and child bar dates are synthesised by slicing the epic's date range into equal slots. <strong>This page displays no real relationship data.</strong></li>
+  <li><strong><code>AdvancedRoadmapPage</code></strong> reads <code>GET /api/advanced-roadmap</code>, which selects real issues of type <code>Epic</code> across accessible projects and rolls up children through <code>epic_id</code> (child count, done count, points, percent done). It additionally supports <code>roadmap_dependencies</code> between epics with Admin-gated CRUD, <code>team_capacity</code> records, and computed dependency-violation and capacity-overload warnings. This is the functional roadmap.</li>
+</ul>
+
+<p><strong>Releases</strong> (<code>releases</code> table, status <code>unreleased | released</code>) support per-release issue lists, progress rollups, generated release notes, and fix/affects version association through <code>issue_versions</code>. <strong>Goals</strong> implement a lightweight OKR model: a <code>goals</code> row (status <code>on_track | at_risk | off_track | done</code>) with child <code>key_results</code> carrying target and current numeric values and an optional link to an issue.</p>
+
+<h3 id="mod-workflow">3.4 Workflows and transitions</h3>
+
+<p>Workflow is modelled in three tables: <code>issue_statuses</code> (per project, or global when <code>project_id</code> is null, with a board <code>category</code> of <code>todo | inprogress | done</code>), <code>workflow_transitions</code> (per project, <code>from_status</code> &rarr; <code>to_status</code> with JSONB <code>validators</code> and <code>post_functions</code>), and <code>project_workflows</code> (per project metadata: initial status, terminal statuses, cancel-from-any behaviour). A legacy flat <code>workflows</code> table also exists and is served by <code>GET /api/workflows</code> as a static catalogue.</p>
+
+<p>The engine is <code>server/services/workflow.js</code>. <code>isTransitionAllowed()</code> applies, in order:</p>
+
+<ol>
+  <li>Same status &rarr; allowed (no-op).</li>
+  <li><code>cancelFromAny</code> is set and the target is the cancel status and the source is not terminal &rarr; allowed.</li>
+  <li>Source is a terminal status &rarr; <strong>denied</strong>.</li>
+  <li>The project has zero configured transitions &rarr; <strong>allow everything</strong> (explicit backward compatibility for pre-JL-79 projects).</li>
+  <li>Otherwise, require a matching transition row.</li>
+</ol>
+
+<p>Validators support one type, <code>required_field</code>. Post-functions support <code>set_field</code> and <code>add_comment</code>; settable fields are restricted to a whitelist (<code>assignee, priority, resolution, environment, components</code>) because the column name is interpolated into SQL. Post-functions write directly to the database and never re-enter the engine, so they cannot loop.</p>
+
+<p><strong>Templates.</strong> <code>server/services/workflowTemplates.js</code> exports exactly one template, <strong>QA Lifecycle</strong> (<code>qa-lifecycle</code>). See <a href="#wf-lifecycle">6.1</a> for its full state and transition set. <code>server/services/workflowSeed.js</code> applies it idempotently and additively at boot to any project lacking a workflow (JL-334), never overwriting a configured one, and copying down global statuses first if the project has none of its own (JL-332).</p>
+
+<p><strong>UI.</strong> <code>WorkflowEditorPage</code> is a canvas editor with draggable status nodes and drag-to-create transitions (JL-324), a rules panel for validators and post-functions, and template application. Its limitations are covered in <a href="#gaps-jl330">8.1.5</a>.</p>
+
+<h3 id="mod-fields">3.5 Labels, components, custom fields, attachments, time tracking</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Module</th><th>Model</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Labels</strong></td>
+<td><code>labels</code> (per project, unique name, colour) + <code>issue_labels</code> junction</td>
+<td>Project label catalogue with issue counts and search; per-issue assignment via <code>GET|PUT /api/issues/:id/labels</code>. UI is a colour-chip picker with inline create.</td>
+</tr>
+<tr>
+<td><strong>Components</strong></td>
+<td><code>components</code> + <code>issue_components</code> junction</td>
+<td>Named project areas with an optional lead. Note a legacy comma-separated <code>issues.components</code> text column still exists alongside the junction table.</td>
+</tr>
+<tr>
+<td><strong>Custom fields</strong></td>
+<td><code>custom_fields</code> + <code>issue_custom_field_values</code> (EAV)</td>
+<td>Nine field types: <code>text, number, date, dropdown, multi_select, labels, user_picker, cascading_select, calculated</code>. Definition CRUD is Admin-only; values render in a dynamic "More fields" sidebar section on the issue detail page.</td>
+</tr>
+<tr>
+<td><strong>Attachments</strong></td>
+<td><code>attachments</code> table; files on local disk under <code>server/uploads/</code> or S3 via <code>storage.js</code></td>
+<td>Base64-over-JSON upload (no multer), which is why <code>express.json</code> carries a 25 MB limit globally. 10 MB per-file cap, extension and MIME allow-lists, thumbnail generation via <code>sharp</code>, virus-scan hook, authenticated download stream.</td>
+</tr>
+<tr>
+<td><strong>Issue links</strong></td>
+<td><code>issue_links</code> (source, target, type)</td>
+<td>Bidirectional and inverse-aware: blocks / is blocked by, duplicates / is duplicated by, relates to. Guards against self-links and duplicates.</td>
+</tr>
+<tr>
+<td><strong>Time tracking</strong></td>
+<td><code>issues.original_estimate_minutes</code> + <code>worklogs</code></td>
+<td><code>parseTimeToMinutes()</code> handles <code>1d 4h</code>, <code>45m</code> and bare minutes, with 1d = 8h. Returns an estimate / spent / remaining summary rendered as a progress bar.</td>
+</tr>
+<tr>
+<td><strong>Estimation</strong></td>
+<td><code>server/services/estimation.js</code></td>
+<td>55 lines of pure helpers. Sums story points, or original estimate minutes, or counts issues, depending on the board's configured statistic. No planning poker, no scale enforcement, no re-estimation history.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="mod-search">3.6 Search, JQL and filters</h3>
+
+<div class="bad">
+<p><strong>There are two separate, mutually incompatible JQL parsers in the codebase.</strong> They accept different field sets, different operators and different boolean connectives. Which one you get depends on which endpoint you call.</p>
+</div>
+
+<h4>Parser A &mdash; <code>server/services/jqlSearch.js</code>, used by <code>GET /api/issues?jql=</code></h4>
+
+<p>A regex scanner rather than a tokeniser: a single clause regex is run with <code>exec()</code> in a loop, <code>ORDER BY</code> is peeled off first, and the connective between two clauses is inferred by testing the intervening text for <code>OR</code>. Consequently <strong><code>NOT</code> is not supported and there are no parentheses or operator precedence</strong> &mdash; clauses fold strictly left to right.</p>
+
+<ul>
+  <li><strong>Fields</strong> (whitelist): <code>status, priority, assignee, reporter, type/issuetype, project, key, title, created, updated, due, start</code>. Notably absent: <code>sprint</code>, <code>labels</code>, <code>epic</code>, <code>text</code>.</li>
+  <li><strong>Operators:</strong> <code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>~</code> (compiles to <code>ILIKE '%v%'</code>), <code>IN</code>, <code>NOT IN</code>. <code>IS EMPTY</code> is <strong>not</strong> supported. <code>IN</code> with a literal list is <strong>rejected</strong> &mdash; it requires a function value.</li>
+  <li><strong>Functions:</strong> <code>currentUser()</code>, <code>membersOf(role)</code> and <code>linkedIssues(key)</code> (both DB-resolved and expanded into an <code>IN</code> list), plus the date functions <code>now()</code>, <code>startOfDay()</code>, <code>endOfDay()</code>, <code>startOfWeek()</code>, <code>endOfWeek()</code> and relative offsets such as <code>-7d</code>, <code>+3d</code>, <code>-2w</code>.</li>
+  <li><strong>History operators</strong> (JL-118): <code>field WAS value</code>, <code>field WAS IN (…)</code>, <code>field CHANGED</code>, compiled to a correlated <code>EXISTS</code> over <code>issue_history</code> against a second whitelist that <em>does</em> include <code>sprint</code> and <code>epic</code>.</li>
+</ul>
+
+<h4>Parser B &mdash; inline in <code>server/routes/filters.js</code>, used by <code>POST /api/filters/jql</code></h4>
+
+<p>A smaller and differently-shaped parser. It splits on <code>AND</code> only, so <strong><code>OR</code> is not supported at all</strong>. Its field map <em>does</em> include <code>sprint</code> and <code>summary</code> but excludes the date fields. It supports literal <code>IN (…)</code> lists and <code>IS EMPTY</code> / <code>IS NOT EMPTY</code> &mdash; both of which Parser A lacks &mdash; and multi-field <code>ORDER BY</code>, but no comparison operators and no functions whatsoever. This is the parser the frontend's <code>filterApi.js</code> calls.</p>
+
+<div class="ok">
+<p><strong>Both parsers are safe from SQL injection.</strong> Column names are drawn exclusively from whitelist maps and every user-supplied value is bound as a parameter. <code>jqlSearch.js</code> carries an explicit "safety contract" comment block and dedicated tests. The one raw interpolation, <code>ORDER BY ${order}</code> in <code>filters.js</code>, is constructed only from whitelisted column names plus a forced <code>ASC</code>/<code>DESC</code>.</p>
+</div>
+
+<h4>Natural-language search</h4>
+
+<p><code>POST /api/filters/ai-search</code> is labelled AI in the UI but <strong>performs no model call of any kind</strong>. There is no LLM SDK in <code>package.json</code> and no outbound HTTP request in the handler. <code>parseNaturalLanguage()</code> is a set of hardcoded substring maps (status, priority, type), regexes for assignee and quoted text, and ordering hints, which return an <code>interpreted</code> array of human-readable strings that the UI presents as an explanation. Known weaknesses in the heuristic: "my issues" and "assigned to me" are explicitly not handled; the bare word "issue" maps to type <code>Bug</code>; and a bare "high"/"medium"/"low" anywhere in the string sets priority.</p>
+
+<p><strong>Saved filters</strong> (<code>filters</code> table with JSONB criteria, private or shared visibility) support favouriting via <code>filter_favorites</code>. Owner-only update and delete.</p>
+
+<h3 id="mod-reports">3.7 Reporting and dashboards</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Endpoint</th><th>Computes</th></tr></thead>
+<tbody>
+<tr><td><code>GET /api/reports</code></td><td>Project overview and <strong>velocity</strong>: total points, mean completed points across sprints, completion rate, sprint progress, priority distribution, and a per-sprint committed-vs-completed trend. There is no separate <code>/velocity</code> endpoint.</td></tr>
+<tr><td><code>GET /api/reports/burndown</code></td><td>Per-day remaining work against a linear ideal, using the <code>sprint_scope</code> baseline and honouring mid-sprint scope add/remove. Unit selectable: points or issue count.</td></tr>
+<tr><td><code>GET /api/reports/burnup</code></td><td>Per-day scope line and completed line.</td></tr>
+<tr><td><code>GET /api/reports/cfd</code></td><td>Cumulative flow diagram. Reconstructs each issue's status as of end-of-day from <code>issue_history</code>. Returns per-day counts by status plus current WIP and average lead time. Range capped at 365 days.</td></tr>
+<tr><td><code>GET /api/reports/cycle-time</code></td><td>Cycle time (first In Progress &rarr; first Done) and lead time (created &rarr; first Done) per issue, plus p50/p85/p95 and mean. Only issues with a recorded Done transition are counted.</td></tr>
+<tr><td><code>GET /api/reports/sprint/:id</code></td><td>Sprint report classifying issues as completed, not completed, or removed (present in the committed snapshot but no longer in the sprint), with scope change after start.</td></tr>
+<tr><td><code>GET /api/reports/created-resolved</code></td><td>Per-day created vs first-resolved with running cumulative totals.</td></tr>
+<tr><td><code>GET|PUT /api/reports/capacity</code></td><td>Per-assignee committed points against configured capacity from <code>member_capacity</code>, with utilisation percentage.</td></tr>
+<tr><td><code>GET /api/projects/:id/reports/time-in-status</code><br><code>&hellip;/control-chart</code></td><td>Time spent per status derived from history intervals; control chart with rolling mean and standard deviation over a configurable window.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Every report supports CSV export through a shared <code>wantsCsv</code> / <code>sendCsv</code> helper with explicit column definitions.</p>
+
+<p><strong>Report builder</strong> (<code>reportBuilder.js</code>) exposes a dimension &times; measure &times; chart-type model, all validated against closed enumerations: dimensions <code>status, assignee, priority, issue_type, project, label</code> (label fans out, so one issue can land in several buckets); measures <code>count, sum_story_points, avg_cycle_time</code>; chart types <code>bar, line, pie, table</code>. Filters are equality-only over a restricted field set. Ad-hoc runs are always scoped to accessible projects (JL-187); saved reports are owner-scoped with no sharing.</p>
+
+<div class="warn">
+<p><code>avg_cycle_time</code> in the report builder is an approximation: it treats <code>updated_at</code> as the resolution time whenever status is Done or a resolution is set, rather than reading the actual transition timestamp from <code>issue_history</code> as <code>/api/reports/cycle-time</code> does. The two surfaces will disagree.</p>
+</div>
+
+<p><strong>Dashboards.</strong> <code>GET /api/dashboard</code> is a 32-line module returning global counts (total, in progress, completed, critical), the last five activity rows and the top four members by task count &mdash; <em>not</em> scoped to workspace or project. The gadget system (<code>dashboardGadgets.js</code>) offers a six-entry catalogue: <code>issue_count</code>, <code>issues_by_status</code>, <code>issues_by_assignee</code>, <code>issues_by_priority</code>, <code>recent_activity</code> and <code>filter_results</code>. Gadget layout is not stored by that module; it reuses the <code>shared_dashboards.layout</code> JSONB column as an array of positioned gadget descriptors.</p>
+
+<p><strong>Shared dashboards</strong> support CRUD plus clone, with private or public visibility, ownership checks on update, and access control on read.</p>
+
+<h3 id="mod-collab">3.8 Collaboration</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Feature</th><th>Implementation</th></tr></thead>
+<tbody>
+<tr><td><strong>Comments &amp; mentions</strong></td><td><code>comments</code> with edit timestamps and <code>comment_reactions</code> (emoji, unique per user). <code>@email</code> patterns are extracted on save into the <code>mentions</code> table and generate notifications. <code>MentionInput</code> provides autocomplete; <code>MentionText</code> renders mentions as clickable chips.</td></tr>
+<tr><td><strong>Notifications</strong></td><td>Three independent channels. <em>In-app:</em> <code>createNotification()</code> inserts a row and skips self-notification. <em>Email:</em> fire-and-forget, gated on a preferences row existing with email enabled and digest set to off. <em>Digest:</em> daily or weekly, watermarked by <code>last_digest_sent_at</code>, sending one email of unread items; if there is nothing new the watermark is deliberately left unmoved.</td></tr>
+<tr><td><strong>Live unread count</strong></td><td><code>GET /api/notifications/stream</code> is Server-Sent Events, but it is <strong>not event-pushed</strong>: the handler runs a five-second <code>setInterval</code> that re-queries the unread count. Only the count is streamed, never the notification payloads.</td></tr>
+<tr><td><strong>Watchers &amp; votes</strong></td><td>Watch/unwatch with auto-watch on issue create and on comment (<code>ON CONFLICT DO NOTHING</code>); watchers are notified on new comments. Votes are a composite-key toggle.</td></tr>
+<tr><td><strong>Activity feed</strong></td><td>Filterable by type, project, actor and date range, with cursor-based pagination (<code>nextCursor</code>/<code>hasMore</code>). The page uses an <code>IntersectionObserver</code> for infinite scroll.</td></tr>
+<tr><td><strong>Approvals</strong></td><td><code>approval_rules</code> define required approvals per status transition; <code>approvals</code> record individual decisions. See <a href="#wf-approval">6.3</a> &mdash; the gate is advisory and not enforced.</td></tr>
+<tr><td><strong>Project wiki</strong></td><td>Hierarchical markdown pages per project with full version history (a new <code>wiki_page_versions</code> row on every edit), case-insensitive full-text search over title and content, and bidirectional issue linking through <code>issue_wiki_links</code>. Mutations require workspace Member.</td></tr>
+<tr><td><strong>Knowledge base</strong></td><td>A second, separate content system: global <code>kb_categories</code> and <code>kb_articles</code> with slugs and draft/published status, intended as customer-facing. Overlaps conceptually with the wiki.</td></tr>
+<tr><td><strong>Realtime</strong></td><td>A <code>ws</code> WebSocket hub at <code>/ws</code>, authenticated by JWT in a query parameter (close code 4401 on failure). Clients join and leave rooms; presence is broadcast, deduplicated per user across tabs. <strong>Only <code>issue:&lt;id&gt;</code> rooms exist</strong>, with three publish call sites (issue updated, issue status changed, comment created), and the client is used on <code>IssueDetailPage</code> only. Board, backlog and active sprint do not receive live updates.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="mod-automation">3.9 Automation, webhooks and integrations</h3>
+
+<p><strong>Automation</strong> (<code>server/services/automation.js</code> + <code>automation.js</code> routes). Rules carry a trigger, an optional condition, an action, and an enabled flag, with per-execution logging to <code>automation_logs</code>. Triggers are <code>status_changed</code>, <code>comment_added</code> and <code>scheduled</code>; actions are <code>assign</code>, <code>transition</code>, <code>comment</code> and <code>notify</code>. Actions apply directly to the database and never re-invoke the engine, which is what keeps <code>transition</code> actions from looping. Definition CRUD is Admin-only.</p>
+
+<p><strong>Scheduler</strong> (<code>server/services/scheduler.js</code>). A single in-process <code>setInterval</code>, default 60 seconds, unref'd and guarded against double-start. Each tick runs due scheduled automation rules and then runs notification digests (piggybacked, JL-303). There is no cron library and no external job queue, so scheduled work is bound to a single process &mdash; which is why the pm2 configuration pins <code>instances: 1</code>.</p>
+
+<p><strong>Webhooks.</strong> Every endpoint is <code>requireRole('Admin')</code>. Outbound deliveries are signed with HMAC-SHA256 in an <code>X-Hub-Signature-256</code> header, retried with exponential backoff up to three attempts, and logged to <code>webhook_logs</code> with replay endpoints. Slack and Teams message templates are selected by webhook name. Secrets are never returned in GET responses.</p>
+
+<p><strong>Git and CI/CD.</strong> <code>git_links</code> records branches, commits and pull requests against issues; <code>ci_builds</code> and <code>deployments</code> record pipeline results. An unauthenticated <code>POST /api/git/webhook</code> ingests provider events, verified by HMAC only when <code>GIT_WEBHOOK_SECRET</code> is configured.</p>
+
+<p><strong>Marketplace and plugins.</strong> <code>marketplace_apps</code> / <code>installed_apps</code> model an app catalogue with per-workspace installation and JSONB configuration; <code>plugin_manifests</code> declares extension-point contributions consumed by <code>usePluginContributions</code>. Note that the nav-item contribution path is currently dead code (see <a href="#gaps-other">8.2</a>).</p>
+
+<p><strong>Inbound email.</strong> An unauthenticated endpoint guarded by a shared <code>INBOUND_EMAIL_TOKEN</code> creates or comments on issues from mail, with per-project mailbox settings and a delivery log.</p>
+
+<h3 id="mod-servicedesk">3.10 Service desk and ITSM</h3>
+
+<p>A substantial Jira Service Management analogue exists:</p>
+
+<ul>
+  <li><strong>Request types and portal</strong> &mdash; per-project request types with JSONB field definitions; <code>portal_requests</code> links a submitted request to the issue it created.</li>
+  <li><strong>Queues</strong> &mdash; saved filters with ordering and position, scoped to a project.</li>
+  <li><strong>SLAs</strong> &mdash; <code>sla_policies</code> per project and priority, targeting either response or resolution hours, with an SLA report.</li>
+  <li><strong>Incidents and on-call</strong> &mdash; incidents with severity <code>SEV1</code>&ndash;<code>SEV4</code> and a five-state status, a timeline of notes, and on-call schedules with shifts.</li>
+  <li><strong>Assets</strong> &mdash; a small CMDB: <code>asset_types</code>, <code>assets</code> with JSONB attributes and an owner, and an <code>issue_assets</code> junction.</li>
+</ul>
+
+<div class="warn">
+<p>Despite the naming, the customer-facing surfaces are not public. <code>GET /api/kb/public/articles</code> and <code>/api/kb/public/articles/:slug</code> are mounted <em>inside</em> the authenticated <code>protect</code> chain, as are all portal endpoints. An unauthenticated customer cannot reach the help centre or knowledge base at this commit.</p>
+</div>
+
+<h3 id="mod-admin">3.11 Administration and security</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Area</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td><strong>User management</strong></td><td>Member list with search and pagination, role editing, deactivate/reactivate, resend invite, bulk delete. Removing a member runs <code>revokeAccessFor()</code>: sets <code>users.status = 'Deactivated'</code>, deletes all <code>user_sessions</code> rows, and adds the address to the signup deny-list.</td></tr>
+<tr><td><strong>Invitations</strong></td><td>Token-based, 7-day TTL, Admin-only issue/list/resend/revoke. See <a href="#wf-signup">6.2</a>.</td></tr>
+<tr><td><strong>Signup deny-list</strong></td><td><code>blocked_signups</code>, unique on <code>LOWER(email)</code>, managed by three Admin-only endpoints. See <a href="#wf-signup">6.2</a>.</td></tr>
+<tr><td><strong>Security policy</strong></td><td>A singleton row (<code>CHECK (id = 1)</code>): require MFA, minimum password length, uppercase/number/symbol requirements, maximum password age. Enforced at signup, password change and login.</td></tr>
+<tr><td><strong>MFA</strong></td><td>TOTP via <code>server/services/totp.js</code>: setup, enable, disable and status endpoints; secret and enabled flag stored on <code>users</code>.</td></tr>
+<tr><td><strong>SSO</strong></td><td>OAuth provider callbacks, OIDC via <code>openid-client</code>, and SAML via <code>@node-saml/node-saml</code>, with identities recorded in <code>oauth_identities</code>.</td></tr>
+<tr><td><strong>SCIM 2.0</strong></td><td><code>/scim/v2/Users</code> and <code>/Groups</code> with full CRUD, authenticated by a shared <code>SCIM_TOKEN</code> bearer; returns 501 when the token is unset.</td></tr>
+<tr><td><strong>Sessions</strong></td><td><code>user_sessions</code> keyed by JWT <code>jti</code>, listed per user with individual and bulk revoke.</td></tr>
+<tr><td><strong>API tokens</strong></td><td>Hashed personal access tokens with a visible prefix, scopes, revocation and last-used tracking; consumed by the <code>/api/public</code> router.</td></tr>
+<tr><td><strong>Audit log</strong></td><td>Tamper-evident hash chain &mdash; see <a href="#nfr-obs">7.6</a>. Admin-only list, verify, export and retention endpoints. A separate <code>user_audit_log</code> records member-management actions with before/after values.</td></tr>
+<tr><td><strong>Schemes</strong></td><td>Permission schemes with grants, and notification schemes with per-event rules, assignable per project. Seeded with sensible defaults at boot.</td></tr>
+<tr><td><strong>Issue security levels</strong></td><td><code>security_levels</code> plus <code>issues.security_level_id</code>, filtered through <code>server/services/issueSecurity.js</code> (<code>canViewIssue</code>).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="mod-importexport">3.12 Import, export and BI</h3>
+
+<p><strong>Project export</strong> (<code>GET /api/projects/:id/export?format=csv|json</code>) streams a downloadable file; <strong>import</strong> (<code>POST /api/projects/:id/import</code>) accepts column mapping with validation and a dry-run preview before committing, generating issue keys sequentially on commit. Both are reached from the <code>ImportExportModal</code> in the backlog toolbar. Export is gated on <code>canExportIssues</code> (Viewer and above); import requires project write.</p>
+
+<p><strong>BI export</strong> (<code>GET /api/bi/schema</code>, <code>/bi/export/issues</code>, <code>/bi/export/dimensions/:name</code>) offers an Admin-only star-schema extract for external analytics tools.</p>
+
+<p>Because <code>src/api/client.js</code> always parses responses as JSON, every binary or large download bypasses it and issues a raw <code>fetch</code> with a hand-built Authorization header &mdash; in <code>attachmentApi</code>, <code>auditLogApi</code>, <code>biExportApi</code>, <code>dashboardApi</code>, <code>importExportApi</code> and <code>worklogApi</code>. A side effect is that these calls do not receive the global 403 handling or the <code>X-Workspace-Id</code> header.</p>
+
+<!-- ==================================================================== -->
+<h2 id="data">4. Data model <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="data-mechanics">4.1 Access layer mechanics</h3>
+
+<p>The entire schema lives in one file, <code>server/db.js</code> (2,216 lines), containing 105 <code>CREATE TABLE IF NOT EXISTS</code> statements. There is no migrations directory and no migration framework.</p>
+
+<ul>
+  <li><strong>Connection pool</strong> &mdash; <code>pg.Pool</code> with <code>max: 10</code>, 30 s idle timeout, 5 s connection timeout. An <code>error</code> handler logs unexpected idle-client failures rather than crashing.</li>
+  <li><strong><code>convertPlaceholders(sql)</code></strong> &mdash; a SQLite-compatibility shim that rewrites <code>?</code> to <code>$1, $2, &hellip;</code> left to right, tracking a naive in-string toggle so that <code>?</code> inside single-quoted literals is skipped. Route files throughout the codebase still write <code>?</code>; the conversion is transparent.</li>
+  <li><strong><code>run()</code></strong> &mdash; auto-appends <code>RETURNING id</code> to any INSERT that lacks a <code>RETURNING</code> clause, and returns a SQLite-shaped <code>{ lastID, changes }</code>. Tables without an <code>id</code> column must therefore supply their own <code>RETURNING &lt;col&gt;</code>; the codebase does this consistently for <code>issue_labels</code>, <code>issue_components</code>, <code>issue_assets</code>, <code>issue_votes</code>, <code>scim_group_members</code> and <code>workspace_settings</code>.</li>
+  <li><strong><code>withTransaction(fn)</code></strong> &mdash; checks out one client, <code>BEGIN</code>, runs the callback with a transaction-bound <code>{run, get, all}</code>, then <code>COMMIT</code> or <code>ROLLBACK</code>. The transaction-bound <code>run</code> duplicates the <code>RETURNING id</code> logic verbatim rather than sharing it.</li>
+  <li><strong><code>columnExists()</code> / <code>tableExists()</code></strong> &mdash; <code>information_schema</code> lookups that drive the whole migration strategy.</li>
+</ul>
+
+<h4>Migration approach</h4>
+
+<p><code>initializeDatabase()</code> is not a versioned runner. It is a single idempotent "converge the schema" function executed on every boot, using four patterns: <code>CREATE TABLE IF NOT EXISTS</code>; guarded <code>ALTER TABLE &hellip; ADD COLUMN</code> behind a <code>columnExists()</code> check (with newer code using native <code>ADD COLUMN IF NOT EXISTS</code>); drop-then-re-add for CHECK constraints; and post-hoc foreign keys guarded by an <code>information_schema</code> lookup for cases where table creation order forbids an inline declaration.</p>
+
+<p>Also embedded in the boot path are idempotent seeds (global priorities and statuses, default issue-type scheme, default permission and notification schemes, the singleton security policy, the <code>default</code> workspace) and data-repair migrations (legacy status colour remap, workspace-member healing, workflow de-duplication, issue-counter backfill).</p>
+
+<p>A <code>schema_migrations</code> ledger table and a <code>runMigration(version, name, fn)</code> helper exist in <code>server/services/migrations.js</code>, but only a single <code>'baseline'</code> row is ever written &mdash; the helper has no callers.</p>
+
+<div class="warn">
+<p><strong>Two caveats worth noting.</strong> First, <code>convertPlaceholders</code> handles escaping only as <code>sql[i-1] !== '\\'</code>; it does not understand SQL-standard doubled-quote escapes (<code>''</code>), dollar-quoted strings, or <code>--</code> and <code>/* */</code> comments, so an apostrophe inside a comment would flip the in-string state for the remainder of the statement. Second, the <code>SIGINT</code>/<code>SIGTERM</code> handlers call <code>pool.end()</code> without awaiting it before <code>process.exit(0)</code>, so in-flight queries are not drained on shutdown.</p>
+</div>
+
+<h3 id="data-core">4.2 Core entities</h3>
+
+<h4>issues</h4>
+
+<div class="tw">
+<table>
+<thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>SERIAL</td><td>Primary key.</td></tr>
+<tr><td><code>issue_key</code></td><td>TEXT NOT NULL</td><td>Unique via the index <code>idx_issues_issue_key</code>, not a table constraint.</td></tr>
+<tr><td><code>title</code>, <code>description</code></td><td>TEXT NOT NULL</td><td>Description is markdown.</td></tr>
+<tr><td><code>issue_type</code></td><td>TEXT NOT NULL</td><td>Live CHECK: <code>Epic, Story, Bug, Task, Sub-task</code>.</td></tr>
+<tr><td><code>status</code>, <code>priority</code></td><td>TEXT NOT NULL</td><td>CHECK constraints <strong>dropped</strong> (JL-78); now validated at the route layer against <code>issue_statuses</code> / <code>issue_priorities</code>.</td></tr>
+<tr><td><code>assignee</code>, <code>reporter</code></td><td>TEXT</td><td>Free text, <strong>not</strong> foreign keys.</td></tr>
+<tr><td><code>project_id</code></td><td>INTEGER</td><td>&rarr; <code>projects(id)</code> <strong>SET NULL</strong>.</td></tr>
+<tr><td><code>sprint_id</code></td><td>INTEGER</td><td>&rarr; <code>sprints(id)</code> <strong>SET NULL</strong>.</td></tr>
+<tr><td><code>parent_id</code></td><td>INTEGER</td><td>&rarr; <code>issues(id)</code> <strong>CASCADE</strong>. Sub-task parent.</td></tr>
+<tr><td><code>epic_id</code></td><td>INTEGER</td><td>&rarr; <code>issues(id)</code> <strong>SET NULL</strong>. Epic membership.</td></tr>
+<tr><td><code>release_id</code></td><td>INTEGER</td><td>&rarr; <code>releases(id)</code> <strong>SET NULL</strong>.</td></tr>
+<tr><td><code>security_level_id</code></td><td>INTEGER</td><td>&rarr; <code>security_levels(id)</code> <strong>SET NULL</strong>.</td></tr>
+<tr><td><code>story_points</code></td><td>INTEGER</td><td>See the note below &mdash; intended to be NUMERIC.</td></tr>
+<tr><td><code>original_estimate_minutes</code></td><td>INTEGER</td><td>Time-tracking baseline.</td></tr>
+<tr><td><code>due_date</code>, <code>start_date</code></td><td>DATE</td><td></td></tr>
+<tr><td><code>resolution</code>, <code>environment</code>, <code>components</code></td><td>TEXT</td><td><code>components</code> is a legacy comma-separated list.</td></tr>
+<tr><td><code>flagged</code></td><td>BOOLEAN NOT NULL</td><td>Default false.</td></tr>
+<tr><td><code>created_at</code>, <code>updated_at</code></td><td>TIMESTAMPTZ</td><td><code>updated_at</code> is nullable.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>There is <strong>no <code>workspace_id</code> on <code>issues</code></strong>; tenant isolation is transitive through <code>project_id &rarr; projects.workspace_id</code>. Indexes exist on project, sprint, parent, epic, release, status, assignee, priority and updated_at.</p>
+
+<div class="warn">
+<p><strong>Latent defect.</strong> A later block intends to widen <code>story_points</code> to <code>NUMERIC</code> ("JIRA allows decimals"), but it is guarded by <code>if (!(await columnExists('issues','story_points')))</code> &mdash; and the column was already added as <code>INTEGER</code> earlier in the same run. The NUMERIC branch is unreachable, so story points are integer-only, contradicting both the comment and <code>team_capacity.capacity_points NUMERIC</code>.</p>
+</div>
+
+<h4>Identity, workspace and project</h4>
+
+<div class="tw">
+<table>
+<thead><tr><th>Table</th><th>Important columns</th><th>Keys and FKs</th></tr></thead>
+<tbody>
+<tr>
+<td><code>users</code></td>
+<td><code>email</code>, <code>password_hash</code>, <code>status</code> (Active/Invited/Deactivated), <code>mfa_secret</code>, <code>mfa_enabled</code>, <code>active</code>, <code>display_name</code>, <code>scim_external_id</code>, <code>password_changed_at</code></td>
+<td><code>email</code> UNIQUE. No outbound FKs. Auth only &mdash; no workspace column.</td>
+</tr>
+<tr>
+<td><code>members</code></td>
+<td><code>name</code>, <code>email</code>, <code>role</code>, <code>status</code>, <code>task_count</code>, <code>invited_by</code>, <code>is_owner</code></td>
+<td><code>workspace_id</code> &rarr; <code>workspaces</code> <strong>SET NULL</strong>. <code>email</code> is <strong>not</strong> unique, only indexed. This is the workspace-scoped directory.</td>
+</tr>
+<tr>
+<td><code>workspaces</code></td>
+<td><code>name</code>, <code>slug</code>, <code>owner_email</code></td>
+<td><code>slug</code> UNIQUE. Seeded with <code>default</code>.</td>
+</tr>
+<tr>
+<td><code>workspace_members</code></td>
+<td><code>member_email</code> (denormalised), <code>role</code></td>
+<td><code>workspace_id</code> &rarr; <code>workspaces</code> <strong>CASCADE</strong>; UNIQUE <code>(workspace_id, member_email)</code>.</td>
+</tr>
+<tr>
+<td><code>projects</code></td>
+<td><code>name</code>, <code>key</code>, <code>type</code>, <code>lead</code>, <code>avatar_color</code>, <code>issue_counter</code>, <code>allow_parallel_sprints</code>, <code>archived_at</code></td>
+<td><code>key</code> UNIQUE <strong>globally</strong>. <code>lead_member_id</code> &rarr; <code>members</code> SET NULL; <code>permission_scheme_id</code>, <code>notification_scheme_id</code> SET NULL; <code>workspace_id</code> &rarr; <code>workspaces</code> SET NULL.</td>
+</tr>
+<tr>
+<td><code>project_members</code></td>
+<td><code>role</code>, <code>assigned_at</code></td>
+<td><code>project_id</code> and <code>member_id</code> both <strong>CASCADE</strong>; UNIQUE <code>(project_id, member_id)</code>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="bad">
+<p><code>projects.key</code> is unique <strong>globally, not per workspace</strong>. Two workspaces cannot both own a project keyed <code>DEV</code>. Combined with the absence of <code>project_id</code> on <code>sprints</code>, this is the structural reason multi-tenancy does not hold.</p>
+</div>
+
+<h4>Enumerations enforced by CHECK constraints</h4>
+
+<p>Roles are <strong>never</strong> CHECK-constrained &mdash; <code>members.role</code>, <code>project_members.role</code>, <code>workspace_members.role</code>, <code>permission_grants.role</code> and <code>approval_rules.approver_role</code> are all plain TEXT, with the vocabulary living only in application code. The constrained enumerations are:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Column</th><th>Allowed values</th></tr></thead>
+<tbody>
+<tr><td><code>issues.issue_type</code></td><td>Epic, Story, Bug, Task, Sub-task</td></tr>
+<tr><td><code>invitations.status</code></td><td>pending, accepted, revoked</td></tr>
+<tr><td><code>approvals.decision</code></td><td>approved, rejected, pending</td></tr>
+<tr><td><code>custom_fields.field_type</code></td><td>text, number, date, dropdown, multi_select, labels, user_picker, cascading_select, calculated</td></tr>
+<tr><td><code>issue_statuses.category</code></td><td>todo, inprogress, done</td></tr>
+<tr><td><code>releases.status</code></td><td>unreleased, released</td></tr>
+<tr><td><code>goals.status</code></td><td>on_track, at_risk, off_track, done</td></tr>
+<tr><td><code>issue_versions.type</code></td><td>fix, affects</td></tr>
+<tr><td><code>git_links.link_type</code></td><td>branch, commit, pull_request</td></tr>
+<tr><td><code>ci_builds.status</code></td><td>pending, running, success, failed, canceled</td></tr>
+<tr><td><code>sprint_retros.category</code></td><td>well, improve, action</td></tr>
+<tr><td><code>kb_articles.status</code></td><td>draft, published</td></tr>
+<tr><td><code>incidents.severity</code> / <code>.status</code></td><td>SEV1&ndash;SEV4 / open, investigating, identified, monitoring, resolved</td></tr>
+<tr><td><code>sla_policies.applies_to</code></td><td>resolution, response</td></tr>
+<tr><td><code>email_log.status</code></td><td>sent, failed, skipped</td></tr>
+<tr><td><code>security_policy.id</code></td><td><code>id = 1</code> &mdash; singleton guard</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="data-inventory">4.3 Table inventory by domain</h3>
+
+<p>105 tables in total. Listed by functional grouping; the core entities above are not repeated in detail.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Domain</th><th>Count</th><th>Tables</th></tr></thead>
+<tbody>
+<tr>
+<td>Identity, auth, workspace</td><td>13</td>
+<td><code>schema_migrations, users, members, workspaces, workspace_members, workspace_settings, profile, password_reset_tokens, invitations, oauth_identities, user_sessions, blocked_signups, api_tokens</code></td>
+</tr>
+<tr>
+<td>Projects and project configuration</td><td>11</td>
+<td><code>projects, project_members, project_favorites, components, labels, releases, custom_fields, field_configurations, screen_schemes, screen_scheme_fields, issue_type_schemes</code></td>
+</tr>
+<tr>
+<td>Issues and issue metadata</td><td>16</td>
+<td><code>issues, issue_history, issue_links, issue_labels, issue_components, issue_versions, issue_custom_field_values, issue_priorities, issue_statuses, attachments, worklogs, issue_votes, watchers, security_levels, issue_wiki_links, issue_assets</code></td>
+</tr>
+<tr>
+<td>Agile: sprints, boards, capacity, roadmap</td><td>13</td>
+<td><code>sprints, sprint_scope, sprint_retros, sprint_templates, member_capacity, team_capacity, board_configs, cross_project_boards, roadmap_epics, roadmap_dependencies, goals, key_results, list_views</code></td>
+</tr>
+<tr>
+<td>Workflow, automation, approvals</td><td>8</td>
+<td><code>workflows, workflow_transitions, project_workflows, approval_rules, approvals, automation_rules, automation_logs, sla_policies</code></td>
+</tr>
+<tr>
+<td>Collaboration</td><td>14</td>
+<td><code>comments, comment_reactions, mentions, notifications, notification_preferences, notification_schemes, notification_rules, activity, wiki_pages, wiki_page_versions, filters, filter_favorites, shared_dashboards, saved_reports</code></td>
+</tr>
+<tr>
+<td>Admin, security, audit</td><td>8</td>
+<td><code>permission_schemes, permission_grants, security_policy, audit_log, audit_checkpoint, user_audit_log, scim_groups, scim_group_members</code></td>
+</tr>
+<tr>
+<td>Service desk / ITSM</td><td>11</td>
+<td><code>queues, request_types, portal_requests, incidents, incident_timeline, oncall_schedules, oncall_shifts, asset_types, assets, kb_categories, kb_articles</code></td>
+</tr>
+<tr>
+<td>Integrations and extensibility</td><td>11</td>
+<td><code>webhooks, webhook_logs, git_links, ci_builds, deployments, marketplace_apps, installed_apps, plugin_manifests, inbound_email_settings, inbound_email_log, email_log</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h4>Relationships that matter</h4>
+
+<ul>
+  <li><code>workspaces</code> 1&mdash;N <code>projects</code> (SET NULL) and 1&mdash;N <code>members</code> (SET NULL); <code>workspace_members</code> is a parallel email-keyed membership table healed from <code>members</code> at boot.</li>
+  <li><code>projects</code> 1&mdash;N <code>issues</code> (SET NULL, so deleting a project orphans rather than removes its issues), and CASCADE-parents almost all project configuration: labels, components, releases, custom fields, board config, queues, request types, workflow transitions, automation rules, goals, wiki pages.</li>
+  <li><code>issues</code> CASCADE-parents every detail table &mdash; comments, history, attachments, worklogs, links, votes, watchers, and all junctions. Deleting an issue removes its entire subtree. <code>activity.issue_id</code> is SET NULL so the feed survives.</li>
+  <li><code>issues</code> self-references twice: <code>parent_id</code> (CASCADE, sub-tasks) and <code>epic_id</code> (SET NULL, epic membership).</li>
+  <li><code>sprints</code> has <strong>no</strong> parent. <code>sprint_scope</code> and <code>sprint_retros</code> CASCADE from it; <code>issues.sprint_id</code> is SET NULL.</li>
+</ul>
+
+<h3 id="data-integrity">4.4 Referential integrity and delete behaviour</h3>
+
+<p>The delete-behaviour policy is consistent by intent: <strong>child and detail rows CASCADE</strong>, while <strong>classification references SET NULL</strong> (project, sprint, epic, release and security level on an issue; scheme on a project; workspace on a project or member). There is <strong>no <code>RESTRICT</code> anywhere in the schema</strong> &mdash; nothing blocks a delete.</p>
+
+<div class="warn">
+<p><strong>Referential integrity is uneven.</strong> Roughly half the relationships in the system are real foreign keys; the rest are string joins on email or name with no constraint at all. <code>issues.assignee</code>, <code>issues.reporter</code>, <code>comments.author</code>, <code>worklogs.author</code>, <code>watchers.user_email</code>, <code>workspace_members.member_email</code>, <code>filters.owner_email</code>, <code>saved_reports.owner_email</code>, <code>incidents.commander_email</code> and <code>oncall_shifts.user_email</code> are all denormalised text. Renaming or deleting a person leaves dangling references throughout. <code>user_audit_log.target_member_id</code> is a deliberate exception &mdash; a bare integer so the audit row survives member deletion.</p>
+</div>
+
+<p><strong>JSONB is used heavily as a schema escape hatch</strong>, across at least 22 columns including <code>filters.criteria</code>, <code>shared_dashboards.layout</code>, <code>webhooks.events</code>, <code>board_configs.{wip_limits, quick_filters, columns}</code>, <code>workflow_transitions.{validators, post_functions}</code>, <code>issue_type_schemes.allowed_types</code>, <code>request_types.fields</code>, <code>assets.attributes</code>, <code>queues.filter</code>, <code>cross_project_boards.{project_ids, filter}</code> and <code>audit_log.metadata</code>. Notably <code>cross_project_boards.project_ids</code> holds project references in JSONB with no enforcement.</p>
+
+<h4>Overlapping concepts</h4>
+
+<p>Several concepts are modelled twice, which is worth knowing before extending the schema:</p>
+
+<ul>
+  <li><code>issues.components</code> (CSV text) vs <code>components</code> + <code>issue_components</code>.</li>
+  <li><code>roadmap_epics</code> (standalone) vs <code>issue_type = 'Epic'</code> + <code>issues.epic_id</code>.</li>
+  <li><code>workflows</code> (legacy flat) vs <code>workflow_transitions</code> + <code>project_workflows</code> + <code>issue_statuses</code>.</li>
+  <li><code>wiki_pages</code> (internal, project-scoped) vs <code>kb_articles</code> (customer-facing, global).</li>
+  <li><code>member_capacity</code> (per assignee per sprint) vs <code>team_capacity</code> (per team per period).</li>
+  <li><strong>Four overlapping audit trails:</strong> <code>activity</code>, <code>issue_history</code>, <code>user_audit_log</code> and <code>audit_log</code>.</li>
+</ul>
+
+<!-- ==================================================================== -->
+<h2 id="api">5. API surface <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="api-pipeline">5.1 Request pipeline</h3>
+
+<p><code>server/index.js</code> asserts required environment variables and validates configuration before wiring anything, exiting non-zero on failure. Global middleware is applied in this order:</p>
+
+<ol>
+  <li><code>requestLogger</code> &mdash; correlation id and structured logging (JL-98).</li>
+  <li><code>securityHeaders</code> &mdash; CSP and related hardening (JL-91).</li>
+  <li><code>corsAllowList</code> &mdash; credentialed CORS; an empty allow-list is permissive, which is the development default (JL-93).</li>
+  <li><code>ipAllowlist</code> &mdash; no-op when unconfigured (JL-133).</li>
+  <li><code>express.json({ limit: '25mb' })</code> with a <code>verify</code> hook that retains <code>req.rawBody</code> for webhook HMAC verification (JL-188).</li>
+  <li><code>rateLimit</code> on <code>/api</code>, with a second tighter limiter layered on <code>/api/auth</code>.</li>
+</ol>
+
+<p>Authenticated routers are mounted behind a three-middleware chain:</p>
+
+<pre><code>const protect = [authGuard, loadUserRoles, resolveWorkspace]</code></pre>
+
+<p><code>authGuard</code> verifies the JWT and sets <code>req.user = { id, email }</code>; <code>loadUserRoles</code> adds <code>memberId</code>, <code>workspaceRole</code> and <code>isOwner</code>; <code>resolveWorkspace</code> sets <code>req.workspaceId</code> from the <code>X-Workspace-Id</code> header or the default. <code>resolveWorkspace</code> is deliberately best-effort and never rejects a request.</p>
+
+<p>After all routers, static serving is conditionally installed (see <a href="#nfr-deploy">7.5</a>) and finally the shared <code>errorHandler</code>. On listen, the scheduler starts (skipped under test) and the WebSocket hub is attached to the HTTP server.</p>
+
+<div class="note">
+<p><strong>No role or workspace middleware is applied at mount time anywhere.</strong> Every mount is either public or <code>app.use(path, ...protect, router)</code>. All role enforcement happens per-route inside the router files, which is why coverage varies so much between modules.</p>
+</div>
+
+<h3 id="api-guards">5.2 Guard vocabulary</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Guard</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><em>(none)</em></td><td>Public. No authentication of any kind, or a shared-secret token checked in the handler body.</td></tr>
+<tr><td><code>protect</code></td><td>Valid JWT required. Any authenticated user, regardless of role or project membership.</td></tr>
+<tr><td><code>requireRole('Member')</code></td><td>Workspace rank &ge; Member. Owner bypasses.</td></tr>
+<tr><td><code>requireRole('Admin')</code></td><td>Workspace rank &ge; Admin. Owner bypasses.</td></tr>
+<tr><td><code>requireProjectRead</code></td><td>Workspace Admin/Owner, or explicit project membership/lead. Unresolvable project falls through.</td></tr>
+<tr><td><code>requireProjectWrite</code></td><td>As above, plus effective rank &ge; Member. Unresolvable project falls back to the workspace-role gate.</td></tr>
+<tr><td><code>loadProjectRole + requireProjectRole('Admin')</code></td><td>Project rank &ge; Admin. Workspace Admin/Owner bypass.</td></tr>
+<tr><td><code>apiTokenAuth</code> / <code>scimAuth</code></td><td>Bearer authentication against hashed API tokens or a shared SCIM token, not JWT.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="api-groups">5.3 Route groups</h3>
+
+<p>Summarised by domain. Where a group has mixed guards, the dominant pattern is given with exceptions noted. Routers marked "bare <code>/api</code>" declare absolute sub-paths internally (for example <code>/projects/:id/labels</code>).</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Domain</th><th>Mount</th><th>Reads</th><th>Writes</th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Auth</strong> <code>auth.js</code></td><td><code>/api/auth</code></td>
+<td>Public: signup, login, forgot/reset password, OAuth and SSO callbacks. <code>authGuard</code>: <code>/me</code>, MFA status.</td>
+<td>Public or <code>authGuard</code>. Tighter rate limit applies to the whole group.</td>
+</tr>
+<tr>
+<td><strong>Self-service</strong> <code>profile, sessions, apiTokens</code></td><td><code>/api/profile</code>, <code>/api/sessions</code>, <code>/api/api-tokens</code></td>
+<td><code>protect</code>, self-scoped.</td><td><code>protect</code>, self-scoped.</td>
+</tr>
+<tr>
+<td><strong>Workspace &amp; members</strong></td><td><code>/api/workspaces</code>, <code>/api/workspace</code>, <code>/api/members</code>, <code>/api/invitations</code></td>
+<td><code>protect</code> for lists and current-workspace reads.</td>
+<td><code>requireRole('Admin')</code> for settings, member CRUD and invitation issue/resend/revoke. Invitation lookup and accept by token are <code>protect</code>-only by design.</td>
+</tr>
+<tr>
+<td><strong>Projects</strong> <code>projects.js</code></td><td><code>/api/projects</code></td>
+<td><code>requireProjectRead</code> on <code>/:id</code> and <code>/:id/members</code>; list is <code>protect</code> and self-scoped.</td>
+<td><code>loadProjectRole + requireProjectRole('Admin')</code> for update, delete, archive and membership. Create is gated by the <code>project_creation_policy</code> setting.</td>
+</tr>
+<tr>
+<td><strong>Issues</strong> <code>issues, comments, attachments, issueLinks, worklogs</code></td><td><code>/api/issues</code>, bare <code>/api</code></td>
+<td><code>requireProjectRead</code>. The list endpoint applies accessible-project scoping inline (JL-225).</td>
+<td><code>requireProjectWrite</code>. <strong>Exception:</strong> <code>POST /api/issues/bulk</code> carries <code>protect</code> only.</td>
+</tr>
+<tr>
+<td><strong>Issue metadata</strong> <code>labels, customFields, components, votes, watchers, securityLevels</code></td><td>bare <code>/api</code>, <code>/api/issues</code></td>
+<td><strong><code>protect</code> only</strong> in most cases &mdash; see <a href="#gaps-jl314">8.1.6</a>.</td>
+<td>Mixed: <code>requireProjectWrite</code> for labels and custom-field values; <code>requireRole('Admin')</code> for definitions; <code>protect</code> only for votes and watchers.</td>
+</tr>
+<tr>
+<td><strong>Sprints &amp; boards</strong> <code>sprints, boardConfig, crossProjectBoards</code></td><td><code>/api/sprints</code>, <code>/api/cross-project-boards</code>, bare <code>/api</code></td>
+<td><code>protect</code>.</td>
+<td><code>requireRole('Admin')</code> for sprint lifecycle and board config; <code>requireRole('Member')</code> for retros and cross-project boards.</td>
+</tr>
+<tr>
+<td><strong>Roadmap, releases, goals</strong></td><td><code>/api/roadmap</code>, bare <code>/api</code></td>
+<td><code>protect</code>.</td>
+<td><code>requireRole('Admin')</code> for roadmap dependencies and capacity; <code>requireRole('Member','Admin')</code> for releases and goals, with delete Admin-only.</td>
+</tr>
+<tr>
+<td><strong>Workflow &amp; configuration</strong> <code>workflows, workflowTransitions, workflowDefinitions, issueConfig, issueTypeSchemes, fieldConfig, screenSchemes, schemes, automation</code></td><td><code>/api/workflows</code>, bare <code>/api</code></td>
+<td><code>protect</code>.</td>
+<td><strong><code>requireRole('Admin')</code> throughout.</strong> This is the most consistently gated area of the API.</td>
+</tr>
+<tr>
+<td><strong>Search &amp; filters</strong> <code>filters, listViews</code></td><td><code>/api/filters</code>, <code>/api/list-views</code></td>
+<td><code>protect</code> only, including <code>/jql</code>, <code>/search</code> and <code>/ai-search</code>.</td>
+<td><code>protect</code>, owner-scoped.</td>
+</tr>
+<tr>
+<td><strong>Reporting</strong> <code>reports, reportBuilder, timeInStatusReports, portfolio, dashboard, dashboardGadgets, shared-dashboards</code></td><td><code>/api/reports</code>, <code>/api/dashboard</code>, <code>/api/shared-dashboards</code>, bare <code>/api</code></td>
+<td><code>protect</code> only. Report-builder runs and the portfolio summary apply accessible-project scoping internally; the classic report endpoints do not.</td>
+<td><code>requireRole('Member','Admin')</code> for capacity; <code>requireRole('Member')</code> for dashboard create and clone.</td>
+</tr>
+<tr>
+<td><strong>Collaboration</strong> <code>notifications, activity, approvals, wiki, kb</code></td><td><code>/api/notifications</code>, <code>/api/activity</code>, <code>/api/approvals</code>, <code>/api/wiki</code>, bare <code>/api</code></td>
+<td><code>protect</code>.</td>
+<td><code>protect</code> for notification preferences and approval decisions; <code>requireRole('Member')</code> for wiki mutations; <code>requireRole('Admin')</code> for approval rules, KB content and mail test.</td>
+</tr>
+<tr>
+<td><strong>Webhooks</strong> <code>webhooks.js</code></td><td><code>/api/webhooks</code></td>
+<td colspan="2"><strong>Every endpoint <code>requireRole('Admin')</code></strong>, including reads and delivery logs. Secrets are never returned.</td>
+</tr>
+<tr>
+<td><strong>Integrations</strong> <code>gitIntegration, cicd, marketplace, plugins, inboundEmail, events</code></td><td>bare <code>/api</code>, <code>/api/plugins</code>, <code>/api/events</code></td>
+<td><code>protect</code>.</td>
+<td><code>requireRole('Member')</code> for git-link and CI ingestion; <code>requireRole('Admin')</code> for app install, plugin management and inbound-email settings.</td>
+</tr>
+<tr>
+<td><strong>Service desk</strong> <code>portal, queues, sla, incidents, assets</code></td><td>bare <code>/api</code></td>
+<td><code>protect</code> only.</td>
+<td>Mixed: <code>requireRole('Admin')</code> for request-type, SLA, on-call schedule and asset-type definitions; <code>requireRole('Member')</code> for issue-asset link/unlink (JL-316); <code>protect</code> only for queue CRUD and incident create/update.</td>
+</tr>
+<tr>
+<td><strong>Administration</strong> <code>auditLog, securityPolicy, blockedSignups, emailLog, workspaceSettings, biExport</code></td><td>bare <code>/api</code>, <code>/api/workspace</code></td>
+<td colspan="2"><code>requireRole('Admin')</code> throughout, except <code>GET /api/workspace/settings</code> and <code>GET /api/security-policy</code> which are <code>protect</code>.</td>
+</tr>
+<tr>
+<td><strong>Import/export</strong> <code>importExport.js</code></td><td>bare <code>/api</code></td>
+<td><code>requireProjectRead</code>.</td><td><code>requireProjectWrite</code>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="api-public">5.4 Unauthenticated surface</h3>
+
+<p>Seven mount points sit outside the <code>protect</code> chain. Each is listed with its actual protection.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Endpoint</th><th>Protection</th><th>Assessment</th></tr></thead>
+<tbody>
+<tr><td><code>GET /api/health</code>, <code>GET /api/ready</code></td><td>None</td><td>Intentional liveness and readiness probes.</td></tr>
+<tr><td><code>POST /api/auth/signup|login|forgot-password|reset-password</code>, OAuth and SSO callbacks</td><td>None, plus a tighter rate limiter</td><td>Necessarily public.</td></tr>
+<tr><td><code>GET /api/openapi.json</code>, <code>GET /api/docs</code></td><td>None</td><td>The full API schema is exposed to anonymous callers.</td></tr>
+<tr><td><code>/api/public/*</code></td><td><code>apiTokenAuth</code> + <code>requireScope('read')</code></td><td>Token-authenticated, but <strong>not project-scoped</strong>: any valid read token lists all projects and issues.</td></tr>
+<tr><td><code>POST /api/inbound-email</code></td><td>Shared <code>INBOUND_EMAIL_TOKEN</code> checked in the handler</td><td>Shared-secret, not per-sender.</td></tr>
+<tr><td><code>POST /api/git/webhook</code></td><td>HMAC over <code>req.rawBody</code> using <code>GIT_WEBHOOK_SECRET</code></td><td>Verified <strong>only when the secret is configured</strong>; unconfigured means unauthenticated.</td></tr>
+<tr><td><code>/scim/v2/Users</code>, <code>/Groups</code> (all verbs)</td><td>Shared <code>SCIM_TOKEN</code> bearer</td><td>Full user and group CRUD behind one static token; returns 501 when unset.</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================================================================== -->
+<h2 id="workflows">6. Key workflows <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="wf-lifecycle">6.1 Issue lifecycle</h3>
+
+<p>Two status vocabularies coexist.</p>
+
+<p><strong>The legacy default</strong>, declared in <code>src/constants.js</code>:</p>
+
+<pre><code>Backlog  ->  To Do  ->  In Progress  ->  Code Review  ->  Done</code></pre>
+
+<p><strong>The QA Lifecycle template</strong>, the only template in <code>server/services/workflowTemplates.js</code> and the one now seeded into projects lacking a workflow (JL-334). Its eight states, with board category:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>State</th><th>Category</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td>Backlog</td><td>todo</td><td>Initial status.</td></tr>
+<tr><td>To Do</td><td>todo</td><td>Committed, not started.</td></tr>
+<tr><td>In Progress</td><td>inprogress</td><td>Under development.</td></tr>
+<tr><td>In Testing</td><td>inprogress</td><td>With QA.</td></tr>
+<tr><td>In Rework</td><td>inprogress</td><td>Defect found; returning to development.</td></tr>
+<tr><td>In UAT</td><td>inprogress</td><td>User acceptance testing.</td></tr>
+<tr><td>Done</td><td>done</td><td>Terminal.</td></tr>
+<tr><td>Cancelled</td><td>done</td><td>Terminal.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Eight explicit transitions are defined:</p>
+
+<pre><code>Backlog      -> To Do
+To Do        -> In Progress
+In Progress  -> In Testing
+In Testing   -> In UAT         (no defect)
+In Testing   -> In Rework      (defect found in testing)
+In Rework    -> In Progress    (rework re-enters development)
+In UAT       -> Done           (no defect in UAT)
+In UAT       -> In Rework      (defect found in UAT)</code></pre>
+
+<p>The template sets <code>initialStatus: 'Backlog'</code>, <code>terminalStatuses: ['Done', 'Cancelled']</code>, and <code>cancelFromAny: true</code> with <code>cancelStatus: 'Cancelled'</code>. Cancel edges are therefore <em>not</em> enumerated &mdash; the engine synthesises a transition to Cancelled from every non-terminal state.</p>
+
+<div class="note">
+<p><strong>Reconciling the two vocabularies.</strong> <code>ISSUE_STATUSES</code> in <code>src/constants.js</code> lists all nine values (the five legacy ones plus In Testing, In Rework, In UAT and Cancelled), because JL-306 added the QA statuses alongside the legacy defaults. But <code>STATUS_COLUMNS</code> &mdash; the board's default column set &mdash; still lists only four (<code>To Do, In Progress, Code Review, Done</code>). And <code>Code Review</code> appears in the legacy constants but is <strong>not</strong> part of the QA Lifecycle template at all. A project seeded with the template and displayed on a board with no saved column configuration will show columns that do not match its workflow.</p>
+</div>
+
+<p>Transitions are evaluated by <code>isTransitionAllowed()</code> as described in <a href="#mod-workflow">3.4</a>. The most important behavioural consequence is rule 4: <strong>a project with no configured transitions permits every status change</strong>. Since <code>backfillDefaultWorkflows()</code> now seeds workflows at boot, newly created projects are constrained, but any project whose seeding failed (failures are logged and skipped so as not to block startup) silently reverts to permit-all.</p>
+
+<h3 id="wf-signup">6.2 Invitation, signup and the deny-list</h3>
+
+<h4>Path A &mdash; token invitation</h4>
+
+<ol>
+  <li>An Admin calls <code>POST /api/invitations</code> with an email and one of <code>Admin | Member | Viewer</code>. A 409 is returned if the address is already a member.</li>
+  <li>Any prior pending invitations for that address are revoked, so only the newest token is live.</li>
+  <li><code>unblockSignup(email)</code> is called &mdash; re-inviting a previously removed person is treated as explicit re-admission and lifts their deny-list entry.</li>
+  <li>A 32-byte random token is generated with a 7-day expiry and a row is written to <code>invitations</code> with status <code>pending</code>. <strong>No <code>members</code> row is created yet.</strong></li>
+  <li>An email is sent fire-and-forget; the 201 response carries the raw token.</li>
+  <li><code>GET /api/invitations/:token</code> returns <code>{ email, role, status, expiresAt, expired, valid }</code> for the accept screen.</li>
+  <li><code>POST /api/invitations/:token/accept</code> validates the token is pending and unexpired, then inside a transaction (JL-94) upserts the <code>members</code> row with the invited role and status <code>Active</code> and marks the invitation accepted. It creates a member, <strong>not</strong> a <code>users</code> login row &mdash; password setup still happens through signup.</li>
+</ol>
+
+<h4>Path B &mdash; direct member creation</h4>
+
+<p><code>POST /api/members</code>, also Admin-only, writes a <code>members</code> row immediately with status <code>Invited</code> &mdash; or <code>Active</code> when a temporary password is supplied, in which case it also creates a <code>users</code> login row. There is no token, no expiry, no <code>invitations</code> row and no accept step. It validates the email more strictly than Path A, awaits the email send and returns its outcome, and writes a <code>user_audit_log</code> entry (Path A writes no audit entry at all).</p>
+
+<h4>Path C &mdash; self-signup redemption</h4>
+
+<p><code>POST /api/auth/signup</code> opportunistically looks for a pending unexpired invitation matching the address, honours its role and marks it accepted &mdash; all inside a best-effort try/catch whose failure is swallowed. An invitation can therefore be redeemed without ever touching the accept endpoint.</p>
+
+<p>The full signup sequence:</p>
+
+<ol>
+  <li>Email format validation.</li>
+  <li><strong><code>checkSignupAllowed(email)</code></strong> &mdash; deliberately evaluated <em>before</em> any password rule, so a blocked or uninvited address gets a clear answer rather than being sent to fix a password for an account it could never create.</li>
+  <li>Minimum length check, then the organisation password policy from <code>security_policy</code>.</li>
+  <li>409 if the email is already registered.</li>
+  <li>Insert into <code>users</code> with a pbkdf2 hash (100,000 iterations, SHA-512).</li>
+  <li><strong>Member provisioning</strong> (best-effort, never blocks signup): the very first user ever created becomes workspace Owner with role <code>Admin</code> and <code>is_owner = TRUE</code>. Otherwise a pending invitation's role is honoured; <strong>with no invitation the default role is <code>Viewer</code></strong>.</li>
+  <li><strong>Workspace bootstrap</strong> (best-effort): the first user becomes <code>owner_email</code> of the default workspace; every user is inserted into <code>workspace_members</code>.</li>
+  <li>A 7-day JWT is issued and an <code>auth.signup</code> entry is written to the tamper-evident audit log.</li>
+</ol>
+
+<h4>The signup deny-list (JL-325)</h4>
+
+<p>Implemented in <code>server/services/signupPolicy.js</code> over the <code>blocked_signups</code> table (unique on <code>LOWER(email)</code>). Two independent controls exist, and <strong>the deny-list wins over the policy</strong>:</p>
+
+<ol>
+  <li><strong>The deny-list.</strong> Described in the source as "the offboarding guarantee": removing a member records their address here so that deleting a user actually revokes access, rather than being a formality they can undo by re-registering. Writes come from <code>revokeAccessFor()</code> on member removal; <code>unblockSignup()</code> is called when a member is re-added or re-invited. All writes are best-effort with errors swallowed, so deny-list bookkeeping never fails the delete that triggered it.</li>
+  <li><strong>The <code>signup_policy</code> workspace setting</strong> &mdash; <code>open</code> (the default, deliberately preserving historical behaviour so enabling the feature cannot lock a team out) or <code>invite_only</code>, which requires a pending unexpired invitation.</li>
+</ol>
+
+<p>A blocked address attempting signup receives <strong>HTTP 403</strong> with "This email address is not permitted to register. Contact your workspace admin." &mdash; before any password validation and regardless of the workspace policy. Admins manage the list through three <code>requireRole('Admin')</code> endpoints (<code>GET</code>, <code>POST</code>, <code>DELETE /api/blocked-signups/:email</code>), so blocks are visible and reversible without direct database access.</p>
+
+<div class="warn">
+<p><strong>Two acknowledged holes in offboarding.</strong> First, <code>revokeAccessFor()</code> deletes session rows and deactivates the user, but <code>authGuard</code> verifies the JWT without re-reading user status &mdash; so an already-issued token keeps working until it expires (up to 7 days). This is noted in the source as tracked separately. Second, see the invite-email defect in <a href="#gaps-jl329">8.1.4</a>.</p>
+</div>
+
+<h3 id="wf-approval">6.3 Approval-gated transitions</h3>
+
+<p>The intended design: <code>approval_rules</code> declares that moving an issue from one status to another requires <em>N</em> approvals from holders of a given role; <code>approvals</code> records individual decisions; <code>GET /api/approvals/check/:issueId?toStatus=X</code> reports whether the gate is satisfied. Rule resolution is well done &mdash; a project-specific rule correctly wins over a global one via <code>ORDER BY project_id DESC NULLS LAST LIMIT 1</code>, and the check returns <code>{ required, rule, approvedCount, satisfied }</code>.</p>
+
+<div class="bad">
+<p><strong>As implemented, the approval gate is advisory and enforces nothing.</strong> Three independent findings:</p>
+<ul>
+  <li><strong>Nothing consults it.</strong> <code>approval_rules</code> appears in exactly two server files: <code>server/db.js</code> and <code>server/routes/approvals.js</code>. Neither <code>server/routes/issues.js</code> nor <code>server/services/workflow.js</code> contains the string "approval". A status change is never blocked by an unsatisfied rule.</li>
+  <li><strong><code>approver_role</code> is never enforced.</strong> <code>POST /api/approvals/issue/:issueId</code> carries no <code>requireRole</code> middleware and never compares the caller's role to the rule's <code>approver_role</code>. Any authenticated user can record an approval or a rejection.</li>
+  <li><strong>The frontend does not call the check either.</strong> <code>src/api/approvalApi.js</code> exports <code>checkApproval()</code>, but <code>IssueDetailPage</code> imports only <code>fetchIssueApprovals</code> and <code>submitApproval</code>. <code>checkApproval</code> is referenced only from test files. The UI is a sidebar panel listing recent decisions with ungated Approve and Reject buttons.</li>
+</ul>
+<p>On rejection, nothing happens beyond the audit row and a notification to the assignee: no status revert, no reopen, no block. Because nothing consumes <code>satisfied</code>, there is no functional consequence.</p>
+</div>
+
+<h3 id="wf-sprint">6.4 Sprint lifecycle</h3>
+
+<div class="tw">
+<table>
+<thead><tr><th>Stage</th><th>Trigger</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td>Created</td><td><code>POST /api/sprints</code> (Admin)</td><td><code>is_started = false</code>. Name defaults to <code>SCRUM Sprint N</code>; date range defaults to "Upcoming". Name and goal are length-capped (JL-204).</td></tr>
+<tr><td>Started</td><td><code>PATCH /api/sprints/:id/start</code> (Admin)</td><td>Guarded by <code>canStartSprint({activeCount, allowParallel})</code>: unless the governing project sets <code>allow_parallel_sprints</code>, another active sprint yields <strong>409</strong>. On success sets <code>is_started</code> and <code>start_date</code>, snapshots every issue currently in the sprint into <code>sprint_scope</code> as the committed baseline, and fires a <code>sprint.started</code> webhook.</td></tr>
+<tr><td>Completed</td><td><code>PATCH /api/sprints/:id/complete</code> (Admin)</td><td>Every issue with a status other than <code>Done</code> is <strong>detached from the sprint and forced to status <code>Backlog</code></strong>. Done issues keep their <code>sprint_id</code> for historical reporting. Sets <code>is_started = false</code> and <code>completed_at</code>; fires <code>sprint.completed</code>.</td></tr>
+<tr><td>Deleted</td><td><code>DELETE /api/sprints/:id</code> (Admin)</td><td>Moves <em>all</em> issues including Done back to Backlog with a null sprint, then deletes the sprint.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="warn">
+<p>Two rough edges in completion. There is <strong>no "move to next sprint" option</strong> &mdash; incomplete work always goes to Backlog with no prompt. And because the sweep matches everything that is not <code>Done</code>, an issue in the terminal <code>Cancelled</code> state is also reopened into Backlog.</p>
+</div>
+
+<!-- ==================================================================== -->
+<h2 id="nfr">7. Non-functional characteristics <a class="backlink" href="#top">&uarr;</a></h2>
+
+<h3 id="nfr-auth">7.1 Authentication and session handling</h3>
+
+<ul>
+  <li><strong>JWT bearer tokens</strong> signed with <code>JWT_SECRET</code>, expiry controlled by <code>JWT_EXPIRES_IN</code> (default 7 days). <code>authGuard</code> verifies the signature and sets <code>req.user</code>; it does <strong>not</strong> re-check user status or session revocation on each request.</li>
+  <li><strong>Password hashing</strong> is pbkdf2 with 100,000 iterations and SHA-512, stored as <code>salt:hash</code>.</li>
+  <li><strong>Password policy</strong> is enforced from the singleton <code>security_policy</code> row at signup, change and login, including a maximum-age rotation check against <code>users.password_changed_at</code>.</li>
+  <li><strong>Login lockout</strong> (<code>server/middleware/loginLockout.js</code>) throttles repeated failures. It is a process-wide singleton, which is why the auth route exports <code>setLoginLockout()</code> for test injection (JL-172).</li>
+  <li><strong>MFA</strong> is TOTP-based and can be mandated workspace-wide by the security policy.</li>
+  <li><strong>Client-side token storage</strong> is dual: <code>localStorage</code> when "remember me" is set, otherwise <code>sessionStorage</code>. <code>getToken()</code> reads both.</li>
+</ul>
+
+<div class="bad">
+<p><strong>There is no 401 handling in the API client.</strong> <code>src/api/client.js</code> handles 403 by dispatching a global <code>permission-denied</code> event that surfaces a snackbar, but contains no 401 branch, and the string "401" does not appear anywhere in non-test frontend source. An expired or revoked token surfaces as a generic thrown <code>Error</code>: no automatic logout, no token clear, no redirect to login. The user sees repeated unexplained failures until they reload.</p>
+<p>A second, smaller defect in the same file: <code>unwrap()</code> calls <code>response.json()</code> unconditionally on any <code>ok</code> response, with no branch for 204 or an empty body, so an endpoint returning no content throws a JSON parse error.</p>
+</div>
+
+<h3 id="nfr-db">7.2 Database layer</h3>
+
+<p>PostgreSQL accessed through <code>pg</code> with a 10-connection pool. The compatibility shim described in <a href="#data-mechanics">4.1</a> lets the entire codebase write <code>?</code> placeholders while PostgreSQL receives <code>$n</code>. Every query in the audited routes binds user values as parameters; the only string interpolations found are column names drawn from closed whitelists (JQL ordering, workflow post-function target fields), each with an explicit comment explaining the constraint.</p>
+
+<p>Schema convergence runs on every boot rather than through versioned migrations, which makes startup self-healing but means there is no down-migration path and no record of what changed when.</p>
+
+<h3 id="nfr-testing">7.3 Testing</h3>
+
+<p>Vitest, configured entirely within <code>vite.config.js</code> &mdash; there is no separate <code>vitest.config.js</code>:</p>
+
+<pre><code>test: {
+  environment: 'jsdom',
+  globals: true,
+  setupFiles: ['./src/test/setup.js'],
+  css: true,
+}</code></pre>
+
+<p>Three distinct testing strategies are in use:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Suite</th><th>Files</th><th>Approach</th></tr></thead>
+<tbody>
+<tr><td><code>server/__tests__/</code></td><td>146</td><td>Route and middleware unit tests with <code>vi.mock('../db.js')</code>. A <code>runRoute</code> helper executes the full middleware chain sequentially, correctly handling <code>asyncHandler</code>'s fire-and-forget promise pattern. 129 of the 146 mock the database.</td></tr>
+<tr><td><code>server/test/</code></td><td>3</td><td>Real-PostgreSQL integration tests. <code>createTestDb()</code> creates a uniquely named schema (<code>test_&lt;8 hex&gt;</code>) and sets <code>search_path</code> on every new connection so suites can run in parallel without collision; <code>cleanTestDb()</code> drops it. Requires <code>TEST_DATABASE_URL</code>.</td></tr>
+<tr><td><code>src/test/</code></td><td>115</td><td>Component tests with <code>@testing-library/react</code> in jsdom.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>No test in the tree is marked <code>.skip</code>, <code>.todo</code> or <code>.failing</code> &mdash; nothing has been quarantined. A full run executes <strong>264 files and roughly 2,679 assertions in eight to nine minutes</strong>. Between <strong>10 and 37 assertions fail depending on machine load</strong>, and one run under contention terminated with exit status 0 after executing only 193 files. See <a href="#gaps-jl327">8.1.2</a> and <a href="#gaps-jl328">8.1.3</a> &mdash; the suite is not currently a reliable gate.</p>
+
+<div class="warn">
+<p><strong>The developer gate and the CI gate are not the same set.</strong> <code>CONTRIBUTING.md</code> prescribes <code>npx vitest run server/__tests__</code> as the gate ("Tests are the gate"), while <code>package.json</code> defines <code>test</code> as a bare <code>vitest run</code> and CI runs <code>npm run test</code> &mdash; i.e. all 264 files including the frontend suites and the real-Postgres integration suites. A contributor following the documented process can ship with the frontend suite broken and only discover it in CI. This is the direct cause of the failures in 8.1.3 persisting on main.</p>
+</div>
+
+<h3 id="nfr-lint">7.4 Linting and CI</h3>
+
+<p>ESLint flat config (<code>eslint.config.js</code>) with separate blocks for frontend (<code>src/**/*.{js,jsx}</code>, React hooks and refresh plugins) and backend (<code>server/**/*.js</code>, Node globals only). Run with <code>npm run lint</code>.</p>
+
+<p>Three GitHub Actions workflows: <code>ci.yml</code> (lint plus test), <code>deploy.yml</code>, and <code>security-scan.yml</code>. A secret scanner is available as <code>npm run scan:secrets</code>.</p>
+
+<div class="warn">
+<p>In <code>ci.yml</code> the lint job carries <code>continue-on-error: true</code>, so lint failures never block a merge. The test job does not carry that flag &mdash; which, given that at least 10 tests fail deterministically on main, implies CI should be red. Two observations complicate that inference: the <code>server/test/</code> integration suites are environment-dependent and may behave differently in CI, and a contended run was observed to exit <strong>status 0 having executed only 193 of 264 files</strong>. A green CI badge on this repository should not be read as evidence that the suite passed.</p>
+</div>
+
+<h3 id="nfr-deploy">7.5 Deployment</h3>
+
+<p><code>server/serveStatic.js</code> exports <code>shouldServeStatic()</code>, true when <code>NODE_ENV=production</code> or <code>SERVE_STATIC</code> is set, and <code>setupStaticServing()</code>, which mounts <code>express.static</code> over the built <code>/dist</code> plus an SPA history fallback whose regex excludes <code>/api</code>. Both are correctly wired into <code>server/index.js</code>. In development Vite serves the frontend and proxies <code>/api/*</code> to port 4000.</p>
+
+<p>Four production paths are checked in:</p>
+
+<ul>
+  <li><strong><code>Dockerfile</code></strong> &mdash; genuine multi-stage: build stage runs <code>npm ci</code> and <code>npm run build</code>; runtime stage installs production dependencies only, sets <code>NODE_ENV=production</code>, <code>SERVE_STATIC=1</code>, copies <code>dist/</code>, and runs <code>node server/index.js</code>. Paired with <code>docker-compose.prod.yml</code>.</li>
+  <li><strong><code>deploy.prod.sh</code></strong> &mdash; builds, rsyncs <code>dist/</code> to the web root, restarts the API through systemd or pm2, and reloads nginx after a config test. This is what <code>.github/workflows/deploy.yml</code> actually invokes.</li>
+  <li><strong><code>deploy/</code></strong> &mdash; nginx site config, a systemd unit, and setup documentation; plus <code>ecosystem.config.cjs</code> for pm2, pinned to <code>instances: 1</code> because the realtime hub and the scheduler are both in-process singletons.</li>
+  <li><strong><code>deploy.sh</code></strong> &mdash; the demo-box script, which does <em>not</em> build. See <a href="#gaps-jl326">8.1.1</a>.</li>
+</ul>
+
+<p>Backups are handled by <code>scripts/backup-db.sh</code>, a cron-friendly <code>pg_dump</code> in custom format with gzip and <code>RETENTION_DAYS</code> pruning; restore is manual via <code>pg_restore</code>.</p>
+
+<h3 id="nfr-obs">7.6 Observability and hardening</h3>
+
+<ul>
+  <li><strong>Structured logging</strong> with a per-request correlation id (<code>requestLogger</code>, <code>server/services/logger.js</code>).</li>
+  <li><strong>Health endpoints</strong> <code>/api/health</code> and <code>/api/ready</code>, unauthenticated by design.</li>
+  <li><strong>Security headers</strong> including CSP; a CORS allow-list; an optional IP allow-list; and two tiers of rate limiting.</li>
+  <li><strong>Email delivery log</strong> (<code>email_log</code>) recording recipient, type, status and error, so an invitation that never arrived can be distinguished from one never sent (JL-323).</li>
+  <li><strong>Tamper-evident audit log.</strong> Each entry's hash is SHA-256 over a canonical pipe-joined string of sequence, actor, action, target, canonicalised metadata (recursive key-sorted JSON so insertion order cannot change the hash), previous hash and timestamp. Entries chain by <code>prev_hash</code> from a genesis of 64 zeros. <code>verifyChain()</code> walks entries in sequence order, checking both the stored link and the recomputed hash, and reports the sequence number of the first failure. Retention purges old entries and records a checkpoint (<code>audit_checkpoint</code>) holding the last purged sequence and hash, so the surviving chain still verifies while an <em>unrecorded</em> deletion is still detected. <code>safeAppendAudit()</code> swallows errors so audit logging can never break the action it records.</li>
+</ul>
+
+<div class="warn">
+<p>The audit chain's append path reads the highest sequence and then inserts, without a transaction. Concurrent appends can race on <code>seq</code>; the unique index on <code>audit_log.seq</code> will reject the loser rather than corrupt the chain, but the entry is then lost because <code>safeAppendAudit</code> swallows the error.</p>
+</div>
+
+<!-- ==================================================================== -->
+<h2 id="gaps">8. Known gaps and technical debt <a class="backlink" href="#top">&uarr;</a></h2>
+
+<p>Each item below was verified against source at commit <code>32aa1a3</code>. Where the received description of a ticket turned out to be stale or imprecise, that is stated rather than repeated.</p>
+
+<h3 id="gaps-verified">8.1 Verification of the named tickets</h3>
+
+<h4 id="gaps-jl326">8.1.1 JL-326 &mdash; <code>deploy.sh</code> runs <code>npm run dev</code> in production <span class="tag tag-part">Partially true</span></h4>
+
+<p><strong>The literal claim is true.</strong> <code>deploy.sh</code> kills <code>concurrently</code>, <code>vite</code> and <code>nodemon</code> processes, then runs <code>nohup npm run dev</code>. Its own header states that the box "serves the Vite dev server on :5173 with /api proxied to the Express API on :4000 (i.e. it runs <code>npm run dev</code>). This script keeps that model." There is no <code>npm run build</code> anywhere in the file; the production path is described in a trailing comment block as future work.</p>
+
+<p><strong>But the framing is stale.</strong> A complete production path exists and is what CI uses: <code>deploy.prod.sh</code> builds and serves a static artifact behind nginx with systemd or pm2, <code>.github/workflows/deploy.yml</code> invokes <code>deploy.prod.sh</code> and not <code>deploy.sh</code>, and the <code>Dockerfile</code> is a genuine multi-stage production build. <code>server/serveStatic.js</code> is real and correctly wired.</p>
+
+<p><strong>The actual debt</strong> is therefore not "no production path exists" but that <strong>two deploy scripts with divergent runtime models sit side by side at the repository root</strong>, the dev-server one being the documented procedure for the demo box (whose IP is hardcoded in the script). The risk is an operator running the wrong one.</p>
+
+<h4 id="gaps-jl327">8.1.2 JL-327 &mdash; test suite flaky under parallel load <span class="tag tag-true">Confirmed and reproduced</span></h4>
+
+<p><strong>The structural risk is real.</strong> The Vitest block sets no <code>pool</code>, no <code>poolOptions</code>, no <code>fileParallelism</code>, no <code>maxConcurrency</code>, no <code>sequence</code>, no <code>isolate</code> and no <code>testTimeout</code>. Vitest defaults therefore apply: forked pool, full file parallelism, one worker per CPU. Nothing throttles 264 test files.</p>
+
+<p><strong>But database contention is not the mechanism.</strong> The per-schema isolation in <code>createTestDb()</code> is sound, and only 3 files use it; the other 146 backend files mock the database entirely. The real shared-state risk is <em>module-level singletons</em>.</p>
+
+<p><strong>The one documented flake has been fixed.</strong> <code>techdocs/gates.md</code> and <code>techdocs/reviews/test-coverage.md</code> both record <code>server/__tests__/security-middleware-JL93.test.js</code> failing under the full parallel suite, root-caused to the process-wide <code>loginLockout</code> singleton plus CPU contention inflating a six-round-trip supertest case from ~1.3 s to 7&ndash;8 s. The JL-172 remedy is in the tree: <code>server/routes/auth.js</code> exports <code>setLoginLockout()</code>, the suite injects and restores it, and a 30-second per-test timeout was added with the comment "per-test timeout rather than letting contention turn it flaky".</p>
+
+<div class="bad">
+<p><strong>Flakiness was reproduced directly.</strong> Three full-suite runs were executed for this document, and the failure count varies by a factor of nearly four depending only on machine load:</p>
+<div class="tw">
+<table>
+<thead><tr><th>Run</th><th>Conditions</th><th>Files executed</th><th>Failed files</th><th>Failed tests</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>6a3e964</code>, otherwise idle machine</td><td>263</td><td>3</td><td><strong>10</strong></td></tr>
+<tr><td>2</td><td><code>3fe18c7</code>, concurrent load</td><td><strong>193 &mdash; incomplete</strong></td><td>26</td><td>37</td></tr>
+<tr><td>3</td><td><code>3fe18c7</code>, otherwise idle machine</td><td>264</td><td>15</td><td>37</td></tr>
+</tbody>
+</table>
+</div>
+<p>Run 2 is the most alarming result: under load the runner reported <strong>exit status 0 having executed only 193 of 264 files</strong>, silently skipping 27% of the suite. A CI system reading only the exit code would treat that as a pass.</p>
+<p>The suites that come and go between runs are dominated by (a) the three <code>server/test/</code> integration suites, which need a live <code>TEST_DATABASE_URL</code> and fail as a block when it is absent or contended, and (b) timing-sensitive component and supertest suites &mdash; <code>field-config-JL115</code>, <code>storage-JL137</code>, <code>user-mgmt-createuser-JL192</code>, <code>workflow-engine-JL306</code>, <code>IssueDetailFeedback.JL300</code>, <code>UserManagementActions</code> and others &mdash; none of which failed in run 1.</p>
+<p>So JL-327 is not stale after all. The JL-172 fix removed one <em>named</em> flake, but the underlying condition &mdash; unbounded parallelism with no <code>testTimeout</code>, no <code>maxConcurrency</code> and no pool limit against a 264-file suite &mdash; is live and readily reproducible.</p>
+</div>
+
+<p><strong>Stale documentation.</strong> <code>CONTRIBUTING.md</code> still tells contributors to allow for "the known JL-93 security-middleware flake". That specific line is stale &mdash; <code>security-middleware-JL93.test.js</code> passed in all three runs &mdash; but it should be replaced with a broader warning rather than simply deleted.</p>
+
+<h4 id="gaps-jl328">8.1.3 JL-328 &mdash; 10 tests fail deterministically on main <span class="tag tag-true">Confirmed exactly</span></h4>
+
+<p>Verified by execution rather than inference, and the figure of 10 is exactly right &mdash; but only once the flakiness documented in 8.1.2 is separated out. On an idle machine a full run reports:</p>
+
+<pre><code>Test Files  3 failed | 260 passed (263)
+     Tests  10 failed | 2665 passed (2675)</code></pre>
+
+<p><strong>These same 10 assertions, in the same 3 files, failed in every one of the three runs</strong> &mdash; including the degraded run that executed only 193 files and the clean run at <code>3fe18c7</code> that showed 37 failures in total. They are the stable intersection. Re-running the three files in isolation reproduces them identically (<code>Tests 10 failed | 22 passed (32)</code>), confirming they are real defects rather than contention artifacts. The complete list:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>File</th><th>Failing assertions</th></tr></thead>
+<tbody>
+<tr>
+<td><code>server/__tests__/viewer-mutation-gates-JL229.test.js</code></td>
+<td>6 &mdash; "labels routes are gated at Member": Viewer gets 403 on label create; Member can still create / rename / delete a label. "comment reactions are gated at Member": Viewer gets 403 toggling a reaction; Member can still toggle a reaction.</td>
+</tr>
+<tr>
+<td><code>src/test/ProjectArchive.test.jsx</code></td>
+<td>3 &mdash; "JL-219 ProjectsPage archive UX": requests the active-only list by default; re-fetches including archived when "Show archived" is toggled; archives a project via the action menu.</td>
+</tr>
+<tr>
+<td><code>server/__tests__/workspace-isolation-JL96.test.js</code></td>
+<td>1 &mdash; <code>isWorkspaceMember</code> (JL-96) returns true when a membership row exists.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p>The clustering is informative and raises the severity above "broken tests". Six of the ten assert the <strong>Viewer/Member mutation gates on labels and comment reactions</strong> &mdash; precisely the RBAC boundary that <a href="#gaps-jl314">8.1.6</a> identifies as inconsistently enforced. One asserts <strong>workspace membership isolation</strong>. These are not cosmetic: they are the regression tests for the authorisation model, and they are currently red. Whether the defect lies in the tests or in the code they guard should be established before any further work on the permission layer, because at present that layer has no working regression cover.</p>
+
+<p>Note that none of the three failing files is one of the environment-dependent <code>server/test/</code> integration suites, so these failures are not explained by a missing <code>TEST_DATABASE_URL</code>.</p>
+
+<div class="warn">
+<p><strong>The true figure is "at least 10".</strong> A clean run at <code>3fe18c7</code> reported <code>Tests 37 failed | 2642 passed (2679)</code> across 15 files. Ten of those are the deterministic set above; the other 27 vary between runs and are attributable to the parallelism problem in 8.1.2 plus the environment-dependent integration suites. Anyone reopening this ticket should treat 10 as the floor, fix those first, and only then judge whether the remainder is a test-infrastructure problem or more product defects hiding behind it.</p>
+</div>
+
+<h4 id="gaps-jl329">8.1.4 JL-329 &mdash; two divergent invite paths <span class="tag tag-true">Confirmed</span></h4>
+
+<p>Confirmed, and there are arguably three (see <a href="#wf-signup">6.2</a>). The two principal paths diverge on nearly every dimension:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Dimension</th><th>Path A &mdash; <code>POST /api/invitations</code></th><th>Path B &mdash; <code>POST /api/members</code></th></tr></thead>
+<tbody>
+<tr><td>Row created</td><td><code>invitations</code> only</td><td><code>members</code> immediately, optionally <code>users</code> too</td></tr>
+<tr><td>Token / expiry</td><td>32-byte token, 7-day TTL</td><td>None</td></tr>
+<tr><td>Accept step</td><td><code>POST /:token/accept</code>, transactional</td><td>None &mdash; the row simply sits at status <code>Invited</code></td></tr>
+<tr><td>Can set a password</td><td>No</td><td>Yes, via a temporary password</td></tr>
+<tr><td>Email validation</td><td><code>email.includes('@')</code></td><td><code>isAllowedEmail()</code> &mdash; office-or-Gmail rule</td></tr>
+<tr><td>Duplicate check</td><td><code>LOWER(email)</code> &mdash; case-insensitive</td><td><code>WHERE email = ?</code> &mdash; case-sensitive</td></tr>
+<tr><td>Email send</td><td>Fire-and-forget; no delivery status in the response</td><td>Awaited; returns <code>email_status</code> / <code>email_error</code></td></tr>
+<tr><td>Audit entry</td><td>None</td><td><code>user_audit_log</code> via <code>recordAudit</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Both remain reachable from the UI: <code>TeamsPage</code> uses Path A (with a comment claiming it is "the single canonical invite path", JL-247), while User Management still reaches Path B through <code>memberApi.js</code>. The JL-247 consolidation moved the Teams UI but left the endpoint and the second UI surface in place.</p>
+
+<div class="bad">
+<p><strong>The sharpest finding here.</strong> Both paths call the same <code>buildInviteEmail()</code> in <code>server/utils/mailer.js</code>, and <strong>that template never embeds the token</strong>. The "Accept Invitation" button links to <code>appUrl</code> &mdash; the application root. Path A's token, its 7-day expiry and the entire <code>/api/invitations/:token/accept</code> endpoint are therefore <em>unreachable from the email a recipient actually receives</em>. In practice invitees land on the app and are admitted through the Path C self-signup fallback, which stamps <code>invited_by = 'Self-signup'</code> rather than <code>'Invitation'</code>. The token infrastructure is dead code in the live flow.</p>
+</div>
+
+<h4 id="gaps-jl330">8.1.5 JL-330 &mdash; Workflow Editor layout is localStorage-only with no touch support <span class="tag tag-true">Confirmed, both halves</span></h4>
+
+<p><strong>Persistence.</strong> Node positions are stored under the key <code>wfEditor:positions:&lt;projectId&gt;</code> in <code>localStorage</code>, written on a 250 ms debounce with quota errors silently ignored, and cleared by a "Reset layout" button. There is no fetch, POST or PUT of node coordinates anywhere in the 1,581-line file, and no backend counterpart: neither <code>workflows.js</code>, <code>workflowDefinitions.js</code> nor <code>workflowTransitions.js</code> stores x/y values. The only <code>position</code> column in that area is <code>issue_statuses.position</code>, an integer ordinal for status ordering. Consequences: layout is per-browser and per-device, lost on cache clear, and never shared between teammates.</p>
+
+<p><strong>Touch.</strong> An exhaustive search for <code>onTouchStart</code>, <code>onTouchMove</code>, <code>onTouchEnd</code>, <code>onPointerDown</code>, <code>onPointerMove</code>, <code>onPointerUp</code>, <code>setPointerCapture</code> and <code>touchAction</code> returns <strong>zero hits</strong>, as does any <code>addEventListener('touch'&hellip;)</code> or <code>('pointer'&hellip;)</code>. The entire interaction surface is four mouse handlers: canvas move and up, node drag, and connector drag-to-create. The coordinate helper reads <code>e.clientX</code>/<code>e.clientY</code> directly and would need a <code>touches[0]</code> branch to work at all. Node dragging and transition creation are <strong>non-functional on touch devices &mdash; unusable rather than degraded</strong>.</p>
+
+<h4 id="gaps-jl314">8.1.6 JL-314 &mdash; read endpoints lack project-level authorization <span class="tag tag-true">Confirmed &mdash; partially remediated</span></h4>
+
+<p>The primitives exist and are correct; adoption is the problem. Only 12 of 74 route modules import any project-authorisation helper. For every other project-scoped endpoint, <em>authenticated does not mean authorised</em>: a workspace Viewer with zero <code>project_members</code> rows can read any project's data by supplying its id.</p>
+
+<p>Verified examples, each a GET taking a project or issue identifier with no membership check anywhere in the file:</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Endpoint</th><th>Module</th><th>Exposure</th></tr></thead>
+<tbody>
+<tr><td><code>GET /api/projects/:projectId/components</code></td><td><code>components.js</code></td><td>The sibling POST <em>is</em> Admin-gated, making the omission on the read conspicuous.</td></tr>
+<tr><td><code>GET /api/projects/:projectId/board-config</code>, <code>/estimation-summary</code></td><td><code>boardConfig.js</code></td><td>Swimlanes, WIP limits, quick filters and columns readable by any authenticated user; the PUT is Admin-gated.</td></tr>
+<tr><td><code>GET /api/projects/:id/reports/time-in-status</code>, <code>/control-chart</code></td><td><code>timeInStatusReports.js</code></td><td>The shared loader validates the id and checks existence but performs <strong>no access check</strong> before reading every issue and its full status history. Leaks issue keys and delivery timing.</td></tr>
+<tr><td><code>GET /api/projects/:id/dependencies</code></td><td><code>dependencies.js</code></td><td>Cross-issue dependency graph for any project by id.</td></tr>
+<tr><td><code>GET /api/projects/:projectId/automation-rules</code>, <code>/automation-logs</code></td><td><code>automation.js</code></td><td>Rule definitions and execution history; the mutations are Admin-gated.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The same pattern extends across roughly 35 further modules including <code>dependencies.js</code>, all of <code>reports.js</code> (burndown, burnup, CFD, cycle time, created-resolved, capacity, sprint report), <code>advancedRoadmap.js</code>, <code>schemes.js</code>, <code>fieldConfig.js</code>, <code>issueConfig.js</code>, <code>issueTypeSchemes.js</code>, <code>sla.js</code>, <code>queues.js</code>, <code>automation.js</code>, <code>activity.js</code>, and the issue-scoped reads for labels, custom fields, components, watchers, votes, git links, CI builds, assets and approvals.</p>
+
+<p><strong>Write-side instances of the same class</strong>, which are more serious:</p>
+
+<ul>
+  <li><code>POST /api/issues/bulk</code> carries <code>protect</code> only, while every other issue write uses <code>requireProjectWrite</code>. Bulk operations bypass the project gate entirely.</li>
+  <li><code>POST /api/filters/jql</code>, <code>/search</code> and <code>/ai-search</code> execute arbitrary cross-project queries under <code>protect</code> only, and unlike <code>GET /api/issues</code> they do <strong>not</strong> apply the JL-225 accessible-project scoping clause. They post-filter through <code>canViewIssue()</code> for issue-level security but have no project scoping.</li>
+  <li><code>POST</code>/<code>DELETE</code> on watchers and votes, and <code>POST /api/approvals/issue/:issueId</code>, are writes with neither a project nor a role gate.</li>
+</ul>
+
+<div class="ok">
+<p><strong>Remediation is actively under way &mdash; three instances closed during this review.</strong></p>
+<ul>
+  <li><strong>JL-314 itself</strong> (merged as <code>4c8aa66</code>) converted <code>releases.js</code> and <code>goals.js</code> to the project-scoped helpers. Both now use <code>requireProjectRead</code> on every read and <code>requireProjectWrite</code> on every write, resolving the project through the release, goal, key-result or issue id. This closed the two worst examples in the original finding, including the <code>GET /api/releases/:id</code> IDOR. Adoption moved from 10 modules to <strong>12 of 74</strong>, leaving <strong>35</strong> that reference a project identifier with no project gate.</li>
+  <li><strong>JL-316</strong> added <code>requireRole('Member')</code> to <code>POST</code>/<code>DELETE /api/issues/:id/assets</code>.</li>
+  <li><strong>JL-315</strong> added <code>requireRole('Admin')</code> to <code>GET /api/bi/schema</code>.</li>
+</ul>
+<p>The latter two are workspace-role gates rather than project-scoped ones, so they raise the floor without resolving the underlying inconsistency. JL-314 is the right shape and is the pattern the remaining 35 modules should follow.</p>
+</div>
+
+<div class="bad">
+<p><strong>Compounding factor.</strong> Six of the ten currently-failing tests (<a href="#gaps-jl328">8.1.3</a>) are the Viewer/Member mutation-gate regression tests. The permission layer identified here as inconsistently enforced is also the layer whose automated cover is currently red.</p>
+</div>
+
+<h3 id="gaps-other">8.2 Further defects found</h3>
+
+<p>Beyond the named tickets, the following were identified during this review and are ordered roughly by severity.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Area</th><th>Finding</th></tr></thead>
+<tbody>
+<tr><td><strong>Approvals</strong></td><td>The entire approval-gating feature is inert: nothing enforces it, <code>approver_role</code> is never checked, and the frontend never calls the check endpoint. See <a href="#wf-approval">6.3</a>.</td></tr>
+<tr><td><strong>Auth (client)</strong></td><td>No 401 handling anywhere in the frontend. Expired tokens produce silent repeated failures with no logout or redirect. See <a href="#nfr-auth">7.1</a>.</td></tr>
+<tr><td><strong>Multi-tenancy</strong></td><td><code>projects.key</code> is globally unique and <code>sprints</code> has no project or workspace column. The workspace abstraction cannot currently isolate two real tenants.</td></tr>
+<tr><td><strong>Public API</strong></td><td><code>/api/public</code> read tokens are not project-scoped: any valid token enumerates all projects and issues.</td></tr>
+<tr><td><strong>API documentation</strong></td><td><code>GET /api/openapi.json</code> and <code>/api/docs</code> expose the complete API schema to unauthenticated callers.</td></tr>
+<tr><td><strong>Roadmap</strong></td><td><code>RoadmapPage</code> fabricates epic-to-child relationships by array index and synthesises child date ranges. The page presents invented structure as data. The <code>roadmap_epics</code> table it reads has no link to issues and no write endpoints.</td></tr>
+<tr><td><strong>Realtime</strong></td><td>Only <code>issue:&lt;id&gt;</code> rooms exist and only <code>IssueDetailPage</code> subscribes. Board, backlog and active sprint show stale data with no live updates, despite the hub being fully built.</td></tr>
+<tr><td><strong>Notifications</strong></td><td>The "SSE stream" is a five-second polling loop inside the SSE handler, and streams only the unread count &mdash; never the notifications themselves.</td></tr>
+<tr><td><strong>Board</strong></td><td>WIP limits are cosmetic. Nothing prevents exceeding them client-side or server-side.</td></tr>
+<tr><td><strong>Board / workflow</strong></td><td>Default board columns (<code>STATUS_COLUMNS</code>, four entries including <code>Code Review</code>) do not match the seeded QA Lifecycle workflow (eight states, no <code>Code Review</code>).</td></tr>
+<tr><td><strong>Hierarchy</strong></td><td>A Sub-task can be created directly under an Epic via <code>parent_id</code>, contradicting the <code>epic_id</code> rule that forbids the same relationship. Nothing stops an issue carrying both <code>epic_id</code> and <code>parent_id</code>.</td></tr>
+<tr><td><strong>Sprints</strong></td><td>Completion sweeps <code>Cancelled</code> issues &mdash; a terminal state &mdash; back into <code>Backlog</code>. There is no "move to next sprint" option.</td></tr>
+<tr><td><strong>Schema</strong></td><td>The intended widening of <code>story_points</code> to <code>NUMERIC</code> is unreachable behind a <code>columnExists</code> guard that is always true by the time it runs. Story points remain integer-only.</td></tr>
+<tr><td><strong>Search</strong></td><td>Two incompatible JQL dialects with disjoint feature sets (<code>OR</code> in one, <code>IS EMPTY</code> and literal <code>IN</code> lists in the other). A query written against one endpoint will often fail on the other.</td></tr>
+<tr><td><strong>Search</strong></td><td><code>/api/filters/ai-search</code> is presented as AI but is hardcoded substring matching with no model involved.</td></tr>
+<tr><td><strong>Reporting</strong></td><td><code>GET /api/dashboard</code> returns global counts with no workspace or project scoping. <code>avg_cycle_time</code> in the report builder approximates resolution time from <code>updated_at</code>, disagreeing with the dedicated cycle-time report.</td></tr>
+<tr><td><strong>Service desk</strong></td><td>The "public" KB and portal endpoints are mounted inside the authenticated chain, so no unauthenticated customer can use them.</td></tr>
+<tr><td><strong>Offboarding</strong></td><td>Revoking a member deletes sessions and deactivates the user, but <code>authGuard</code> never re-checks status, so an issued JWT remains valid for up to 7 days.</td></tr>
+<tr><td><strong>Audit log</strong></td><td>Append is read-then-insert without a transaction; a concurrent race loses an entry silently because <code>safeAppendAudit</code> swallows the unique-violation error.</td></tr>
+<tr><td><strong>Database</strong></td><td><code>convertPlaceholders</code> does not understand <code>''</code> escapes, dollar quoting or SQL comments. Shutdown handlers do not await <code>pool.end()</code>, so in-flight queries are not drained.</td></tr>
+<tr><td><strong>Migrations</strong></td><td><code>runMigration()</code> and the <code>schema_migrations</code> ledger exist but have no callers beyond a single <code>baseline</code> row. All schema evolution is boot-time convergence with no down path.</td></tr>
+<tr><td><strong>CI</strong></td><td>The lint job is <code>continue-on-error: true</code>, so lint never blocks a merge. More seriously, a contended Vitest run was observed to exit <strong>status 0 after executing only 193 of 264 files</strong>, so a green CI run is not proof the suite ran.</td></tr>
+<tr><td><strong>Frontend</strong></td><td><code>RequireRole</code> carries a local rank table missing <code>Lead</code> and <code>Owner</code>, so <code>role="Lead"</code> would always pass. Currently latent.</td></tr>
+<tr><td><strong>Frontend</strong></td><td>The <code>LAUNCH_SIDEBAR</code> flag whitelists 13 nav entries, leaving roughly 15 built pages (Webhooks, Automation, Marketplace, Releases, Goals, Assets, Knowledge Base, Portal, Queues, Incidents, Plugins, BI Export, Inbound Email) reachable only by direct URL. Plugin-contributed nav items render only when the flag is off, making that path dead code.</td></tr>
+<tr><td><strong>Frontend</strong></td><td>Only 2 of 50 routes carry declarative role gating; the rest depend on in-page <code>usePermissions</code> checks plus server enforcement &mdash; which, per JL-314, is itself patchy.</td></tr>
+<tr><td><strong>Data model</strong></td><td>Four overlapping audit trails and five pairs of duplicated concepts (see <a href="#data-integrity">4.4</a>). Roughly half of all entity relationships are unconstrained string joins on email or name.</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================================================================== -->
+<h2 id="appendix">Appendix A &mdash; Inaccuracies in CLAUDE.md <a class="backlink" href="#top">&uarr;</a></h2>
+
+<p><code>CLAUDE.md</code> was used as a starting map. Every structural claim in it was checked. The following are wrong or materially misleading at commit <code>32aa1a3</code>.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>#</th><th>Claim in CLAUDE.md</th><th>Reality</th></tr></thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>"Theme config in <code>src/theme/muiTheme.js</code> with light/dark variants matching Atlassian design tokens."</td>
+<td><strong>The file and the whole <code>src/theme/</code> directory do not exist.</strong> A repository-wide search for <code>muiTheme</code> returns nothing. Theme state lives in <code>src/context/ThemeContext.jsx</code> &mdash; 28 lines that store <code>'light' | 'dark'</code> in <code>localStorage['jira_theme']</code> and toggle a class on the document element. Styling is CSS-custom-property driven via <code>src/styles/variables.css</code> and <code>theme.css</code>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>"MUI <code>ThemeProvider</code> integrated in <code>ThemeContext.jsx</code>"; the provider list shows "ThemeContext (+ MUI ThemeProvider)".</td>
+<td><strong>There is no MUI <code>ThemeProvider</code> anywhere in <code>src/</code>,</strong> and no <code>createTheme</code> call. MUI components are used with their default theme. This is a separate error from #1.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>"<strong>Component:</strong> <code>src/components/RequireRole.jsx</code>"</td>
+<td>The real path is <code>src/components/auth/RequireRole.jsx</code>. The stated path does not exist.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>"Key pages: Dashboard, Board, Backlog, ProjectSummary, ActiveSprint, Reports, Roadmap, Teams, Filters, Profile, ProjectSettings, WorkflowEditor, ActivityFeed, WikiPage, WebhooksPage, SharedDashboardsPage, AutomationPage."</td>
+<td>Substantially incomplete: there are <strong>40</strong> page directories. Entirely unmentioned are UserManagement, AuditLog, Portfolio, ReportBuilder, AdvancedRoadmap, Goals, Releases, Queues, Incidents, Assets, KnowledgeBase, Portal, Marketplace, Plugins, BiExport, InboundEmail, CrossProjectBoard, ProjectDetail, List and NotFound.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Lists 18 API modules by name.</td>
+<td>There are <strong>58</strong> modules in <code>src/api/</code>. Roughly two thirds of the client layer is undocumented.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>"RESTful API under <code>/api/</code> &mdash; auth, issues, sprints, projects, dashboard, reports, roadmap, workflows, members, profile, activity, comments, filters, notifications, watchers, approvals, shared-dashboards, webhooks, wiki" plus seven "Theme-1 routers".</td>
+<td>There are <strong>74</strong> route modules. Whole subsystems are unmentioned: SCIM, SSO/OIDC/SAML, MFA, API tokens, sessions, audit log, security policy, blocked signups, invitations, workspaces, permission and notification schemes, screen schemes, field configuration, issue-type schemes, security levels, SLA, queues, portal, incidents, assets, knowledge base, marketplace, plugins, git integration, CI/CD, BI export, inbound email, public API, health and docs.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Lists the collaboration and core-PM tables &mdash; roughly 25 across two sections.</td>
+<td>There are <strong>105</strong> tables in <code>server/db.js</code>.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>"statuses (<code>Backlog &rarr; To Do &rarr; In Progress &rarr; Code Review &rarr; Done</code>)"</td>
+<td>Stale. <code>ISSUE_STATUSES</code> now holds nine values including <code>In Testing</code>, <code>In Rework</code>, <code>In UAT</code> and <code>Cancelled</code> (JL-306), and the seeded QA Lifecycle workflow does not contain <code>Code Review</code> at all.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>"Schema in <code>server/db.js</code> with <code>initializeDatabase()</code>" and the CHECK constraint on <code>issue_type</code>.</td>
+<td>Correct as far as it goes, but omits that the <code>status</code> and <code>priority</code> CHECK constraints were <strong>dropped</strong> (JL-78) and moved to route-layer validation &mdash; a material change for anyone reasoning about data integrity.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>"<code>collaboration-modules.test.js</code> (39 tests) &hellip; <code>collaboration-enhancements.test.js</code> (19 tests)"</td>
+<td>Describes two files out of 264. The testing section gives no indication of the suite's actual size, of the three distinct strategies in use, or that the suite does not currently pass clean.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>"<strong>Approval Workflows (JL-45):</strong> <code>approval_rules</code> define required approvals per status transition&hellip; Check endpoint verifies if transition is gated."</td>
+<td>Technically accurate about what exists, but omits that <strong>nothing enforces it</strong> &mdash; no caller, no role check, no frontend usage. Reads as a working feature; it is not.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>"<strong>Deployment (JL-97)</strong> &hellip; <code>Dockerfile</code> is multi-stage&hellip;"</td>
+<td>Accurate, but omits both <code>deploy.sh</code> and <code>deploy.prod.sh</code> entirely &mdash; the two scripts that actually deploy the system, and the source of the JL-326 debt.</td>
+</tr>
+<tr>
+<td>13</td>
+<td>"<strong>State management:</strong> React Context API &mdash; 7 nested providers"</td>
+<td><span class="tag tag-true">Verified correct</span> &mdash; exactly seven providers (Auth, Theme, Issue, Sprint, AppData, Member, Notification), in the stated order, wrapped by a non-provider <code>ErrorBoundary</code>. Recorded here because it was the claim most likely to have drifted.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p>The general pattern is that <code>CLAUDE.md</code> accurately describes the system as it stood around the JL-31 to JL-48 work and has not been updated for the very large body of work since &mdash; identity and security (JL-73 onward), the two-tier project authorisation model (JL-224&ndash;226), the service-desk and ITSM subsystems, or the workflow-template rework (JL-306, JL-324, JL-331&ndash;334). It should be treated as a historical snapshot rather than a current map.</p>
+
+<footer>
+<p>Reverse-engineered from source at commit <code>32aa1a3</code> on branch <code>docs/JL-PRD-techdocs</code>. Generated 4 August 2026. This document describes implemented behaviour; it is not a specification and confers no commitment that any behaviour described will be retained.</p>
+</footer>
+
+</body>
+</html>
