@@ -118,18 +118,52 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
     return
   }
 
-  // Commit — generate keys sequentially
-  const countRow = await get('SELECT COUNT(*) AS count FROM issues WHERE project_id = ?', [projectId])
-  let n = Number(countRow.count)
+  // Commit — reserve the whole block of key numbers atomically (JL-363).
+  //
+  // The old code seeded a JS counter from `COUNT(*) WHERE project_id = ?` and
+  // incremented it per row. That was wrong twice over:
+  //   1. Same bug JL-352 fixed for cloning — any project that has ever had an
+  //      issue deleted has COUNT(*) < issue_counter, so imported keys collide
+  //      with keys already in use (unique index idx_issues_issue_key → 500).
+  //   2. Worse: it never advanced projects.issue_counter, so every issue
+  //      created normally *after* an import re-used the imported numbers and
+  //      collided — even on a project that had never seen a delete.
+  //
+  // The fix mirrors nextIssueKey() (issues.js, JL-92) but reserves N numbers in
+  // a single atomic UPDATE instead of N round-trips. Doing it in one statement
+  // also guarantees the imported keys are contiguous: a concurrent create can
+  // only land before or after the whole reserved block, never inside it.
+  //
+  // There is no project-less path to handle here (unlike nextIssueKey): this
+  // endpoint takes :projectId from the URL and 404s above if it does not exist.
+  //
+  // The inserts below are NOT wrapped in a transaction (they never were), so a
+  // failure part-way through leaves the earlier rows committed and the tail of
+  // the reserved block unused. That is deliberate and safe: unused numbers are
+  // gaps, and gaps are fine — the counter has already moved past them, so
+  // nothing will ever hand them out again. Collisions are the failure mode we
+  // must avoid, not gaps.
   const created = []
-  for (const rec of parsed) {
-    n++
-    const issueKey = `${project.key}-${n}`
-    const ins = await run(
-      'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [issueKey, rec.title, rec.description, rec.priority, rec.assignee, rec.status, rec.issue_type, rec.sprint_id, projectId],
+  if (parsed.length > 0) {
+    const reservation = await get(
+      'UPDATE projects SET issue_counter = issue_counter + ? WHERE id = ? RETURNING issue_counter',
+      [parsed.length, projectId],
     )
-    created.push({ id: ins.lastID, issue_key: issueKey })
+    // RETURNING yields the counter *after* the bump, i.e. the LAST number of
+    // the reserved block. Reserving N from a counter at C gives C + N, so the
+    // reserved numbers are [C + 1 .. C + N] = [end - N + 1 .. end].
+    // `base` is the number immediately before the block, so row i (0-based)
+    // gets base + i + 1 — first key base+1 == C+1, last key base+N == end.
+    const base = Number(reservation.issue_counter) - parsed.length
+    for (let i = 0; i < parsed.length; i++) {
+      const rec = parsed[i]
+      const issueKey = `${project.key}-${base + i + 1}`
+      const ins = await run(
+        'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [issueKey, rec.title, rec.description, rec.priority, rec.assignee, rec.status, rec.issue_type, rec.sprint_id, projectId],
+      )
+      created.push({ id: ins.lastID, issue_key: issueKey })
+    }
   }
   res.status(201).json({ dryRun: false, created: created.length, keys: created, invalid: errors.length, errors: errors.slice(0, 50) })
 }))
