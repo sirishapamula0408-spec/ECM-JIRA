@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import TablePagination from '@mui/material/TablePagination'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useAuth } from '../../context/AuthContext'
@@ -57,6 +57,17 @@ const SORT_KIND = {
 }
 const SORTABLE = new Set(Object.keys(SORT_KIND))
 
+/* ── URL-driven status filter (JL-336) ── *
+ * The dashboard's Status Overview legend links here as
+ * /projects/:id/list?status=In%20Progress, so the page has to read that param.
+ * Only a value the list can actually filter by is accepted — an unknown status
+ * falls back to "All" rather than filtering every row away and looking broken. */
+const STATUS_PARAM_VALUES = new Set(['All', ...ISSUE_STATUSES])
+function readStatusParam(searchParams) {
+  const raw = searchParams.get('status')
+  return raw && STATUS_PARAM_VALUES.has(raw) ? raw : null
+}
+
 export function IssueListPage() {
   usePageTitle('List')
   const { confirm, confirmDialog } = useConfirm()
@@ -73,8 +84,12 @@ export function IssueListPage() {
   const canBulkSelect = canEditIssue || canDeleteIssue
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const urlStatus = readStatusParam(searchParams)
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
+  // JL-336: seed from the URL so the filter is in effect on the very first
+  // render — no flash of the unfiltered list.
+  const [statusFilter, setStatusFilter] = useState(() => urlStatus || 'All')
   const [groupBy, setGroupBy] = useState('none')
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkAction, setBulkAction] = useState('status')
@@ -95,6 +110,20 @@ export function IssueListPage() {
   const [createTitle, setCreateTitle] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState('')
+
+  /* JL-336: ?status= can also change while this component stays mounted (two
+   * legend clicks in a row, or the browser back button), and the useState seed
+   * above only runs once — so follow the param whenever it changes. */
+  useEffect(() => {
+    if (urlStatus) setStatusFilter(urlStatus)
+  }, [urlStatus])
+
+  /* JL-336: the param is an explicit instruction from whoever linked here, so it
+   * outranks the saved view ListViewControls auto-applies on load — see
+   * handleApplyView. Held in a ref so handleApplyView stays referentially
+   * stable. */
+  const urlStatusRef = useRef(urlStatus)
+  useEffect(() => { urlStatusRef.current = urlStatus }, [urlStatus])
 
   const sprintById = useMemo(() => {
     const map = new Map()
@@ -171,13 +200,19 @@ export function IssueListPage() {
     [statusFilter, groupBy, sortKey, sortDir],
   )
 
-  const handleApplyView = useCallback((view) => {
+  /* `auto` is true only for the default view ListViewControls applies by itself
+   * on load; a view the user picks from the dropdown comes through with auto
+   * false. JL-336 leans on that distinction: a ?status= link must not be
+   * clobbered a tick later by a default view the user never asked for, but an
+   * explicitly chosen view still gets to set its own status. */
+  const handleApplyView = useCallback((view, { auto = false } = {}) => {
     const raw = view?.filterJql
     if (!raw) return
     let parsed
     try { parsed = JSON.parse(raw) } catch { return } // not our serialized format
     if (!parsed || typeof parsed !== 'object') return
-    if (typeof parsed.statusFilter === 'string') setStatusFilter(parsed.statusFilter)
+    const urlStatusWins = auto && Boolean(urlStatusRef.current)
+    if (typeof parsed.statusFilter === 'string' && !urlStatusWins) setStatusFilter(parsed.statusFilter)
     if (typeof parsed.groupBy === 'string') setGroupBy(parsed.groupBy)
     if (parsed.sortKey === null || typeof parsed.sortKey === 'string') setSortKey(parsed.sortKey)
     if (parsed.sortDir === 'asc' || parsed.sortDir === 'desc') setSortDir(parsed.sortDir)

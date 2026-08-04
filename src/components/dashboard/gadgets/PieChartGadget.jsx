@@ -1,16 +1,24 @@
 import { useState } from 'react'
 import { groupIssuesBy, buildConicGradient, sectorPath, getColor, getGroupByField } from './gadgetChartUtils'
+import { ChartLegend } from './ChartLegend'
 
-export function PieChartGadget({ issues, config }) {
+// JL-336: `projectId` is the dashboard's currently selected project (null when the
+// project filter is 'All'). The legend uses it to link into that project's issue list.
+export function PieChartGadget({ issues, config, projectId = null }) {
   const [hiddenLabels, setHiddenLabels] = useState(new Set())
   const [hoveredLabel, setHoveredLabel] = useState(null)
 
-  const field = getGroupByField(config.groupBy || 'status')
+  const groupBy = config.groupBy || 'status'
+  const field = getGroupByField(groupBy)
   const allSegments = groupIssuesBy(issues, field)
   const segments = allSegments
     .filter((s) => !hiddenLabels.has(s.label))
-    .map((s, i) => ({ ...s, color: getColor(config.groupBy || 'status', s.label, i) }))
+    .map((s, i) => ({ ...s, color: getColor(groupBy, s.label, i) }))
   const total = segments.reduce((sum, s) => sum + s.count, 0)
+  // Legend percentages are always "share of everything", hidden slices included,
+  // so they don't jump around as slices are toggled off (JL-336: this used to be
+  // an inline expression that reconstructed the same grand total the long way).
+  const grandTotal = allSegments.reduce((sum, s) => sum + s.count, 0)
 
   const toggleLabel = (label) => {
     setHiddenLabels((prev) => {
@@ -76,19 +84,15 @@ export function PieChartGadget({ issues, config }) {
         )}
       </div>
       {(config.showLegend !== false) && (
-        <ul className="pie-gadget-legend">
-          {allSegments.map((s, i) => (
-            <li
-              key={s.label}
-              className={hiddenLabels.has(s.label) ? 'legend-hidden' : ''}
-              onClick={() => toggleLabel(s.label)}
-            >
-              <i className="legend-dot" style={{ background: hiddenLabels.has(s.label) ? '#dfe1e6' : getColor(config.groupBy || 'status', s.label, i) }} />
-              <span>{s.label}</span>
-              {config.showLabels !== false && <strong>{s.count} ({total > 0 ? Math.round((s.count / Math.max(1, total + [...hiddenLabels].reduce((a, l) => a + (allSegments.find((x) => x.label === l)?.count || 0), 0))) * 100) : 0}%)</strong>}
-            </li>
-          ))}
-        </ul>
+        <ChartLegend
+          segments={allSegments}
+          hiddenLabels={hiddenLabels}
+          onToggle={toggleLabel}
+          groupBy={groupBy}
+          projectId={projectId}
+          showCounts={config.showLabels !== false}
+          grandTotal={grandTotal}
+        />
       )}
     </div>
   )

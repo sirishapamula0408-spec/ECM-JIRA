@@ -182,6 +182,12 @@ export function DashboardPage() {
     if (gadget.type === 'activityStream') {
       props.activity = filteredActivity
     }
+    // JL-336: the pie/donut legends link into the issue list, so they need the
+    // dashboard's project scope. 'All' means "no single project" — the legend
+    // then links to the unscoped /list route instead of /projects/:id/list.
+    if (gadget.type === 'pie' || gadget.type === 'donut') {
+      props.projectId = filters.project === 'All' ? null : filters.project
+    }
     return <Component {...props} />
   }
 
