@@ -34,3 +34,33 @@ export function timeAgo(input) {
 
   return `${Math.floor(days / 365)}y ago`
 }
+
+/**
+ * Shared date-only formatter (JL-338).
+ *
+ * Renders a timestamp as a human-readable calendar date with no time
+ * component, e.g. "Jul 7, 2026" — matching the en-US short-month style
+ * already used across the app (IssueDetailPage dates, DueDateBadge).
+ *
+ * Timezone behaviour: server timestamps (created_at etc.) are stored in
+ * UTC, so we deliberately format the **UTC** calendar day. This keeps the
+ * displayed date identical to the date embedded in the stored ISO string
+ * for every user — a viewer west of UTC never sees "Jul 6" for a row the
+ * server (and CSV exports, API payloads) says was created on Jul 7.
+ *
+ * @param {Date|string|number} input - Date instance, ISO string, or epoch ms.
+ * @returns {string} e.g. "Jul 7, 2026", or '' when input is missing/invalid.
+ */
+export function formatDateOnly(input) {
+  if (input === null || input === undefined || input === '') return ''
+
+  const date = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
