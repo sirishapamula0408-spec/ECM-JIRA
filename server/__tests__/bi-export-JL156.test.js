@@ -22,12 +22,13 @@ import biExportRoutes, {
   FACT_COLUMNS,
 } from '../routes/biExport.js'
 
-// App stubbing an Admin caller (passes requireRole('Admin')).
-function createApp() {
+// App stubbing an authenticated caller. Defaults to an Admin/Owner (passes
+// requireRole('Admin')); pass a user override to simulate lower roles (JL-315).
+function createApp(user) {
   const app = express()
   app.use(express.json())
   app.use((req, _res, next) => {
-    req.user = { id: 1, email: 'admin@test.com', memberId: 1, workspaceRole: 'Admin', isOwner: true }
+    req.user = user || { id: 1, email: 'admin@test.com', memberId: 1, workspaceRole: 'Admin', isOwner: true }
     req.workspaceId = null
     next()
   })
@@ -35,6 +36,9 @@ function createApp() {
   app.use(errorHandler)
   return app
 }
+
+// Non-Admin caller (authenticated, but should fail requireRole('Admin')).
+const MEMBER_USER = { id: 2, email: 'member@test.com', memberId: 2, workspaceRole: 'Member', isOwner: false }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -129,6 +133,30 @@ describe('GET /api/bi/schema', () => {
     const issues = res.body.datasets.find((d) => d.name === 'issues')
     expect(issues.type).toBe('fact')
     expect(issues.columns.map((c) => c.name)).toEqual(FACT_COLUMNS)
+  })
+
+  // JL-315: schema must be Admin-gated like its sibling /bi/export/* endpoints —
+  // it enumerates the exported datasets/columns, so it leaks the export surface.
+  it('returns 403 for a non-Admin caller (JL-315)', async () => {
+    const app = createApp(MEMBER_USER)
+    const res = await request(app).get('/api/bi/schema')
+    expect(res.status).toBe(403)
+    expect(res.body.error).toMatch(/insufficient permissions/i)
+  })
+})
+
+// JL-315: regression net for the sibling endpoints' existing Admin gates.
+describe('BI export Admin gating (JL-315)', () => {
+  it('non-Admin gets 403 on /api/bi/export/issues', async () => {
+    const app = createApp(MEMBER_USER)
+    const res = await request(app).get('/api/bi/export/issues')
+    expect(res.status).toBe(403)
+  })
+
+  it('non-Admin gets 403 on /api/bi/export/dimensions/:name', async () => {
+    const app = createApp(MEMBER_USER)
+    const res = await request(app).get('/api/bi/export/dimensions/projects')
+    expect(res.status).toBe(403)
   })
 })
 

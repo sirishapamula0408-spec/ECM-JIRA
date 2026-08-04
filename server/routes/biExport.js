@@ -162,7 +162,10 @@ const SCHEMA_DOC = {
 }
 
 // GET /api/bi/schema — describes the exported datasets/columns.
-router.get('/bi/schema', asyncHandler(async (_req, res) => {
+// JL-315: Admin-gated like the sibling /bi/export/* endpoints — the schema
+// enumerates every exported dataset/column, so it must not be readable by
+// non-Admin users while the exports themselves are Admin-only.
+router.get('/bi/schema', requireRole('Admin'), asyncHandler(async (_req, res) => {
   res.json(SCHEMA_DOC)
 }))
 
