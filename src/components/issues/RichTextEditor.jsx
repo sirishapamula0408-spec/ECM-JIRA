@@ -98,6 +98,16 @@ export function RichTextEditor({ value, onChange, placeholder, rows = 6, require
       // Blockquote
       .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
       // Links
+      // JL-358: this rule deliberately does NOT restrict the scheme to
+      // `https?://` the way KnowledgeBasePage does. Unlike KB articles, issue
+      // descriptions legitimately use `mailto:`, root-relative (`/projects/1`)
+      // and in-page (`#section`) links, all of which a `https?://` prefix would
+      // silently downgrade to plain text. The security boundary is sanitizeHtml()
+      // below, which drops any href whose scheme normalizes to
+      // javascript:/data:/vbscript: — including control-character-obfuscated
+      // variants, which is the bypass JL-358 fixed. Note the KB scheme
+      // restriction never blocked the attribute-breakout payload either (a
+      // breakout still starts with `https://`); the sanitizer is what stops it.
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
       // Unordered lists
       .replace(/^- (.+)$/gm, '<li>$1</li>')
