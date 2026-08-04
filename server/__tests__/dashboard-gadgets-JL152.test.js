@@ -129,8 +129,19 @@ describe('GET /api/dashboards/gadgets/catalog', () => {
   })
 })
 
+// JL-356: the data route now resolves the caller's accessible project ids
+// before querying issues, so route-level tests must supply them. Everything
+// else (issue rows / counts) answers as before.
+function mockAccessibleProjects(ids, issueRows = []) {
+  all.mockImplementation(async (sql) => {
+    if (/FROM projects/.test(sql)) return ids.map((id) => ({ id }))
+    return issueRows
+  })
+}
+
 describe('POST /api/dashboards/gadgets/data', () => {
   it('returns { count } for issue_count', async () => {
+    mockAccessibleProjects([1])
     get.mockResolvedValue({ count: '7' })
     const res = await request(createApp())
       .post('/api/dashboards/gadgets/data')
@@ -140,7 +151,7 @@ describe('POST /api/dashboards/gadgets/data', () => {
   })
 
   it('returns a status breakdown for issues_by_status', async () => {
-    all.mockResolvedValue(SAMPLE_ISSUES)
+    mockAccessibleProjects([1], SAMPLE_ISSUES)
     const res = await request(createApp())
       .post('/api/dashboards/gadgets/data')
       .send({ type: 'issues_by_status', config: {} })

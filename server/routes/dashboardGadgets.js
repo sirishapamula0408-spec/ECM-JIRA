@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { loadAccessibleProjectIds } from '../services/projectAccess.js'
 
 /*
  * JL-152 — Configurable dashboard gadget library.
@@ -152,26 +153,111 @@ function clampLimit(value, fallback, max) {
   return Math.min(Math.floor(n), max)
 }
 
-// Build the issue-scoping WHERE fragment. Scope to a specific project when the
-// gadget config names one; otherwise scope to the caller's active workspace
-// (like the other report routes) when one is resolved.
-function buildIssueScope(req, config) {
-  const clauses = []
-  const params = []
-  const projectId = config?.projectId
-  if (projectId !== undefined && projectId !== null && projectId !== '') {
-    clauses.push('project_id = ?')
-    params.push(Number(projectId))
-  } else if (req?.workspaceId) {
-    clauses.push('project_id IN (SELECT id FROM projects WHERE workspace_id = ?)')
-    params.push(req.workspaceId)
+/*
+ * JL-356 — resolve the project ids this caller is allowed to read issue data
+ * for. Workspace Owner/Admin may read every project in the resolved workspace
+ * (same rule as projects.js GET / — JL-224); everybody else gets the shared
+ * membership/lead resolver from projectAccess.js (JL-187), so gadgets apply
+ * exactly the same accessibility rule as the projects listing and the report
+ * builder instead of trusting whatever project id the client posted.
+ */
+async function loadScopeProjectIds(req) {
+  const workspaceId = req?.workspaceId ?? null
+  const isWorkspaceAdmin = req?.user?.isOwner || req?.user?.workspaceRole === 'Admin'
+  if (isWorkspaceAdmin) {
+    // Legacy NULL-workspace rows stay visible so single-tenant / pre-migration
+    // installs are unaffected (mirrors the wsClause in projects.js).
+    const scoped = workspaceId != null
+    const rows = await all(
+      `SELECT id FROM projects${scoped ? ' WHERE workspace_id = ? OR workspace_id IS NULL' : ''}`,
+      scoped ? [workspaceId] : [],
+    )
+    return (rows || []).map((r) => Number(r.id))
   }
-  return { clauses, params }
+  return loadAccessibleProjectIds(req?.user, workspaceId)
+}
+
+/*
+ * Build the issue-scoping WHERE fragment.
+ *
+ * JL-356 (cross-workspace data leak): this used to be
+ *   if (config.projectId) { project_id = ? } else if (req.workspaceId) { …workspace… }
+ * — an `else if`, which made the tenant scoping *mutually exclusive* with a
+ * caller-supplied project id. Any authenticated user could therefore post an
+ * arbitrary `config.projectId` and read issue counts, status/assignee/priority
+ * breakdowns and (via filter_results) issue keys, titles, assignees and
+ * priorities from ANY project in ANY workspace.
+ *
+ * The caller's accessible project ids are now ALWAYS applied and a requested
+ * projectId only ever *narrows* within that set (an intersection, never a
+ * replacement).
+ *
+ * A requested project the caller cannot access yields an EMPTY result rather
+ * than 403, because 403-vs-empty would turn this endpoint into an existence
+ * oracle: an attacker could distinguish "this project id exists in someone
+ * else's workspace" (403) from "no such project" (200 + empty) and enumerate
+ * other tenants. Empty is also what reportBuilder/loadIssues does (JL-187)
+ * when the accessible set is empty.
+ */
+function buildIssueScope(config, accessibleProjectIds) {
+  const accessible = (Array.isArray(accessibleProjectIds) ? accessibleProjectIds : [])
+    .map(Number)
+    .filter((id) => Number.isFinite(id))
+  let scope = accessible
+  const requested = config?.projectId
+  if (requested !== undefined && requested !== null && requested !== '') {
+    const wanted = Number(requested)
+    scope = accessible.filter((id) => id === wanted)
+  }
+  if (scope.length === 0) {
+    // Nothing readable → short-circuit so we never emit an unscoped query (or
+    // an empty `IN ()` a DB might treat as "match everything").
+    return { clauses: [], params: [], empty: true }
+  }
+  return {
+    clauses: [`project_id IN (${scope.map(() => '?').join(', ')})`],
+    params: [...scope],
+    empty: false,
+  }
+}
+
+// The "you may read nothing" shape for each issue-backed gadget. Must match the
+// shape of a real (but zero-row) response so the frontend renders an empty
+// gadget instead of erroring (JL-356).
+function emptyGadgetData(type) {
+  if (type === 'issue_count') return { count: 0 }
+  if (BREAKDOWN_FIELD[type]) return []
+  if (type === 'filter_results') return { issues: [], count: 0 }
+  return null
 }
 
 // Compute a gadget's data against the database, scoped to the caller.
 async function runGadgetQuery(type, config, req) {
-  const scope = buildIssueScope(req, config)
+  // JL-356: every issue-backed gadget type goes through buildIssueScope, so the
+  // fix covers issue_count, issues_by_status/assignee/priority and
+  // filter_results alike — not just the one leak path named in the ticket.
+  const accessibleProjectIds = await loadScopeProjectIds(req)
+  const scope = buildIssueScope(config, accessibleProjectIds)
+
+  if (type === 'recent_activity') {
+    const limit = clampLimit(config?.limit, 5, 50)
+    // JL-356: the activity gadget was completely unscoped and returned the most
+    // recent rows across every workspace. Rows attributed to a project the
+    // caller cannot access are now excluded. Rows with no project attribution
+    // (project_id IS NULL — most activity inserts predate JL-44's project_id
+    // column) stay visible, which is exactly what GET /api/activity already
+    // exposes to any authenticated user, so the gadget does not go blank.
+    const where = accessibleProjectIds.length
+      ? ` WHERE project_id IS NULL OR project_id IN (${accessibleProjectIds.map(() => '?').join(', ')})`
+      : ' WHERE project_id IS NULL'
+    const rows = await all(
+      `SELECT id, actor, action, happened_at FROM activity${where} ORDER BY id DESC LIMIT ?`,
+      [...accessibleProjectIds, limit],
+    )
+    return rows
+  }
+
+  if (scope.empty) return emptyGadgetData(type)
 
   if (type === 'issue_count') {
     const clauses = [...scope.clauses]
@@ -186,15 +272,6 @@ async function runGadgetQuery(type, config, req) {
     const where = scope.clauses.length ? ` WHERE ${scope.clauses.join(' AND ')}` : ''
     const rows = await all(`SELECT status, assignee, priority FROM issues${where}`, scope.params)
     return computeGadgetData(type, rows)
-  }
-
-  if (type === 'recent_activity') {
-    const limit = clampLimit(config?.limit, 5, 50)
-    const rows = await all(
-      'SELECT id, actor, action, happened_at FROM activity ORDER BY id DESC LIMIT ?',
-      [limit],
-    )
-    return rows
   }
 
   if (type === 'filter_results') {
