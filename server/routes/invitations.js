@@ -63,10 +63,14 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   )
 
   // Fire-and-forget invite email (never block the response on SMTP).
+  // JL-361: pass the freshly-stored token so the email carries a working
+  // /accept-invite link. Without it the token flow below (GET /:token and
+  // POST /:token/accept) could never be reached from the invitation email.
   const { subject, html, text } = buildInviteEmail({
     recipientName: email.split('@')[0],
     invitedBy,
     role,
+    token: invite?.token || token,
   })
   // JL-323: sendMail resolves with { ok:false } on an SMTP rejection rather than
   // rejecting, so the outcome must be read off the result — a bare .catch() here
@@ -159,10 +163,14 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
   )
 
   // Fire-and-forget courtesy email (never block the response on SMTP).
+  // JL-361: resend deliberately mints a NEW token and revokes the previous one
+  // (JL-251), so the email must carry the token of the row just inserted — the
+  // old token is no longer valid.
   const { subject, html, text } = buildInviteEmail({
     recipientName: invite.email.split('@')[0],
     invitedBy,
     role: invite.role,
+    token: fresh?.token || token,
   })
   // JL-323: read the result flag; see the note on the create route above.
   sendMail({ to: invite.email, subject, html, text, type: 'invite', relatedEntity: `invitation:${fresh.id}` })

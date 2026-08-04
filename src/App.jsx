@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 
@@ -33,6 +33,7 @@ import { KeyboardShortcutsDialog } from './components/shortcuts/KeyboardShortcut
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
+import { ACCEPT_INVITE_PATH, AcceptInvitePage } from './pages/AcceptInvitePage/AcceptInvitePage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
 import { BacklogPage } from './pages/BacklogPage/BacklogPage'
 import { BoardPage } from './pages/BoardPage/BoardPage'
@@ -88,6 +89,7 @@ function AppContent() {
   const { loadProfile, loadMembers, loadCurrentMember } = useMembers()
   const { loadNotifications } = useNotifications()
   const navigate = useNavigate()
+  const location = useLocation()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -152,6 +154,12 @@ function AppContent() {
       .catch((loadError) => setAppError(loadError.message))
       .finally(() => setAppLoading(false))
   }, [isAuthenticated, loadAppData, loadIssues, loadSprints, loadProfile, loadMembers, loadCurrentMember, setAppLoading, setAppError, loadNotifications])
+
+  // JL-361: the invitation email links here. It has to resolve for a signed-out
+  // invitee (they have no account yet), so it is checked ahead of the login
+  // gate — and handled here rather than in the <Routes> below, which only ever
+  // renders for an authenticated session.
+  if (location.pathname === ACCEPT_INVITE_PATH) return <AcceptInvitePage />
 
   if (!isAuthenticated) return <LoginPage />
 
