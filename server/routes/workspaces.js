@@ -22,6 +22,16 @@ import { DEFAULT_WORKSPACE_SLUG } from '../middleware/workspace.js'
 
 const PRIVILEGED_WORKSPACE_ROLES = ['Owner', 'Admin']
 
+// JL-350: roles that may be WRITTEN via the add-member endpoint. 'Owner' is
+// deliberately excluded — it is only ever granted by the workspace-create and
+// first-signup bootstrap paths (hardcoded literals), never from request input.
+// Without this whitelist a workspace Admin could upsert THEMSELVES to 'Owner',
+// and arbitrary strings (e.g. lowercase 'admin') would create members whose
+// ROLE_RANK lookup is 0, silently failing every later privilege check.
+// Case-sensitive exact match, consistent with invitations.js / members.js /
+// projects.js role validation.
+const ASSIGNABLE_WORKSPACE_ROLES = ['Admin', 'Member', 'Viewer']
+
 /** Slugify a workspace name into a URL-safe unique-ish slug. */
 function slugify(name) {
   return (
@@ -146,6 +156,17 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
   const role = String(req.body?.role || 'Member').trim() || 'Member'
   if (!email) {
     res.status(400).json({ error: 'Member email is required' })
+    return
+  }
+  // JL-350: validate the role BEFORE the upsert. 'Owner' gets its own message
+  // (mirrors the JL-317 rule in members.js) because assigning it here would let
+  // an Admin escalate themselves to Owner via the DO UPDATE branch.
+  if (role === 'Owner') {
+    res.status(400).json({ error: 'The Owner role cannot be assigned' })
+    return
+  }
+  if (!ASSIGNABLE_WORKSPACE_ROLES.includes(role)) {
+    res.status(400).json({ error: `Invalid role. Allowed roles: ${ASSIGNABLE_WORKSPACE_ROLES.join(', ')}` })
     return
   }
 
