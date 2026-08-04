@@ -21,7 +21,15 @@ const REFRESH_OPTIONS = [
   { value: 300000, label: '5 minutes' },
 ]
 
-export function GadgetConfigModal({ gadget, onSave, onClose }) {
+// JL-346: the burndown gadget plots real /api/reports/burndown data, so it can
+// be pinned to a specific sprint (default: whichever sprint is currently
+// started) and switched between issue count and story points.
+const BURNDOWN_UNIT_OPTIONS = [
+  { value: 'count', label: 'Issue count' },
+  { value: 'points', label: 'Story points' },
+]
+
+export function GadgetConfigModal({ gadget, sprintOptions = [], onSave, onClose }) {
   const [config, setConfig] = useState({ ...gadget.config })
   const [title, setTitle] = useState(gadget.title)
 
@@ -34,6 +42,7 @@ export function GadgetConfigModal({ gadget, onSave, onClose }) {
   const isBar = gadget.type === 'bar'
   const isTable = gadget.type === 'filterResults'
   const isActivity = gadget.type === 'activityStream'
+  const isBurndown = gadget.type === 'sprintHealth'
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -111,6 +120,31 @@ export function GadgetConfigModal({ gadget, onSave, onClose }) {
               ))}
             </select>
           </label>
+        )}
+
+        {isBurndown && (
+          <>
+            <label className="gadget-config-label">
+              Sprint
+              <select
+                value={config.sprintId != null ? String(config.sprintId) : ''}
+                onChange={(e) => setConfig((c) => ({ ...c, sprintId: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="">Active sprint</option>
+                {sprintOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="gadget-config-label">
+              Measure
+              <select value={config.unit || 'count'} onChange={(e) => setConfig((c) => ({ ...c, unit: e.target.value }))}>
+                {BURNDOWN_UNIT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+          </>
         )}
 
         <div className="modal-actions">

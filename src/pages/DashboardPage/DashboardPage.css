@@ -512,6 +512,30 @@
   color: var(--jira-text);
 }
 
+/* JL-346: loading / no-sprint / error states for the real burndown fetch */
+.sprint-health-gadget--empty {
+  justify-content: center;
+  min-height: 120px;
+  text-align: center;
+  gap: 4px;
+}
+
+.sprint-health-empty {
+  margin: 0;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.sprint-health-empty-hint {
+  margin: 0;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-xs, 12px);
+}
+
+.sprint-health-error {
+  color: var(--jira-danger, #de350b);
+}
+
 /* Gadget config modal */
 .gadget-config-modal {
   width: min(460px, 100%);
