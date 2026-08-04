@@ -333,6 +333,9 @@ describe('Shared Dashboards API', () => {
 
   describe('DELETE /api/:id', () => {
     it('deletes a dashboard', async () => {
+      // JL-342: DELETE now loads the row first (mirroring PATCH) to 404/403
+      // before deleting, so the owner-owned row must exist in the mock.
+      get.mockResolvedValue({ id: 1, name: 'My Dashboard', owner_email: 'test@test.com', visibility: 'private' })
       run.mockResolvedValue({ changes: 1 })
 
       const res = await request(app).delete('/api/1')
