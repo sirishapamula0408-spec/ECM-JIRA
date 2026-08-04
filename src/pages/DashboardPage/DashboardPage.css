@@ -374,6 +374,16 @@
 .filter-results-key {
   color: var(--jira-link);
   font-weight: var(--font-weight-semibold);
+  /* JL-337: the key is now a real anchor — suppress the UA underline at rest
+     so it looks exactly as before (the class colour already overrides the UA
+     link/visited colours), and underline on hover/focus for affordance, same
+     as .smart-issue-link. */
+  text-decoration: none;
+}
+
+.filter-results-key:hover,
+.filter-results-key:focus-visible {
+  text-decoration: underline;
 }
 
 .pill-priority--high { background: #ffebe6; color: #bf2600; }

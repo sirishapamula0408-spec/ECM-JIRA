@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { FilterResultsGadget } from '../components/dashboard/gadgets/FilterResultsGadget'
 import { formatDateOnly } from '../utils/timeAgo'
 
@@ -16,7 +17,13 @@ const ISSUES = [
 ]
 
 function renderGadget(issues) {
-  return render(<FilterResultsGadget issues={issues} config={{}} />)
+  // JL-337 made the Key cell a react-router <Link>, which needs a router in
+  // scope — assertions below are unchanged.
+  return render(
+    <MemoryRouter>
+      <FilterResultsGadget issues={issues} config={{}} />
+    </MemoryRouter>,
+  )
 }
 
 function createdCells(container) {
