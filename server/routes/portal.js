@@ -220,13 +220,20 @@ router.post('/portal/requests', asyncHandler(async (req, res) => {
   res.status(201).json({ issueKey: result.issue_key, status: result.status })
 }))
 
-// GET /api/portal/requests?email= — a customer's own submitted requests (status view)
+// GET /api/portal/requests — the caller's own submitted requests (status view)
+//
+// JL-349 (IDOR fix): the requester email is bound to the authenticated session
+// (req.user.email), never taken from caller input — matching the "my things"
+// convention in apiTokens.js / sessions.js. An explicit ?email= override is
+// honoured ONLY for workspace Owners/Admins (support-desk view of a customer's
+// requests). For everyone else the parameter is deliberately IGNORED rather
+// than rejected with a 403: this is a "my requests" listing, so scoping to the
+// session is the right answer regardless of what was asked for, and it keeps
+// the pre-existing frontend flow (which passes the user's own email) working.
 router.get('/portal/requests', asyncHandler(async (req, res) => {
-  const email = String(req.query.email || '').trim()
-  if (!email) {
-    res.status(400).json({ error: 'email query parameter is required' })
-    return
-  }
+  const requestedEmail = String(req.query.email || '').trim()
+  const isPrivileged = req.user.isOwner || req.user.workspaceRole === 'Admin'
+  const email = (isPrivileged && requestedEmail) ? requestedEmail : req.user.email
   const rows = await all(
     `SELECT pr.id, pr.requester_email, pr.request_type_id, pr.created_at,
             i.issue_key, i.title, i.status, i.issue_type,
