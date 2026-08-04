@@ -168,13 +168,30 @@
 
 .donut-hole {
   position: absolute;
-  inset: 24px;
+  /* JL-335: was 24px, which left a ring band only 27.4 user units wide — barely
+     more than the 26.4 units a "25%" label occupies (plus its 2.5px outline).
+     A label sitting at 3 or 9 o'clock, where its width points radially, spanned
+     essentially the whole band and collided with the hole. 30px narrows the hole
+     to a 34.3-unit band, giving ~2.7 units of clearance on each side.
+     KEEP IN SYNC with HOLE_RADIUS in DonutChartGadget.jsx — the label radius is
+     derived from it, and DonutLabelClipping.JL335.test.jsx asserts they match. */
+  inset: 30px;
   border-radius: 999px;
   background: var(--jira-surface);
   display: grid;
   place-content: center;
   text-align: center;
   z-index: 1;
+}
+
+/* JL-335: the hole above is opaque and stacked (z-index:1), while the SVG had no
+   stacking context of its own — so it painted over the on-slice "%" labels and
+   sliced digits off the ones nearest 3 and 9 o'clock. The SVG's slice paths are
+   fill="transparent", so lifting the whole layer above the hole is visually
+   inert and keeps labels legible even if the hole inset or font size changes.
+   Scoped to .donut-disc so the plain pie gadget is untouched. */
+.donut-disc .pie-gadget-svg {
+  z-index: 2;
 }
 
 .donut-hole strong {

@@ -1,6 +1,27 @@
 import { useState } from 'react'
 import { groupIssuesBy, buildConicGradient, sectorPath, getColor, getGroupByField } from './gadgetChartUtils'
 
+// JL-335: where the on-slice "%" labels sit, in viewBox user units.
+//
+// The disc renders 140x140px against viewBox 0 0 160 160, so 1 user unit =
+// 0.875px, and the ring's outer edge (70px) is 80 units. `.donut-hole` is
+// inset 30px, so the hole radius is 40px => 45.7 units, and the visible band
+// runs 45.7 -> 80 with its midpoint at 62.9.
+//
+// Two things were wrong before. The radius was hard-coded to 60, only 7.4 units
+// clear of the then-46px hole; and near 3 and 9 o'clock a label's WIDTH (26.4
+// units for "25%") points radially rather than tangentially, so its inner edge
+// reached ~47 — inside the hole. The hole is opaque and stacked above the SVG,
+// so it painted over the digits. Centring on the band fixes the placement, and
+// the wider band (see the JL-335 note on .donut-hole) gives the label room to
+// sit there without touching either edge.
+//
+// HOLE_RADIUS mirrors the CSS `inset` on .donut-hole; DonutLabelClipping.JL335
+// asserts the two stay in sync.
+const HOLE_RADIUS = 45.7
+const RING_OUTER_RADIUS = 80
+const LABEL_RADIUS = (HOLE_RADIUS + RING_OUTER_RADIUS) / 2
+
 export function DonutChartGadget({ issues, config }) {
   const [hiddenLabels, setHiddenLabels] = useState(new Set())
   const [hoveredLabel, setHoveredLabel] = useState(null)
@@ -61,8 +82,8 @@ export function DonutChartGadget({ issues, config }) {
               if (s.endAngle - s.startAngle < 18) return null
               const mid = (s.startAngle + s.endAngle) / 2
               const rad = (mid - 90) * (Math.PI / 180)
-              const x = 80 + 60 * Math.cos(rad)
-              const y = 80 + 60 * Math.sin(rad)
+              const x = 80 + LABEL_RADIUS * Math.cos(rad)
+              const y = 80 + LABEL_RADIUS * Math.sin(rad)
               return (
                 <text
                   key={`label-${s.label}`}
