@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { ISSUE_STATUSES } from '../../../constants'
-import { getColor } from './gadgetChartUtils'
 
 /*
  * Shared legend for the pie / donut dashboard gadgets (JL-336).
@@ -28,6 +27,14 @@ import { getColor } from './gadgetChartUtils'
  * assignee/priority/type legend link would navigate to a list that silently
  * ignored the filter — a worse lie than not linking at all. Those groupings
  * keep the dot toggle and render the label as plain text.
+ *
+ * ── Where the dot colour comes from ──────────────────────────────────────────
+ * JL-345: `segments` must arrive with `color` already resolved (see
+ * resolveSegmentColors in gadgetChartUtils). The legend deliberately does NOT
+ * call getColor itself: it used to, indexing the unfiltered list, while the
+ * gadget indexed its filtered one — so hiding a slice desynced the two. Reading
+ * the colour the gadget already put on the segment removes the second source of
+ * truth entirely, rather than trying to keep two index schemes in step.
  */
 
 // groupIssuesBy() buckets missing values under 'Unassigned', which is not a real
@@ -50,7 +57,7 @@ export function ChartLegend({
 
   return (
     <ul className="pie-gadget-legend">
-      {segments.map((s, i) => {
+      {segments.map((s) => {
         const hidden = hiddenLabels.has(s.label)
         const to = groupBy === 'status' && LINKABLE_STATUSES.has(s.label)
           ? `${listPath}?status=${encodeURIComponent(s.label)}`
@@ -66,7 +73,7 @@ export function ChartLegend({
             >
               <i
                 className="legend-dot"
-                style={{ background: hidden ? '#dfe1e6' : getColor(groupBy, s.label, i) }}
+                style={{ background: hidden ? '#dfe1e6' : s.color }}
               />
             </button>
             {to ? (

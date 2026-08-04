@@ -1,11 +1,12 @@
-import { groupIssuesBy, getColor, getGroupByField } from './gadgetChartUtils'
+import { groupIssuesBy, resolveSegmentColors, getGroupByField } from './gadgetChartUtils'
 
 export function BarChartGadget({ issues, config }) {
-  const field = getGroupByField(config.groupBy || 'priority')
-  const segments = groupIssuesBy(issues, field).map((s, i) => ({
-    ...s,
-    color: getColor(config.groupBy || 'priority', s.label, i),
-  }))
+  const groupBy = config.groupBy || 'priority'
+  const field = getGroupByField(groupBy)
+  // JL-345: same helper as the pie/donut so segment colours are decided in one
+  // place. The bar chart has no hide-a-series affordance, so it never had the
+  // re-indexing bug — this is purely to keep one source of truth.
+  const segments = resolveSegmentColors(groupIssuesBy(issues, field), groupBy)
   const max = Math.max(1, ...segments.map((s) => s.count))
   const isVertical = config.orientation === 'vertical'
 

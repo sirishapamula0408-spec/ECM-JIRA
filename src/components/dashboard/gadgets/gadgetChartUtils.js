@@ -30,6 +30,27 @@ export function getColor(groupBy, key, index) {
   return FALLBACK_COLORS[index % FALLBACK_COLORS.length]
 }
 
+/*
+ * JL-345: resolve every segment's colour ONCE, up front, and carry it on the
+ * segment.
+ *
+ * getColor() falls back to FALLBACK_COLORS[index % n] for any grouping without
+ * a named palette entry — and `assignee`'s palette is literally {}, so there
+ * *every* colour comes from that index. Callers used to colour a list they had
+ * already filtered (hidden slices removed), while the legend coloured the
+ * unfiltered list. Hiding one slice therefore shifted every later index by one:
+ * the disc repainted in colours the legend no longer matched, and slices the
+ * user had not touched changed colour.
+ *
+ * The invariant: a label's colour is a function of its position in the
+ * UNFILTERED grouping and nothing else. Call this on the full segment list
+ * before any filtering, then filter the *result* — so the disc and the legend
+ * are literally reading the same value and cannot disagree.
+ */
+export function resolveSegmentColors(segments, groupBy) {
+  return segments.map((s, i) => ({ ...s, color: getColor(groupBy, s.label, i) }))
+}
+
 export function groupIssuesBy(issues, field) {
   const groups = {}
   for (const issue of issues) {
