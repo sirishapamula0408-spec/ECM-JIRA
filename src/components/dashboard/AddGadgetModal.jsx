@@ -111,7 +111,7 @@ export function AddGadgetModal({ onAdd, onClose }) {
       <div className="modal add-gadget-modal" onClick={(e) => e.stopPropagation()}>
         <div className="add-gadget-header">
           <h2>Add a Gadget</h2>
-          <button className="gadget-action-btn" onClick={onClose}>
+          <button type="button" className="gadget-action-btn" aria-label="Close" onClick={onClose}>
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6">
               <path d="M4 4l8 8M12 4l-8 8" />
             </svg>
