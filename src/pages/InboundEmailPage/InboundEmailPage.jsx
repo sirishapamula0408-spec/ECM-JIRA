@@ -7,6 +7,7 @@ import {
 import { sendTestEmail } from '../../api/notificationApi'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useAuth } from '../../context/AuthContext'
 import { EmptyState } from '../../components/common/EmptyState'
 import { RelativeTime } from '../../components/common/RelativeTime'
 import { ISSUE_TYPES } from '../../constants'
@@ -18,6 +19,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 export function InboundEmailPage() {
   usePageTitle('Inbound Email')
   const { isAdmin } = usePermissions()
+  const { authUser } = useAuth()
   const [settings, setSettings] = useState([])
   const [log, setLog] = useState([])
   const [projects, setProjects] = useState([])
@@ -149,7 +151,9 @@ export function InboundEmailPage() {
         <div className="ie-create-form">
           <h3>Outbound email (SMTP)</h3>
           <p className="ie-subtitle">
-            Verify your SMTP configuration and send a test email to your own address ({/* current admin */}).
+            {/* JL-339: drop the parenthetical entirely when the email is unknown */}
+            Verify your SMTP configuration and send a test email to your own address
+            {authUser?.email ? ` (${authUser.email})` : ''}.
           </p>
           <button
             type="button"
