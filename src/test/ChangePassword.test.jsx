@@ -25,6 +25,7 @@ function fillAndSubmit({ current, next, confirm }) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  window.sessionStorage.clear()
 })
 
 describe('ChangePasswordSection (JL-198)', () => {
@@ -56,5 +57,37 @@ describe('ChangePasswordSection (JL-198)', () => {
 
     expect(changePassword).not.toHaveBeenCalled()
     expect(screen.getByText(/do not match/i)).toBeInTheDocument()
+  })
+})
+
+// JL-351: the org password-rotation nudge. AuthContext writes
+// `jira_password_expired` from the login response; this section is where it is
+// surfaced, since it is the control that actually resolves it.
+describe('ChangePasswordSection rotation nudge (JL-351)', () => {
+  it('shows the rotation warning when the login flagged the password as expired', () => {
+    window.sessionStorage.setItem('jira_password_expired', '1')
+    render(<ChangePasswordSection />)
+
+    expect(screen.getByText(/older than the rotation period/i)).toBeInTheDocument()
+  })
+
+  it('shows nothing when the flag is absent', () => {
+    render(<ChangePasswordSection />)
+
+    expect(screen.queryByText(/older than the rotation period/i)).not.toBeInTheDocument()
+  })
+
+  it('clears the warning and the flag once the password is changed', async () => {
+    window.sessionStorage.setItem('jira_password_expired', '1')
+    changePassword.mockResolvedValueOnce({ message: 'Password changed successfully.' })
+    render(<ChangePasswordSection />)
+    expect(screen.getByText(/older than the rotation period/i)).toBeInTheDocument()
+
+    fillAndSubmit({ current: 'oldpass1', next: 'brandnew2', confirm: 'brandnew2' })
+
+    await waitFor(() => {
+      expect(screen.queryByText(/older than the rotation period/i)).not.toBeInTheDocument()
+    })
+    expect(window.sessionStorage.getItem('jira_password_expired')).toBeNull()
   })
 })

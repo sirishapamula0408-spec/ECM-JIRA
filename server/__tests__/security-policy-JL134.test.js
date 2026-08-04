@@ -20,6 +20,7 @@ import { run, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import authRoutes from '../routes/auth.js'
 import securityPolicyRoutes from '../routes/securityPolicy.js'
+import { hashPassword } from '../middleware/validate.js'
 import {
   validatePassword,
   isPasswordExpired,
@@ -264,6 +265,108 @@ describe('POST /api/auth/signup — password policy enforcement', () => {
     expect(run).toHaveBeenCalledWith(
       expect.stringContaining('password_changed_at'),
       expect.arrayContaining(['newuser@gmail.com']),
+    )
+  })
+})
+
+/* ================================================================
+   5. JL-351: login-time password-rotation enforcement
+   ================================================================
+   The rotation control on the Teams > Security panel persisted a value that
+   nothing ever read. These cases lock in that login now *reports* expiry via a
+   `passwordExpired` flag on the response body (advisory / non-blocking, exactly
+   like `mfaEnrollmentRequired`).
+   ================================================================ */
+describe('POST /api/auth/login — JL-351 password rotation flag', () => {
+  const PASSWORD = 'password123'
+
+  function daysAgo(n) {
+    return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString()
+  }
+
+  // Wire the two `get` lookups the login handler makes: the user row and the
+  // org security policy. Matched on SQL (not call order) for the same reason
+  // documented in the signup block above.
+  function mockLogin({ email, passwordChangedAt, maxAgeDays }) {
+    get.mockImplementation(async (sql) => {
+      if (/FROM users WHERE email/.test(sql)) {
+        return {
+          id: 1,
+          email,
+          password_hash: hashPassword(PASSWORD),
+          status: 'Active',
+          created_at: new Date().toISOString(),
+          mfa_enabled: false,
+          mfa_secret: null,
+          password_changed_at: passwordChangedAt,
+        }
+      }
+      if (/FROM security_policy/i.test(sql)) {
+        return { ...DEFAULT_ROW, password_max_age_days: maxAgeDays }
+      }
+      return undefined
+    })
+    run.mockResolvedValue({ lastID: 1, changes: 1 })
+  }
+
+  it('flags passwordExpired when the password is older than the max age', async () => {
+    mockLogin({ email: 'stale@gmail.com', passwordChangedAt: daysAgo(100), maxAgeDays: 90 })
+
+    const res = await request(makeAuthApp())
+      .post('/api/auth/login')
+      .send({ email: 'stale@gmail.com', password: PASSWORD })
+
+    expect(res.status).toBe(200)
+    expect(res.body.token).toBeDefined() // advisory only — login still succeeds
+    expect(res.body.passwordExpired).toBe(true)
+  })
+
+  it('does not flag a password changed within the max age', async () => {
+    mockLogin({ email: 'fresh@gmail.com', passwordChangedAt: daysAgo(10), maxAgeDays: 90 })
+
+    const res = await request(makeAuthApp())
+      .post('/api/auth/login')
+      .send({ email: 'fresh@gmail.com', password: PASSWORD })
+
+    expect(res.status).toBe(200)
+    expect(res.body.passwordExpired).toBeFalsy()
+  })
+
+  it('does not flag anything when rotation is disabled (0 = never expire)', async () => {
+    mockLogin({ email: 'norotation@gmail.com', passwordChangedAt: daysAgo(4000), maxAgeDays: 0 })
+
+    const res = await request(makeAuthApp())
+      .post('/api/auth/login')
+      .send({ email: 'norotation@gmail.com', password: PASSWORD })
+
+    expect(res.status).toBe(200)
+    expect(res.body.passwordExpired).toBeFalsy()
+  })
+
+  // JL-351: the pure helper treats a missing timestamp as expired. At the login
+  // call site that would flag every pre-existing account the moment an admin
+  // first sets a rotation policy, so the handler must not do that.
+  it('does not flag a user with no password_changed_at recorded', async () => {
+    mockLogin({ email: 'legacy@gmail.com', passwordChangedAt: null, maxAgeDays: 90 })
+
+    const res = await request(makeAuthApp())
+      .post('/api/auth/login')
+      .send({ email: 'legacy@gmail.com', password: PASSWORD })
+
+    expect(res.status).toBe(200)
+    expect(res.body.passwordExpired).toBeFalsy()
+  })
+
+  it('selects password_changed_at from the users table', async () => {
+    mockLogin({ email: 'selects@gmail.com', passwordChangedAt: daysAgo(1), maxAgeDays: 90 })
+
+    await request(makeAuthApp())
+      .post('/api/auth/login')
+      .send({ email: 'selects@gmail.com', password: PASSWORD })
+
+    expect(get).toHaveBeenCalledWith(
+      expect.stringMatching(/password_changed_at[\s\S]*FROM users WHERE email/),
+      ['selects@gmail.com'],
     )
   })
 })

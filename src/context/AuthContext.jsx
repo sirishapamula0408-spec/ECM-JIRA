@@ -38,6 +38,19 @@ export function AuthProvider({ children }) {
       }
     } catch { /* ignore */ }
 
+    // JL-351: org-wide password-rotation nudge. When the org sets a rotation
+    // period and this user's password is past it, the login response carries
+    // passwordExpired. Persisted the same way as the MFA flag above so
+    // ProfilePage's Change Password section can prompt them. Non-blocking by
+    // design — login has already succeeded at this point.
+    try {
+      if (response.passwordExpired) {
+        window.sessionStorage.setItem('jira_password_expired', '1')
+      } else {
+        window.sessionStorage.removeItem('jira_password_expired')
+      }
+    } catch { /* ignore */ }
+
     return response
   }, [])
 
