@@ -6,6 +6,10 @@ import { requireRole } from '../middleware/authorize.js'
 // Allowed value sets (also used for validation)
 export const INCIDENT_SEVERITIES = ['SEV1', 'SEV2', 'SEV3', 'SEV4']
 export const INCIDENT_STATUSES = ['open', 'investigating', 'identified', 'monitoring', 'resolved']
+// JL-348: every kind this router itself writes ('created', 'status', 'resolved',
+// 'severity') plus the user-facing default 'note' — the timeline POST previously
+// accepted any string here while severity/status were validated.
+export const TIMELINE_KINDS = ['note', 'created', 'status', 'resolved', 'severity']
 
 /**
  * PURE HELPER — validate a severity value.
@@ -21,6 +25,14 @@ export function isValidSeverity(severity) {
  */
 export function isValidStatus(status) {
   return INCIDENT_STATUSES.includes(status)
+}
+
+/**
+ * PURE HELPER — validate a timeline entry kind (JL-348).
+ * @returns {boolean} true when `kind` is one of the allowed values.
+ */
+export function isValidTimelineKind(kind) {
+  return TIMELINE_KINDS.includes(kind)
 }
 
 /**
@@ -110,7 +122,10 @@ router.get('/incidents/:id', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/incidents — open a new incident (records a 'created' timeline entry)
-router.post('/incidents', asyncHandler(async (req, res) => {
+// JL-348: Member+ only — the router is mounted behind auth but auth alone let a
+// read-only Viewer open incidents. Incident response is operational work, so it
+// is gated at Member (the Admin gates below are for on-call *configuration*).
+router.post('/incidents', requireRole('Member'), asyncHandler(async (req, res) => {
   const { title, description = '', severity = 'SEV3', status = 'open', issueId = null, commanderEmail = null } = req.body || {}
   if (!title?.trim()) {
     res.status(400).json({ error: 'title is required' })
@@ -138,7 +153,9 @@ router.post('/incidents', asyncHandler(async (req, res) => {
 }))
 
 // PATCH /api/incidents/:id — update status/severity/etc
-router.patch('/incidents/:id', asyncHandler(async (req, res) => {
+// JL-348: Member+ only — previously a Viewer could resolve incidents or
+// reassign the commander.
+router.patch('/incidents/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM incidents WHERE id = ?', [id])
   if (!existing) {
@@ -194,7 +211,8 @@ router.patch('/incidents/:id', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/incidents/:id/timeline — add a note/update
-router.post('/incidents/:id/timeline', asyncHandler(async (req, res) => {
+// JL-348: Member+ only — previously a Viewer could write timeline entries.
+router.post('/incidents/:id/timeline', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const incident = await get('SELECT id FROM incidents WHERE id = ?', [id])
   if (!incident) {
@@ -204,6 +222,11 @@ router.post('/incidents/:id/timeline', asyncHandler(async (req, res) => {
   const { note, kind = 'note' } = req.body || {}
   if (!note?.trim()) {
     res.status(400).json({ error: 'note is required' })
+    return
+  }
+  // JL-348: kind was written unvalidated while severity/status were whitelisted.
+  if (!isValidTimelineKind(kind)) {
+    res.status(400).json({ error: 'Invalid kind' })
     return
   }
   const result = await run(
