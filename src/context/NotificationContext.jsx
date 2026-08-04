@@ -26,14 +26,28 @@ export function NotificationProvider({ children }) {
   }, [])
 
   const markRead = useCallback(async (id) => {
+    // JL-341: clicking an already-read notification used to decrement
+    // unreadCount unconditionally, driving the bell badge (and the JL-221
+    // tab-title mirror derived from it) below the real number of unread
+    // rows. An already-read row needs no server call either — the API would
+    // just re-set is_read = TRUE — so we skip the request entirely instead
+    // of firing a redundant PATCH per click.
+    const target = notifications.find((n) => n.id === id)
+    if (target && target.is_read) return
     try {
       await markNotificationRead(id)
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+      // JL-341: only decrement when we know the row was unread. If the id is
+      // not in local state (no current caller does this) we still mark it
+      // server-side but leave the count alone; the next loadNotifications()
+      // resyncs from the server total.
+      if (target && !target.is_read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1))
+      }
     } catch {
       // ignore
     }
-  }, [])
+  }, [notifications])
 
   const markAllRead = useCallback(async () => {
     try {
