@@ -64,7 +64,14 @@ export function SharedDashboardsPage() {
   }
 
   async function handleDelete(id) {
-    await deleteSharedDashboard(id)
+    // JL-342: the API now returns 403 (not owner) / 404 (already gone) instead
+    // of a false success. A 403 surfaces via the api client's permission-denied
+    // snackbar; either way, re-fetch so the list reflects the server's truth.
+    try {
+      await deleteSharedDashboard(id)
+    } catch {
+      // error already surfaced by the api client (403 snackbar); fall through to refresh
+    }
     load()
   }
 

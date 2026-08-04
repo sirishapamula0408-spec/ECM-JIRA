@@ -89,9 +89,26 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   res.json(row)
 }))
 
-// DELETE /api/shared-dashboards/:id
+// DELETE /api/shared-dashboards/:id — owner only
+// JL-342: the old query filtered by owner_email and discarded the `changes`
+// count, so deleting someone else's dashboard or a non-existent id both
+// reported { success: true }. Mirror PATCH /:id above: load the row first,
+// 404 when missing, 403 when not the owner (no workspace-Admin bypass —
+// PATCH has none, so DELETE must stay consistent).
 router.delete('/:id', asyncHandler(async (req, res) => {
-  await run('DELETE FROM shared_dashboards WHERE id = ? AND owner_email = ?', [Number(req.params.id), req.user.email])
+  const id = Number(req.params.id)
+  const existing = await get('SELECT * FROM shared_dashboards WHERE id = ?', [id])
+  if (!existing) {
+    res.status(404).json({ error: 'Dashboard not found' })
+    return
+  }
+
+  if (existing.owner_email !== req.user.email) {
+    res.status(403).json({ error: 'Only the owner can delete this dashboard' })
+    return
+  }
+
+  await run('DELETE FROM shared_dashboards WHERE id = ?', [id])
   res.json({ success: true })
 }))
 
