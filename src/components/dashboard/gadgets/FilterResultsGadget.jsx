@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { formatDateOnly } from '../../../utils/timeAgo'
 
 export function FilterResultsGadget({ issues, config }) {
   const pageSize = config.pageSize || 10
@@ -72,7 +73,11 @@ export function FilterResultsGadget({ issues, config }) {
                 <td>{issue.assignee || '—'}</td>
                 <td><span className={`pill pill-priority pill-priority--${(issue.priority || '').toLowerCase()}`}>{issue.priority}</span></td>
                 <td><span className="pill">{issue.status}</span></td>
-                <td>{issue.createdAt || '—'}</td>
+                {/* JL-338: display-only formatting — sorting above still compares the
+                    raw createdAt ISO string, which orders chronologically. formatDateOnly
+                    shows the UTC calendar day (matching the stored timestamp) and returns
+                    '' for missing/unparseable values, so the '—' fallback still applies. */}
+                <td>{formatDateOnly(issue.createdAt) || '—'}</td>
               </tr>
             ))}
           </tbody>
