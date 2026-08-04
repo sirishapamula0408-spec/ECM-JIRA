@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { all, get } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { loadAccessibleProjectIds } from '../services/projectAccess.js'
+import { loadScopeProjectIds } from '../services/projectAccess.js'
+import { activityScopeWhere } from '../services/activityScope.js'
 
 /*
  * JL-152 — Configurable dashboard gadget library.
@@ -160,22 +161,10 @@ function clampLimit(value, fallback, max) {
  * membership/lead resolver from projectAccess.js (JL-187), so gadgets apply
  * exactly the same accessibility rule as the projects listing and the report
  * builder instead of trusting whatever project id the client posted.
+ *
+ * JL-362: the implementation moved to services/projectAccess.js (unchanged) so
+ * the activity feed can apply the identical rule; imported above.
  */
-async function loadScopeProjectIds(req) {
-  const workspaceId = req?.workspaceId ?? null
-  const isWorkspaceAdmin = req?.user?.isOwner || req?.user?.workspaceRole === 'Admin'
-  if (isWorkspaceAdmin) {
-    // Legacy NULL-workspace rows stay visible so single-tenant / pre-migration
-    // installs are unaffected (mirrors the wsClause in projects.js).
-    const scoped = workspaceId != null
-    const rows = await all(
-      `SELECT id FROM projects${scoped ? ' WHERE workspace_id = ? OR workspace_id IS NULL' : ''}`,
-      scoped ? [workspaceId] : [],
-    )
-    return (rows || []).map((r) => Number(r.id))
-  }
-  return loadAccessibleProjectIds(req?.user, workspaceId)
-}
 
 /*
  * Build the issue-scoping WHERE fragment.
@@ -241,18 +230,18 @@ async function runGadgetQuery(type, config, req) {
 
   if (type === 'recent_activity') {
     const limit = clampLimit(config?.limit, 5, 50)
-    // JL-356: the activity gadget was completely unscoped and returned the most
-    // recent rows across every workspace. Rows attributed to a project the
-    // caller cannot access are now excluded. Rows with no project attribution
-    // (project_id IS NULL — most activity inserts predate JL-44's project_id
-    // column) stay visible, which is exactly what GET /api/activity already
-    // exposes to any authenticated user, so the gadget does not go blank.
-    const where = accessibleProjectIds.length
-      ? ` WHERE project_id IS NULL OR project_id IN (${accessibleProjectIds.map(() => '?').join(', ')})`
-      : ' WHERE project_id IS NULL'
+    // JL-356 scoped this gadget by project but deliberately kept every
+    // `project_id IS NULL` row visible, because GET /api/activity was leaking
+    // them to any authenticated user anyway and excluding them would have
+    // blanked the gadget without closing anything.
+    // JL-362 closes that underlying leak and gives activity rows real
+    // attribution (project_id / workspace_id at insert time + a backfill), so
+    // the gadget now uses the same shared rule as /api/activity and
+    // /api/dashboard instead of its own weaker clause.
+    const scope = await activityScopeWhere(req)
     const rows = await all(
-      `SELECT id, actor, action, happened_at FROM activity${where} ORDER BY id DESC LIMIT ?`,
-      [...accessibleProjectIds, limit],
+      `SELECT id, actor, action, happened_at FROM activity${scope.where} ORDER BY id DESC LIMIT ?`,
+      [...scope.params, limit],
     )
     return rows
   }

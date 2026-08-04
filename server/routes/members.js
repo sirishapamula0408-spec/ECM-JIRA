@@ -68,12 +68,16 @@ async function revokeAccessFor(email, actorEmail) {
  * Records a workspace-membership action in the activity table when it exists.
  * Failures are swallowed so member management never breaks on a missing table.
  */
-async function recordActivity(actor, action) {
+async function recordActivity(actor, action, workspaceId = null) {
   try {
     if (!(await tableExists('activity'))) return
+    // JL-362: member events belong to a workspace but to no project, so they
+    // carry workspace_id (project_id stays NULL). Without it the row was
+    // unattributable and GET /api/activity showed every tenant's member
+    // add/remove/role-change to every authenticated user.
     await run(
-      'INSERT INTO activity (actor, action, happened_at, activity_type, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [actor || 'System', action, new Date().toISOString(), 'member'],
+      'INSERT INTO activity (actor, action, happened_at, activity_type, workspace_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+      [actor || 'System', action, new Date().toISOString(), 'member', workspaceId ?? null],
     )
   } catch (err) {
     console.error('[Members] Failed to record activity:', err.message)
@@ -490,6 +494,7 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await recordActivity(
     req.user?.email,
     `changed ${member.email} role from ${member.role} to ${role}`,
+    req.workspaceId ?? null,
   )
   await recordAudit({
     actor: req.user?.email,
@@ -551,7 +556,7 @@ router.post('/bulk-delete', requireRole('Admin'), asyncHandler(async (req, res) 
     // JL-325: revoke access properly — see the single-delete route below.
     await revokeAccessFor(member.email, req.user?.email)
 
-    await recordActivity(req.user?.email, `removed member ${member.email}`)
+    await recordActivity(req.user?.email, `removed member ${member.email}`, req.workspaceId ?? null)
     await recordAudit({
       actor: req.user?.email,
       targetMemberId: id,
@@ -608,7 +613,7 @@ router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   // back to Viewer), and could re-register freely because signup has no gate.
   await revokeAccessFor(member.email, req.user?.email)
 
-  await recordActivity(req.user?.email, `removed member ${member.email}`)
+  await recordActivity(req.user?.email, `removed member ${member.email}`, req.workspaceId ?? null)
   await recordAudit({
     actor: req.user?.email,
     targetMemberId: id,

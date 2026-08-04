@@ -1451,24 +1451,12 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace ON workspace_members(workspace_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_workspace_members_email ON workspace_members(member_email)')
 
-  // JL-291: keep workspace_members in sync with the authoritative `members`
-  // directory. Member provisioning (seed / invite / admin-create) writes to
-  // `members` but not `workspace_members`, so real members — including the
-  // workspace Owner and Admins — could be missing from workspace_members and get
-  // locked out of their own workspace by the X-Workspace-Id membership check.
-  // Idempotent (NOT EXISTS guard); runs on every boot so existing installs heal.
-  await pool.query(`
-    INSERT INTO workspace_members (workspace_id, member_email, role)
-    SELECT m.workspace_id, m.email, m.role
-      FROM members m
-     WHERE m.workspace_id IS NOT NULL
-       AND NOT EXISTS (
-         SELECT 1 FROM workspace_members wm
-          WHERE wm.workspace_id = m.workspace_id
-            AND LOWER(wm.member_email) = LOWER(m.email)
-       )
-    ON CONFLICT (workspace_id, member_email) DO NOTHING
-  `)
+  // NOTE (JL-362): the JL-291 workspace_members backfill used to live here, but
+  // it selects `members.workspace_id` — a column that is not added until the
+  // workspace_id migration ~50 lines below. On a FRESH database that made
+  // initializeDatabase() abort with `column m.workspace_id does not exist`,
+  // taking every later migration down with it (including JL-362's own activity
+  // attribution columns). Moved to just after the column is created.
 
   // --- JL-122: Configurable result columns & saved list views ---
   // Per-user named views: an ordered set of visible column keys + optional JQL filter.
@@ -1515,6 +1503,64 @@ export async function initializeDatabase() {
     await pool.query('UPDATE projects SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
     await pool.query('UPDATE members SET workspace_id = $1 WHERE workspace_id IS NULL', [defaultWorkspaceId])
   }
+
+  // JL-291: keep workspace_members in sync with the authoritative `members`
+  // directory. Member provisioning (seed / invite / admin-create) writes to
+  // `members` but not `workspace_members`, so real members — including the
+  // workspace Owner and Admins — could be missing from workspace_members and get
+  // locked out of their own workspace by the X-Workspace-Id membership check.
+  // Idempotent (NOT EXISTS guard); runs on every boot so existing installs heal.
+  // JL-362: moved down to here — it reads members.workspace_id, which is only
+  // created a few lines above, so running it earlier broke a fresh install.
+  await pool.query(`
+    INSERT INTO workspace_members (workspace_id, member_email, role)
+    SELECT m.workspace_id, m.email, m.role
+      FROM members m
+     WHERE m.workspace_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM workspace_members wm
+          WHERE wm.workspace_id = m.workspace_id
+            AND LOWER(wm.member_email) = LOWER(m.email)
+       )
+    ON CONFLICT (workspace_id, member_email) DO NOTHING
+  `)
+
+  // --- JL-362: tenant attribution for the activity feed ---
+  // GET /api/activity (and GET /api/dashboard, and JL-356's recent_activity
+  // gadget) had no tenant predicate because NO writer set activity.project_id —
+  // every row was project_id IS NULL and therefore unscopable. Writers now set
+  // project_id/issue_id (issue events) or workspace_id (member events); this
+  // block adds the workspace_id column and backfills historical rows so the new
+  // read filter does not simply blank the feed.
+  if (!(await columnExists('activity', 'workspace_id'))) {
+    await pool.query('ALTER TABLE activity ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL')
+  }
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_activity_workspace_id ON activity(workspace_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_activity_project_id ON activity(project_id)')
+
+  // Backfill project_id by pulling the issue key out of the free-text `action`
+  // ("created ABC-12 (title)", "moved ABC-12 to DONE", "commented on ABC-12",
+  // …). Only rows whose key resolves to a real issue are touched, so this can
+  // never mis-attribute. Idempotent and self-limiting: the project_id IS NULL
+  // guard means each row is considered at most once, and rows with no
+  // resolvable key are simply left unattributed (and are hidden on read).
+  await pool.query(`
+    UPDATE activity a
+       SET project_id = i.project_id,
+           issue_id   = COALESCE(a.issue_id, i.id)
+      FROM issues i
+     WHERE a.project_id IS NULL
+       AND i.issue_key = substring(a.action from '[A-Za-z][A-Za-z0-9]*-[0-9]+')
+  `)
+  // Derive workspace_id from the (now attributed) project.
+  await pool.query(`
+    UPDATE activity a
+       SET workspace_id = p.workspace_id
+      FROM projects p
+     WHERE a.workspace_id IS NULL
+       AND a.project_id = p.id
+       AND p.workspace_id IS NOT NULL
+  `)
 
   // --- JL-114: Screen schemes (per-issue-type field screens) ---
   // A scheme describes which built-in + custom fields appear on the create/edit

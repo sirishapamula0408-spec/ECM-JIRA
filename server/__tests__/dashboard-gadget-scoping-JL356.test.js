@@ -51,10 +51,13 @@ const ISSUES = [
   { id: 6, project_id: 99, issue_key: 'SECRET-3', title: 'Layoff plan', status: 'In Progress', assignee: 'victim', priority: 'Highest' },
 ]
 
+// JL-362 gave activity rows real tenant attribution (project_id / workspace_id),
+// so the fixture carries workspace_id too.
 const ACTIVITY = [
-  { id: 10, actor: 'victim', action: 'created SECRET-3', happened_at: 't3', project_id: 99 },
-  { id: 9, actor: 'alice', action: 'created ALPHA-1', happened_at: 't2', project_id: 1 },
-  { id: 8, actor: 'system', action: 'legacy row', happened_at: 't1', project_id: null },
+  { id: 10, actor: 'victim', action: 'created SECRET-3', happened_at: 't3', project_id: 99, workspace_id: 2 },
+  { id: 9, actor: 'alice', action: 'created ALPHA-1', happened_at: 't2', project_id: 1, workspace_id: 1 },
+  { id: 8, actor: 'system', action: 'legacy row', happened_at: 't1', project_id: null, workspace_id: null },
+  { id: 7, actor: 'admin', action: 'removed member bob', happened_at: 't0', project_id: null, workspace_id: 1 },
 ]
 
 // alice is a member of project 1 only.
@@ -97,21 +100,37 @@ function queryIssues(sql, params = []) {
   return rows
 }
 
+// JL-362: the gadget now shares services/activityScope.js with GET /api/activity
+// and GET /api/dashboard, so the generated clause is an OR of up to three
+// branches (accessible project / caller's workspace / unattributable).
 function queryActivity(sql, params = []) {
   let rows = ACTIVITY
   let i = 0
+  const branches = []
+
   const n = inListSize(sql)
-  const ids = n === null ? [] : params.slice(0, n).map(Number)
-  if (n !== null) i += n
-  if (sql.includes('WHERE')) {
-    rows = rows.filter((r) => r.project_id === null || ids.includes(r.project_id))
+  if (n !== null) {
+    const ids = params.slice(i, i + n).map(Number)
+    i += n
+    branches.push((r) => r.project_id !== null && ids.includes(r.project_id))
   }
+  if (/project_id IS NULL AND workspace_id = \?/.test(sql)) {
+    const ws = Number(params[i++])
+    branches.push((r) => r.project_id === null && r.workspace_id === ws)
+  }
+  if (/project_id IS NULL AND workspace_id IS NULL/.test(sql)) {
+    branches.push((r) => r.project_id === null && r.workspace_id === null)
+  }
+  if (sql.includes('WHERE')) rows = rows.filter((r) => branches.some((f) => f(r)))
   if (/LIMIT \?/.test(sql)) rows = rows.slice(0, Number(params[i++]))
   return rows
 }
 
 function installDb() {
   get.mockImplementation(async (sql, params = []) => {
+    // JL-362: two workspaces exist in this fixture, so the "unattributable rows
+    // stay visible" carve-out for single-tenant installs does NOT apply.
+    if (/COUNT\(\*\) AS count FROM workspaces/.test(sql)) return { count: '2' }
     if (/FROM members/.test(sql)) {
       const email = String(params[0] || '').toLowerCase()
       if (email === 'alice@alpha.test') return { id: 10, name: 'Alice' }
@@ -279,8 +298,17 @@ describe('JL-356 — recent_activity is scoped too', () => {
     expect(res.status).toBe(200)
     const actions = res.body.data.map((r) => r.action)
     expect(actions).not.toContain('created SECRET-3')
-    // own project + unattributed legacy rows stay visible
+    // own project rows stay visible
     expect(actions).toContain('created ALPHA-1')
-    expect(actions).toContain('legacy row')
+    // JL-362 SUPERSEDES the original assertion here. JL-356 deliberately kept
+    // unattributed (project_id IS NULL) rows visible, because GET /api/activity
+    // was leaking them to any authenticated user anyway and hiding them would
+    // have blanked the gadget without closing anything. JL-362 closed that leak
+    // and gave activity rows real attribution, so an unattributable row is now
+    // hidden on a multi-workspace install...
+    expect(actions).not.toContain('legacy row')
+    // ...while workspace-level rows belonging to the caller's own tenant
+    // (member management, which has no project) remain visible.
+    expect(actions).toContain('removed member bob')
   })
 })
