@@ -286,12 +286,48 @@ router.get('/queues/:id/issues', asyncHandler(async (req, res) => {
   const targetByPriority = new Map()
   for (const p of policyRows) targetByPriority.set(p.priority, p.target_hours)
 
+  // JL-347: first-Done timestamp per Done issue, batched in one query.
+  //
+  // This used to measure a resolved issue from created_at to created_at, so
+  // elapsed was always 0 and slaStatus always said "ok" — an issue that blew a
+  // 4-hour target by a week reported 0% consumed, making the SLA column
+  // meaningless for every completed issue. The correct source is the first
+  // status -> Done row in issue_history, exactly as sla.js already does it.
+  //
+  // Batched rather than per-issue: a queue can hold many issues, and sla.js
+  // batches for the same reason. The logic is kept in step with sla.js:186-207
+  // rather than extracted — the two differ in the surrounding shape (bucketing
+  // vs per-row annotation) and a shared helper would have to take the issue
+  // list and hand back a Map, which is what this already is.
+  // Only Done issues that actually have a policy: an issue with no matching
+  // target never consults doneAt, so fetching its history would be wasted work.
+  const doneIds = issues
+    .filter((i) => i.status === 'Done' && targetByPriority.get(i.priority) !== undefined)
+    .map((i) => i.id)
+  const doneAt = new Map()
+  if (doneIds.length) {
+    const placeholders = doneIds.map(() => '?').join(', ')
+    const doneRows = await all(
+      `SELECT issue_id, MIN(changed_at) AS done_at FROM issue_history
+        WHERE field = 'status' AND new_value = 'Done' AND issue_id IN (${placeholders})
+        GROUP BY issue_id`,
+      doneIds,
+    )
+    for (const r of doneRows) doneAt.set(r.issue_id, r.done_at)
+  }
+
   const now = Date.now()
   const annotated = issues.map((issue) => {
     const targetHours = targetByPriority.get(issue.priority)
     let sla = null
     if (targetHours !== undefined) {
-      const endMs = issue.status === 'Done' ? new Date(issue.created_at).getTime() : now
+      // Done with no history row (imported, or history pruned) falls back to
+      // `now`, matching sla.js. That reads as maximally elapsed rather than
+      // perfectly compliant: an unknown resolution time should draw attention,
+      // not silently claim the target was met.
+      const endMs = issue.status === 'Done'
+        ? (doneAt.has(issue.id) ? new Date(doneAt.get(issue.id)).getTime() : now)
+        : now
       const elapsedHours = elapsedHoursBetween(issue.created_at, endMs)
       const status = slaStatus(elapsedHours, targetHours)
       if (status) {
