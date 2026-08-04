@@ -67,6 +67,35 @@ function columnCategory(statuses, categoryMap) {
   return null
 }
 
+// JL-355: resolve a board column's WIP limit from the persisted status->limit
+// map. The board-config server contract keys wipLimits by STATUS
+// (server/routes/boardConfig.js), but JL-308 custom columns can be renamed or
+// map several statuses — looking limits up by column NAME silently missed for
+// any column whose name differs from its status, so saved limits never fired.
+// Resolving through the column's mapped statuses keeps the persisted format
+// stable (no migration) and makes the default name==status board behave
+// exactly as before.
+//
+// Merged-column rule: a column mapping multiple limited statuses gets the SUM
+// of those limits. Each per-status limit expresses how much work that status
+// may hold, so a column merging statuses can hold at most their combined
+// capacity — summing honors every saved limit. (Min would silently tighten
+// limits the admin set; "first" would depend on object iteration order.)
+// Statuses without a saved limit contribute nothing; returns null when no
+// mapped status carries a limit.
+function columnWipLimit(statuses, wipLimits) {
+  let total = 0
+  let found = false
+  for (const status of statuses || []) {
+    const n = Number(wipLimits?.[status])
+    if (Number.isInteger(n) && n > 0) {
+      total += n
+      found = true
+    }
+  }
+  return found ? total : null
+}
+
 // Resolve the grouping value for an issue given a swimlane mode.
 function swimlaneValueFor(issue, mode) {
   if (mode === 'assignee') return issue.assignee || 'Unassigned'
@@ -577,7 +606,9 @@ export function BoardPage() {
             </select>
           </div>
           <div className="board-settings-wip">
-            <span className="board-settings-wip-title">WIP limits (per column)</span>
+            {/* JL-355: limits are keyed by workflow status (the server contract);
+                a column's effective limit is the sum of its mapped statuses' limits. */}
+            <span className="board-settings-wip-title">WIP limits (per status)</span>
             {defaultColumnStatuses.map((status) => (
               <div className="board-settings-row" key={status}>
                 <label htmlFor={`wip-${status}`}>{status}</label>
@@ -676,9 +707,11 @@ export function BoardPage() {
           <div className="kanban-grid">
             {boardColumns.map((col) => {
               const colIssues = lane.issues.filter((issue) => col.statuses.includes(issue.status))
-              const limit = wipLimits[col.name]
-              const hasLimit = Number.isInteger(Number(limit)) && Number(limit) > 0
-              const isOverLimit = hasLimit && colIssues.length > Number(limit)
+              // JL-355: limits are persisted keyed by status, so resolve the
+              // column's limit through its mapped statuses (not its name).
+              const limit = columnWipLimit(col.statuses, wipLimits)
+              const hasLimit = limit != null
+              const isOverLimit = hasLimit && colIssues.length > limit
               const width = colWidths[col.id]
               return (
                 <article
