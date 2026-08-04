@@ -45,4 +45,32 @@ export async function loadAccessibleProjectIds(user, workspaceId = null) {
   return (rows || []).map((r) => Number(r.id))
 }
 
+/**
+ * Request-level variant of the above: resolves the project ids in scope for the
+ * CALLER, granting a workspace Owner/Admin every project in their own workspace
+ * (they legitimately see the whole tenant) and everyone else the projects they
+ * are a member of / lead.
+ *
+ * JL-362: lifted out of dashboardGadgets.js (where JL-356 introduced it) so the
+ * activity feed applies exactly the same rule. The SQL is unchanged.
+ *
+ * @param {{ workspaceId?: number|null, user?: object }} req
+ * @returns {Promise<number[]>}
+ */
+export async function loadScopeProjectIds(req) {
+  const workspaceId = req?.workspaceId ?? null
+  const isWorkspaceAdmin = req?.user?.isOwner || req?.user?.workspaceRole === 'Admin'
+  if (isWorkspaceAdmin) {
+    // Legacy NULL-workspace rows stay visible so single-tenant / pre-migration
+    // installs are unaffected (mirrors the wsClause in projects.js).
+    const scoped = workspaceId != null
+    const rows = await all(
+      `SELECT id FROM projects${scoped ? ' WHERE workspace_id = ? OR workspace_id IS NULL' : ''}`,
+      scoped ? [workspaceId] : [],
+    )
+    return (rows || []).map((r) => Number(r.id))
+  }
+  return loadAccessibleProjectIds(req?.user, workspaceId)
+}
+
 export default loadAccessibleProjectIds

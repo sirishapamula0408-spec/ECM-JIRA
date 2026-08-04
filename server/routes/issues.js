@@ -501,11 +501,21 @@ router.post('/', requireProjectWrite((req) => {
       [created.lastID],
     )
 
-    await tx.run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
-      normalizedAssignee,
-      `created ${issueKey} (${normalizedTitle})`,
-      'Just now',
-    ])
+    // JL-362: attribute the activity row to its project/issue/workspace. It used
+    // to be written with (actor, action, happened_at) only, leaving project_id
+    // NULL — which is why GET /api/activity had nothing to scope by and leaked
+    // across tenants.
+    await tx.run(
+      'INSERT INTO activity (actor, action, happened_at, project_id, issue_id, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        normalizedAssignee,
+        `created ${issueKey} (${normalizedTitle})`,
+        'Just now',
+        resolvedProjectId ?? null,
+        created.lastID,
+        req.workspaceId ?? null,
+      ],
+    )
 
     // JL-43: Auto-watch on issue create for the creator
     await tx.run(
@@ -847,11 +857,18 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
     [id],
   )
 
-  await run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
-    row.assignee,
-    `moved ${row.issue_key} to ${status.toUpperCase()}`,
-    'Just now',
-  ])
+  // JL-362: attribute the transition row so it can be tenant-scoped on read.
+  await run(
+    'INSERT INTO activity (actor, action, happened_at, project_id, issue_id, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      row.assignee,
+      `moved ${row.issue_key} to ${status.toUpperCase()}`,
+      'Just now',
+      row.project_id ?? null,
+      row.id,
+      req.workspaceId ?? null,
+    ],
+  )
 
   // Theme-1 #8: fire status-change automation rules (non-fatal)
   await runStatusChangeAutomations(row).catch(() => {})
@@ -1299,11 +1316,18 @@ router.post('/:id/clone', requireProjectWrite(issueParamProject('id')), asyncHan
     [created.lastID],
   )
 
-  await run('INSERT INTO activity (actor, action, happened_at) VALUES (?, ?, ?)', [
-    source.assignee,
-    `created ${issueKey} (${clonedTitle})`,
-    'Just now',
-  ])
+  // JL-362: attribute the clone's activity row so it can be tenant-scoped on read.
+  await run(
+    'INSERT INTO activity (actor, action, happened_at, project_id, issue_id, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [
+      source.assignee,
+      `created ${issueKey} (${clonedTitle})`,
+      'Just now',
+      row?.project_id ?? source.project_id ?? null,
+      created.lastID,
+      req.workspaceId ?? null,
+    ],
+  )
 
   emitEvent('issue.created', mapIssue(row), source.project_id ?? null).catch(() => {})
 

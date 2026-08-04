@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { buildActivityScope } from '../services/activityScope.js'
 
 const router = Router()
 
@@ -15,8 +16,18 @@ router.get('/', asyncHandler(async (req, res) => {
   const dateFrom = req.query.dateFrom || null
   const dateTo = req.query.dateTo || null
 
-  const conditions = []
-  const params = []
+  // JL-362 — cross-workspace data leak. This endpoint had NO tenant predicate:
+  // any authenticated user could page the whole `activity` table and read every
+  // other tenant's issue keys, titles, status transitions and member-management
+  // events. The scope fragment is built once per request and applied to BOTH the
+  // row query and the count query below; because it depends only on the caller
+  // (never on the page), it is identical across every page of a cursor walk, so
+  // JL-44's nextCursor/hasMore pagination stays consistent.
+  // See server/services/activityScope.js for the full attribution rules.
+  const scope = await buildActivityScope(req)
+
+  const conditions = [scope.clause]
+  const params = [...scope.params]
 
   if (cursor) {
     conditions.push('id < ?')
@@ -62,8 +73,10 @@ router.get('/', asyncHandler(async (req, res) => {
   const nextCursor = activities.length > 0 ? activities[activities.length - 1].id : null
 
   // Total count for pagination info
-  const countConditions = []
-  const countParams = []
+  // JL-362: `total` must count only what the caller may see — an unscoped count
+  // would otherwise disclose the size of every other tenant's activity log.
+  const countConditions = [scope.clause]
+  const countParams = [...scope.params]
   if (activityType) { countConditions.push('activity_type = ?'); countParams.push(activityType) }
   if (projectId) { countConditions.push('project_id = ?'); countParams.push(projectId) }
   if (actor) { countConditions.push('actor = ?'); countParams.push(actor) }
