@@ -205,9 +205,27 @@ export function buildPasswordResetEmail({ token, appUrl }) {
   return { subject, html, text }
 }
 
-export function buildInviteEmail({ recipientName, invitedBy, role, appUrl }) {
+/**
+ * Path of the front-end screen that redeems an invitation token.
+ * JL-361: the server cannot import from the SPA bundle, so this is the mirror of
+ * ACCEPT_INVITE_PATH in src/pages/AcceptInvitePage/AcceptInvitePage.jsx — named
+ * and cross-referenced so a rename of either one is findable from the other.
+ */
+export const INVITE_ACCEPT_PATH = '/accept-invite'
+
+export function buildInviteEmail({ recipientName, invitedBy, role, token, appUrl }) {
   // JL-305: read APP_URL from config.js — no direct process.env access here.
-  const url = appUrl || APP_URL || 'http://localhost:5173'
+  const base = (appUrl || APP_URL || 'http://localhost:5173').replace(/\/$/, '')
+  // JL-361: the invitation token was generated, stored with an expiry and
+  // validated by GET/POST /api/invitations/:token — but it was never put in the
+  // email, so the whole token flow was unreachable from the message the invitee
+  // actually receives. Embed it exactly the way buildPasswordResetEmail does
+  // (encodeURIComponent + a real front-end route).
+  // Callers that have no token (the members.js invite path — see JL-329) keep
+  // getting the plain app URL, so their courtesy email is unchanged.
+  const url = token
+    ? `${base}${INVITE_ACCEPT_PATH}?token=${encodeURIComponent(token)}`
+    : base
   const subject = `You've been invited to join ECM-JIRA`
 
   const html = `
@@ -221,13 +239,16 @@ export function buildInviteEmail({ recipientName, invitedBy, role, appUrl }) {
       <div style="text-align:center;margin:28px 0;">
         <a href="${url}" style="display:inline-block;padding:12px 32px;background:#0052cc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Accept Invitation</a>
       </div>
-      <p style="font-size:13px;line-height:1.6;color:#6b778c;">Once you accept, you'll be able to collaborate on projects, track issues, and manage sprints with your team.</p>
+      <p style="font-size:13px;line-height:1.6;color:#6b778c;">Once you accept, you'll be able to collaborate on projects, track issues, and manage sprints with your team.${token ? ' This invitation link expires in 7 days.' : ''}</p>
       <hr style="border:none;border-top:1px solid #dfe1e6;margin:24px 0;" />
+      <p style="font-size:11px;color:#97a0af;text-align:center;">If the button doesn't work, paste this link into your browser:<br />${url}</p>
       <p style="font-size:11px;color:#97a0af;text-align:center;">This invitation was sent by ${invitedBy}. If you weren't expecting this, you can safely ignore this email.</p>
     </div>
   `
 
-  const text = `Hi ${recipientName},\n\n${invitedBy} has invited you to join ECM-JIRA as a ${role}.\n\nAccept your invitation: ${url}\n\nIf you weren't expecting this, you can safely ignore this email.`
+  // JL-361: the link must be in the plain-text part too — a text-only client has
+  // to be able to accept.
+  const text = `Hi ${recipientName},\n\n${invitedBy} has invited you to join ECM-JIRA as a ${role}.\n\nAccept your invitation: ${url}\n${token ? '\nThis invitation link expires in 7 days.\n' : ''}\nIf you weren't expecting this, you can safely ignore this email.`
 
   return { subject, html, text }
 }
