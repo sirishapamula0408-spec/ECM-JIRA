@@ -34,8 +34,10 @@ export function DashboardPage() {
   const { issues } = useIssues()
   const { activity } = useAppData()
   const { profile } = useMembers()
-  // Aliased: `sprints` below is the list of sprint *names* used by the filter bar.
+  // Aliased to keep the context records distinct from the derived filter-bar
+  // options (JL-366: the filter now also resolves names from these records).
   const { sprints: sprintRecords } = useSprints()
+  const sprintList = useMemo(() => (Array.isArray(sprintRecords) ? sprintRecords : []), [sprintRecords])
   const currentUserName = profile?.full_name || ''
   const issueList = Array.isArray(issues) ? issues : []
   const activityList = Array.isArray(activity) ? activity : []
@@ -96,7 +98,34 @@ export function DashboardPage() {
 
   // Derive unique values from the selected project's issues
   const assignees = Array.from(new Set(projectIssues.map((i) => i.assignee).filter(Boolean))).sort()
-  const sprints = Array.from(new Set(projectIssues.map((i) => i.sprint).filter(Boolean))).sort()
+
+  // JL-366: issues carry `sprintId` (number | null), never a `sprint` name —
+  // the old `i.sprint` read was always undefined, so the Sprint chip had no
+  // options and the filter was dead. Resolve each issue's sprintId against the
+  // sprint records from SprintContext to label the options, and filter by id
+  // (see filteredIssues below): sprint names are neither unique nor stable
+  // across renames, so the id is the only safe key.
+  const sprintNameById = useMemo(() => {
+    const map = new Map()
+    for (const s of sprintList) map.set(String(s.id), s.name)
+    return map
+  }, [sprintList])
+  const usedSprintIds = Array.from(new Set(
+    projectIssues.map((i) => i.sprintId).filter((id) => id !== null && id !== undefined),
+  ))
+  const sprintFilterOptions = usedSprintIds
+    // A sprint id can outlive its record (deleted sprint, context still
+    // loading) — fall back to a generic label rather than dropping the option.
+    .map((id) => ({ value: String(id), label: sprintNameById.get(String(id)) ?? `Sprint ${id}` }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+  // JL-366: backlog issues have sprintId === null. Offer an explicit
+  // "No sprint" option instead of silently excluding them: without it, every
+  // sprint selection hides backlog items with no way to see *only* them, and
+  // a filter that can never isolate unplanned work is half-dead. 'none' is a
+  // safe sentinel because real values are numeric-string ids.
+  if (projectIssues.some((i) => i.sprintId === null || i.sprintId === undefined)) {
+    sprintFilterOptions.push({ value: 'none', label: 'No sprint' })
+  }
 
   // Build project filter options from fetched projects
   const projectOptions = projectList.map((p) => ({ value: String(p.id), label: p.name }))
@@ -108,7 +137,15 @@ export function DashboardPage() {
     if (filters.priority !== 'All' && item.priority !== filters.priority) return false
     if (filters.status !== 'All' && item.status !== filters.status) return false
     if (filters.assignee !== 'All' && item.assignee !== filters.assignee) return false
-    if (filters.sprint !== 'All' && item.sprint !== filters.sprint) return false
+    // JL-366: match on sprintId (issues have no `sprint` name field). The
+    // 'none' sentinel selects backlog issues (sprintId === null).
+    if (filters.sprint !== 'All') {
+      if (filters.sprint === 'none') {
+        if (item.sprintId !== null && item.sprintId !== undefined) return false
+      } else if (String(item.sprintId) !== filters.sprint) {
+        return false
+      }
+    }
     if (showMyOpenOnly && (item.assignee !== currentUserName || item.status === 'Done')) return false
     return true
   })
@@ -122,7 +159,6 @@ export function DashboardPage() {
   // series, so it needs a sprint id. Prefer the one pinned in the gadget's
   // config; otherwise fall back to the currently started sprint. When neither
   // exists the gadget renders its "no active sprint" state.
-  const sprintList = useMemo(() => (Array.isArray(sprintRecords) ? sprintRecords : []), [sprintRecords])
   const sprintOptions = useMemo(
     () => sprintList.map((s) => ({ value: String(s.id), label: s.name })),
     [sprintList],
@@ -302,7 +338,7 @@ export function DashboardPage() {
         <FilterChip
           label="Sprint"
           value={filters.sprint}
-          options={['All', ...sprints]}
+          options={['All', ...sprintFilterOptions]}
           onChange={(v) => setFilter('sprint', v)}
           onClear={() => clearFilter('sprint')}
         />
