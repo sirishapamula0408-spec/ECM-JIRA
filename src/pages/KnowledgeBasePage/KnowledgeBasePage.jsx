@@ -9,23 +9,56 @@ import {
 } from '../../api/kbApi'
 import './KnowledgeBasePage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { sanitizeHtml } from '../../utils/sanitizeHtml'
 
 // Minimal, safe markdown-ish renderer: escapes HTML then applies a few inline
 // rules. Good enough for help-article previews without pulling in a dependency.
+//
+// JL-344 (stored XSS): KB articles are written by one user and rendered to
+// every reader via dangerouslySetInnerHTML below, so anything this function
+// emits runs in the reader's session. Two things were wrong:
+//   1. The escape step did not escape `"`. The link rule interpolates the
+//      captured URL straight into a double-quoted href, so an article body of
+//      `[click](https://x" onmouseover="alert(document.cookie))` closed the
+//      href early and emitted a live event handler.
+//   2. The generated HTML was never sanitized before injection.
+// Both are fixed: quotes are escaped at the source (so no attribute breakout
+// is possible in the first place), AND the result goes through sanitizeHtml()
+// exactly as RichTextEditor does (JL-91). Belt and braces on purpose — the
+// sanitizer alone would drop the `on*` handler, but escaping the input means a
+// future rule added to this pipeline cannot silently re-open the hole.
 function renderMarkdown(md) {
   const esc = String(md || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  return esc
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  const html = esc
     .replace(/^### (.*)$/gm, '<h3>$1</h3>')
     .replace(/^## (.*)$/gm, '<h2>$1</h2>')
     .replace(/^# (.*)$/gm, '<h1>$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    // JL-344: the URL text is now entity-escaped, so `&` became `&amp;` and
+    // `'` became `&#39;`. Undo those two substitutions for the href value only
+    // — sanitizeHtml re-escapes attribute values, and without this a
+    // legitimate `?a=1&b=2` query string would end up double-escaped
+    // (`&amp;amp;`) and the link would break. `&quot;` is deliberately NOT
+    // restored: that is the character that allowed the attribute breakout.
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      (_match, text, url) => {
+        const href = url.replace(/&amp;/g, '&').replace(/&#39;/g, "'")
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`
+      },
+    )
     .replace(/\n/g, '<br />')
+  // JL-344: allow-list sanitize before this string reaches
+  // dangerouslySetInnerHTML — drops any on* handler, javascript:/data: href
+  // and non-allow-listed tag that survives the rules above.
+  return sanitizeHtml(html)
 }
 
 const EMPTY_ARTICLE = { title: '', body: '', categoryId: '', status: 'draft' }
