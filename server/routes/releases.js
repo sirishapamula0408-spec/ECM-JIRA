@@ -1,13 +1,41 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 
 const router = Router()
 
 const STATUSES = ['unreleased', 'released']
 // Issues in this status are considered "resolved" for readiness / progress purposes.
 const DONE_STATUS = 'Done'
+
+// JL-314: project-access resolvers for the read/write guards.
+//
+// Every endpoint here used to be either completely unguarded (all the GETs) or
+// gated only on the WORKSPACE role, so any authenticated user could read — and a
+// workspace Member could mutate — the releases and fix/affects versions of a
+// project they are not a member of. requireProjectRead/Write need the OWNING
+// project id, which only the /projects/:projectId routes have on the path; the
+// rest are keyed by entity id and must hop release → project or issue → project
+// first. Returning null (unknown/nonexistent target) leaves the handler free to
+// produce its own 404, matching the resolver convention in issueLinks.js and
+// attachments.js.
+const releaseParamProject = (req) => {
+  const projectId = Number(req.params.projectId)
+  return Number.isInteger(projectId) ? projectId : null
+}
+const releaseIdProject = async (req) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) return null
+  const row = await get('SELECT project_id FROM releases WHERE id = ?', [id])
+  return row?.project_id ?? null
+}
+const releaseIssueProject = async (req) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+  return row?.project_id ?? null
+}
 
 function mapRelease(row) {
   return {
@@ -23,7 +51,7 @@ function mapRelease(row) {
 }
 
 // GET /api/projects/:projectId/releases — list releases (with issue counts). History = all releases.
-router.get('/projects/:projectId/releases', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/releases', requireProjectRead(releaseParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const rows = await all(
     `SELECT r.*, COUNT(i.id)::int AS "issueCount"
@@ -38,14 +66,14 @@ router.get('/projects/:projectId/releases', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/releases/:id — a single release
-router.get('/releases/:id', asyncHandler(async (req, res) => {
+router.get('/releases/:id', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM releases WHERE id = ?', [Number(req.params.id)])
   if (!row) { res.status(404).json({ error: 'Release not found' }); return }
   res.json(mapRelease(row))
 }))
 
 // POST /api/projects/:projectId/releases (Member+) — create a release
-router.post('/projects/:projectId/releases', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.post('/projects/:projectId/releases', requireProjectWrite(releaseParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const name = String(req.body?.name || '').trim()
   const description = String(req.body?.description || '').trim()
@@ -64,7 +92,7 @@ router.post('/projects/:projectId/releases', requireRole('Member', 'Admin'), asy
 }))
 
 // PATCH /api/releases/:id (Member+) — update name/description/date/status
-router.patch('/releases/:id', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.patch('/releases/:id', requireProjectWrite(releaseIdProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM releases WHERE id = ?', [id])
   if (!existing) { res.status(404).json({ error: 'Release not found' }); return }
@@ -88,13 +116,16 @@ router.patch('/releases/:id', requireRole('Member', 'Admin'), asyncHandler(async
 }))
 
 // DELETE /api/releases/:id (Admin) — delete a release (issues.release_id set NULL via FK)
+// JL-314: intentionally left at the workspace gate. requireRole('Admin') already
+// restricts this to workspace Admin/Owner, who legitimately bypass every
+// project-level check, so there is no cross-project hole to close here.
 router.delete('/releases/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await run('DELETE FROM releases WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 }))
 
 // PUT /api/issues/:issueId/release (Member+) — assign / unassign an issue to a release. Body: { releaseId }
-router.put('/issues/:issueId/release', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.put('/issues/:issueId/release', requireProjectWrite(releaseIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const releaseId = req.body?.releaseId === null || req.body?.releaseId === undefined || req.body.releaseId === ''
     ? null
@@ -116,7 +147,7 @@ router.put('/issues/:issueId/release', requireRole('Member', 'Admin'), asyncHand
 }))
 
 // GET /api/releases/:id/issues — issues assigned to this release
-router.get('/releases/:id/issues', asyncHandler(async (req, res) => {
+router.get('/releases/:id/issues', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
   const rows = await all(
     `SELECT id, issue_key, title, issue_type, status, priority, assignee
      FROM issues WHERE release_id = ? ORDER BY issue_type ASC, id ASC`,
@@ -126,7 +157,7 @@ router.get('/releases/:id/issues', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/releases/:id/progress — status counts + resolved/unresolved + readiness (unresolved issues)
-router.get('/releases/:id/progress', asyncHandler(async (req, res) => {
+router.get('/releases/:id/progress', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const release = await get('SELECT * FROM releases WHERE id = ?', [id])
   if (!release) { res.status(404).json({ error: 'Release not found' }); return }
@@ -162,7 +193,7 @@ router.get('/releases/:id/progress', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/releases/:id/notes — auto-generated release notes grouped by issue type
-router.get('/releases/:id/notes', asyncHandler(async (req, res) => {
+router.get('/releases/:id/notes', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const release = await get('SELECT * FROM releases WHERE id = ?', [id])
   if (!release) { res.status(404).json({ error: 'Release not found' }); return }
@@ -189,7 +220,7 @@ router.get('/releases/:id/notes', asyncHandler(async (req, res) => {
 const VERSION_TYPES = ['fix', 'affects']
 
 // GET /api/issues/:issueId/versions — the issue's fix + affects versions, grouped by type.
-router.get('/issues/:issueId/versions', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/versions', requireProjectRead(releaseIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const issue = await get('SELECT id FROM issues WHERE id = ?', [issueId])
   if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
@@ -214,7 +245,7 @@ router.get('/issues/:issueId/versions', asyncHandler(async (req, res) => {
 
 // PUT /api/issues/:issueId/versions (Member+) — replace-all set of fix + affects versions.
 // Body: { fix: [versionId...], affects: [versionId...] }
-router.put('/issues/:issueId/versions', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.put('/issues/:issueId/versions', requireProjectWrite(releaseIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const issue = await get('SELECT id, project_id FROM issues WHERE id = ?', [issueId])
   if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
