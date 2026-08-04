@@ -22,11 +22,15 @@ export function BiExportPage() {
   const [format, setFormat] = useState('json')
   const [busy, setBusy] = useState(false)
 
+  // JL-315: /api/bi/schema is now Admin-gated on the server, so only fetch it
+  // for Admins — otherwise a Viewer landing here would fire a doomed request
+  // and trigger the global 403 permission-denied snackbar.
   const load = useCallback(() => {
+    if (!isAdmin) return
     fetchBiSchema()
       .then(setSchema)
       .catch(() => setError('Failed to load BI schema'))
-  }, [])
+  }, [isAdmin])
 
   useEffect(load, [load])
 
