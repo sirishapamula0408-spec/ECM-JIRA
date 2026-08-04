@@ -1,11 +1,44 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 
 const router = Router()
 
 const STATUSES = ['on_track', 'at_risk', 'off_track', 'done']
+
+// JL-314: project-access resolvers for the read/write guards.
+//
+// The GETs here carried no project authorization at all and the writes were
+// gated only on the WORKSPACE role, so any authenticated user could read — and a
+// workspace Member could mutate — the OKRs of a project they do not belong to.
+// requireProjectRead/Write need the OWNING project id: /projects/:projectId
+// routes have it on the path, while /goals/:id, /goals/:goalId/key-results and
+// /key-results/:id are keyed by entity and must hop goal → project (or key
+// result → goal → project, done in one join) before the role can be evaluated.
+// Returning null for an unknown target lets the handler emit its own 404.
+const goalParamProject = (req) => {
+  const projectId = Number(req.params.projectId)
+  return Number.isInteger(projectId) ? projectId : null
+}
+async function projectForGoal(goalId) {
+  if (!Number.isInteger(goalId)) return null
+  const row = await get('SELECT project_id FROM goals WHERE id = ?', [goalId])
+  return row?.project_id ?? null
+}
+const goalIdProject = (req) => projectForGoal(Number(req.params.id))
+const goalGoalIdProject = (req) => projectForGoal(Number(req.params.goalId))
+const keyResultProject = async (req) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) return null
+  const row = await get(
+    `SELECT g.project_id FROM key_results kr
+     JOIN goals g ON g.id = kr.goal_id
+     WHERE kr.id = ?`,
+    [id],
+  )
+  return row?.project_id ?? null
+}
 
 function mapKeyResult(row) {
   const target = Number(row.target_value)
@@ -51,7 +84,7 @@ async function keyResultsForGoal(goalId) {
 }
 
 // GET /api/projects/:projectId/goals — list goals with key results + computed progress %
-router.get('/projects/:projectId/goals', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/goals', requireProjectRead(goalParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const goals = await all(
     'SELECT * FROM goals WHERE project_id = ? ORDER BY created_at DESC, id DESC',
@@ -73,7 +106,7 @@ router.get('/projects/:projectId/goals', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/goals/:id — a single goal with key results + progress
-router.get('/goals/:id', asyncHandler(async (req, res) => {
+router.get('/goals/:id', requireProjectRead(goalIdProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const row = await get('SELECT * FROM goals WHERE id = ?', [id])
   if (!row) { res.status(404).json({ error: 'Goal not found' }); return }
@@ -81,7 +114,7 @@ router.get('/goals/:id', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/projects/:projectId/goals (Member+) — create an objective
-router.post('/projects/:projectId/goals', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.post('/projects/:projectId/goals', requireProjectWrite(goalParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const objective = String(req.body?.objective || '').trim()
   const description = String(req.body?.description || '').trim()
@@ -101,7 +134,7 @@ router.post('/projects/:projectId/goals', requireRole('Member', 'Admin'), asyncH
 }))
 
 // PATCH /api/goals/:id (Member+) — update objective/description/owner/status/due date
-router.patch('/goals/:id', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.patch('/goals/:id', requireProjectWrite(goalIdProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM goals WHERE id = ?', [id])
   if (!existing) { res.status(404).json({ error: 'Goal not found' }); return }
@@ -126,13 +159,15 @@ router.patch('/goals/:id', requireRole('Member', 'Admin'), asyncHandler(async (r
 }))
 
 // DELETE /api/goals/:id (Admin) — delete a goal (key_results cascade via FK)
+// JL-314: left at the workspace gate on purpose — requireRole('Admin') already
+// limits this to workspace Admin/Owner, who bypass project-level checks anyway.
 router.delete('/goals/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   await run('DELETE FROM goals WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 }))
 
 // POST /api/goals/:goalId/key-results (Member+) — add a key result to a goal
-router.post('/goals/:goalId/key-results', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.post('/goals/:goalId/key-results', requireProjectWrite(goalGoalIdProject), asyncHandler(async (req, res) => {
   const goalId = Number(req.params.goalId)
   const goal = await get('SELECT id FROM goals WHERE id = ?', [goalId])
   if (!goal) { res.status(404).json({ error: 'Goal not found' }); return }
@@ -158,7 +193,7 @@ router.post('/goals/:goalId/key-results', requireRole('Member', 'Admin'), asyncH
 }))
 
 // PATCH /api/key-results/:id (Member+) — update a key result (e.g. current_value drives progress)
-router.patch('/key-results/:id', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.patch('/key-results/:id', requireProjectWrite(keyResultProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM key_results WHERE id = ?', [id])
   if (!existing) { res.status(404).json({ error: 'Key result not found' }); return }
@@ -183,7 +218,7 @@ router.patch('/key-results/:id', requireRole('Member', 'Admin'), asyncHandler(as
 }))
 
 // DELETE /api/key-results/:id (Member+) — remove a key result
-router.delete('/key-results/:id', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.delete('/key-results/:id', requireProjectWrite(keyResultProject), asyncHandler(async (req, res) => {
   await run('DELETE FROM key_results WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 }))

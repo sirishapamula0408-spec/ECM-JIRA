@@ -28,16 +28,27 @@ function createApp(user = { workspaceRole: 'Admin', isOwner: false }) {
   return app
 }
 
+// JL-314: goals routes are now project-scoped (requireProjectRead/Write), which
+// adds a project-resolution + project_members lookup ahead of each handler for
+// non-Admin callers. Reset (not just clear) the db mocks so a blanket
+// mockResolvedValue from one test cannot leak into the next and silently satisfy
+// — or break — those guard lookups.
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
 })
+
+// JL-314: the row shape resolveProjectAccess' join produces, granting the stub
+// caller (memberId 1) the given project role.
+const accessRow = (role = 'Member') => ({ id: 1, lead_member_id: null, project_role: role })
 
 describe('JL-54 Goals / OKR API', () => {
   describe('POST /api/projects/:projectId/goals — create objective', () => {
     it('creates a goal (Member+) and returns it with empty key results + 0 progress', async () => {
       run.mockResolvedValue({ lastID: 10, changes: 1 })
+      // project_role satisfies the JL-314 project-access lookup (blanket mock).
       get.mockResolvedValue({
-        id: 10, project_id: 1, objective: 'Improve onboarding', description: 'desc',
+        id: 10, project_id: 1, project_role: 'Member', lead_member_id: null,
+        objective: 'Improve onboarding', description: 'desc',
         owner: 'alice', status: 'on_track', due_date: '2026-12-31', created_at: 't',
       })
 
@@ -81,6 +92,8 @@ describe('JL-54 Goals / OKR API', () => {
   describe('POST /api/goals/:goalId/key-results — add a key result', () => {
     it('adds a key result and returns its computed progress', async () => {
       get
+        .mockResolvedValueOnce({ project_id: 1 }) // JL-314 guard: goal → project
+        .mockResolvedValueOnce(accessRow()) // JL-314 guard: project access
         .mockResolvedValueOnce({ id: 10 }) // goal lookup
         .mockResolvedValueOnce({ id: 5, goal_id: 10, title: 'Signups', target_value: 200, current_value: 50, unit: 'users', issue_id: null }) // created row
       run.mockResolvedValue({ lastID: 5, changes: 1 })
@@ -105,7 +118,10 @@ describe('JL-54 Goals / OKR API', () => {
     })
 
     it('rejects a key result without a title (400)', async () => {
-      get.mockResolvedValueOnce({ id: 10 })
+      get
+        .mockResolvedValueOnce({ project_id: 1 }) // JL-314 guard: goal → project
+        .mockResolvedValueOnce(accessRow()) // JL-314 guard: project access
+        .mockResolvedValueOnce({ id: 10 })
       const app = createApp({ workspaceRole: 'Member' })
       const res = await request(app).post('/api/goals/10/key-results').send({ title: '' })
       expect(res.status).toBe(400)
@@ -151,6 +167,8 @@ describe('JL-54 Goals / OKR API', () => {
   describe('PATCH /api/key-results/:id — updating current_value changes progress', () => {
     it('recomputes progress after raising current_value', async () => {
       get
+        .mockResolvedValueOnce({ project_id: 1 }) // JL-314 guard: key result → goal → project
+        .mockResolvedValueOnce(accessRow()) // JL-314 guard: project access
         .mockResolvedValueOnce({ id: 5, goal_id: 10, title: 'KR', target_value: 200, current_value: 50, unit: '', issue_id: null }) // existing
         .mockResolvedValueOnce({ id: 5, goal_id: 10, title: 'KR', target_value: 200, current_value: 150, unit: '', issue_id: null }) // updated
       run.mockResolvedValue({ changes: 1 })
@@ -169,6 +187,8 @@ describe('JL-54 Goals / OKR API', () => {
 
     it('caps progress at 100% when current exceeds target', async () => {
       get
+        .mockResolvedValueOnce({ project_id: 1 }) // JL-314 guard: key result → goal → project
+        .mockResolvedValueOnce(accessRow()) // JL-314 guard: project access
         .mockResolvedValueOnce({ id: 5, goal_id: 10, title: 'KR', target_value: 100, current_value: 0, unit: '', issue_id: null })
         .mockResolvedValueOnce({ id: 5, goal_id: 10, title: 'KR', target_value: 100, current_value: 250, unit: '', issue_id: null })
       run.mockResolvedValue({ changes: 1 })
