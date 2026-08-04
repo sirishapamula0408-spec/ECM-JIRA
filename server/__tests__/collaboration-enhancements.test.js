@@ -67,6 +67,9 @@ describe('Notification Preferences (JL-42)', () => {
   })
 
   it('DELETE /:id deletes a notification', async () => {
+    // JL-364: the handler now loads the row first and 404s unless it belongs
+    // to the caller, so the ownership lookup must find the row.
+    get.mockResolvedValueOnce({ id: 1, recipient_email: 'test@test.com' })
     run.mockResolvedValue({ changes: 1 })
     const res = await request(app).delete('/api/1')
     expect(res.status).toBe(200)

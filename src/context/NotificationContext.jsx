@@ -61,14 +61,23 @@ export function NotificationProvider({ children }) {
 
   const dismiss = useCallback(async (id) => {
     const target = notifications.find((n) => n.id === id)
-    try {
-      await deleteNotification(id)
+    const removeLocally = () => {
       setNotifications((prev) => prev.filter((n) => n.id !== id))
       if (target && !target.is_read) {
         setUnreadCount((prev) => Math.max(0, prev - 1))
       }
-    } catch {
-      // ignore
+    }
+    try {
+      await deleteNotification(id)
+      removeLocally()
+    } catch (err) {
+      // JL-364: DELETE /:id no longer reports success for rows that don't
+      // exist — it 404s. A 404 here means the row is already gone server-side
+      // (deleted in another tab, or swept by clear-read), so pruning it locally
+      // is the correct resync. Any other error keeps the row visible.
+      if (err?.status === 404) {
+        removeLocally()
+      }
     }
   }, [notifications])
 

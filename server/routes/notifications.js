@@ -64,9 +64,19 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 // PATCH /api/notifications/:id/read — mark single as read
+// JL-364: same discarded-`changes` shape as DELETE /:id below — the old query
+// filtered by recipient_email and reported { success: true } even when it
+// touched no row (foreign id or non-existent id). Load-then-write like the
+// JL-342 shared-dashboards fix, with the same 404-for-both choice as DELETE /:id
+// (see the comment there for why we return 404, not 403, on a foreign id).
 router.patch('/:id/read', asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
-  await run('UPDATE notifications SET is_read = TRUE WHERE id = ? AND recipient_email = ?', [id, req.user.email])
+  const existing = await get('SELECT id, recipient_email FROM notifications WHERE id = ?', [id])
+  if (!existing || existing.recipient_email !== req.user.email) {
+    res.status(404).json({ error: 'Notification not found' })
+    return
+  }
+  await run('UPDATE notifications SET is_read = TRUE WHERE id = ?', [id])
   res.json({ success: true })
 }))
 
@@ -84,8 +94,26 @@ router.delete('/read', asyncHandler(async (req, res) => {
 }))
 
 // DELETE /api/notifications/:id — delete a notification
+// JL-364: the old query filtered by recipient_email and discarded the `changes`
+// count, so deleting someone else's notification (or a non-existent id) both
+// reported { success: true }. Mirror the JL-342 shared-dashboards fix: load the
+// row first, then delete only when it is really the caller's.
+//
+// Deliberate divergence from JL-342's 403: shared dashboards are discoverable
+// objects (listed publicly when visibility = 'public'), so a 403 there reveals
+// nothing new. Notifications are strictly per-user and private — every read
+// endpoint scopes to recipient_email — so answering 403 for a foreign id would
+// confirm to a probing caller that the id exists in someone else's inbox.
+// We return 404 for both "missing" and "not yours" to keep foreign ids
+// indistinguishable from non-existent ones.
 router.delete('/:id', asyncHandler(async (req, res) => {
-  await run('DELETE FROM notifications WHERE id = ? AND recipient_email = ?', [Number(req.params.id), req.user.email])
+  const id = Number(req.params.id)
+  const existing = await get('SELECT id, recipient_email FROM notifications WHERE id = ?', [id])
+  if (!existing || existing.recipient_email !== req.user.email) {
+    res.status(404).json({ error: 'Notification not found' })
+    return
+  }
+  await run('DELETE FROM notifications WHERE id = ?', [id])
   res.json({ success: true })
 }))
 

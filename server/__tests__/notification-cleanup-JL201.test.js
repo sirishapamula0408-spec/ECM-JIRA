@@ -11,7 +11,7 @@ vi.mock('../db.js', () => ({
   tableExists: vi.fn(),
 }))
 
-import { run } from '../db.js'
+import { run, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 
 function createApp(routeModule, mountPath = '/api') {
@@ -65,6 +65,10 @@ describe('Notification cleanup (JL-201)', () => {
 
   describe('DELETE /api/:id — single dismiss', () => {
     it('deletes a single notification scoped to the current user', async () => {
+      // JL-364: the handler now loads the row first and only deletes when it
+      // belongs to the caller, so the DELETE is by id alone (ownership already
+      // verified) instead of filtering by recipient_email in the DELETE itself.
+      get.mockResolvedValue({ id: 42, recipient_email: 'test@test.com' })
       run.mockResolvedValue({ changes: 1 })
 
       const res = await request(app).delete('/api/42')
@@ -74,7 +78,7 @@ describe('Notification cleanup (JL-201)', () => {
       const [sql, params] = run.mock.calls[0]
       expect(sql).toContain('DELETE FROM notifications')
       expect(sql).toContain('id = ?')
-      expect(params).toEqual([42, 'test@test.com'])
+      expect(params).toEqual([42])
     })
   })
 })

@@ -85,6 +85,9 @@ describe('Notifications API', () => {
 
   describe('PATCH /api/:id/read — mark as read', () => {
     it('marks notification as read', async () => {
+      // JL-364: the handler now loads the row first and 404s unless it belongs
+      // to the caller, so the ownership lookup must find the row.
+      get.mockResolvedValue({ id: 1, recipient_email: 'test@test.com' })
       run.mockResolvedValue({ changes: 1 })
 
       const res = await request(app).patch('/api/1/read')
