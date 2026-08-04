@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { formatDateOnly } from '../../../utils/timeAgo'
 
 export function FilterResultsGadget({ issues, config }) {
@@ -68,7 +69,11 @@ export function FilterResultsGadget({ issues, config }) {
             )}
             {pageIssues.map((issue) => (
               <tr key={issue.id}>
-                <td><span className="filter-results-key">{issue.key}</span></td>
+                {/* JL-337: the key is styled like a link, so it must be one — a real
+                    <Link> (not onClick+navigate) so middle-click / open-in-new-tab /
+                    hover URL preview and keyboard Enter all work. The detail route is
+                    keyed by numeric id (/issues/:issueId), not the display key. */}
+                <td><Link to={`/issues/${issue.id}`} className="filter-results-key">{issue.key}</Link></td>
                 <td>{issue.summary}</td>
                 <td>{issue.assignee || '—'}</td>
                 <td><span className={`pill pill-priority pill-priority--${(issue.priority || '').toLowerCase()}`}>{issue.priority}</span></td>
