@@ -17,6 +17,17 @@ export function parseStoredAuthUser() {
   }
 }
 
+// JL-353: shared avatar-initials helper. Derives up to two initials from a
+// display name ("Priya Kumar" -> "PK"); single-word names use their first two
+// letters ("Sara" -> "SA"); empty input falls back to "U". Extracted from the
+// inline logic in IssueListPage so the backlog toolbar avatars (and any future
+// avatar) reuse one implementation instead of growing another copy.
+export function initialsFromName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+  const raw = (parts[0]?.[0] || '') + (parts[1]?.[0] || parts[0]?.[1] || '')
+  return (raw || 'U').toUpperCase()
+}
+
 export function displayNameFromEmail(email) {
   const local = String(email || '').split('@')[0] || ''
   if (!local) return 'User'
