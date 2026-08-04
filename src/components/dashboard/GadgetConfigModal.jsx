@@ -40,7 +40,7 @@ export function GadgetConfigModal({ gadget, onSave, onClose }) {
       <div className="modal gadget-config-modal" onClick={(e) => e.stopPropagation()}>
         <div className="gadget-config-header">
           <h2>Configure Gadget</h2>
-          <button className="gadget-action-btn" onClick={onClose}>
+          <button type="button" className="gadget-action-btn" aria-label="Close" onClick={onClose}>
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6">
               <path d="M4 4l8 8M12 4l-8 8" />
             </svg>
