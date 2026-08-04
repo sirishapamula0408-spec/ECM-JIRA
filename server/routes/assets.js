@@ -217,7 +217,12 @@ router.get('/issues/:id/assets', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:id/assets — link an asset to an issue. Body: { assetId }
-router.post('/issues/:id/assets', asyncHandler(async (req, res) => {
+// JL-316: gated at Member, not Admin. Linking an existing asset to an issue is
+// ordinary project work (like assigning components via PUT /issues/:id/components
+// or adding git links), so it follows the same convention: asset *catalog* writes
+// above stay Admin-only, while issue-scoped attach/detach is open to Members —
+// but never to Viewers, whose role is read-only.
+router.post('/issues/:id/assets', requireRole('Member'), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.id)
   const assetId = Number(req.body?.assetId ?? req.body?.asset_id)
   if (!Number.isInteger(assetId)) {
@@ -248,7 +253,10 @@ router.post('/issues/:id/assets', asyncHandler(async (req, res) => {
 }))
 
 // DELETE /api/issues/:id/assets/:assetId — unlink an asset from an issue
-router.delete('/issues/:id/assets/:assetId', asyncHandler(async (req, res) => {
+// JL-316: Member-gated for the same reason as the link route above — unlinking
+// only detaches the association, it never deletes the asset itself (that stays
+// Admin-only via DELETE /assets/:id).
+router.delete('/issues/:id/assets/:assetId', requireRole('Member'), asyncHandler(async (req, res) => {
   await run(
     'DELETE FROM issue_assets WHERE issue_id = ? AND asset_id = ?',
     [Number(req.params.id), Number(req.params.assetId)],
