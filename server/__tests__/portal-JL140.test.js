@@ -153,10 +153,14 @@ describe('GET /api/portal/requests', () => {
     expect(call[1]).toContain('customer@acme.com')
   })
 
-  it('requires an email param (400)', async () => {
+  // JL-349: omitting ?email= is no longer a 400 — the listing falls back to the
+  // authenticated caller's own email (session-scoped, like apiTokens/sessions).
+  it('defaults to the caller own email when ?email= is omitted', async () => {
     const app = createApp()
+    all.mockResolvedValue([])
     const res = await request(app).get('/api/portal/requests')
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(200)
+    expect(all.mock.calls[0][1]).toContain('admin@test.com')
   })
 })
 
