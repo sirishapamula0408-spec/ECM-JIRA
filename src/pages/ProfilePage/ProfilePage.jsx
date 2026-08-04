@@ -15,6 +15,17 @@ export function ChangePasswordSection() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  // JL-351: set when login reported the password is past the org rotation period
+  // (flag written by AuthContext from the login response). Surfaced here rather
+  // than anywhere else because this is the section that actually resolves it —
+  // the nudge sits directly above the form that clears it.
+  const [rotationDue, setRotationDue] = useState(false)
+
+  useEffect(() => {
+    try {
+      setRotationDue(window.sessionStorage.getItem('jira_password_expired') === '1')
+    } catch { /* ignore */ }
+  }, [])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -37,6 +48,10 @@ export function ChangePasswordSection() {
     try {
       await changePassword(currentPassword, newPassword)
       setMessage('Your password has been changed successfully.')
+      // JL-351: the rotation clock has just been reset server-side, so drop the
+      // nudge immediately instead of leaving it stale until the next login.
+      setRotationDue(false)
+      try { window.sessionStorage.removeItem('jira_password_expired') } catch { /* ignore */ }
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -51,6 +66,12 @@ export function ChangePasswordSection() {
     <article className="panel profile-form-panel" style={{ marginTop: 24 }}>
       <h3>Change Password</h3>
       <p>Update the password you use to sign in. You'll need your current password to confirm the change.</p>
+
+      {rotationDue && (
+        <p role="status" className="banner" style={{ background: 'var(--warning-bg, #fffae6)', color: 'var(--warning-text, #974f0c)', padding: 8, borderRadius: 4 }}>
+          Your password is older than the rotation period your organization requires. Please change it now.
+        </p>
+      )}
 
       {message && <p style={{ color: 'var(--success, #00875a)' }}>{message}</p>}
       {error && <p style={{ color: 'var(--danger, #de350b)' }}>{error}</p>}

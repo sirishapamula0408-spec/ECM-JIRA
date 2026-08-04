@@ -23,7 +23,7 @@ import { generateSecret, getOtpAuthUrl, verifyTOTP } from '../services/totp.js'
 import { loginLockout as defaultLoginLockout } from '../middleware/loginLockout.js'
 import { upsertSsoUser } from '../services/sso.js'
 import { safeAppendAudit } from '../services/auditLog.js'
-import { validatePassword } from '../services/passwordPolicy.js'
+import { validatePassword, isPasswordExpired } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
 import { checkSignupAllowed } from '../services/signupPolicy.js'
 
@@ -192,8 +192,10 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   // JL-192: `status` is selected alongside MFA columns so the deactivated-account
   // gate below can run before any JWT is issued.
+  // JL-351: `password_changed_at` is selected so the rotation policy set on the
+  // Teams > Security panel can actually be evaluated at login.
   const user = await get(
-    'SELECT id, email, password_hash, status, created_at, mfa_enabled, mfa_secret FROM users WHERE email = ?',
+    'SELECT id, email, password_hash, status, created_at, mfa_enabled, mfa_secret, password_changed_at FROM users WHERE email = ?',
     [email],
   )
   if (!user || !verifyPassword(password, user.password_hash)) {
@@ -278,6 +280,25 @@ router.post('/login', asyncHandler(async (req, res) => {
     const policy = await getSecurityPolicy()
     if (policy.require_mfa && !user.mfa_enabled) {
       responseBody.mfaEnrollmentRequired = true
+    }
+
+    // --- JL-351: password-rotation nudge ---
+    // The "Password rotation (days)" control on Teams > Security persisted a
+    // value that nothing ever read — isPasswordExpired() had no call sites. This
+    // is the enforcement half, deliberately shaped like the MFA nudge above:
+    // ADVISORY and NON-BLOCKING. A hard block on login would lock people out of
+    // the very screen (Profile > Change Password) they need to fix it, and is a
+    // far bigger behaviour change than this ticket asks for. The frontend
+    // surfaces it as a banner on the Change Password section.
+    //
+    // Guard on `password_changed_at` being present: isPasswordExpired() treats a
+    // missing timestamp as expired by design (see its docblock), which is right
+    // for a "prompt legacy accounts to rotate" reading but wrong here — it would
+    // flag EVERY pre-existing account the instant an admin first sets a rotation
+    // policy, turning a targeted nudge into org-wide noise. Users with no
+    // recorded change date are left alone until they next change their password.
+    if (user.password_changed_at) {
+      responseBody.passwordExpired = isPasswordExpired(user.password_changed_at, policy)
     }
   } catch {
     // Never block login on a policy lookup failure.
