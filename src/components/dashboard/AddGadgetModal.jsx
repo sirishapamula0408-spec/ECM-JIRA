@@ -39,9 +39,11 @@ const GADGET_TYPES = [
   {
     type: 'sprintHealth',
     title: 'Sprint Burndown',
-    description: 'SVG burndown chart comparing ideal vs actual sprint progress.',
+    // JL-346: the actual series is now real sprint data from
+    // /api/reports/burndown (it used to be Math.random() noise).
+    description: 'Live burndown for the active sprint: ideal vs actual remaining work.',
     preview: 'burndown',
-    defaultConfig: {},
+    defaultConfig: { sprintId: null, unit: 'count' },
   },
 ]
 

@@ -17,6 +17,10 @@ vi.mock('../context/AppDataContext', () => ({
 vi.mock('../context/MemberContext', () => ({
   useMembers: () => ({ profile: null, members: [] }),
 }))
+// JL-346: the dashboard resolves a sprint id for the burndown gadget.
+vi.mock('../context/SprintContext', () => ({
+  useSprints: () => ({ sprints: [] }),
+}))
 vi.mock('../api/projectApi', () => ({
   fetchProjects: vi.fn().mockResolvedValue([]),
 }))

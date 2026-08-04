@@ -26,6 +26,8 @@ const fetchProjects = vi.fn()
 vi.mock('../context/IssueContext', () => ({ useIssues: () => ({ issues: STATUS_ISSUES }) }))
 vi.mock('../context/AppDataContext', () => ({ useAppData: () => ({ activity: [] }) }))
 vi.mock('../context/MemberContext', () => ({ useMembers: () => ({ profile: null, members: [] }) }))
+// JL-346: the dashboard resolves a sprint id for the burndown gadget.
+vi.mock('../context/SprintContext', () => ({ useSprints: () => ({ sprints: [] }) }))
 vi.mock('../api/projectApi', () => ({ fetchProjects: (...a) => fetchProjects(...a) }))
 
 function LocationProbe() {

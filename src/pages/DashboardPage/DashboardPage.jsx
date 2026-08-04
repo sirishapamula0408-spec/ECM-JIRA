@@ -3,6 +3,7 @@ import Chip from '@mui/material/Chip'
 import { useIssues } from '../../context/IssueContext'
 import { useAppData } from '../../context/AppDataContext'
 import { useMembers } from '../../context/MemberContext'
+import { useSprints } from '../../context/SprintContext'
 import { fetchProjects } from '../../api/projectApi'
 import { FilterChip } from '../../components/filters/FilterChip'
 import { GadgetWrapper } from '../../components/dashboard/GadgetWrapper'
@@ -33,6 +34,8 @@ export function DashboardPage() {
   const { issues } = useIssues()
   const { activity } = useAppData()
   const { profile } = useMembers()
+  // Aliased: `sprints` below is the list of sprint *names* used by the filter bar.
+  const { sprints: sprintRecords } = useSprints()
   const currentUserName = profile?.full_name || ''
   const issueList = Array.isArray(issues) ? issues : []
   const activityList = Array.isArray(activity) ? activity : []
@@ -115,6 +118,26 @@ export function DashboardPage() {
     return String(item.actor || '').toLowerCase() === String(filters.assignee || '').toLowerCase()
   })
 
+  // JL-346: the Sprint Burndown gadget now plots the real /api/reports/burndown
+  // series, so it needs a sprint id. Prefer the one pinned in the gadget's
+  // config; otherwise fall back to the currently started sprint. When neither
+  // exists the gadget renders its "no active sprint" state.
+  const sprintList = useMemo(() => (Array.isArray(sprintRecords) ? sprintRecords : []), [sprintRecords])
+  const sprintOptions = useMemo(
+    () => sprintList.map((s) => ({ value: String(s.id), label: s.name })),
+    [sprintList],
+  )
+  const activeSprintId = useMemo(() => {
+    const started = sprintList.find((s) => s.isStarted)
+    return started ? started.id : null
+  }, [sprintList])
+
+  const resolveSprintId = (gadgetConfig) => {
+    const pinned = Number(gadgetConfig?.sprintId)
+    if (Number.isInteger(pinned) && pinned > 0) return pinned
+    return activeSprintId
+  }
+
   // Modals
   const [showAddModal, setShowAddModal] = useState(false)
   const [configGadget, setConfigGadget] = useState(null)
@@ -187,6 +210,10 @@ export function DashboardPage() {
     // then links to the unscoped /list route instead of /projects/:id/list.
     if (gadget.type === 'pie' || gadget.type === 'donut') {
       props.projectId = filters.project === 'All' ? null : filters.project
+    }
+    // JL-346: real burndown data is per-sprint, so hand the gadget a sprint id.
+    if (gadget.type === 'sprintHealth') {
+      props.sprintId = resolveSprintId(gadget.config)
     }
     return <Component {...props} />
   }
@@ -321,7 +348,12 @@ export function DashboardPage() {
         <AddGadgetModal onAdd={addGadget} onClose={() => setShowAddModal(false)} />
       )}
       {configGadget && (
-        <GadgetConfigModal gadget={configGadget} onSave={handleConfigSave} onClose={() => setConfigGadget(null)} />
+        <GadgetConfigModal
+          gadget={configGadget}
+          sprintOptions={sprintOptions}
+          onSave={handleConfigSave}
+          onClose={() => setConfigGadget(null)}
+        />
       )}
     </section>
   )
