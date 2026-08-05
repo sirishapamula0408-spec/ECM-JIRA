@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useModalDialog } from '../../hooks/useModalDialog'
 
 const GROUP_BY_OPTIONS = [
   { value: 'status', label: 'Status' },
@@ -33,6 +34,10 @@ export function GadgetConfigModal({ gadget, sprintOptions = [], onSave, onClose 
   const [config, setConfig] = useState({ ...gadget.config })
   const [title, setTitle] = useState(gadget.title)
 
+  // JL-367: dialog semantics — Escape closes, focus is trapped inside and
+  // restored to the invoking element on close.
+  const { dialogRef, handleDialogKeyDown } = useModalDialog(onClose)
+
   const handleSave = () => {
     onSave(gadget.id, title, config)
     onClose()
@@ -46,9 +51,19 @@ export function GadgetConfigModal({ gadget, sprintOptions = [], onSave, onClose 
 
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal gadget-config-modal" onClick={(e) => e.stopPropagation()}>
+      {/* JL-367: role/aria-modal/aria-labelledby make the container visible
+          to assistive tech; useModalDialog supplies Escape + focus trapping. */}
+      <div
+        className="modal gadget-config-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gadget-config-title"
+        ref={dialogRef}
+        onKeyDown={handleDialogKeyDown}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="gadget-config-header">
-          <h2>Configure Gadget</h2>
+          <h2 id="gadget-config-title">Configure Gadget</h2>
           <button type="button" className="gadget-action-btn" aria-label="Close" onClick={onClose}>
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6">
               <path d="M4 4l8 8M12 4l-8 8" />

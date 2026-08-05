@@ -1,4 +1,5 @@
 import './AddGadgetModal.css'
+import { useModalDialog } from '../../hooks/useModalDialog'
 
 const GADGET_TYPES = [
   {
@@ -103,6 +104,10 @@ function MiniPreview({ type }) {
 }
 
 export function AddGadgetModal({ onAdd, onClose }) {
+  // JL-367: dialog semantics — Escape closes, focus is trapped inside and
+  // restored to the invoking element on close.
+  const { dialogRef, handleDialogKeyDown } = useModalDialog(onClose)
+
   const handleAdd = (gadgetType) => {
     onAdd(gadgetType.type, gadgetType.title, 'small', gadgetType.defaultConfig)
     onClose()
@@ -110,9 +115,19 @@ export function AddGadgetModal({ onAdd, onClose }) {
 
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal add-gadget-modal" onClick={(e) => e.stopPropagation()}>
+      {/* JL-367: role/aria-modal/aria-labelledby make the container visible
+          to assistive tech; useModalDialog supplies Escape + focus trapping. */}
+      <div
+        className="modal add-gadget-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-gadget-title"
+        ref={dialogRef}
+        onKeyDown={handleDialogKeyDown}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="add-gadget-header">
-          <h2>Add a Gadget</h2>
+          <h2 id="add-gadget-title">Add a Gadget</h2>
           <button type="button" className="gadget-action-btn" aria-label="Close" onClick={onClose}>
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6">
               <path d="M4 4l8 8M12 4l-8 8" />
