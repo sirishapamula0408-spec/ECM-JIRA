@@ -40,6 +40,8 @@ vi.mock('../api/watcherApi', () => ({
 vi.mock('../api/approvalApi', () => ({
   fetchIssueApprovals: vi.fn().mockResolvedValue([]),
   submitApproval: vi.fn().mockResolvedValue({}),
+  // JL-360: the page now checks whether the next transition needs approval.
+  checkApproval: vi.fn().mockResolvedValue({ required: false }),
 }))
 vi.mock('../api/labelApi', () => ({
   fetchProjectLabels: vi.fn().mockResolvedValue([]),
