@@ -34,6 +34,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { ACCEPT_INVITE_PATH, AcceptInvitePage } from './pages/AcceptInvitePage/AcceptInvitePage'
+import { RESET_PASSWORD_PATH, ResetPasswordPage } from './pages/ResetPasswordPage/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
 import { BacklogPage } from './pages/BacklogPage/BacklogPage'
 import { BoardPage } from './pages/BoardPage/BoardPage'
@@ -160,6 +161,12 @@ function AppContent() {
   // gate — and handled here rather than in the <Routes> below, which only ever
   // renders for an authenticated session.
   if (location.pathname === ACCEPT_INVITE_PATH) return <AcceptInvitePage />
+
+  // JL-370: the password-reset email links here. Same deal as the invite link
+  // above — the visitor has no session (they cannot sign in, that is the whole
+  // point), so the route must be checked ahead of the login gate; the <Routes>
+  // table below only ever renders for an authenticated session.
+  if (location.pathname === RESET_PASSWORD_PATH) return <ResetPasswordPage />
 
   if (!isAuthenticated) return <LoginPage />
 
