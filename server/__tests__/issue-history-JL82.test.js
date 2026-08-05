@@ -105,8 +105,20 @@ describe('JL-82 — per-issue change history', () => {
 
   describe('PATCH /api/issues/:id/status — records status transitions', () => {
     it('writes a history row when status changes', async () => {
-      get.mockResolvedValueOnce({ id: 1, sprint_id: 5, status: 'To Do' })
-         .mockResolvedValue({ ...fullIssue, status: 'In Progress' })
+      // JL-360: the status route now also looks up approval_rules / issue_history.
+      // A blanket mockResolvedValue would hand those queries an issue row, which
+      // the approval gate would read as a configured rule, so answer per-query.
+      let issueReads = 0
+      get.mockImplementation(async (sql) => {
+        if (/FROM approval_rules|FROM issue_history/.test(sql)) return null
+        if (/FROM issues WHERE id/.test(sql)) {
+          issueReads += 1
+          return issueReads === 1
+            ? { id: 1, sprint_id: 5, status: 'To Do' }
+            : { ...fullIssue, status: 'In Progress' }
+        }
+        return { ...fullIssue, status: 'In Progress' }
+      })
       all.mockResolvedValue([]) // no open subtasks / no automation rules
       run.mockResolvedValue({ changes: 1 })
 

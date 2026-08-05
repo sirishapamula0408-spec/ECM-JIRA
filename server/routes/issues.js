@@ -13,6 +13,7 @@ import { validateRequiredFields } from './fieldConfig.js'
 import { processMentions } from '../services/mentions.js'
 import { publish } from '../services/realtime.js'
 import { canViewIssue } from '../services/issueSecurity.js'
+import { evaluateApproval, approvalRefusalMessage } from '../services/approvals.js'
 
 const router = Router()
 
@@ -808,6 +809,28 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   if (validationErrors.length > 0) {
     res.status(400).json({ error: validationErrors[0], errors: validationErrors })
     return
+  }
+
+  // JL-360: enforce approval rules. Previously `approval_rules` was written by the
+  // admin UI and read by nothing, so a configured gate let every transition through.
+  // Backward compatible: with no matching rule evaluateApproval() returns
+  // { required: false } after a single indexed lookup and nothing else changes.
+  if (existing.status !== status) {
+    const approvalState = await evaluateApproval(existing, status)
+    if (approvalState.required && !approvalState.satisfied) {
+      res.status(409).json({
+        error: approvalRefusalMessage(approvalState, existing.status, status),
+        approval: {
+          required: true,
+          approverRole: approvalState.approverRole,
+          requiredApprovals: approvalState.requiredApprovals,
+          approvedCount: approvalState.approvedCount,
+          remaining: approvalState.remaining,
+          rejected: approvalState.rejected,
+        },
+      })
+      return
+    }
   }
 
   // Theme-1 #1: block closing a parent that still has open sub-tasks

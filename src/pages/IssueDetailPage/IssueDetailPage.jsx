@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense } from 'react'
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
@@ -8,7 +8,7 @@ import { fetchIssueById, fetchComments, createComment, updateComment, deleteComm
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import VoteButton from '../../components/issues/VoteButton'
-import { fetchIssueApprovals, submitApproval } from '../../api/approvalApi'
+import { fetchIssueApprovals, submitApproval, checkApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
 import { ImpedimentFlagToggle } from '../../components/issues/ImpedimentFlag'
@@ -191,6 +191,12 @@ export function IssueDetailPage() {
   const [cloning, setCloning] = useState(false) // JL-158: clone-in-progress guard
   const [deleting, setDeleting] = useState(false) // JL-228: delete-in-progress guard
   const [approvals, setApprovals] = useState([])
+  // JL-360: the approval gate for a prospective transition. `approvalTarget` is the
+  // status being checked; `approvalGate` is the server's verdict (required, quorum
+  // progress, whether this user may approve). Without this the user only ever saw
+  // an opaque 409 when a gated transition was refused.
+  const [approvalTarget, setApprovalTarget] = useState('Done')
+  const [approvalGate, setApprovalGate] = useState(null)
   const [subtasks, setSubtasks] = useState([])
   const [subtaskProgress, setSubtaskProgress] = useState({ total: 0, done: 0, percent: 0 })
   const [showSubtaskForm, setShowSubtaskForm] = useState(false)
@@ -383,6 +389,31 @@ export function IssueDetailPage() {
       .then((data) => setApprovals(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [issue?.id])
+
+  // JL-360: load the approval gate for issue.status -> approvalTarget. Re-runs on
+  // a status change so the panel reflects the transition the user can make NEXT.
+  const reloadApprovalGate = useCallback(() => {
+    const fromStatus = issue?.status
+    // A no-op transition is never gated — don't ask the server about it.
+    if (!issue?.id || !approvalTarget || approvalTarget === fromStatus) {
+      setApprovalGate(null)
+      return
+    }
+    checkApproval(issue.id, approvalTarget)
+      .then((data) => setApprovalGate(data || null))
+      .catch(() => setApprovalGate(null))
+  }, [issue?.id, issue?.status, approvalTarget])
+
+  useEffect(() => { reloadApprovalGate() }, [reloadApprovalGate])
+
+  // JL-360: keep the target out of sync with the current status (the picker omits
+  // it), e.g. after a successful move into the status we were checking.
+  useEffect(() => {
+    if (issue?.status && approvalTarget === issue.status) {
+      const next = ISSUE_STATUSES.find((s) => s !== issue.status)
+      if (next) setApprovalTarget(next)
+    }
+  }, [issue?.status, approvalTarget])
 
   // JL-82: load the persisted per-issue change history (server-backed audit log)
   function reloadHistory() {
@@ -954,13 +985,36 @@ export function IssueDetailPage() {
     try {
       const result = await submitApproval(issue.id, {
         fromStatus: issue.status,
-        toStatus: 'Done',
+        // JL-360: record the decision against the transition actually being
+        // gated, not a hardcoded "Done" — otherwise approvals never line up with
+        // the rule the server enforces.
+        toStatus: approvalTarget,
         decision,
         comment: '',
       })
       setApprovals((prev) => [result, ...prev])
-    } catch {
-      // ignore
+      reloadApprovalGate()
+    } catch (err) {
+      // A 403 here means the user lacks the rule's approver_role (or reported the
+      // issue). client.js already raises a Snackbar for 403s.
+      if (err?.status !== 403) setApprovalGate((prev) => prev)
+    }
+  }
+
+  // JL-360: a gated transition is refused with 409 by the server. Catch it so the
+  // user sees why instead of an unhandled rejection, and refresh the gate panel.
+  async function handleStatusSelect(nextStatus) {
+    try {
+      await handleMove(issue.id, nextStatus)
+      setApprovalGate(null)
+    } catch (err) {
+      if (err?.status === 409) {
+        setApprovalTarget(nextStatus)
+        setSuccessToast({ open: true, message: err.message, severity: 'error' })
+        if (err?.data?.approval) {
+          setApprovalGate({ required: true, ...err.data.approval, satisfied: false })
+        }
+      }
     }
   }
 
@@ -1958,7 +2012,7 @@ export function IssueDetailPage() {
               <select
                 className="id-status-select"
                 value={issue.status}
-                onChange={(e) => handleMove(issue.id, e.target.value)}
+                onChange={(e) => handleStatusSelect(e.target.value)}
                 style={{
                   background: issue.status === 'Done' ? '#e3fcef' : issue.status === 'In Progress' ? '#deebff' : issue.status === 'Code Review' ? '#eae6ff' : '#dfe1e6',
                   color: issue.status === 'Done' ? '#006644' : issue.status === 'In Progress' ? '#0052cc' : issue.status === 'Code Review' ? '#5243aa' : '#42526e',
@@ -2656,6 +2710,47 @@ export function IssueDetailPage() {
           {/* Approvals */}
           <div className="id-sidebar-section">
             <div className="id-sidebar-section-header"><h4>Approvals</h4></div>
+
+            {/* JL-360: show whether the chosen transition is gated and how far the
+                quorum has got, so a refused move is explainable before it happens. */}
+            <label className="id-approval-target" style={{ display: 'block', fontSize: '12px', marginBottom: '6px' }}>
+              Transition to
+              <select
+                aria-label="Approval target status"
+                value={approvalTarget}
+                onChange={(e) => setApprovalTarget(e.target.value)}
+                style={{ marginLeft: '6px' }}
+              >
+                {ISSUE_STATUSES.filter((s) => s !== issue.status).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+
+            {approvalGate?.required ? (
+              <div
+                className={`id-approval-gate${approvalGate.satisfied ? ' id-approval-gate--satisfied' : ''}`}
+                data-testid="approval-gate"
+                style={{ fontSize: '12px', padding: '6px 8px', marginBottom: '8px', borderRadius: '3px', background: approvalGate.rejected ? '#ffebe6' : approvalGate.satisfied ? '#e3fcef' : '#fffae6' }}
+              >
+                {approvalGate.rejected ? (
+                  <strong>Rejected — this transition is blocked</strong>
+                ) : (
+                  <>
+                    <strong>
+                      {approvalGate.satisfied ? 'Approved' : 'Approval required'}
+                    </strong>
+                    {' — '}
+                    {approvalGate.approvedCount} of {approvalGate.requiredApprovals} {approvalGate.approverRole} approval{approvalGate.requiredApprovals === 1 ? '' : 's'}
+                  </>
+                )}
+              </div>
+            ) : (
+              <p className="id-empty-text" style={{ fontSize: '12px', padding: '0 0 6px' }}>
+                No approval required for this transition.
+              </p>
+            )}
+
             {approvals.length === 0 ? (
               <p className="id-empty-text" style={{ fontSize: '12px', padding: '4px 0' }}>No approvals yet.</p>
             ) : (
@@ -2670,10 +2765,18 @@ export function IssueDetailPage() {
                 ))}
               </div>
             )}
-            <div className="id-approval-actions" style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApprovalAction('approved')}>Approve</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleApprovalAction('rejected')}>Reject</button>
-            </div>
+            {/* JL-360: only offer the buttons when the server says this user holds
+                the rule's approver_role — the POST is authoritative either way. */}
+            {approvalGate?.required && approvalGate.canApprove === false ? (
+              <p className="id-empty-text" style={{ fontSize: '12px', marginTop: '8px' }}>
+                Only a {approvalGate.approverRole} can approve this transition.
+              </p>
+            ) : (
+              <div className="id-approval-actions" style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApprovalAction('approved')}>Approve</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleApprovalAction('rejected')}>Reject</button>
+              </div>
+            )}
           </div>
 
         </aside>
@@ -2688,7 +2791,7 @@ export function IssueDetailPage() {
       >
         <Alert
           onClose={() => setSuccessToast((prev) => ({ ...prev, open: false }))}
-          severity="success"
+          severity={successToast.severity || 'success'}
           variant="filled"
           sx={{ width: '100%' }}
         >
