@@ -10,7 +10,9 @@
  *   - `<script>`, `<style>`, `<iframe>` elements are dropped entirely
  *     (tag + contents).
  *   - Event-handler attributes (`on*`) are removed.
- *   - `javascript:` and `data:` URIs in `href`/`src` are neutralized.
+ *   - URL attributes (`href`/`src`) are scheme allow-listed (JL-368): only
+ *     https:, http:, mailto: and scheme-less relative URLs survive; anything
+ *     else (javascript:, data:, vbscript:, blob:, file:, about:, …) is dropped.
  *   - Any tag NOT on the allow-list is escaped (rendered as literal text),
  *     so it can never execute.
  *
@@ -42,6 +44,13 @@ const ALLOWED_ATTRS = {
 }
 
 // Attributes that carry a URL and must be scheme-checked.
+//
+// JL-368: `src` is currently unreachable — no tag on ALLOWED_TAGS has `src` in
+// ALLOWED_ATTRS, so the check never fires for it. It is kept deliberately
+// rather than removed: the day someone adds `img`/`video` to the allow-list
+// they will add `src` to ALLOWED_ATTRS, and the URL check must already be
+// wired up for it. Removing the entry would turn that future edit into a
+// silently unchecked URL attribute. Cost of keeping it is zero.
 const URL_ATTRS = new Set(['href', 'src'])
 
 function escapeHtml(str) {
@@ -71,17 +80,79 @@ function escapeHtml(str) {
 // eslint-disable-next-line no-control-regex
 const URL_NORMALIZE_STRIP = /[\u0000-\u0020\u007F-\u009F-]+/g
 
-// Reject javascript:/data:/vbscript: URIs. Whitespace, control chars and
-// case are normalized first so obfuscated schemes (e.g. "java\tscript:")
-// cannot slip through.
+// JL-368: URL schemes permitted in an allow-listed URL attribute.
+//
+// Everything else in this module is allow-listed (tags, attributes); the URL
+// check was the one deny-list left, naming javascript:/data:/vbscript: and
+// letting every other scheme through. The notable gap was `blob:` — a
+// same-origin `blob:` URL of type text/html executes script on navigation, so
+// an author could smuggle one into a description and it survived the
+// sanitizer. `file:` and `about:` were equally unfiltered. Naming dangerous
+// schemes can only ever be as complete as the list; naming safe ones is
+// complete by construction.
+//
+// The permitted set is derived from what the real callers actually emit:
+//   - RichTextEditor.jsx  — its link toolbar inserts `https://`, and its
+//     JL-358 comment records that issue descriptions legitimately carry
+//     `mailto:`, root-relative (`/projects/1`) and in-page (`#section`) links.
+//     sanitizeHtml is the *only* URL gate on that path.
+//   - KnowledgeBasePage.jsx — its markdown link rule already hard-restricts
+//     the scheme to `https?://` before sanitizeHtml ever sees the href, so no
+//     KB content can be affected by tightening this.
+//   - IssueDetailPage.jsx goes through utils/editorContent.js, a separate
+//     sanitizer, and is untouched by this function (see JL-359).
+const ALLOWED_URL_SCHEMES = new Set(['http', 'https', 'mailto'])
+
+// A scheme per RFC 3986: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ) ":".
+// `/`, `?`, `#`, `&` are absent from the charset, so a colon further along a
+// relative path (`docs/ratio:1`) is correctly NOT read as a scheme — exactly
+// how a browser splits it.
+const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/
+
+// JL-368: a relative URL that begins with two slash-ish characters is not
+// root-relative — it is protocol-relative, and resolves to a foreign origin.
+// A naive `startsWith('/')` test would wave `//evil.com/x` straight through.
+// Backslash counts: for special schemes the URL parser maps `\` to `/`, so
+// `\\evil.com`, `/\evil.com` and `\/evil.com` all resolve to https://evil.com
+// just like `//evil.com` (verified against the WHATWG URL parser).
+const PROTOCOL_RELATIVE_RE = /^[/\\]{2}/
+
+/**
+ * True when `value` is a URL we are willing to emit in an href/src.
+ *
+ * ALLOW-LIST (JL-368): https:, http:, mailto:, plus scheme-less relative URLs
+ * (root-relative `/…`, in-page `#…`, query `?…` and path-relative `doc.html`).
+ * Everything else — blob:, file:, about:, javascript:, data:, vbscript:, tel:,
+ * ftp: and any scheme not yet invented — is rejected.
+ */
 function isSafeUrl(value) {
+  // JL-358: normalization MUST run before the scheme test. Browsers strip
+  // TAB/LF/CR from URLs and ignore leading C0 controls before resolving, so
+  // `java<TAB>script:` executes; comparing the raw string would both miss that
+  // and wrongly reject a legitimate `ht<TAB>tps:`. Stripping a superset of
+  // what a browser strips is safe here because this normalized copy only ever
+  // feeds the comparison below — the value emitted is still the raw one. It
+  // also cannot launder a scheme: normalization removes only control chars,
+  // spaces and hyphens, never letters or the colon, so the scheme's letters
+  // (and which colon terminates it) are identical to what the browser sees.
   const normalized = String(value)
     .replace(URL_NORMALIZE_STRIP, '')
     .toLowerCase()
-  if (/^javascript:/.test(normalized)) return false
-  if (/^data:/.test(normalized)) return false
-  if (/^vbscript:/.test(normalized)) return false
-  return true
+
+  // Nothing left to navigate to once normalized — not a URL we recognise.
+  if (normalized === '') return false
+
+  const scheme = URL_SCHEME_RE.exec(normalized)
+  if (scheme) return ALLOWED_URL_SCHEMES.has(scheme[1])
+
+  // No scheme → relative. Reject the protocol-relative forms that only *look*
+  // root-relative; permit the rest. Scheme-less relatives such as
+  // `example.com/page` and `my-doc.html` are permitted deliberately: they
+  // cannot name a scheme (a browser needs a colon for that), so they can only
+  // ever resolve against the current origin, and existing issue descriptions
+  // are allowed to contain them (asserted since JL-358). Rejecting them would
+  // break stored content for no security gain.
+  return !PROTOCOL_RELATIVE_RE.test(normalized)
 }
 
 function sanitizeAttributes(tagName, attrString) {

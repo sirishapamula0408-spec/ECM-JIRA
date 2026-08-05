@@ -102,6 +102,72 @@ describe('sanitizeHtml (JL-91)', () => {
     expect(out).not.toContain('data:')
   })
 
+  // JL-368: the URL check was a deny-list (javascript:/data:/vbscript:) while
+  // the rest of the module allow-lists. Every unnamed scheme passed. `blob:`
+  // is the one that mattered: a same-origin blob: URL of type text/html
+  // executes script when navigated to, so it was a live stored-XSS vector that
+  // the sanitizer waved through. These cases FAIL against the deny-list code.
+  describe('URL scheme allow-list (JL-368)', () => {
+    it.each([
+      ['blob', 'blob:https://app.example.com/8f2e-1234'],
+      ['file', 'file:///c:/windows/system32/'],
+      ['about', 'about:blank'],
+      ['tel', 'tel:+15550100'],
+      ['ftp', 'ftp://files.example.com/x'],
+    ])('drops a %s: href (not on the scheme allow-list)', (_label, url) => {
+      const out = sanitizeHtml(`<a href="${url}">click</a>`)
+      // The anchor and its text survive; only the URL is removed.
+      expect(out).toBe('<a>click</a>')
+      expect(out).not.toMatch(/href/i)
+    })
+
+    it('drops a blob: href even when control-char obfuscated', () => {
+      // The JL-358 normalization runs first, so the allow-list sees "blob:".
+      const out = sanitizeHtml('<a href="bl\tob:https://app/1">click</a>')
+      expect(out).toBe('<a>click</a>')
+    })
+
+    it.each([
+      ['https absolute', 'https://example.com/docs'],
+      ['http absolute', 'http://example.com'],
+      ['mailto', 'mailto:someone@example.com'],
+      ['root-relative', '/projects/1/board'],
+      ['in-page anchor', '#acceptance-criteria'],
+      ['query-only', '?tab=history'],
+      ['path-relative', 'my-doc.html'],
+    ])('keeps a %s href', (_label, url) => {
+      const out = sanitizeHtml(`<a href="${url}">x</a>`)
+      expect(out).toContain(`href="${url}"`)
+    })
+
+    // A protocol-relative URL looks root-relative but resolves to a foreign
+    // origin, so a naive startsWith('/') allow test would pass it. Backslash
+    // variants matter too: for special schemes the URL parser maps `\` to `/`,
+    // so all four of these resolve to https://evil.com.
+    it.each([
+      ['//evil.com/x'],
+      ['\\\\evil.com/x'],
+      ['/\\evil.com/x'],
+      ['\\/evil.com/x'],
+    ])('drops the protocol-relative href %s', (url) => {
+      const out = sanitizeHtml(`<a href="${url}">click</a>`)
+      expect(out).toBe('<a>click</a>')
+    })
+
+    it('still keeps a single leading slash or backslash (same-origin)', () => {
+      expect(sanitizeHtml('<a href="/foo">x</a>')).toContain('href="/foo"')
+    })
+
+    it('does not mistake a colon inside a relative path for a scheme', () => {
+      const out = sanitizeHtml('<a href="docs/ratio:1/page">x</a>')
+      expect(out).toContain('href="docs/ratio:1/page"')
+    })
+
+    it('drops an empty href', () => {
+      expect(sanitizeHtml('<a href="">x</a>')).toBe('<a>x</a>')
+    })
+  })
+
   it('keeps allowed tags and their text', () => {
     const input =
       '<p>Para</p><strong>bold</strong><em>it</em><ul><li>a</li></ul>' +
