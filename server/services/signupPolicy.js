@@ -10,7 +10,10 @@
 //        'open'        — anyone with a valid office/Gmail address may register
 //                        (the historical behaviour, and still the default so
 //                        enabling this feature does not lock a team out)
-//        'invite_only' — registration requires a pending, unexpired invitation
+//        'invite_only' — registration requires an unexpired invitation that is
+//                        still pending, or that has already been accepted via
+//                        the emailed link but not yet turned into an account
+//                        (JL-369 — accept does not create the login)
 //
 // Both are deliberately checked in the route rather than in middleware, so the
 // error messages can be specific and the ordering (block before policy) is
@@ -111,9 +114,33 @@ export async function checkSignupAllowed(email) {
 
   const policy = await getSignupPolicy()
   if (policy === 'invite_only') {
+    // JL-369: accept both 'pending' AND 'accepted' invitations here.
+    //
+    // POST /api/invitations/:token/accept marks the invitation 'accepted' and
+    // upserts the `members` row, but it creates no `users` row and no password
+    // — the invitee must still complete signup. Gating on 'pending' alone
+    // therefore refused the very person the link existed to authorise: click
+    // the emailed link, then get 403 at signup. (Latent in production only
+    // because the default policy is 'open'.)
+    //
+    // The window is bounded by the invitation's own `expires_at`, which accept
+    // does not extend: an acceptance authorises signup for the remainder of the
+    // original 7-day invite TTL and no longer. A stale acceptance — someone who
+    // redeemed a link a year ago and has since been removed — is long past
+    // expires_at and re-authorises nothing.
+    //
+    // 'revoked' is excluded in every state, so an admin revoking after the
+    // acceptance still closes the door. And the blocked_signups deny-list is
+    // checked ABOVE this block, under every policy, so a removed member is
+    // refused even while their accepted invitation is still fresh.
+    //
+    // Single use is preserved by the account itself: once signup creates the
+    // `users` row, a second attempt is a 409 'already registered'.
     const invite = await get(
       `SELECT id FROM invitations
-        WHERE LOWER(email) = LOWER(?) AND status = 'pending' AND expires_at > NOW()
+        WHERE LOWER(email) = LOWER(?)
+          AND (status = 'pending' OR status = 'accepted')
+          AND expires_at > NOW()
         ORDER BY id DESC LIMIT 1`,
       [normalized],
     )
