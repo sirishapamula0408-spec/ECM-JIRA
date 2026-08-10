@@ -4,6 +4,16 @@ import { fetchProjectById } from '../../api/projectApi'
 import { TopNavIcon } from '../icons/TopNavIcon'
 import './ProjectTopPanel.css'
 
+// Routes with no project context — the project navigation strip is hidden on these.
+// Base entries first, then page routes in alphabetical order.
+const HIDDEN_ROUTES = [
+  '/',
+  '/dashboard',
+  '/profile',
+  '/issues',
+  '/audit-log',
+]
+
 const VIEW_LABELS = {
   board: 'Board',
   backlog: 'Backlog',
@@ -69,11 +79,11 @@ export function ProjectTopPanel({ hasProjects }) {
     return location.pathname === path || location.pathname.startsWith(path + '/')
   }
 
-  // Hide the navigation ribbon on the dashboard page (non-project context)
-  const isDashboard = location.pathname === '/' || location.pathname === '/dashboard'
-  const isProfile = location.pathname === '/profile'
-  const isIssueDetail = location.pathname.startsWith('/issues/')
-  if (isDashboard || isProfile || isIssueDetail || !hasProjects) return null
+  // Hide the navigation ribbon on pages with no project context
+  const isHiddenRoute = HIDDEN_ROUTES.some(
+    (route) => location.pathname === route || (route !== '/' && location.pathname.startsWith(`${route}/`)),
+  )
+  if (isHiddenRoute || !hasProjects) return null
 
   return (
     <div className="project-top-panel-wrapper">
