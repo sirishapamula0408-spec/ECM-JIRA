@@ -95,9 +95,11 @@ describe('ActivityFeedPage', () => {
 
   it('renders filter dropdowns', () => {
     renderWithRouter(<ActivityFeedPage />)
-    expect(screen.getByText('All types')).toBeInTheDocument()
-    expect(screen.getByText('All projects')).toBeInTheDocument()
-    expect(screen.getByText('All members')).toBeInTheDocument()
+    // JL-379: filters are MUI Selects now — options only render when opened,
+    // so assert the default "All ..." selections via the combobox display value.
+    expect(screen.getByRole('combobox', { name: /^Type/ })).toHaveTextContent('All types')
+    expect(screen.getByRole('combobox', { name: /^Project/ })).toHaveTextContent('All projects')
+    expect(screen.getByRole('combobox', { name: /^Member/ })).toHaveTextContent('All members')
   })
 
   it('renders activity items when data is returned', async () => {

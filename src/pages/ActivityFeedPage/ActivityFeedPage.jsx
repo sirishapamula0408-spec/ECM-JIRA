@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Box, Chip, Stack, Typography } from '@mui/material'
+import { Box, Button, Chip, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import { fetchActivity } from '../../api/dashboardApi'
 import { fetchProjects } from '../../api/projectApi'
 import { fetchMembers } from '../../api/memberApi'
@@ -110,21 +110,31 @@ export function ActivityFeedPage() {
         <Chip size="small" label={`${total} activities`} />
       </Stack>
 
-      <div className="af-filters">
-        <select value={filters.type} onChange={(e) => handleFilterChange('type', e.target.value)} className="af-filter-select">
-          {ACTIVITY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
-        <select value={filters.projectId} onChange={(e) => handleFilterChange('projectId', e.target.value)} className="af-filter-select">
-          <option value="">All projects</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <select value={filters.actor} onChange={(e) => handleFilterChange('actor', e.target.value)} className="af-filter-select">
-          <option value="">All members</option>
-          {members.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
-        </select>
-        <input type="date" className="af-filter-select" value={filters.dateFrom} onChange={(e) => handleFilterChange('dateFrom', e.target.value)} title="From date" />
-        <input type="date" className="af-filter-select" value={filters.dateTo} onChange={(e) => handleFilterChange('dateTo', e.target.value)} title="To date" />
-      </div>
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" useFlexGap>
+          <TextField select size="small" label="Type" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ minWidth: 150 }}
+            value={filters.type} onChange={(e) => handleFilterChange('type', e.target.value)}>
+            {ACTIVITY_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+          </TextField>
+          <TextField select size="small" label="Project" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ minWidth: 170 }}
+            value={filters.projectId} onChange={(e) => handleFilterChange('projectId', e.target.value)}>
+            <MenuItem value="">All projects</MenuItem>
+            {projects.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+          </TextField>
+          <TextField select size="small" label="Member" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ minWidth: 170 }}
+            value={filters.actor} onChange={(e) => handleFilterChange('actor', e.target.value)}>
+            <MenuItem value="">All members</MenuItem>
+            {members.map((m) => <MenuItem key={m.id} value={m.name}>{m.name}</MenuItem>)}
+          </TextField>
+          <TextField size="small" label="From" type="date" InputLabelProps={{ shrink: true }}
+            value={filters.dateFrom} onChange={(e) => handleFilterChange('dateFrom', e.target.value)} />
+          <TextField size="small" label="To" type="date" InputLabelProps={{ shrink: true }}
+            value={filters.dateTo} onChange={(e) => handleFilterChange('dateTo', e.target.value)} />
+          <Button variant="text" onClick={() => setFilters({ type: '', projectId: '', actor: '', dateFrom: '', dateTo: '' })}>
+            Clear
+          </Button>
+        </Stack>
+      </Paper>
 
       <div className="af-timeline">
         {loading && <p className="af-loading">Loading...</p>}
