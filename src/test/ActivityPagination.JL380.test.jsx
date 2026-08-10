@@ -40,9 +40,14 @@ function rowsPerPageSelect() {
   return screen.getByLabelText('Activities per page')
 }
 
-/** The "type" filter is a native <select> whose first option is "All types". */
-function typeFilterSelect() {
-  return screen.getByText('All types').closest('select')
+/**
+ * The "type" filter is an MUI Select (JL-379), not a native <select> — its
+ * options only enter the DOM once the combobox is opened, so drive it the way
+ * the JL-379 suite does rather than firing a change event at the input.
+ */
+async function selectMuiOption(comboboxName, optionName) {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: comboboxName }))
+  fireEvent.click(await screen.findByRole('option', { name: optionName }))
 }
 
 describe('ActivityFeedPage pagination (JL-380)', () => {
@@ -103,7 +108,7 @@ describe('ActivityFeedPage pagination (JL-380)', () => {
       expect(fetchActivity).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 25 }))
     })
 
-    fireEvent.change(typeFilterSelect(), { target: { value: 'comment' } })
+    await selectMuiOption(/^Type/, 'Comments')
 
     await waitFor(() => {
       expect(fetchActivity).toHaveBeenLastCalledWith(
