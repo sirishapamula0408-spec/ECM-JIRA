@@ -12,6 +12,7 @@ const HIDDEN_ROUTES = [
   '/profile',
   '/issues',
   '/audit-log',
+  '/teams',
 ]
 
 const VIEW_LABELS = {
