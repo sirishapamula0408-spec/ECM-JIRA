@@ -13,6 +13,7 @@ const HIDDEN_ROUTES = [
   '/issues',
   '/audit-log',
   '/teams',
+  '/users',
 ]
 
 const VIEW_LABELS = {
