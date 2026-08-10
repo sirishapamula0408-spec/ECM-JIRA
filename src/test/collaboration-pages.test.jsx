@@ -88,8 +88,9 @@ describe('ActivityFeedPage', () => {
 
   it('shows empty state when no activities', async () => {
     renderWithRouter(<ActivityFeedPage />)
+    // JL-380: the ad-hoc ".af-empty" paragraph was replaced by the shared <EmptyState>.
     await waitFor(() => {
-      expect(screen.getByText('No activity found.')).toBeInTheDocument()
+      expect(screen.getByText('No activity found')).toBeInTheDocument()
     })
   })
 
