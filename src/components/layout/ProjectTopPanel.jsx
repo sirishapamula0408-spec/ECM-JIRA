@@ -11,6 +11,8 @@ const HIDDEN_ROUTES = [
   '/dashboard',
   '/profile',
   '/issues',
+  '/audit-log',
+  '/teams',
   '/users',
 ]
 
