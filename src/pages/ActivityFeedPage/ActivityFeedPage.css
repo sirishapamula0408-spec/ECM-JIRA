@@ -3,41 +3,6 @@
   margin: 0 auto;
 }
 
-.af-header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.af-header h1 {
-  font-size: 22px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.af-total {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.af-filters {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.af-filter-select {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 13px;
-  min-width: 140px;
-}
-
 .af-timeline {
   position: relative;
   padding-left: 32px;
@@ -119,13 +84,6 @@
   font-weight: 500;
 }
 
-.af-loading, .af-empty {
-  text-align: center;
-  color: var(--text-secondary);
-  padding: 32px 0;
-  font-size: 14px;
-}
-
 .af-pagination {
   display: flex;
   align-items: center;
@@ -133,16 +91,4 @@
   gap: 16px;
   margin-top: 24px;
   padding: 12px 0;
-}
-
-.af-page-info {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.af-sentinel {
-  text-align: center;
-  padding: 16px;
-  color: var(--text-tertiary);
-  font-size: 13px;
 }
