@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Alert, Box, Button, Chip, CircularProgress, MenuItem, Paper,
-  Stack, TablePagination, TextField, Typography,
+  Alert, Avatar, Box, Button, Chip, CircularProgress, MenuItem, Paper,
+  Stack, Table, TableBody, TableCell, TableContainer, TableHead,
+  TablePagination, TableRow, TextField, Typography,
 } from '@mui/material'
 import { fetchActivity } from '../../api/dashboardApi'
 import { fetchProjects } from '../../api/projectApi'
@@ -98,25 +99,35 @@ export function ActivityFeedPage() {
         <Chip size="small" label={`${total} activities`} />
       </Stack>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" useFlexGap>
-          <TextField select size="small" label="Type" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ minWidth: 150 }}
+      {/* JL-382: the six controls stay on a single row. `flexWrap: nowrap` plus
+          non-shrinking children stops them reflowing onto extra rows, and the
+          .af-filter-bar wrapper scrolls horizontally on narrow viewports rather
+          than overflowing the page. */}
+      <Paper variant="outlined" className="af-filter-bar" sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          useFlexGap
+          sx={{ flexWrap: 'nowrap', '& > *': { flexShrink: 0 } }}
+        >
+          <TextField select size="small" label="Type" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ width: 140 }}
             value={filters.type} onChange={(e) => handleFilterChange('type', e.target.value)}>
             {ACTIVITY_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
           </TextField>
-          <TextField select size="small" label="Project" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ minWidth: 170 }}
+          <TextField select size="small" label="Project" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ width: 170 }}
             value={filters.projectId} onChange={(e) => handleFilterChange('projectId', e.target.value)}>
             <MenuItem value="">All projects</MenuItem>
             {projects.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
           </TextField>
-          <TextField select size="small" label="Member" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ minWidth: 170 }}
+          <TextField select size="small" label="Member" InputLabelProps={{ shrink: true }} SelectProps={{ displayEmpty: true }} sx={{ width: 170 }}
             value={filters.actor} onChange={(e) => handleFilterChange('actor', e.target.value)}>
             <MenuItem value="">All members</MenuItem>
             {members.map((m) => <MenuItem key={m.id} value={m.name}>{m.name}</MenuItem>)}
           </TextField>
-          <TextField size="small" label="From" type="date" InputLabelProps={{ shrink: true }}
+          <TextField size="small" label="From" type="date" InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
             value={filters.dateFrom} onChange={(e) => handleFilterChange('dateFrom', e.target.value)} />
-          <TextField size="small" label="To" type="date" InputLabelProps={{ shrink: true }}
+          <TextField size="small" label="To" type="date" InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
             value={filters.dateTo} onChange={(e) => handleFilterChange('dateTo', e.target.value)} />
           <Button variant="text" onClick={() => setFilters({ type: '', projectId: '', actor: '', dateFrom: '', dateTo: '' })}>
             Clear
@@ -124,45 +135,65 @@ export function ActivityFeedPage() {
         </Stack>
       </Paper>
 
-      <div className="af-timeline">
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>
+      )}
 
-        {/* JL-380: loading / error / empty / loaded are mutually exclusive, so a
-            failed load never renders as an empty feed. */}
-        {error ? null : loading ? (
-          <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>
-        ) : activities.length === 0 ? (
-          <EmptyState
-            icon="📋"
-            title="No activity found"
-            description="Issue updates, comments and sprint changes will appear here. Try widening the filters or a different date range."
-          />
-        ) : (
-          activities.map((a) => (
-            <div key={a.id} className="af-item">
-              <div className="af-item-avatar">
-                {(a.actor || 'U').slice(0, 2).toUpperCase()}
-              </div>
-              <div className="af-item-content">
-                <div className="af-item-header">
-                  <span className="af-actor">{a.actor}</span>
-                  <RelativeTime
-                    className="af-time"
-                    value={a.created_at || a.happened_at}
-                    fallback={<span className="af-time">Just now</span>}
-                  />
-                </div>
-                <p className="af-action">{a.action}</p>
-                {a.activity_type && a.activity_type !== 'general' && (
-                  <span className="af-type-badge">{a.activity_type}</span>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {/* JL-380: loading / error / empty / loaded are mutually exclusive, so a
+          failed load never renders as an empty feed. */}
+      {error ? null : loading ? (
+        <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>
+      ) : activities.length === 0 ? (
+        <EmptyState
+          icon="📋"
+          title="No activity found"
+          description="Issue updates, comments and sprint changes will appear here. Try widening the filters or a different date range."
+        />
+      ) : (
+        /* JL-382: activities render as a table, matching the User Management
+           page, instead of the old bespoke timeline cards. */
+        <Paper variant="outlined">
+          <TableContainer className="af-table-container">
+            <Table size="small" aria-label="Activity">
+              <TableHead>
+                <TableRow>
+                  <TableCell>User</TableCell>
+                  <TableCell>Action</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Time</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {activities.map((a) => (
+                  <TableRow key={a.id} hover>
+                    <TableCell>
+                      <div className="af-user-cell">
+                        <Avatar className="af-avatar">
+                          {(a.actor || 'U').slice(0, 2).toUpperCase()}
+                        </Avatar>
+                        <strong>{a.actor}</strong>
+                      </div>
+                    </TableCell>
+                    <TableCell>{a.action}</TableCell>
+                    <TableCell>
+                      {a.activity_type && a.activity_type !== 'general' && (
+                        <Chip size="small" label={a.activity_type} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <RelativeTime
+                        className="af-time"
+                        value={a.created_at || a.happened_at}
+                        fallback={<span className="af-time">Just now</span>}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
       {!error && (total > 0 || activities.length > 0) && (
         <TablePagination
