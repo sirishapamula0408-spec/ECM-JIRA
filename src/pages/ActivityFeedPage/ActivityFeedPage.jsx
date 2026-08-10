@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Button, MenuItem, Paper, Stack, TextField } from '@mui/material'
+import { Box, Button, Chip, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import { fetchActivity } from '../../api/dashboardApi'
 import { fetchProjects } from '../../api/projectApi'
 import { fetchMembers } from '../../api/memberApi'
@@ -99,11 +99,16 @@ export function ActivityFeedPage() {
   }
 
   return (
-    <section className="page activity-feed-page">
-      <div className="af-header">
-        <h1>Activity Feed</h1>
-        <span className="af-total">{total} activities</span>
-      </div>
+    <Box className="page activity-feed-page" sx={{ p: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Activity Feed</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Chronological record of issue, comment and sprint activity across your projects.
+          </Typography>
+        </Box>
+        <Chip size="small" label={`${total} activities`} />
+      </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" useFlexGap>
@@ -154,6 +159,6 @@ export function ActivityFeedPage() {
         {/* Infinite scroll sentinel */}
         {hasMore && <div ref={sentinelRef} className="af-sentinel">{loadingMore ? 'Loading more...' : ''}</div>}
       </div>
-    </section>
+    </Box>
   )
 }
