@@ -38,4 +38,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^_' }],
     },
   },
+  {
+    // JL-377: front-end tests are matched by the `src/**` block above, which
+    // only grants browser globals — but they execute under Node (Vitest), so
+    // `process` and friends are legitimately available. Without this, the test
+    // setup files fail `no-undef` on `process.env`, which they did on main.
+    files: ['src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ])
