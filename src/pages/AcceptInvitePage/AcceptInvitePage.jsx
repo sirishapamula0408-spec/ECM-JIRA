@@ -10,6 +10,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 
 import { acceptInvitation, lookupInvitation } from '../../api/memberApi'
+import { useAuth } from '../../context/AuthContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 /**
@@ -22,6 +23,10 @@ import { usePageTitle } from '../../hooks/usePageTitle'
  * link that buildInviteEmail now sends (see server/utils/mailer.js —
  * INVITE_ACCEPT_PATH).
  *
+ * JL-371 — accepting now provisions the account, not just the role. The invitee
+ * chooses a password here and the accept response hands back a real session, so
+ * this screen is the end of the flow rather than a detour on the way to /signup.
+ *
  * Deliberately reachable without a session — the invitee has no account yet.
  */
 // Mirror of INVITE_ACCEPT_PATH in server/utils/mailer.js — the email builder
@@ -31,15 +36,18 @@ export const ACCEPT_INVITE_PATH = '/accept-invite'
 export function AcceptInvitePage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { adoptSession } = useAuth()
   const token = String(searchParams.get('token') || '').trim()
 
   const [loading, setLoading] = useState(true)
   const [invite, setInvite] = useState(null)
   const [lookupError, setLookupError] = useState('')
   const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [accepted, setAccepted] = useState(false)
+  const [accepted, setAccepted] = useState(null)
 
   usePageTitle('Accept invitation')
 
@@ -72,10 +80,30 @@ export function AcceptInvitePage() {
   async function handleAccept(event) {
     event.preventDefault()
     setSubmitError('')
+
+    // Confirmation is a client-only nicety — every rule that actually decides
+    // whether the password is acceptable is enforced by the server (JL-371 reuses
+    // validatePassword and the org security policy), so nothing here is a
+    // substitute for that.
+    if (!password) {
+      setSubmitError('Choose a password to finish setting up your account.')
+      return
+    }
+    if (password !== confirmPassword) {
+      setSubmitError('The two passwords do not match.')
+      return
+    }
+
     setSubmitting(true)
     try {
-      await acceptInvitation(token, { name: name.trim() })
-      setAccepted(true)
+      const result = await acceptInvitation(token, { name: name.trim(), password })
+      // JL-371: the accept response carries { user, token } for a freshly created
+      // account, exactly like signup does — install it so the invitee lands
+      // signed in instead of being asked to retype the password they just chose.
+      if (result?.token && result?.user) {
+        adoptSession({ user: result.user, token: result.token })
+      }
+      setAccepted(result || { ok: true })
     } catch (err) {
       setSubmitError(err?.message || 'Could not accept this invitation.')
     } finally {
@@ -95,6 +123,7 @@ export function AcceptInvitePage() {
   }
 
   const blocked = unusableReason()
+  const signedIn = Boolean(accepted?.token && accepted?.user)
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, sm: 6 } }}>
@@ -122,12 +151,36 @@ export function AcceptInvitePage() {
           <form onSubmit={handleAccept}>
             <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>
               You've been invited to join ECM-JIRA as a <strong>{invite?.role}</strong> using <strong>{invite?.email}</strong>.
+              Choose a password and your account is ready.
             </Typography>
             <TextField
               id="accept-invite-name"
               label="Your name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              id="accept-invite-password"
+              label="Choose a password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              helperText="At least 8 characters, or whatever your workspace policy requires."
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              id="accept-invite-confirm-password"
+              label="Confirm password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
               fullWidth
               size="small"
               sx={{ mb: 2 }}
@@ -144,15 +197,45 @@ export function AcceptInvitePage() {
             <Alert severity="success" sx={{ mt: 2 }}>
               You're now a {invite?.role} in this workspace.
             </Alert>
-            {/* JL-361: accepting creates the member row only — it does not set a
-                password. Say so plainly instead of dropping the invitee on a
-                login screen they cannot use. */}
-            <Typography variant="body2" sx={{ mt: 2 }}>
-              To finish, create a password for <strong>{invite?.email}</strong> on the sign-up screen. Your role is already assigned.
-            </Typography>
-            <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/')} fullWidth>
-              Continue to sign in
-            </Button>
+
+            {signedIn && (
+              <>
+                {/* JL-371: the account exists and the session is already
+                    installed, so there is nothing left for the invitee to do. */}
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  Your account for <strong>{invite?.email}</strong> is ready and you're signed in.
+                </Typography>
+                <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/')} fullWidth>
+                  Go to your workspace
+                </Button>
+              </>
+            )}
+
+            {!signedIn && accepted?.accountExisted && (
+              <>
+                {/* JL-371: an account already existed for this address. The role
+                    was applied, but an invite link is not proof of that
+                    account's password, so it was left untouched. */}
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  {accepted.message
+                    || `An account already exists for ${invite?.email}. Your role has been applied — sign in with your existing password.`}
+                </Typography>
+                <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/')} fullWidth>
+                  Continue to sign in
+                </Button>
+              </>
+            )}
+
+            {!signedIn && !accepted?.accountExisted && (
+              <>
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  To finish, create a password for <strong>{invite?.email}</strong> on the sign-up screen. Your role is already assigned.
+                </Typography>
+                <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/')} fullWidth>
+                  Continue to sign in
+                </Button>
+              </>
+            )}
           </>
         )}
       </Paper>
