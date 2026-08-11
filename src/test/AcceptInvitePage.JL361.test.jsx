@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 import { AcceptInvitePage } from '../pages/AcceptInvitePage/AcceptInvitePage'
+import { AuthProvider } from '../context/AuthContext'
 import { acceptInvitation, lookupInvitation } from '../api/memberApi'
 
 // JL-361: the page is the destination of the token link in the invite email.
@@ -13,13 +14,26 @@ vi.mock('../api/memberApi', () => ({
   acceptInvitation: vi.fn(),
 }))
 
+// JL-371: the page now provisions the login as part of accepting, so it needs a
+// password from the invitee and an AuthProvider to install the returned session.
+// Both are harness-only changes — every assertion below is the JL-361 original.
 function renderAt(token) {
   const search = token == null ? '' : `?token=${encodeURIComponent(token)}`
   return render(
-    <MemoryRouter initialEntries={[`/accept-invite${search}`]}>
-      <AcceptInvitePage />
-    </MemoryRouter>,
+    <AuthProvider>
+      <MemoryRouter initialEntries={[`/accept-invite${search}`]}>
+        <AcceptInvitePage />
+      </MemoryRouter>
+    </AuthProvider>,
   )
+}
+
+const PASSWORD = 'Test1234!'
+
+/** Fill the JL-371 password + confirmation fields. */
+function fillPassword(value = PASSWORD) {
+  fireEvent.change(screen.getByLabelText(/choose a password/i), { target: { value } })
+  fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value } })
 }
 
 beforeEach(() => {
@@ -38,10 +52,11 @@ describe('AcceptInvitePage (JL-361)', () => {
     await waitFor(() => expect(lookupInvitation).toHaveBeenCalledWith('tok-123'))
     expect(await screen.findByText(/newbie@test.com/)).toBeInTheDocument()
 
+    fillPassword()
     fireEvent.click(screen.getByRole('button', { name: /accept invitation/i }))
 
     await waitFor(() => {
-      expect(acceptInvitation).toHaveBeenCalledWith('tok-123', { name: 'newbie' })
+      expect(acceptInvitation).toHaveBeenCalledWith('tok-123', { name: 'newbie', password: PASSWORD })
     })
     expect(await screen.findByText(/you're now a member/i)).toBeInTheDocument()
   })
@@ -75,7 +90,9 @@ describe('AcceptInvitePage (JL-361)', () => {
     acceptInvitation.mockRejectedValueOnce(new Error('This invitation has been revoked'))
 
     renderAt('tok-123')
-    fireEvent.click(await screen.findByRole('button', { name: /accept invitation/i }))
+    await screen.findByRole('button', { name: /accept invitation/i })
+    fillPassword()
+    fireEvent.click(screen.getByRole('button', { name: /accept invitation/i }))
 
     expect(await screen.findByText(/has been revoked/i)).toBeInTheDocument()
   })

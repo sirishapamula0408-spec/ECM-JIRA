@@ -9,23 +9,31 @@ export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(() => parseStoredAuthUser())
   const [isAuthenticated, setIsAuthenticated] = useState(() => parseStoredAuthUser() !== null)
 
+  // JL-371: adopt a { user, token } pair that was minted by something other than
+  // the login/signup forms. The invitation-accept response now returns exactly
+  // that shape (see server/routes/invitations.js), and without this the invitee
+  // would hold a valid token the SPA never installed — i.e. still be logged out.
+  // Extracted from handleAuth rather than duplicated so there is one place that
+  // decides where a session is persisted.
+  const adoptSession = useCallback(({ user, token }, { remember = false } = {}) => {
+    if (!user || !token) return null
+    setToken(token, remember)
+    const storage = remember ? window.localStorage : window.sessionStorage
+    try {
+      window.localStorage.removeItem('jira_auth_user')
+      window.sessionStorage.removeItem('jira_auth_user')
+      storage.setItem('jira_auth_user', JSON.stringify(user))
+    } catch { /* ignore */ }
+    setAuthUser(user)
+    setIsAuthenticated(true)
+    return user
+  }, [])
+
   const handleAuth = useCallback(async (mode, credentials) => {
     const action = mode === 'signup' ? signupWithEmail : loginWithEmail
     const response = await action(credentials)
     const remember = Boolean(credentials.remember || response.remember)
-    setToken(response.token, remember)
-
-    // Store user in the appropriate storage
-    const storage = remember ? window.localStorage : window.sessionStorage
-    try {
-      // Clear from both
-      window.localStorage.removeItem('jira_auth_user')
-      window.sessionStorage.removeItem('jira_auth_user')
-      storage.setItem('jira_auth_user', JSON.stringify(response.user))
-    } catch { /* ignore */ }
-
-    setAuthUser(response.user)
-    setIsAuthenticated(true)
+    adoptSession({ user: response.user, token: response.token }, { remember })
 
     // JL-134: org-wide 2FA nudge. When the org enforces MFA and this user has not
     // enrolled, the login response carries mfaEnrollmentRequired. Persist a flag so
@@ -52,7 +60,7 @@ export function AuthProvider({ children }) {
     } catch { /* ignore */ }
 
     return response
-  }, [])
+  }, [adoptSession])
 
   const handleLogout = useCallback(() => {
     setToken(null)
@@ -65,7 +73,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ authUser, isAuthenticated, handleAuth, handleLogout }}>
+    <AuthContext.Provider value={{ authUser, isAuthenticated, handleAuth, handleLogout, adoptSession }}>
       {children}
     </AuthContext.Provider>
   )

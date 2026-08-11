@@ -1,9 +1,7 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
-import jwt from 'jsonwebtoken'
 import { get, run, all } from '../db.js'
 import {
-  JWT_SECRET,
   APP_URL,
   getOAuthProvider,
   isOAuthConfigured,
@@ -26,6 +24,9 @@ import { safeAppendAudit } from '../services/auditLog.js'
 import { validatePassword, isPasswordExpired } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
 import { checkSignupAllowed } from '../services/signupPolicy.js'
+// JL-371: issueToken now lives in its own module so the invitation-accept route
+// can issue an identical session without importing this router.
+import { issueToken } from '../utils/authToken.js'
 
 // The brute-force lockout tracker used by the login route. Defaults to the
 // shared, process-wide singleton. It is intentionally swappable so tests can
@@ -46,10 +47,6 @@ export function setLoginLockout(instance) {
 function lockoutKey(email, req) {
   const ip = req.ip || req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown'
   return `${email}|${ip}`
-}
-
-function issueToken(user, expiresIn = '1d', extraClaims = {}) {
-  return jwt.sign({ sub: user.id, email: user.email, ...extraClaims }, JWT_SECRET, { expiresIn })
 }
 
 const router = Router()

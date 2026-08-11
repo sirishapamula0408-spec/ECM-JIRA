@@ -23,7 +23,7 @@ import workflowRoutes from './routes/workflows.js'
 import profileRoutes from './routes/profile.js'
 import securityPolicyRoutes from './routes/securityPolicy.js'
 import memberRoutes from './routes/members.js'
-import invitationRoutes from './routes/invitations.js'
+import invitationRoutes, { publicRouter as publicInvitationRoutes } from './routes/invitations.js'
 import emailLogRoutes from './routes/emailLog.js' // JL-323: outbound email delivery log
 import blockedSignupRoutes from './routes/blockedSignups.js' // JL-325: signup deny-list
 import activityRoutes from './routes/activity.js'
@@ -147,6 +147,13 @@ app.use(
 
 // Public routes (no session auth required)
 app.use('/api/auth', authRoutes)
+
+// JL-371: invitation lookup + accept. An invitee has no session yet — that is
+// the entire point of an invitation — so these two must be mounted ahead of the
+// `protect` block below. Everything else under /api/invitations (create, list,
+// resend, revoke) stays Admin-only behind it, and Express falls through to that
+// protected mount for any path this router does not define.
+app.use('/api/invitations', publicInvitationRoutes)
 
 // Public REST API (JL-84): authenticated by user-generated API tokens, not JWT sessions
 app.use('/api/public', publicApiRoutes)
