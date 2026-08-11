@@ -45,8 +45,30 @@ function createApp(routeModule, mountPath, user) {
 const asViewer = { workspaceRole: 'Viewer' }
 const asMember = { workspaceRole: 'Member' }
 
+// JL-383: labels + comment-reaction writes moved off the flat requireRole('Member')
+// workspace gate onto requireProjectWrite() in JL-286. That guard is no longer a
+// pure in-memory role comparison: for a non-Admin caller it resolves the target
+// project and loads the caller's project role from the db before deciding. So
+//   * a Viewer is still rejected, but the guard makes db reads on the way there;
+//   * a Member now needs PROJECT access too — a workspace Member with no
+//     project_members row is denied by design (the JL-224/225/226 model).
+// This is the row resolveProjectAccess() expects: an existing project on which
+// the caller holds a Member role.
+const PROJECT_ACCESS_AS_MEMBER = { id: 1, lead_member_id: null, project_role: 'Member' }
+
+// The `SELECT p.id, p.lead_member_id, ...` access lookup performed by
+// resolveProjectAccess() in server/middleware/authorize.js.
+const isProjectAccessLookup = (sql) => /FROM projects p/.test(sql)
+
 beforeEach(() => {
   vi.clearAllMocks()
+  // JL-383: clearAllMocks() does NOT drain a queued mockResolvedValueOnce chain.
+  // With the guard now consuming db calls, any value a previous test left
+  // unconsumed would be served to the next test's guard and silently change the
+  // outcome. Reset the db mocks outright so every test starts from empty.
+  run.mockReset()
+  all.mockReset()
+  get.mockReset()
 })
 
 /* ================================================================
@@ -65,12 +87,19 @@ describe('JL-229 — labels routes are gated at Member', () => {
     expect(res.status).toBe(403)
     expect(res.body.error).toMatch(/insufficient/i)
     expect(run).not.toHaveBeenCalled()
-    expect(get).not.toHaveBeenCalled()
+    // JL-383: `expect(get).not.toHaveBeenCalled()` here was asserting that the
+    // gate rejected without touching the db — true of the JL-229 requireRole
+    // gate, no longer true of the JL-286 requireProjectWrite one. Pin the
+    // stronger property instead: the ONLY read is the guard's own access
+    // lookup, so the handler body never ran.
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(isProjectAccessLookup(get.mock.calls[0][0])).toBe(true)
   })
 
   it('Member can still create a label', async () => {
     const app = createApp(labelsModule, '/api', asMember)
     get
+      .mockResolvedValueOnce(PROJECT_ACCESS_AS_MEMBER) // JL-286 write-guard access lookup
       .mockResolvedValueOnce(null) // no existing label with that name
       .mockResolvedValueOnce({ id: 7, project_id: 1, name: 'ui', color: '#42526E' })
     run.mockResolvedValue({ lastID: 7, changes: 1 })
@@ -90,6 +119,7 @@ describe('JL-229 — labels routes are gated at Member', () => {
   it('Member can still rename a label', async () => {
     const app = createApp(labelsModule, '/api', asMember)
     get
+      .mockResolvedValueOnce(PROJECT_ACCESS_AS_MEMBER) // JL-286 write-guard access lookup
       .mockResolvedValueOnce({ id: 5, project_id: 1, name: 'frontend', color: '#0052CC' })
       .mockResolvedValueOnce(null) // no duplicate-name clash
       .mockResolvedValueOnce({ id: 5, project_id: 1, name: 'ui', color: '#0052CC', issueCount: 2 })
@@ -109,6 +139,7 @@ describe('JL-229 — labels routes are gated at Member', () => {
 
   it('Member can still delete a label', async () => {
     const app = createApp(labelsModule, '/api', asMember)
+    get.mockResolvedValueOnce(PROJECT_ACCESS_AS_MEMBER) // JL-286 write-guard access lookup
     run.mockResolvedValue({ changes: 1 })
     const res = await request(app).delete('/api/projects/1/labels/5')
     expect(res.status).toBe(200)
@@ -154,12 +185,20 @@ describe('JL-229 — comment reactions are gated at Member', () => {
     expect(res.status).toBe(403)
     expect(res.body.error).toMatch(/insufficient/i)
     expect(run).not.toHaveBeenCalled()
-    expect(get).not.toHaveBeenCalled()
+    // JL-383: as above — the JL-286 guard reads before it rejects. Here the only
+    // read is reactionCommentProject()'s comment → issue → project resolution;
+    // it finds nothing, so the guard falls back to the workspace gate and never
+    // reaches the handler.
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get.mock.calls[0][0]).toMatch(/FROM comments c JOIN issues i/)
   })
 
   it('Member can still toggle a reaction', async () => {
     const app = createApp(commentsModule, '/api/comments', asMember)
     get
+      // JL-286 write guard: resolve the comment's project, then the caller's access to it.
+      .mockResolvedValueOnce({ project_id: 1 })
+      .mockResolvedValueOnce(PROJECT_ACCESS_AS_MEMBER)
       .mockResolvedValueOnce({ id: 5 }) // comment exists
       .mockResolvedValueOnce(null) // no existing reaction
     run.mockResolvedValue({ lastID: 1, changes: 1 })

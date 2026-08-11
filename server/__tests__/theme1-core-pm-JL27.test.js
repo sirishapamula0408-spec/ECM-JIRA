@@ -598,7 +598,15 @@ describe('Import / Export API', () => {
   it('POST import commits and creates issues with sequential keys', async () => {
     get.mockImplementation(async (sql) => {
       if (sql.includes('FROM projects')) return { id: 1, key: 'TP' }
-      if (sql.includes('COUNT(*)')) return { count: '2' }
+      // JL-383: this stub used to answer a `COUNT(*)` probe, because the import
+      // commit path once seeded a JS counter from the project's issue count.
+      // JL-363 replaced that with an atomic block reservation:
+      //   UPDATE projects SET issue_counter = issue_counter + N ... RETURNING issue_counter
+      // The stale stub returned null for the UPDATE, so the route threw on
+      // `reservation.issue_counter` and answered 500 instead of 201.
+      // RETURNING yields the counter AFTER the bump, so a project sitting at 2
+      // that reserves 1 number returns 3 — and the imported key is still TP-3.
+      if (sql.includes('UPDATE projects SET issue_counter')) return { issue_counter: 3 }
       return null
     })
     run.mockResolvedValue({ lastID: 10 })

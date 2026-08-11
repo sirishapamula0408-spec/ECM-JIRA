@@ -51,8 +51,12 @@ describe('isWorkspaceMember (JL-96)', () => {
   it('returns true when a membership row exists', async () => {
     get.mockResolvedValueOnce({ ok: 1 })
     expect(await isWorkspaceMember('member@test.com', 2)).toBe(true)
-    // Scoped by workspace id + email.
-    expect(get.mock.calls[0][1]).toEqual([2, 'member@test.com'])
+    // Scoped by workspace id + email. JL-291 widened the lookup with a
+    // `UNION ALL ... FROM members` arm so a member who only exists in the
+    // members directory (or the workspace owner) also resolves — which binds
+    // the same email/workspace pair a second time. Still workspace-scoped:
+    // every parameter is one of the two the caller passed in.
+    expect(get.mock.calls[0][1]).toEqual([2, 'member@test.com', 'member@test.com', 2])
   })
 
   it('returns false when no membership row exists', async () => {

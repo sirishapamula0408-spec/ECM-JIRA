@@ -156,15 +156,29 @@ describe('JL-245 — Backlog: no icon-only button lacks an accessible name', () 
     cleanup()
   })
 
-  it('icon-only toolbar glyph buttons expose aria-labels', () => {
+  // JL-383: this test named the three icon-only toolbar buttons that existed when
+  // JL-245 was written — "Views", "Display settings" and "More". JL-353 deleted
+  // all three from BacklogPage: they rendered literal placeholder glyph text
+  // ("chart", "settings", "...") and had no onClick or defined behavior, so they
+  // were dead UI, and the removal is documented in BacklogPage.jsx. The test was
+  // never re-pointed, so it asserted the presence of deliberately-removed
+  // controls — the exact opposite of BacklogToolbar.JL353.test.jsx's "does not
+  // render the dead Views / Display settings / More buttons". Re-point it at the
+  // icon-only buttons the Backlog actually renders today; the aria-label
+  // requirement being tested is unchanged.
+  it('icon-only glyph buttons expose aria-labels', () => {
     render(
       <MemoryRouter>
         <BacklogPage />
       </MemoryRouter>,
     )
-    expect(screen.getByLabelText('Views')).toBeInTheDocument()
-    expect(screen.getByLabelText('Display settings')).toBeInTheDocument()
-    expect(screen.getByLabelText('More')).toBeInTheDocument()
+    // Toolbar: sort-direction toggle (arrow icon only).
+    expect(screen.getByLabelText('Sort direction: ascending')).toBeInTheDocument()
+    // Sprint panel header: caret toggle (aria-hidden span only) and "..." menu.
+    expect(screen.getByLabelText('Expand Sprint 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sprint actions')).toBeInTheDocument()
+    // Backlog panel header: its own caret toggle.
+    expect(screen.getByLabelText(/^(Expand|Collapse) backlog$/)).toBeInTheDocument()
     cleanup()
   })
 })
