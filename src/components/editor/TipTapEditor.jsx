@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { sanitizeHtml, isEmptyDoc } from '../../utils/editorContent'
+// JL-359: sanitizeHtml now comes from utils/sanitizeHtml — the single
+// sanitizer in the codebase. editorContent keeps only the pure text helpers.
+import { isEmptyDoc } from '../../utils/editorContent'
+import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import './TipTapEditor.css'
 
 // JL-135 — ADF-style WYSIWYG editor built on TipTap + StarterKit.

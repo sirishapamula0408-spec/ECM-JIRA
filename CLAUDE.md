@@ -128,6 +128,7 @@ Copy `.env.example` to `.env`. Key variables: `PORT`, `DATABASE_URL`, `JWT_SECRE
 - Co-locate page CSS files with their JSX components in `src/pages/<PageName>/`
 - Use `src/theme/muiTheme.js` to adjust global MUI theme tokens
 - Markdown formatting used for issue descriptions (rendered by RichTextEditor)
+- **`src/utils/sanitizeHtml.js` is the only HTML sanitiser in the codebase (JL-359).** Every string that reaches `dangerouslySetInnerHTML` must pass through it — `RichTextEditor`, `KnowledgeBasePage`, `IssueDetailPage` and `TipTapEditor` all do. It is a dependency-free allow-list (tags, per-tag attributes, and URL schemes) and carries the JL-344 attribute-breakout defence, the JL-358 control-character URL normalization and the JL-368 URL scheme allow-list. There used to be a second, DOM-based sanitiser in `src/utils/editorContent.js`; it was deleted because the two allow-lists had drifted and a fix to one never reached the other's consumers. **Do not add another sanitiser** — need a new tag or attribute? Extend `ALLOWED_TAGS` / `ALLOWED_ATTRS` in that one module and add a case to `src/test/sanitizeHtml.test.jsx`. `editorContent.js` now holds only pure text helpers (`htmlToPlainText`, `isEmptyDoc`, `looksLikeHtml`, `decodeEntities`).
 - Use `asyncHandler` wrapper for all async Express route handlers
 - Use `requireRole` / `requireProjectRole` middleware for authorization on protected endpoints
 - Route SQL queries use `?` placeholders — `convertPlaceholders()` in `db.js` handles PostgreSQL conversion transparently
