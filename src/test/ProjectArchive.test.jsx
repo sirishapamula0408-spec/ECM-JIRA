@@ -16,6 +16,17 @@ vi.mock('../api/favoriteApi', () => ({
 }))
 vi.mock('../hooks/usePageTitle', () => ({ usePageTitle: () => {} }))
 
+// JL-383: JL-292 added usePermissions() to ProjectsPage to gate the create button
+// and the per-row Archive/Restore/Trash action menu. usePermissions reads
+// MemberContext, so rendering the page bare now throws "useMembers must be used
+// within MemberProvider" before any assertion runs. Stub the hook the way
+// ProjectsPage.rbac.test.jsx does. Admin perms, because the archive flow under
+// test lives behind isAdmin — this suite is about the archive UX (JL-219), not
+// about the gating (covered by ProjectsPage.rbac.test.jsx).
+vi.mock('../hooks/usePermissions', () => ({
+  usePermissions: () => ({ loaded: true, isAdmin: true, canCreateProject: true }),
+}))
+
 import { ProjectsPage } from '../pages/ProjectsPage/ProjectsPage'
 import { fetchProjects, archiveProject } from '../api/projectApi'
 
