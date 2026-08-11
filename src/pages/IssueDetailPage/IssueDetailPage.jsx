@@ -44,7 +44,10 @@ import SwapVertIcon from '@mui/icons-material/SwapVert'
 const TipTapEditor = lazy(() =>
   import('../../components/editor/TipTapEditor').then((m) => ({ default: m.TipTapEditor })),
 )
-import { sanitizeHtml, looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
+// JL-359: sanitizeHtml now comes from utils/sanitizeHtml — the single
+// sanitizer in the codebase. editorContent keeps only the pure text helpers.
+import { looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
+import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import './IssueDetailPage.css'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import { usePageTitle } from '../../hooks/usePageTitle'

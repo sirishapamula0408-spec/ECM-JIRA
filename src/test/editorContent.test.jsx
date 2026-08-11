@@ -1,13 +1,19 @@
 import { describe, it, expect } from 'vitest'
+import * as editorContent from '../utils/editorContent'
 import {
   htmlToPlainText,
   isEmptyDoc,
   looksLikeHtml,
   decodeEntities,
-  sanitizeHtml,
 } from '../utils/editorContent'
 
 // JL-135 — pure helper tests. These MUST run without mounting TipTap.
+//
+// JL-359 — the `sanitizeHtml` this module used to export has been deleted;
+// there is one sanitizer in the codebase and it lives in utils/sanitizeHtml.
+// Every assertion that used to live in the `sanitizeHtml` describe below was
+// moved verbatim into src/test/sanitizeHtml.test.jsx (see the
+// "ported from the deleted editorContent sanitizer" describe there).
 
 describe('htmlToPlainText', () => {
   it('strips tags and returns text content', () => {
@@ -83,32 +89,17 @@ describe('decodeEntities', () => {
   })
 })
 
-describe('sanitizeHtml', () => {
-  it('removes script tags', () => {
-    const out = sanitizeHtml('<p>ok</p><script>alert(1)</script>')
-    expect(out).not.toMatch(/script/i)
-    expect(out).toMatch(/ok/)
-  })
-
-  it('strips inline event handlers', () => {
-    const out = sanitizeHtml('<p onclick="evil()">hi</p>')
-    expect(out).not.toMatch(/onclick/i)
-    expect(out).toMatch(/hi/)
-  })
-
-  it('drops javascript: hrefs', () => {
-    const out = sanitizeHtml('<a href="javascript:alert(1)">x</a>')
-    expect(out).not.toMatch(/javascript:/i)
-  })
-
-  it('keeps allowed formatting tags', () => {
-    const out = sanitizeHtml('<p><strong>bold</strong> <em>it</em></p>')
-    expect(out).toMatch(/<strong>/)
-    expect(out).toMatch(/<em>/)
-  })
-
-  it('handles null/empty', () => {
-    expect(sanitizeHtml(null)).toBe('')
-    expect(sanitizeHtml('')).toBe('')
+// JL-359 — the consolidation is only real if the second sanitizer is actually
+// gone. If someone re-adds one here, this fails and points at the one module
+// that should be extended instead.
+describe('no second sanitizer (JL-359)', () => {
+  it('does not export sanitizeHtml — use utils/sanitizeHtml', () => {
+    expect(editorContent.sanitizeHtml).toBeUndefined()
+    expect(Object.keys(editorContent).sort()).toEqual([
+      'decodeEntities',
+      'htmlToPlainText',
+      'isEmptyDoc',
+      'looksLikeHtml',
+    ])
   })
 })
