@@ -14,6 +14,8 @@ const router = Router()
  *
  * Rules:
  *  - requesterEmail is required and must be email-shaped
+ *    (JL-357: the route passes the SERVER-RESOLVED requester here, not the raw
+ *    body value — this helper validates shape only, never authorisation)
  *  - summary is required (non-empty after trim)
  *  - requestType must exist and be enabled
  */
@@ -155,9 +157,34 @@ router.get('/portal/request-types', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/portal/requests — submit a customer request → creates an issue
+//
+// JL-357 (impersonation fix): the handler used to take `requesterEmail` straight
+// from the body and use it as the created issue's reporter AND assignee AND as
+// the portal_requests key, without ever consulting req.user. Any authenticated
+// caller could therefore file a request in anyone else's name. This is the
+// WRITE-side counterpart to the JL-349 read-side fix below, and it uses the same
+// trust model:
+//
+//   - `requesterEmail` omitted            → defaults to the session user
+//   - `requesterEmail` === session email  → allowed (case-insensitive)
+//   - `requesterEmail` !== session email  → allowed ONLY for a workspace
+//                                           Owner/Admin (support desk filing a
+//                                           request on a customer's behalf);
+//                                           everyone else gets 403.
+//
+// Why 403 here rather than the silent "ignore the input" the read side uses:
+// GET is a "my requests" listing where scoping to the session is simply the
+// right answer, but POST creates a durable record. Silently rewriting the
+// address to the caller's own would hide an attempted impersonation both from
+// the caller (who thinks they filed for someone else) and from anyone reading
+// the data later. A 403 leaves the attempt visible and un-recorded.
 router.post('/portal/requests', asyncHandler(async (req, res) => {
   const requestTypeId = Number(req.body?.requestTypeId)
-  const requesterEmail = String(req.body?.requesterEmail || '').trim()
+  const suppliedEmail = String(req.body?.requesterEmail || '').trim()
+  const sessionEmail = String(req.user?.email || '').trim()
+  // The single resolved identity: the issue reporter/assignee and the
+  // portal_requests row all use THIS value, so they cannot drift apart.
+  const requesterEmail = suppliedEmail || sessionEmail
   const summary = String(req.body?.summary || '').trim()
   const description = String(req.body?.description || '').trim()
 
@@ -168,9 +195,34 @@ router.post('/portal/requests', asyncHandler(async (req, res) => {
       )
     : null
 
-  const { ok, errors } = validateRequestSubmission(req.body, requestType)
+  // Validate the RESOLVED email so an omitted field defaults to the session user
+  // instead of 400-ing, while a supplied-but-malformed address still fails the
+  // existing email-shape check exactly as before.
+  const { ok, errors } = validateRequestSubmission(
+    { ...(req.body || {}), requesterEmail },
+    requestType,
+  )
   if (!ok) {
     res.status(400).json({ error: errors[0], errors })
+    return
+  }
+
+  // Mirrors the privilege test used by the JL-349 read side (and the isOwner
+  // bypass in middleware/authorize.js). The literal 'Owner' role string is
+  // accepted too, per the JL-317 note: a member row with role='Owner' but
+  // is_owner=false must not be treated as unprivileged.
+  const canSubmitOnBehalf =
+    Boolean(req.user?.isOwner) ||
+    req.user?.workspaceRole === 'Admin' ||
+    req.user?.workspaceRole === 'Owner'
+  if (
+    suppliedEmail &&
+    suppliedEmail.toLowerCase() !== sessionEmail.toLowerCase() &&
+    !canSubmitOnBehalf
+  ) {
+    res.status(403).json({
+      error: 'You may only submit a request for your own email address',
+    })
     return
   }
 
