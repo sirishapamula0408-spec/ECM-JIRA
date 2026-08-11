@@ -4,8 +4,12 @@ Two deploy paths live in this repo:
 
 | Script | Model | Use |
 |--------|-------|-----|
-| `deploy.sh` | Vite **dev** server on `:5173`, `/api` proxied to `:4000` | quick demo box |
+| `deploy.sh` | builds `dist/`; **Express** serves it + the API on one port (`:4000`) | single-node box, no nginx/PM2 required |
 | `deploy.prod.sh` | **nginx** serves built `dist/`; **PM2** runs the API (+ `/ws`) | real deployment |
+
+Neither script runs the Vite dev server (JL-326). `deploy.sh` needs nothing but
+git/node/npm — supervision is opt-in via `PROCESS_MANAGER=pm2|systemd`, and TLS
+is up to whatever proxy you put in front of `:4000` (`nginx.conf.example`).
 
 This guide covers the **production** path. Do the one-time setup once; after
 that every release is a single `./deploy.prod.sh`.
