@@ -889,6 +889,21 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_project_workflows_project ON project_workflows(project_id)')
 
+  // --- JL-330: Workflow Editor node layout, server-side ---
+  // The diagram's node coordinates used to live only in the browser's
+  // localStorage (key `wfEditor:positions:<projectId>`), so a layout was
+  // per-device, lost on a cache clear, and invisible to teammates opening the
+  // same workflow. One row per project holds a { statusName: { x, y } } map.
+  // `project_id` is UNIQUE so the save path is a plain upsert.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workflow_layouts (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+      positions JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+
   // --- Theme-1 #7: Custom Fields (EAV) ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS custom_fields (

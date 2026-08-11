@@ -280,6 +280,10 @@
   justify-content: center;
   cursor: grab;
   user-select: none;
+  /* JL-330: without this the browser claims a touch drag for panning/scrolling
+     the canvas and never delivers pointermove, so nodes cannot be dragged with a
+     finger. The node itself is never the scroll surface, so nothing is lost. */
+  touch-action: none;
   transition: box-shadow 0.15s ease, transform 0.1s ease;
 }
 
@@ -348,6 +352,7 @@
   border: 2px solid #0052cc;
   cursor: crosshair;
   opacity: 0;
+  touch-action: none; /* JL-330: same reason as .wfe-node */
   transition: opacity 0.12s ease;
 }
 
@@ -356,6 +361,14 @@
 .wfe-node--selected .wfe-node-connector,
 .wfe-node--link-source .wfe-node-connector {
   opacity: 1;
+}
+
+/* JL-330: a touch device has no hover, so a hover-revealed connector is
+   unreachable with a finger. Show it permanently where hover is unavailable. */
+@media (hover: none) {
+  .wfe-node .wfe-node-connector {
+    opacity: 1;
+  }
 }
 
 /* Source node stays highlighted for the duration of the link drag. */

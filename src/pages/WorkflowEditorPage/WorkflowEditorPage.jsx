@@ -20,7 +20,9 @@ import {
   applyWorkflowTemplate,
   createWorkflowDefinition,
 } from '../../api/workflowDefinitionApi'
+import { fetchWorkflowLayout, saveWorkflowLayout } from '../../api/workflowLayoutApi'
 import { readableTextColor, borderFor } from '../../utils/color'
+import { snapToGrid } from '../../utils/layoutGrid' // JL-330: snap dropped nodes to the grid
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -88,6 +90,9 @@ function autoPos(i) {
   return { x: 60 + (i % 5) * 260, y: 70 + Math.floor(i / 5) * 170 }
 }
 
+// JL-330: the legacy localStorage layout key. Layouts now live on the server;
+// this key is only read once per project so a pre-JL-330 local layout can be
+// migrated up instead of being silently dropped (see loadLayout below).
 function positionsKey(projectId) {
   return `wfEditor:positions:${projectId}`
 }
@@ -128,8 +133,10 @@ export function WorkflowEditorPage() {
   // JL-306: visible success confirmation after Publish / Apply QA Lifecycle.
   const [successMsg, setSuccessMsg] = useState('')
 
-  // Node positions persisted to localStorage, keyed by status name.
+  // JL-330: node positions, keyed by status name, loaded from and saved to the
+  // server so the layout is shared and device-independent.
   const [positions, setPositions] = useState({})
+  const [layoutError, setLayoutError] = useState('')
 
   const [selectedNodeName, setSelectedNodeName] = useState(null)
   const [selectedTransId, setSelectedTransId] = useState(null)
@@ -173,8 +180,35 @@ export function WorkflowEditorPage() {
   const didDrag = useRef(false)
   const canvasWrapperRef = useRef(null)
   const persistTimer = useRef(null)
+  // JL-330: `isAdmin` read from inside the project-load effect without making it
+  // a dependency (the effect must not re-run and re-fetch on a permission
+  // refresh).
+  const isAdminRef = useRef(isAdmin)
+  isAdminRef.current = isAdmin
+
+  // JL-330: pointer events are one code path for mouse, touch and pen, so the
+  // canvas is draggable on a tablet without a parallel touch handler set. The
+  // mouse handlers stay wired only as a fallback for environments that never
+  // emit pointer events; the first pointer event latches this ref and every
+  // later mouse event is ignored, so a browser firing both `pointerdown` and
+  // its `mousedown` compatibility event cannot run one gesture twice.
+  const pointerSeen = useRef(false)
+  // Latches for the duration of a drag so the gesture is completed exactly
+  // once. Touch fires `pointerup` and then immediately `pointerleave`, both of
+  // which end a drag.
+  const gestureActive = useRef(false)
   const addStatusBtnRef = useRef(null)
   const addTransBtnRef = useRef(null)
+
+  /** True when this event is a mouse compatibility event we should ignore. */
+  const isRedundantMouseEvent = useCallback((e) => {
+    const type = String(e?.type || '')
+    if (type.startsWith('pointer')) {
+      pointerSeen.current = true
+      return false
+    }
+    return pointerSeen.current
+  }, [])
 
   // ── Load project list on mount, default to first ──
   useEffect(() => {
@@ -257,12 +291,50 @@ export function WorkflowEditorPage() {
     }
   }, [projectId, confirm, reload])
 
+  // ── JL-330: load the node layout from the server, migrating a legacy local one ──
+  //
+  // Resolution order, chosen so no layout is ever silently lost:
+  //   1. the server's layout wins whenever it has any coordinates — it is the
+  //      shared, cross-device source of truth;
+  //   2. server empty + a pre-JL-330 localStorage layout present → adopt the
+  //      local layout, push it up, and only then delete the local key (a failed
+  //      upload leaves the key in place so the next load retries);
+  //   3. the GET itself failing (offline, older API) falls back to the local
+  //      layout rather than resetting the diagram to auto-layout.
+  // Only an Admin can migrate, because only an Admin may write the layout; a
+  // Viewer keeps rendering their local one and keeps the key.
+  const loadLayout = useCallback(async (pid) => {
+    let server = null
+    try {
+      const res = await fetchWorkflowLayout(pid)
+      const p = res?.positions
+      server = p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+    } catch {
+      server = null // unreachable — distinct from "reachable and empty"
+    }
+    const local = readPositions(pid)
+    if (server && Object.keys(server).length > 0) return server
+    if (Object.keys(local).length > 0) {
+      if (server && isAdminRef.current) {
+        try {
+          await saveWorkflowLayout(pid, local)
+          try { localStorage.removeItem(positionsKey(pid)) } catch { /* ignore */ }
+        } catch { /* keep the local copy and retry on the next load */ }
+      }
+      return local
+    }
+    return server || {}
+  }, [])
+
   useEffect(() => {
     if (!projectId) return
-    setPositions(readPositions(projectId))
+    let cancelled = false
+    setPositions({})
     setSelectedNodeName(null)
     setSelectedTransId(null)
+    loadLayout(projectId).then((map) => { if (!cancelled) setPositions(map) })
     reload(projectId)
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
@@ -292,17 +364,22 @@ export function WorkflowEditorPage() {
   }
 
   // ── Persist positions (debounced) ──
+  // JL-330: this wrote localStorage, which is why layouts were per-device. It
+  // now PUTs the whole map to the workflow-layout endpoint, still debounced so a
+  // drag produces one request rather than one per frame. Writing is Admin-only
+  // (the same gate as every other workflow edit), so a Viewer's drag stays
+  // purely visual instead of generating 403s.
   const persistPositions = useCallback((map) => {
-    if (!projectId) return
+    if (!projectId || !isAdmin) return
     if (persistTimer.current) clearTimeout(persistTimer.current)
     persistTimer.current = setTimeout(() => {
-      try {
-        localStorage.setItem(positionsKey(projectId), JSON.stringify(map))
-      } catch { /* ignore quota errors */ }
+      saveWorkflowLayout(projectId, map).catch(() => {
+        setLayoutError('Could not save the workflow layout. Your changes may not be visible to teammates.')
+      })
     }, 250)
-  }, [projectId])
+  }, [projectId, isAdmin])
 
-  // ── Convert mouse event to canvas coordinates ──
+  // ── Convert a pointer/mouse event to canvas coordinates ──
   function toCanvasCoords(e) {
     const wrapper = canvasWrapperRef.current
     if (!wrapper) return { x: 0, y: 0 }
@@ -312,9 +389,9 @@ export function WorkflowEditorPage() {
     return { x, y }
   }
 
-  // ── Drag handlers ──
-  const handleNodeMouseDown = useCallback((e, name) => {
-    if (!isAdmin) return
+  // ── Drag handlers (JL-330: pointer-based, so mouse/touch/pen share one path) ──
+  const handleNodeDragStart = useCallback((e, name) => {
+    if (!isAdmin || isRedundantMouseEvent(e)) return
     e.stopPropagation()
     e.preventDefault()
     const node = nodeByName(name)
@@ -322,22 +399,24 @@ export function WorkflowEditorPage() {
     const pos = toCanvasCoords(e)
     dragging.current = { name, offsetX: pos.x - node.x, offsetY: pos.y - node.y }
     didDrag.current = false
+    gestureActive.current = true
     setSelectedNodeName(name)
     setSelectedTransId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeByName, zoom, isAdmin])
+  }, [nodeByName, zoom, isAdmin, isRedundantMouseEvent])
 
   // ── JL-324: drag from a node's connector onto another node to create a transition ──
-  const handleConnectorMouseDown = useCallback((e, name) => {
-    if (!isAdmin) return
-    // Stop the node's own onMouseDown from starting a reposition drag.
+  const handleConnectorDragStart = useCallback((e, name) => {
+    if (!isAdmin || isRedundantMouseEvent(e)) return
+    // Stop the node's own drag-start from starting a reposition drag.
     e.stopPropagation()
     e.preventDefault()
     const pos = toCanvasCoords(e)
     setLinkError('')
+    gestureActive.current = true
     setLinkDrag({ from: name, x: pos.x, y: pos.y, hoverTarget: null })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, zoom])
+  }, [isAdmin, zoom, isRedundantMouseEvent])
 
   /** Which status node (if any) sits under the given canvas point. */
   const nodeAtPoint = useCallback((x, y) => {
@@ -346,7 +425,8 @@ export function WorkflowEditorPage() {
     ) || null
   }, [nodes])
 
-  const handleCanvasMouseMove = useCallback((e) => {
+  const handleCanvasDragMove = useCallback((e) => {
+    if (isRedundantMouseEvent(e)) return
     if (linkDrag) {
       const pos = toCanvasCoords(e)
       const over = nodeAtPoint(pos.x, pos.y)
@@ -362,9 +442,13 @@ export function WorkflowEditorPage() {
     const y = Math.max(0, pos.y - dragging.current.offsetY)
     setPositions((prev) => ({ ...prev, [dragging.current.name]: { x, y } }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, linkDrag, nodeAtPoint])
+  }, [zoom, linkDrag, nodeAtPoint, isRedundantMouseEvent])
 
-  const handleCanvasMouseUp = useCallback(async () => {
+  const handleCanvasDragEnd = useCallback(async (e) => {
+    if (isRedundantMouseEvent(e)) return
+    // Touch fires pointerup then pointerleave; complete the gesture once only.
+    if (!gestureActive.current) return
+    gestureActive.current = false
     if (linkDrag) {
       const { from, hoverTarget } = linkDrag
       setLinkDrag(null)
@@ -384,11 +468,25 @@ export function WorkflowEditorPage() {
       return
     }
     if (dragging.current) {
+      const { name } = dragging.current
       dragging.current = null
-      setPositions((prev) => { persistPositions(prev); return prev })
+      // A press with no movement is a selection, not a move — nothing to snap
+      // or save.
+      if (!didDrag.current) return
+      // JL-330: snap the dropped node onto the grid, then persist. Snapping on
+      // drop (not during the drag) keeps the node under the pointer while
+      // dragging and only aligns it once, which is what makes a diagram tidy
+      // without the drag feeling sticky.
+      setPositions((prev) => {
+        const cur = prev[name]
+        if (!cur) { persistPositions(prev); return prev }
+        const next = { ...prev, [name]: { x: snapToGrid(cur.x), y: snapToGrid(cur.y) } }
+        persistPositions(next)
+        return next
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistPositions, linkDrag, transitions, projectId])
+  }, [persistPositions, linkDrag, transitions, projectId, isRedundantMouseEvent])
 
   const handleCanvasClick = useCallback(() => {
     if (didDrag.current) { didDrag.current = false; return }
@@ -410,6 +508,15 @@ export function WorkflowEditorPage() {
   const handleResetLayout = () => {
     if (projectId) {
       try { localStorage.removeItem(positionsKey(projectId)) } catch { /* ignore */ }
+      // JL-330: clear the shared layout too, otherwise "Reset" only reset this
+      // browser and the old coordinates came back on the next load. Cancel any
+      // debounced save first so it cannot resurrect what we just cleared.
+      if (isAdmin) {
+        if (persistTimer.current) clearTimeout(persistTimer.current)
+        saveWorkflowLayout(projectId, {}).catch(() => {
+          setLayoutError('Could not reset the workflow layout on the server.')
+        })
+      }
     }
     setPositions({})
     setSelectedNodeName(null)
@@ -771,9 +878,15 @@ export function WorkflowEditorPage() {
         <div
           ref={canvasWrapperRef}
           className="wfe-canvas-wrapper"
-          onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
-          onMouseLeave={handleCanvasMouseUp}
+          // JL-330: pointer handlers cover mouse, touch and pen; the mouse pair
+          // remains as a fallback and is ignored once any pointer event is seen.
+          onPointerMove={handleCanvasDragMove}
+          onPointerUp={handleCanvasDragEnd}
+          onPointerCancel={handleCanvasDragEnd}
+          onPointerLeave={handleCanvasDragEnd}
+          onMouseMove={handleCanvasDragMove}
+          onMouseUp={handleCanvasDragEnd}
+          onMouseLeave={handleCanvasDragEnd}
           onClick={handleCanvasClick}
         >
           {loading ? (
@@ -927,7 +1040,8 @@ export function WorkflowEditorPage() {
                     tabIndex={0}
                     aria-pressed={selected}
                     aria-label={`Status ${node.name}, category ${style.label}`}
-                    onMouseDown={(e) => handleNodeMouseDown(e, node.name)}
+                    onPointerDown={(e) => handleNodeDragStart(e, node.name)}
+                    onMouseDown={(e) => handleNodeDragStart(e, node.name)}
                     onClick={(e) => { e.stopPropagation(); setSelectedNodeName(node.name); setSelectedTransId(null) }}
                     onKeyDown={(e) => handleNodeKeyDown(e, node)}
                   >
@@ -942,7 +1056,8 @@ export function WorkflowEditorPage() {
                         tabIndex={-1}
                         aria-label={`Drag from ${node.name} to create a transition`}
                         title="Drag to another status to create a transition"
-                        onMouseDown={(e) => handleConnectorMouseDown(e, node.name)}
+                        onPointerDown={(e) => handleConnectorDragStart(e, node.name)}
+                        onMouseDown={(e) => handleConnectorDragStart(e, node.name)}
                         onClick={(e) => e.stopPropagation()}
                       />
                     )}
@@ -1205,6 +1320,25 @@ export function WorkflowEditorPage() {
           sx={{ width: '100%' }}
         >
           {linkError}
+        </Alert>
+      </Snackbar>
+
+      {/* JL-330: the layout is shared state now, so a failed save has to be
+          visible — silently keeping a local-only position is the defect this
+          ticket fixes. */}
+      <Snackbar
+        open={!!layoutError}
+        autoHideDuration={6000}
+        onClose={() => setLayoutError('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setLayoutError('')}
+          severity="warning"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {layoutError}
         </Alert>
       </Snackbar>
 

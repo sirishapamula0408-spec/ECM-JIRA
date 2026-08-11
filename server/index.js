@@ -54,6 +54,7 @@ import componentRoutes from './routes/components.js'
 import automationRoutes from './routes/automation.js'
 import workflowTransitionRoutes from './routes/workflowTransitions.js'
 import workflowDefinitionRoutes from './routes/workflowDefinitions.js'
+import workflowLayoutRoutes from './routes/workflowLayout.js'
 import releaseRoutes from './routes/releases.js'
 import goalRoutes from './routes/goals.js'
 import issueConfigRoutes from './routes/issueConfig.js'
@@ -229,6 +230,7 @@ app.use('/api', ...protect, componentRoutes)
 app.use('/api', ...protect, automationRoutes)
 app.use('/api', ...protect, workflowTransitionRoutes)
 app.use('/api', ...protect, workflowDefinitionRoutes) // JL-306: named workflows + templates
+app.use('/api', ...protect, workflowLayoutRoutes) // JL-330: shared workflow-diagram layout
 app.use('/api', ...protect, releaseRoutes)
 app.use('/api', ...protect, goalRoutes)
 app.use('/api', ...protect, issueConfigRoutes)
