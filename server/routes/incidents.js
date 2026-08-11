@@ -10,6 +10,10 @@ export const INCIDENT_STATUSES = ['open', 'investigating', 'identified', 'monito
 // 'severity') plus the user-facing default 'note' — the timeline POST previously
 // accepted any string here while severity/status were validated.
 export const TIMELINE_KINDS = ['note', 'created', 'status', 'resolved', 'severity']
+// JL-365: legal on-call rotation types — the schedule POST previously wrote
+// rotation_type unvalidated while severity/status/kind were whitelisted.
+// 'weekly' stays the default, so existing rows remain valid and readable.
+export const ROTATION_TYPES = ['daily', 'weekly', 'fortnightly', 'custom']
 
 /**
  * PURE HELPER — validate a severity value.
@@ -33,6 +37,14 @@ export function isValidStatus(status) {
  */
 export function isValidTimelineKind(kind) {
   return TIMELINE_KINDS.includes(kind)
+}
+
+/**
+ * PURE HELPER — validate an on-call rotation type (JL-365).
+ * @returns {boolean} true when `rotationType` is one of the allowed values.
+ */
+export function isValidRotationType(rotationType) {
+  return ROTATION_TYPES.includes(rotationType)
 }
 
 /**
@@ -274,6 +286,12 @@ router.post('/oncall/schedules', requireRole('Admin'), asyncHandler(async (req, 
   const { name, rotationType = 'weekly' } = req.body || {}
   if (!name?.trim()) {
     res.status(400).json({ error: 'name is required' })
+    return
+  }
+  // JL-365: rotationType was written unvalidated while severity/status/kind
+  // on this router were whitelisted.
+  if (!isValidRotationType(rotationType)) {
+    res.status(400).json({ error: `Invalid rotationType — must be one of: ${ROTATION_TYPES.join(', ')}` })
     return
   }
   const result = await run(
