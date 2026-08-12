@@ -6,6 +6,11 @@ import { requireRole } from '../middleware/authorize.js'
 import { isAllowedEmail, hashPassword } from '../middleware/validate.js'
 import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
 import { blockSignup, unblockSignup } from '../services/signupPolicy.js'
+// JL-329: the Add-member path used to write a `members` row with status
+// 'Invited' and nothing else — no token, no expiry, no `invitations` row. It now
+// issues a real invitation through the same service POST /api/invitations uses,
+// so both entry points leave one identical trace with one lifecycle.
+import { issueInvitation } from '../services/invitations.js'
 
 const router = Router()
 
@@ -296,6 +301,24 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     [created.lastID],
   )
 
+  // JL-329 — the convergence. A member whose final status is 'Invited' is a
+  // pending invite, so it gets a real `invitations` row: same token shape, same
+  // 7-day expiry, same "one live token per address" revoke-prior rule, and
+  // therefore the same JL-371 accept flow at the other end. Before this, this
+  // route wrote no invitation at all, which is why an empty `invitations` table
+  // proved nothing and why these people never appeared in the pending list.
+  //
+  // Skipped when a temporary password activated the account directly — that
+  // person is Active with a login already, not pending.
+  let invitation = null
+  if (status === 'Invited') {
+    invitation = await issueInvitation({
+      email: normalizedEmail,
+      role: normalizedRole,
+      invitedBy: req.user?.email || inviter,
+    })
+  }
+
   await recordAudit({
     actor: req.user?.email,
     targetMemberId: row.id,
@@ -312,15 +335,19 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   let emailError = null
   if (!createdLogin) {
     try {
+      // JL-329: carry the token, so the email from THIS path lands on the same
+      // /accept-invite screen as the one from POST /api/invitations. Without it
+      // the recipient got a bare app link and no way to redeem anything.
       const { subject, html, text } = buildInviteEmail({
         recipientName: normalizedName,
         invitedBy: inviter,
         role: normalizedRole,
+        token: invitation?.token,
       })
       const result = await sendMail({
         to: normalizedEmail, subject, html, text,
         type: 'invite',
-        relatedEntity: `member:${row.id}`,
+        relatedEntity: invitation ? `invitation:${invitation.id}` : `member:${row.id}`,
       })
       emailStatus = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed'
       emailError = result.ok ? null : result.error || 'SMTP not configured'
@@ -334,7 +361,15 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     }
   }
 
-  res.status(201).json({ ...row, email_status: emailStatus, email_error: emailError })
+  // JL-329: expose the invitation this created, so a caller can see that the two
+  // entry points really do produce the same thing. Same shape POST
+  // /api/invitations returns to the same Admin-only audience.
+  res.status(201).json({
+    ...row,
+    email_status: emailStatus,
+    email_error: emailError,
+    invitation,
+  })
 }))
 
 // JL-192: Deactivate a member (soft) — preserves authored data. Blocks login.
@@ -409,6 +444,28 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
     return
   }
 
+  // JL-329 — resend parity. This used to just re-send the same tokenless
+  // courtesy email while POST /api/invitations/:id/resend re-issued a token and
+  // a fresh expiry, so "resend" meant two different things depending on which
+  // button had created the invite. It now re-issues through the same service, so
+  // the observable result is identical either way: prior pending invites for the
+  // address revoked, one fresh token, a new 7-day expiry, and an email carrying
+  // that token.
+  //
+  // Gated on status the same way the invitations route gates on 'pending' — an
+  // Active or Deactivated member has no pending invitation to resend, and minting
+  // one would hand them a live signup authorisation under `invite_only` (JL-369).
+  if (member.status !== 'Invited') {
+    res.status(400).json({ error: 'Only pending invitations can be resent' })
+    return
+  }
+
+  const invitation = await issueInvitation({
+    email: member.email,
+    role: member.role,
+    invitedBy: req.user?.email || member.invited_by || 'Team Admin',
+  })
+
   // Resend invitation email — JL-323: report the real delivery outcome rather
   // than always returning ok:true.
   let emailStatus = 'unknown'
@@ -418,11 +475,12 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
       recipientName: member.name,
       invitedBy: member.invited_by || 'Team Admin',
       role: member.role,
+      token: invitation.token,
     })
     const result = await sendMail({
       to: member.email, subject, html, text,
       type: 'invite',
-      relatedEntity: `member:${member.id}`,
+      relatedEntity: `invitation:${invitation.id}`,
     })
     emailStatus = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed'
     emailError = result.ok ? null : result.error || 'SMTP not configured'
@@ -435,7 +493,13 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
     console.error('[Members] Failed to resend invite email:', mailErr.message)
   }
 
-  res.json({ ok: emailStatus === 'sent', member, email_status: emailStatus, email_error: emailError })
+  res.json({
+    ok: emailStatus === 'sent',
+    member,
+    invitation,
+    email_status: emailStatus,
+    email_error: emailError,
+  })
 }))
 
 router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
