@@ -9,6 +9,10 @@ import { STATUS_COLUMNS } from '../../constants'
 import { DueDateBadge } from '../../components/issues/DueDateBadge'
 import { ImpedimentFlagIndicator } from '../../components/issues/ImpedimentFlag'
 import { CopyButton } from '../../components/common/CopyButton'
+import { StatusLozenge } from '../../components/common/StatusLozenge'
+import { IssueTypeIcon } from '../../components/icons/IssueTypeIcon'
+import { avatarStyle } from '../../utils/avatarColour'
+import { defaultCategoryForStatus, isCancelStatus } from '../../utils/statusCategory'
 import './BoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -33,21 +37,10 @@ function colWidthsStorageKey(projectId) {
   return `board_col_widths_${projectId || 'default'}`
 }
 
-// JL-311: fallback status→category inference for boards whose statuses carry no
-// explicit category (e.g. the default/unconfigured board on ISSUE_STATUSES, or a
-// legacy status the project-statuses endpoint didn't tag).
-function defaultCategoryForStatus(name) {
-  if (name === 'Done') return 'done'
-  if (name === 'In Progress' || name === 'Code Review') return 'inprogress'
-  return 'todo'
-}
-
-// JL-312: a cancellation status (e.g. "Cancelled"/"Canceled") is terminal
-// (done-category) but NOT a success, so its column must stay neutral grey
-// rather than green. Identified by name — matches /cancel/i.
-function isCancelStatus(name) {
-  return /cancel/i.test(name || '')
-}
+// JL-311/JL-312: `defaultCategoryForStatus` and `isCancelStatus` used to live
+// here as module-private helpers, which is why JL-384's StatusLozenge had to
+// hand-copy them. JL-387 lifted both to `utils/statusCategory` so the board
+// column and the card lozenge share one implementation and cannot drift.
 
 // JL-311: derive a board column's category from its mapped statuses' categories
 // (loaded per-project via JL-309). Atlassian colors the Done column green, so a
@@ -94,6 +87,31 @@ function columnWipLimit(statuses, wipLimits) {
     }
   }
   return found ? total : null
+}
+
+// JL-387: card meta helpers. The board card now carries the same three signals
+// the rest of the app already uses — priority dot, assignee avatar and estimate
+// — so a column can be scanned for ownership and risk without opening a card.
+
+// The shared `.priority-mark priority-*` dot from styles/shared.css, exactly as
+// the backlog row (IssueRow) and the active-sprint card render it, so the three
+// screens agree. An issue with no priority is treated as Medium, matching
+// ActiveSprintPage.
+function priorityMarkClass(priority) {
+  return `priority-mark priority-${String(priority || 'Medium').toLowerCase()}`
+}
+
+// Two-letter initials, as the backlog row's avatar uses.
+function assigneeInitials(assignee) {
+  return String(assignee || '').trim().slice(0, 2).toUpperCase()
+}
+
+// A story-point value is only shown when the issue actually has one. Null/blank
+// renders nothing at all — a placeholder dash is noise on a dense card.
+function storyPointsDisplay(storyPoints) {
+  if (storyPoints === null || storyPoints === undefined || storyPoints === '') return null
+  const n = Number(storyPoints)
+  return Number.isFinite(n) ? n : null
 }
 
 // Resolve the grouping value for an issue given a swimlane mode.
@@ -728,34 +746,96 @@ export function BoardPage() {
                       {colIssues.length}{hasLimit ? ` / ${limit}` : ''}
                     </span>
                   </header>
-                  {colIssues.map((issue) => (
-                    <div
-                      className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`}
-                      key={issue.id}
-                      draggable={canEditIssue}
-                      onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
-                      onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropColId('') } : undefined}
-                    >
-                      <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
-                      <CopyButton
-                        className="kanban-copy-key"
-                        value={issue.key}
-                        title={`Copy issue key ${issue.key}`}
-                        ariaLabel={`Copy issue key ${issue.key}`}
-                      />
-                      {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
-                      <h4>{issue.title}</h4>
-                      <p>{issue.issueType}</p>
-                      <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
-                      {canEditIssue ? (
-                        <select value={issue.status} onChange={(event) => handleMove(issue.id, event.target.value, issue.sprintId ?? null)}>
-                          {projectStatuses.map((item) => (<option key={item} value={item}>{item}</option>))}
-                        </select>
-                      ) : (
-                        <span className="kanban-status-readonly" aria-label={`Status for ${issue.key}`}>{issue.status}</span>
-                      )}
-                    </div>
-                  ))}
+                  {colIssues.map((issue) => {
+                    // JL-387: the card is three rows — key row, title row, meta
+                    // row — instead of the old five-block stack whose native
+                    // <select> made every card ~40% taller than it needed to be.
+                    const points = storyPointsDisplay(issue.storyPoints)
+                    const assignee = issue.assignee ? String(issue.assignee) : ''
+                    return (
+                      <div
+                        className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`}
+                        key={issue.id}
+                        draggable={canEditIssue}
+                        onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
+                        onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropColId('') } : undefined}
+                      >
+                        <div className="kanban-card-top">
+                          <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+                          <CopyButton
+                            className="kanban-copy-key"
+                            value={issue.key}
+                            title={`Copy issue key ${issue.key}`}
+                            ariaLabel={`Copy issue key ${issue.key}`}
+                          />
+                          {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
+                          {/* The due badge moves onto the key row: it was on a
+                              line of its own, costing height for one small chip. */}
+                          <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
+                        </div>
+                        <h4 className="kanban-card-title">
+                          {/* JL-385: the type is a coloured glyph now, not a
+                              whole line of grey body text under the title. */}
+                          <IssueTypeIcon type={issue.issueType} />
+                          <span className="kanban-card-title-text">{issue.title}</span>
+                        </h4>
+                        <div className="kanban-card-meta">
+                          {/* JL-384: the lozenge takes the board's own
+                              per-project category map, so its colour can never
+                              disagree with the column heading above it. The
+                              read-only variant keeps the historical
+                              `.kanban-status-readonly` hook so RBAC styling and
+                              the viewer-path assertions still work. */}
+                          <StatusLozenge
+                            className={`kanban-card-status${canEditIssue ? '' : ' kanban-status-readonly'}`}
+                            status={issue.status}
+                            transitions={projectStatuses}
+                            categoryMap={statusCategories}
+                            context={issue.key}
+                            readOnly={!canEditIssue}
+                            onChange={(next) => handleMove(issue.id, next, issue.sprintId ?? null)}
+                          />
+                          <span
+                            className={priorityMarkClass(issue.priority)}
+                            role="img"
+                            aria-label={`Priority: ${issue.priority || 'Medium'}`}
+                            title={issue.priority || 'Medium'}
+                          />
+                          {points !== null && (
+                            <span
+                              className="kanban-card-points"
+                              aria-label={`Story points: ${points}`}
+                              title={`Story points: ${points}`}
+                            >
+                              {points}
+                            </span>
+                          )}
+                          {/* JL-386: colour derived from the person, so a column
+                              of avatars is scannable instead of uniformly blue.
+                              Unassigned gets no derived colour — it is not a
+                              person — just the neutral placeholder. */}
+                          {assignee ? (
+                            <span
+                              className="member-avatar kanban-card-avatar"
+                              style={avatarStyle(assignee)}
+                              title={assignee}
+                              aria-label={`Assignee: ${assignee}`}
+                            >
+                              {assigneeInitials(assignee)}
+                            </span>
+                          ) : (
+                            <span
+                              className="member-avatar kanban-card-avatar kanban-card-avatar-unassigned"
+                              title="Unassigned"
+                              aria-label="Unassigned"
+                            >
+                              ?
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                   <div
                     className="kanban-col-resize-handle"
                     role="separator"

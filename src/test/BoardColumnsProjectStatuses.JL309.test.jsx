@@ -141,15 +141,22 @@ describe('JL-309 — board grouping uses the project workflow statuses', () => {
     expect(within(shipped).getByText('Add dashboard')).toBeInTheDocument()
   })
 
-  it('exposes the project statuses in the per-card status dropdown', async () => {
+  // JL-387 replaced the per-card native <select> with the StatusLozenge, whose
+  // transition menu is portalled to the body rather than nested in the card.
+  // The behaviour under test is unchanged: the transitions offered on a card
+  // are the PROJECT's statuses, not the global ISSUE_STATUSES.
+  it('exposes the project statuses in the per-card status menu', async () => {
     renderBoard()
     await waitFor(() => expect(document.querySelector('.kanban-col[data-column="Selected"]')).toBeTruthy())
     const selected = document.querySelector('.kanban-col[data-column="Selected"]')
     const card = within(selected).getByText('Setup project').closest('.card')
-    const dropdown = within(card).getByRole('combobox')
-    expect(within(dropdown).getByRole('option', { name: 'Building' })).toBeInTheDocument()
-    expect(within(dropdown).getByRole('option', { name: 'Shipped' })).toBeInTheDocument()
-    expect(within(dropdown).queryByRole('option', { name: 'Code Review' })).toBeNull()
+
+    fireEvent.click(within(card).getByRole('button', { name: /^Status for JL-1:/ }))
+
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: 'Building' })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Shipped' })).toBeInTheDocument()
+    expect(within(menu).queryByRole('menuitem', { name: 'Code Review' })).toBeNull()
   })
 
   it('still renders the standard default columns when statuses fall back', async () => {

@@ -129,12 +129,15 @@ describe('JL-285 — Viewer sees read-only Board & Active Sprint', () => {
 describe('JL-285 — Member sees edit controls but no admin actions', () => {
   beforeEach(() => { mockPerms = { ...MEMBER_PERMS } })
 
-  it('board cards are draggable with a per-card status select', async () => {
+  // JL-387: the per-card status control is the StatusLozenge (a menu button),
+  // not a native <select> — the permission gate it hangs off is unchanged.
+  it('board cards are draggable with an interactive per-card status control', async () => {
     renderBoard()
     await screen.findByText('Setup project')
     const card = screen.getByText('Setup project').closest('.card')
     expect(card.getAttribute('draggable')).toBe('true')
-    expect(card.querySelector('select')).toBeTruthy()
+    expect(card.querySelector('select')).toBeNull()
+    expect(card.querySelector('button.status-lozenge')).toBeTruthy()
     expect(card.querySelector('.kanban-status-readonly')).toBeNull()
   })
 
@@ -160,12 +163,12 @@ describe('JL-285 — Member sees edit controls but no admin actions', () => {
 describe('JL-285 — Admin/Lead has full board and sprint control', () => {
   beforeEach(() => { mockPerms = { ...ADMIN_PERMS } })
 
-  it('board cards draggable, status select present, Delete board available', async () => {
+  it('board cards draggable, status control present, Delete board available', async () => {
     renderBoard()
     await screen.findByText('Setup project')
     const card = screen.getByText('Setup project').closest('.card')
     expect(card.getAttribute('draggable')).toBe('true')
-    expect(card.querySelector('select')).toBeTruthy()
+    expect(card.querySelector('button.status-lozenge')).toBeTruthy()
     fireEvent.click(screen.getByLabelText('More actions'))
     expect(screen.getByText('Delete board')).toBeInTheDocument()
   })

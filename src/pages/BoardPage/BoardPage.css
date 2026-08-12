@@ -593,6 +593,127 @@ body.board-col-resizing {
   margin-left: 6px;
 }
 
+/* ── JL-387: board card layout ─────────────────────────────────────────────
+   The card used to be a five-block stack — key line, <h4> title, a <p> holding
+   the type as grey body text, a due-badge line, and a native <select> — which
+   made it roughly 40% taller than it needed to be: a column fitted 3 cards
+   where Jira fits 5-6. It is now three rows:
+
+     row 1  key + copy + flag + due badge
+     row 2  type glyph + title
+     row 3  status lozenge + priority + estimate + assignee
+
+   Height accounting (light theme, no wrapping), old vs new:
+     padding + border   22 -> 18   (10px padding scoped down to 8px)
+     key row            24 -> 24   (unchanged; the copy IconButton sets it)
+     title              28 -> 22   (h4 margin 6/4 -> 4/0)
+     type <p>           22 ->  0   (replaced by a 14px inline glyph)
+     badge + select    ~22 ->  0   (the badge moved up to row 1)
+     meta row            0 -> 26   (20px row + 6px gap)
+     ------------------------------------------------------------------
+     total            ~118 -> 90px
+
+   Every rule here is scoped to `.kanban-card-draggable` (board cards only) so
+   the shared `.card` rules other pages rely on are untouched. */
+.kanban-card-draggable {
+  padding: 8px;
+}
+
+.kanban-card-top {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The due badge sits at the end of the key row rather than on a line of its own. */
+.kanban-card-top .due-badge {
+  margin-left: auto;
+}
+
+.kanban-card-draggable .kanban-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+
+/* Nudge the glyph onto the title's optical baseline (14px icon, 18px line). */
+.kanban-card-draggable .kanban-card-title svg {
+  margin-top: 2px;
+}
+
+.kanban-card-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kanban-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  min-height: 20px;
+}
+
+/* Keep a long custom status from pushing the priority/estimate/avatar off the
+   card — the lozenge already ellipsises its own text. */
+.kanban-card-meta .kanban-card-status {
+  max-width: 60%;
+}
+
+.kanban-card-meta .priority-mark {
+  flex: 0 0 auto;
+}
+
+/* Estimate badge: Jira's small neutral pill, rendered only when the issue
+   actually carries story points. */
+.kanban-card-points {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--jira-menu-hover, #f4f5f7);
+  color: var(--jira-text-muted, #5e6c84);
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+/* Assignee avatar — the shared `.member-avatar` shape, one size down for the
+   denser card, pinned to the trailing edge as Jira does. */
+.kanban-card-avatar {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  font-size: 9px;
+  line-height: 20px;
+}
+
+/* Unassigned is not a person, so it gets no derived colour — just the neutral
+   placeholder, which is also what makes an unowned card obvious in a column. */
+.kanban-card-avatar-unassigned {
+  background: var(--jira-menu-hover, #f4f5f7);
+  color: var(--jira-text-muted, #5e6c84);
+  border: 1px dashed var(--jira-border, #dfe1e6);
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+.app-theme-dark .kanban-card-points,
+.app-theme-dark .kanban-card-avatar-unassigned {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--jira-text-muted, #9fadbc);
+}
+
+.app-theme-dark .kanban-card-avatar-unassigned {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
 /* JL-308: Board column configuration editor */
 .board-settings-columns {
   margin-top: 16px;
