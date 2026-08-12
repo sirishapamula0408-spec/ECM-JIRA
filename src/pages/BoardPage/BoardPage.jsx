@@ -28,22 +28,6 @@ const SWIMLANE_OPTIONS = [
 const MIN_COL_WIDTH = 200
 const DEFAULT_COL_WIDTH = 270
 
-// JL-390: how many cards a column renders before the "Show N more" expander.
-// Columns are `overflow-y: visible`, so an unbounded column grew the page
-// instead of scrolling inside itself and left the board lopsided when one
-// status held far more issues than its neighbours.
-const COLUMN_VISIBLE_CARD_LIMIT = 5
-
-// JL-390: the board renders SWIMLANES × COLUMNS, so the unit that expands is a
-// (lane, column) PAIR — expanding "In Progress" in the Alice lane must leave the
-// same column collapsed in the Bob lane. Lane keys are user data (assignee /
-// epic / priority names) and column ids can be arbitrary saved-config strings,
-// so a naive `${lane}:${col}` join could collide; JSON-encoding the pair is
-// unambiguous for any input.
-function laneColumnKey(laneKey, colId) {
-  return JSON.stringify([String(laneKey), String(colId)])
-}
-
 // Classic board statuses used when a project has no custom workflow statuses.
 // JL-306 expanded the global ISSUE_STATUSES with QA-lifecycle states, so the board
 // keeps its own conservative default (Backlog + the standard STATUS_COLUMNS) rather
@@ -148,11 +132,6 @@ export function BoardPage() {
 
   const [dragIssueId, setDragIssueId] = useState(null)
   const [dropColId, setDropColId] = useState('')
-  // JL-390: keys (see `laneColumnKey`) of the (lane, column) pairs the user has
-  // expanded past COLUMN_VISIBLE_CARD_LIMIT. A set of pair keys — rather than,
-  // say, a map keyed by column id — is what keeps each swimlane's copy of a
-  // column independent. Stale keys (from a swimlane/filter change) are inert.
-  const [expandedCells, setExpandedCells] = useState(() => new Set())
   const [isBoardMenuOpen, setIsBoardMenuOpen] = useState(false)
   const [boardMessage, setBoardMessage] = useState('')
 
@@ -503,15 +482,6 @@ export function BoardPage() {
     )
   }
 
-  // JL-390: expand/collapse one (lane, column) pair.
-  function toggleCellExpanded(cellKey) {
-    setExpandedCells((current) => {
-      const next = new Set(current)
-      if (!next.delete(cellKey)) next.add(cellKey)
-      return next
-    })
-  }
-
   async function handleDrop(col) {
     if (!canEditIssue) return
     if (!dragIssueId) return
@@ -761,19 +731,10 @@ export function BoardPage() {
               const hasLimit = limit != null
               const isOverLimit = hasLimit && colIssues.length > limit
               const width = colWidths[col.id]
-              // JL-390: truncate ONLY what is rendered. `colIssues` stays whole
-              // so the header count and the JL-355 over-WIP check above keep
-              // reading the TOTAL — otherwise a column of 8 would report "5" and
-              // any WIP limit above 5 could never be exceeded.
-              const cellKey = laneColumnKey(lane.key, col.id)
-              const isExpanded = expandedCells.has(cellKey)
-              const hiddenCount = Math.max(0, colIssues.length - COLUMN_VISIBLE_CARD_LIMIT)
-              const visibleIssuesInCol = (isExpanded || hiddenCount === 0)
-                ? colIssues
-                : colIssues.slice(0, COLUMN_VISIBLE_CARD_LIMIT)
-              // Several expanders share a page, so the accessible name has to
-              // say which column (and which swimlane, when lanes are labelled).
-              const cellLabel = lane.label ? `${col.name} in swimlane ${lane.label}` : col.name
+              // JL-391: the card LIST is the scroll container, so this renders
+              // every issue in the column — nothing is withheld and the header
+              // count / JL-355 over-WIP check above keep reading the same whole
+              // `colIssues` array they always did.
               return (
                 <article
                   key={col.id}
@@ -789,114 +750,105 @@ export function BoardPage() {
                       {colIssues.length}{hasLimit ? ` / ${limit}` : ''}
                     </span>
                   </header>
-                  {visibleIssuesInCol.map((issue) => {
-                    // JL-387: the card is three rows — key row, title row, meta
-                    // row — instead of the old five-block stack whose native
-                    // <select> made every card ~40% taller than it needed to be.
-                    const points = storyPointsDisplay(issue.storyPoints)
-                    const assignee = issue.assignee ? String(issue.assignee) : ''
-                    return (
-                      <div
-                        className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`}
-                        key={issue.id}
-                        draggable={canEditIssue}
-                        onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
-                        onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropColId('') } : undefined}
-                      >
-                        <div className="kanban-card-top">
-                          <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
-                          <CopyButton
-                            className="kanban-copy-key"
-                            value={issue.key}
-                            title={`Copy issue key ${issue.key}`}
-                            ariaLabel={`Copy issue key ${issue.key}`}
-                          />
-                          {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
-                          {/* The due badge moves onto the key row: it was on a
-                              line of its own, costing height for one small chip. */}
-                          <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
+                  {/* JL-391: the bounded, scrollable card list. It deliberately
+                      starts AFTER </header> — the header carries the issue count
+                      and the JL-355 WIP indicator, and both have to stay pinned
+                      in view while the cards scroll under them. Scrolling the
+                      whole <article> instead would take them with it.
+                      `kanban-col-cards-laned` switches the height bound for the
+                      multi-swimlane case (see BoardPage.css). */}
+                  <div className={`kanban-col-cards${lane.label !== null ? ' kanban-col-cards-laned' : ''}`} data-column-cards={col.name}>
+                    {colIssues.map((issue) => {
+                      // JL-387: the card is three rows — key row, title row, meta
+                      // row — instead of the old five-block stack whose native
+                      // <select> made every card ~40% taller than it needed to be.
+                      const points = storyPointsDisplay(issue.storyPoints)
+                      const assignee = issue.assignee ? String(issue.assignee) : ''
+                      return (
+                        <div
+                          className={`card kanban-card-draggable${issue.flagged ? ' kanban-card-flagged' : ''}`}
+                          key={issue.id}
+                          draggable={canEditIssue}
+                          onDragStart={canEditIssue ? () => setDragIssueId(issue.id) : undefined}
+                          onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropColId('') } : undefined}
+                        >
+                          <div className="kanban-card-top">
+                            <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+                            <CopyButton
+                              className="kanban-copy-key"
+                              value={issue.key}
+                              title={`Copy issue key ${issue.key}`}
+                              ariaLabel={`Copy issue key ${issue.key}`}
+                            />
+                            {issue.flagged && <ImpedimentFlagIndicator className="kanban-card-flag" />}
+                            {/* The due badge moves onto the key row: it was on a
+                                line of its own, costing height for one small chip. */}
+                            <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
+                          </div>
+                          <h4 className="kanban-card-title">
+                            {/* JL-385: the type is a coloured glyph now, not a
+                                whole line of grey body text under the title. */}
+                            <IssueTypeIcon type={issue.issueType} />
+                            <span className="kanban-card-title-text">{issue.title}</span>
+                          </h4>
+                          <div className="kanban-card-meta">
+                            {/* JL-384: the lozenge takes the board's own
+                                per-project category map, so its colour can never
+                                disagree with the column heading above it. The
+                                read-only variant keeps the historical
+                                `.kanban-status-readonly` hook so RBAC styling and
+                                the viewer-path assertions still work. */}
+                            <StatusLozenge
+                              className={`kanban-card-status${canEditIssue ? '' : ' kanban-status-readonly'}`}
+                              status={issue.status}
+                              transitions={projectStatuses}
+                              categoryMap={statusCategories}
+                              context={issue.key}
+                              readOnly={!canEditIssue}
+                              onChange={(next) => handleMove(issue.id, next, issue.sprintId ?? null)}
+                            />
+                            <span
+                              className={priorityMarkClass(issue.priority)}
+                              role="img"
+                              aria-label={`Priority: ${issue.priority || 'Medium'}`}
+                              title={issue.priority || 'Medium'}
+                            />
+                            {points !== null && (
+                              <span
+                                className="kanban-card-points"
+                                aria-label={`Story points: ${points}`}
+                                title={`Story points: ${points}`}
+                              >
+                                {points}
+                              </span>
+                            )}
+                            {/* JL-386: colour derived from the person, so a column
+                                of avatars is scannable instead of uniformly blue.
+                                Unassigned gets no derived colour — it is not a
+                                person — just the neutral placeholder. */}
+                            {assignee ? (
+                              <span
+                                className="member-avatar kanban-card-avatar"
+                                style={avatarStyle(assignee)}
+                                title={assignee}
+                                aria-label={`Assignee: ${assignee}`}
+                              >
+                                {assigneeInitials(assignee)}
+                              </span>
+                            ) : (
+                              <span
+                                className="member-avatar kanban-card-avatar kanban-card-avatar-unassigned"
+                                title="Unassigned"
+                                aria-label="Unassigned"
+                              >
+                                ?
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <h4 className="kanban-card-title">
-                          {/* JL-385: the type is a coloured glyph now, not a
-                              whole line of grey body text under the title. */}
-                          <IssueTypeIcon type={issue.issueType} />
-                          <span className="kanban-card-title-text">{issue.title}</span>
-                        </h4>
-                        <div className="kanban-card-meta">
-                          {/* JL-384: the lozenge takes the board's own
-                              per-project category map, so its colour can never
-                              disagree with the column heading above it. The
-                              read-only variant keeps the historical
-                              `.kanban-status-readonly` hook so RBAC styling and
-                              the viewer-path assertions still work. */}
-                          <StatusLozenge
-                            className={`kanban-card-status${canEditIssue ? '' : ' kanban-status-readonly'}`}
-                            status={issue.status}
-                            transitions={projectStatuses}
-                            categoryMap={statusCategories}
-                            context={issue.key}
-                            readOnly={!canEditIssue}
-                            onChange={(next) => handleMove(issue.id, next, issue.sprintId ?? null)}
-                          />
-                          <span
-                            className={priorityMarkClass(issue.priority)}
-                            role="img"
-                            aria-label={`Priority: ${issue.priority || 'Medium'}`}
-                            title={issue.priority || 'Medium'}
-                          />
-                          {points !== null && (
-                            <span
-                              className="kanban-card-points"
-                              aria-label={`Story points: ${points}`}
-                              title={`Story points: ${points}`}
-                            >
-                              {points}
-                            </span>
-                          )}
-                          {/* JL-386: colour derived from the person, so a column
-                              of avatars is scannable instead of uniformly blue.
-                              Unassigned gets no derived colour — it is not a
-                              person — just the neutral placeholder. */}
-                          {assignee ? (
-                            <span
-                              className="member-avatar kanban-card-avatar"
-                              style={avatarStyle(assignee)}
-                              title={assignee}
-                              aria-label={`Assignee: ${assignee}`}
-                            >
-                              {assigneeInitials(assignee)}
-                            </span>
-                          ) : (
-                            <span
-                              className="member-avatar kanban-card-avatar kanban-card-avatar-unassigned"
-                              title="Unassigned"
-                              aria-label="Unassigned"
-                            >
-                              ?
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {/* JL-390: nothing renders at 5 cards or fewer. A plain
-                      <button> (matching the board's other local controls rather
-                      than pulling in a MUI Button for one row) so it is
-                      keyboard-operable and reports its expanded state. */}
-                  {hiddenCount > 0 && (
-                    <button
-                      type="button"
-                      className="kanban-col-show-more"
-                      data-column={col.name}
-                      aria-expanded={isExpanded}
-                      aria-label={isExpanded
-                        ? `Show fewer cards in ${cellLabel}`
-                        : `Show ${hiddenCount} more ${hiddenCount === 1 ? 'card' : 'cards'} in ${cellLabel}`}
-                      onClick={() => toggleCellExpanded(cellKey)}
-                    >
-                      {isExpanded ? 'Show less' : `Show ${hiddenCount} more`}
-                    </button>
-                  )}
+                      )
+                    })}
+                  </div>
                   <div
                     className="kanban-col-resize-handle"
                     role="separator"
