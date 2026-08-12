@@ -4,6 +4,7 @@ import MenuItem from '@mui/material/MenuItem'
 import ListItemText from '@mui/material/ListItemText'
 import CheckIcon from '@mui/icons-material/Check'
 import { ISSUE_STATUSES } from '../../constants'
+import { defaultCategoryForStatus, isCancelStatus } from '../../utils/statusCategory'
 import './StatusLozenge.css'
 
 /**
@@ -30,7 +31,9 @@ import './StatusLozenge.css'
  *   - pass the project's name→category map (BoardPage's `statusCategories`)
  *     as `categoryMap` and the lozenge agrees with the column heading exactly;
  *   - with no map it falls back to the same by-name inference the board uses
- *     when a status carries no explicit category.
+ *     when a status carries no explicit category — literally the same
+ *     functions, imported from `utils/statusCategory` (JL-387 lifted them out
+ *     of BoardPage so this component no longer keeps a hand-copied duplicate).
  * See StatusLozenge.css — the category classes reuse the very tokens the
  * `.kanban-col-cat-*` rules use, including the dark-theme brightenings.
  *
@@ -61,21 +64,6 @@ import './StatusLozenge.css'
  *   - the read-only variant is a plain `<span>` — no tab stop, no menu — that
  *     still carries the status in its label.
  */
-
-// Mirrors BoardPage's `defaultCategoryForStatus` (JL-311): the fallback used
-// when a status carries no explicit category from the project-statuses API.
-// Kept in sync deliberately — the board's inference IS the source of truth.
-function defaultCategoryForStatus(name) {
-  if (name === 'Done') return 'done'
-  if (name === 'In Progress' || name === 'Code Review') return 'inprogress'
-  return 'todo'
-}
-
-// Mirrors BoardPage's `isCancelStatus` (JL-312): a cancellation status is
-// terminal but not a success, so it must stay neutral grey rather than green.
-function isCancelStatus(name) {
-  return /cancel/i.test(name || '')
-}
 
 /**
  * Resolve the lozenge's visual category, exactly the way a board column does.
