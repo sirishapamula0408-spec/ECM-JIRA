@@ -1,8 +1,8 @@
 /* Dashboard Page — Gadget System */
 
-.dashboard-page {
-  background: #f7f8fa;
-}
+/* JL-393: the page background comes from the shared --jira-canvas token on the
+   global `.page` rule (styles/layout.css). This page used to declare its own
+   near-identical #f7f8fa; gadget cards below are white and carry the contrast. */
 
 /* Header */
 .dashboard-header {

@@ -1,14 +1,13 @@
 /* BacklogPage styles */
 
-.page-dark {
-  background: #f4f5f7;
-  color: var(--jira-text);
-  border-radius: 6px;
-}
-
+/* JL-393: the page background now comes from the shared --jira-canvas token on
+   the global `.page` rule in styles/layout.css. Note this page-level rule was
+   painting #ffffff — it won over the `.page-dark { #f4f5f7 }` block that also
+   used to live here, which nothing actually applies (an unused legacy class,
+   already declared in layout.css). Both are gone; the sprint rows and issue
+   rows below are white and now read as raised against the canvas. */
 .backlog-page {
   padding: 8px;
-  background: #ffffff;
   border-radius: 8px;
 }
 

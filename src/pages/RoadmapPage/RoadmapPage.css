@@ -2,9 +2,14 @@
    Timeline Page — Atlassian JIRA-style Gantt Timeline
    ============================================================ */
 
+/* JL-393: no page-level background — the shared --jira-canvas token on
+   `.content` sits behind this page. The timeline is a full-bleed white work
+   surface with rows and bars sitting directly on it (no card wrapper), so the
+   white moved onto the two children that make up that surface: the header bar
+   and the grid container. Together they fill the flex column, so the page
+   deliberately stays white, as Atlassian's timeline does. */
 .timeline-page {
   padding: 0;
-  background: #ffffff;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 110px);
@@ -18,6 +23,7 @@
   padding: 12px 20px;
   border-bottom: 1px solid var(--jira-border);
   flex-shrink: 0;
+  background: var(--jira-surface);
 }
 
 .tl-page-header h1 {
@@ -70,6 +76,7 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  background: var(--jira-surface);
 }
 
 /* ---- Left panel (issue list) ---- */
