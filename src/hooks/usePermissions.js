@@ -65,11 +65,17 @@ export function usePermissions(projectId) {
 
     const projRank = ROLE_RANK[projectRole] || 0
 
-    // Effective rank: workspace Admin/Owner always gets max rank;
-    // otherwise take the higher of workspace and project rank
+    // Effective rank: workspace Admin/Owner always gets max rank; otherwise
+    // JL-289 — an explicit project role is AUTHORITATIVE within that project and
+    // sets the effective rank up OR down (workspace Viewer + project Admin is
+    // elevated; workspace Member + project Viewer is genuinely read-only). A user
+    // with no role on this project falls back to their workspace rank.
+    // Keep this expression textually identical to resolveProjectAccess() in
+    // server/middleware/authorize.js; the frontend mirror and the backend gate
+    // MUST be changed together or the UI will offer actions the API rejects.
     const effectiveRank = isOwner || wsRank >= ROLE_RANK.Admin
       ? ROLE_RANK.Admin
-      : Math.max(wsRank, projRank)
+      : projectRole ? projRank : wsRank
 
     const isAdmin = isOwner || wsRank >= ROLE_RANK.Admin
     const isProjectAdmin = isAdmin || projRank >= ROLE_RANK.Admin

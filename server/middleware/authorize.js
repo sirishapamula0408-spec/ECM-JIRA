@@ -131,9 +131,14 @@ export function requireProjectRole(...allowedRoles) {
  *                    project id was resolvable — e.g. a project-less issue)
  *   - hasAccess    : the (non-admin) caller has read access to the project
  *   - projectRole  : the caller's project role ('Lead'|'Admin'|'Member'|'Viewer'|null)
- *   - effectiveRank : max(workspace rank, project rank) — mirrors
- *                     src/hooks/usePermissions.js so a workspace Viewer who holds
- *                     a project Member/Admin role is treated by that higher role.
+ *   - effectiveRank : JL-289 — an explicit project role is AUTHORITATIVE inside
+ *                     its project: `projectRole ? projRank : wsRank`. It sets the
+ *                     effective rank in BOTH directions, so a workspace Viewer
+ *                     holding project Admin is elevated, and a workspace Member
+ *                     holding project Viewer is genuinely restricted. Only a user
+ *                     with no project role falls back to their workspace rank.
+ *                     Workspace Owner/Admin are resolved before any project
+ *                     lookup and keep their full bypass.
  */
 export async function resolveProjectAccess(user, projectId) {
   const wsRank = ROLE_RANK[user?.workspaceRole] || 0
@@ -166,9 +171,16 @@ export async function resolveProjectAccess(user, projectId) {
   return {
     admin: false,
     projectExists: true,
+    // Read access is membership-based and deliberately NOT narrowed by JL-289 —
+    // a project Viewer still reads the project; only write capability narrows.
     hasAccess: Boolean(projectRole),
     projectRole,
-    effectiveRank: Math.max(wsRank, projRank),
+    // JL-289: an explicit project role is authoritative within this project —
+    // it sets the effective rank up OR down. Keep this expression textually
+    // identical to src/hooks/usePermissions.js; the backend gate and the
+    // frontend mirror MUST be changed together or the UI will offer actions the
+    // API rejects (or hide actions the API allows).
+    effectiveRank: projectRole ? projRank : wsRank,
   }
 }
 
