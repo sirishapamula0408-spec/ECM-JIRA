@@ -1,0 +1,135 @@
+/* JL-384: compact Atlassian-style status lozenge.
+
+   Colours are NOT a new status→hex map. The board already colours columns by
+   status *category* (BoardPage.css `.kanban-col-cat-*`, JL-311/JL-312) using
+   the shared `--jira-success` / `--jira-blue` tokens from styles/variables.css.
+   The rules below reuse those exact tokens — including the dark-theme
+   brightenings (#4bce97 / #579dff) — so a lozenge can never disagree with the
+   column heading above it. */
+
+.status-lozenge {
+  /* Sized for a dense list row or a board card: ~20px tall, so it costs a
+     fraction of the height a native <select> did. */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.status-lozenge-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Interactive variant: a real button that opens the transition menu. */
+.status-lozenge-button {
+  cursor: pointer;
+  transition:
+    background var(--transition-fast, 120ms) var(--ease-standard, ease),
+    box-shadow var(--transition-fast, 120ms) var(--ease-standard, ease);
+}
+
+.status-lozenge-button:hover {
+  filter: brightness(0.96);
+}
+
+/* Visible focus ring — keyboard users must always be able to see the trigger. */
+.status-lozenge-button:focus-visible {
+  outline: 2px solid var(--jira-blue, #0052cc);
+  outline-offset: 2px;
+}
+
+.status-lozenge-caret {
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid currentColor;
+  opacity: 0.7;
+}
+
+/* Read-only variant: presentational only, no tab stop, no caret. */
+.status-lozenge-readonly {
+  cursor: default;
+}
+
+/* ── Category colours (mirrors BoardPage.css `.kanban-col-cat-*`) ── */
+
+/* Neutral: To Do / Backlog / Cancelled / unknown. Grey, like Jira's default. */
+.status-lozenge-cat-neutral {
+  background: var(--jira-menu-hover, #f4f5f7);
+  border-color: var(--jira-border, #dfe1e6);
+  color: var(--jira-text-muted, #5e6c84);
+}
+
+.status-lozenge-cat-inprogress {
+  background: rgba(0, 82, 204, 0.15);
+  border-color: rgba(0, 82, 204, 0.25);
+  color: var(--jira-blue, #0052cc);
+}
+
+.status-lozenge-cat-done {
+  background: rgba(0, 135, 90, 0.15);
+  border-color: rgba(0, 135, 90, 0.25);
+  color: var(--jira-success, #00875a);
+}
+
+/* Dark theme: same brighter Atlassian green/blue the board columns switch to. */
+.app-theme-dark .status-lozenge-cat-neutral {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.app-theme-dark .status-lozenge-cat-inprogress {
+  background: rgba(87, 157, 255, 0.2);
+  border-color: rgba(87, 157, 255, 0.3);
+  color: #579dff;
+}
+
+.app-theme-dark .status-lozenge-cat-done {
+  background: rgba(75, 206, 151, 0.2);
+  border-color: rgba(75, 206, 151, 0.3);
+  color: #4bce97;
+}
+
+/* ── Transition menu ── */
+
+.status-lozenge-option {
+  font-size: 13px;
+  min-height: 32px;
+}
+
+/* Inside the menu the category classes tint only the label, so the row keeps
+   the standard MUI hover/selected surface. */
+.status-lozenge-option.status-lozenge-cat-done,
+.status-lozenge-option.status-lozenge-cat-inprogress,
+.status-lozenge-option.status-lozenge-cat-neutral {
+  background: transparent;
+  border-color: transparent;
+}
+
+.status-lozenge-check {
+  margin-left: 8px;
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-lozenge-button {
+    transition: none;
+  }
+}
