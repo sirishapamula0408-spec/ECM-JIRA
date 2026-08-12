@@ -521,44 +521,97 @@ body.board-col-resizing {
   font-weight: var(--font-weight-semibold);
 }
 
-/* JL-390: "Show N more" expander. Columns cap at five cards so a busy status
-   can no longer stretch the board past the viewport; this control opens the
-   rest inline (drag-and-drop keeps working on every revealed card). Styled as a
-   full-width quiet row so it reads as part of the column stack, not a card. */
-.kanban-col-show-more {
-  display: block;
-  width: 100%;
-  margin-top: 2px;
-  padding: 6px 8px;
-  border: 1px dashed var(--jira-border);
-  border-radius: 4px;
+/* ── JL-391: the column's card list scrolls inside a bounded height ──
+   JL-390 solved the same problem (a busy status stretching the board past the
+   viewport) by capping the column at five cards behind a "Show N more"
+   expander. This replaces that: scrolling is Atlassian Jira's own pattern, it
+   reaches every card with no disclosure step, and the board's shape stays
+   stable however lopsided the statuses are.
+
+   The scroll container is the CARD LIST, never the whole `.kanban-col`. The
+   column <header> carries the issue count and the JL-355 WIP-limit indicator,
+   and both must stay pinned while cards move under them — scrolling the
+   article would carry them off with the cards.
+
+   HEIGHT IS VIEWPORT-RELATIVE, not a fixed pixel cap, so it adapts instead of
+   clipping on a short screen or wasting a tall one. The 260px subtrahend is the
+   chrome above and below the list: 65px topbar (64 + border), 32px .page
+   padding, ~40px board title row, ~40px controls row, 28px column header,
+   20px column padding, 6px .kanban-grid padding-bottom — ~231px — plus ~29px
+   slack so the column's bottom edge and rounded corner stay visible.
+
+   The 140px floor is inside max(), not a separate min-height: it clamps the
+   BOUND on a very short (or heavily zoomed) window without forcing a one-card
+   column to be 140px tall. Short columns never overflow, so the max-height
+   costs them nothing and shows no scrollbar at all. */
+.kanban-col-cards {
+  max-height: max(140px, calc(100vh - 260px));
+  overflow-y: auto;
+  /* 2px of horizontal breathing room, pulled back out with a negative margin so
+     cards sit exactly where they did before. A scroll container clips at its
+     padding edge, and without this the cards' box-shadow and — more importantly
+     — the focus ring on the issue-key link and copy button would be shaved off
+     at the left/right edges. */
+  padding: 2px 2px 0;
+  margin: 0 -2px;
+
+  /* First scrollbar styling in the app, so: subtle, and theme-aware.
+     Standard properties for Firefox, ::-webkit-scrollbar for Chromium/Safari.
+     The thumb colour goes through a custom property so the dark-theme override
+     below is a one-line change rather than a duplicated rule set. */
+  --board-scroll-thumb: var(--jira-border-strong);
+  --board-scroll-thumb-hover: var(--jira-text-muted);
+  scrollbar-width: thin;
+  scrollbar-color: var(--board-scroll-thumb) transparent;
+}
+
+/* The last card's 8px bottom margin would otherwise be 8px of empty scrollable
+   space at the end of every column. */
+.kanban-col-cards > .card:last-child {
+  margin-bottom: 0;
+}
+
+.kanban-col-cards::-webkit-scrollbar {
+  width: 8px;
+}
+
+.kanban-col-cards::-webkit-scrollbar-track {
   background: transparent;
-  color: #0052cc;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-semibold);
-  text-align: center;
-  cursor: pointer;
 }
 
-.kanban-col-show-more:hover {
-  background: #e9f2ff;
-  border-style: solid;
-  border-color: #b3d4ff;
+/* background-clip: padding-box + a transparent border insets the thumb so it
+   reads as a slim pill rather than a full-width bar. */
+.kanban-col-cards::-webkit-scrollbar-thumb {
+  background: var(--board-scroll-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
 }
 
-.kanban-col-show-more:focus-visible {
-  outline: 2px solid var(--jira-blue);
-  outline-offset: 2px;
+.kanban-col-cards::-webkit-scrollbar-thumb:hover {
+  background: var(--board-scroll-thumb-hover);
+  background-clip: padding-box;
 }
 
-.app-theme-dark .kanban-col-show-more {
-  color: #85b8ff;
+/* Dark theme: the light-theme thumb (--jira-border-strong, #c1c7d0) is a pale
+   grey picked to sit quietly on a light surface; on a dark canvas it reads as a
+   bright stripe. #8993a4 is the Atlassian dark-mode neutral — clearly visible
+   without shouting, and it brightens on hover the way the light thumb darkens. */
+.app-theme-dark .kanban-col-cards {
+  --board-scroll-thumb: #8993a4;
+  --board-scroll-thumb-hover: #b6c2cf;
 }
 
-.app-theme-dark .kanban-col-show-more:hover {
-  background: rgba(133, 184, 255, 0.12);
-  border-color: rgba(133, 184, 255, 0.5);
+/* SWIMLANES: the board renders lanes × columns, so a per-lane copy of the
+   single-lane bound would stack N tall scrollboxes and push the lanes below the
+   first one off the screen. In lane mode the page's own vertical scroll is the
+   primary motion — you scroll THROUGH lanes — so each lane's list gets a much
+   smaller bound. Because this is max-height, a lane shorter than 45vh never
+   scrolls and shows no scrollbar; the bound only catches the pathological lane
+   that would otherwise run away on its own. No floor is needed here — 45vh is
+   already small, and a one-card lane should be one card tall. */
+.kanban-col-cards-laned {
+  max-height: 45vh;
 }
 
 .card {
