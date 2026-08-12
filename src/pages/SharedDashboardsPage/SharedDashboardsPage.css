@@ -11,7 +11,7 @@
 }
 
 .sd-header h1 {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   margin: 0;
 }
@@ -26,7 +26,7 @@
 
 .sd-form h3 {
   margin: 0 0 16px;
-  font-size: 16px;
+  font-size: var(--font-size-md);
 }
 
 .sd-input {
@@ -37,7 +37,7 @@
   border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   margin-bottom: 10px;
   box-sizing: border-box;
 }
@@ -52,7 +52,7 @@
 }
 
 .sd-section h2 {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   margin-bottom: 12px;
 }
@@ -61,7 +61,7 @@
   text-align: center;
   color: var(--text-secondary);
   padding: 24px;
-  font-size: 14px;
+  font-size: var(--font-size-md);
 }
 
 .sd-grid {
@@ -85,13 +85,13 @@
 }
 
 .sd-card-header strong {
-  font-size: 14px;
+  font-size: var(--font-size-md);
 }
 
 .sd-visibility-badge {
   padding: 2px 8px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
 }
 
@@ -106,13 +106,13 @@
 }
 
 .sd-card-desc {
-  font-size: 12px;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
   margin: 0 0 8px;
 }
 
 .sd-card-meta {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
   margin-bottom: 10px;
 }

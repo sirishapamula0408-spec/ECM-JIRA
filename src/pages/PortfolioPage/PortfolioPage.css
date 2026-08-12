@@ -18,11 +18,11 @@
 
 .portfolio-page .stat p {
   margin: 0 0 4px;
-  font-size: 12px;
+  font-size: var(--font-size-base);
   color: var(--jira-text-muted, #6b778c);
 }
 
 .portfolio-page .stat strong {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
 }

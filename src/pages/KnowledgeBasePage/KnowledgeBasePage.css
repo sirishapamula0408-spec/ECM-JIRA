@@ -10,7 +10,7 @@
 .kb-subtitle {
   margin: 4px 0 0;
   color: var(--color-text-subtle, #6b778c);
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
 }
 
 .kb-layout {
@@ -38,12 +38,12 @@
   background: transparent;
   cursor: pointer;
   color: inherit;
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
 }
 .kb-cat:hover { background: var(--color-hover, rgba(9, 30, 66, 0.06)); }
 .kb-cat--active { background: var(--color-selected, rgba(0, 82, 204, 0.12)); font-weight: 600; }
 .kb-cat-count {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: var(--color-text-subtle, #6b778c);
   background: var(--color-hover, rgba(9, 30, 66, 0.06));
   border-radius: 10px;
@@ -104,13 +104,13 @@
 .kb-article-row--active { border-color: var(--color-primary, #0052cc); box-shadow: 0 0 0 1px var(--color-primary, #0052cc); }
 .kb-article-title { font-weight: 600; }
 .kb-article-cat, .kb-article-views {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: var(--color-text-subtle, #6b778c);
 }
 
 /* Badges */
 .kb-badge {
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 2px 8px;
@@ -136,7 +136,7 @@
 .kb-article-head h2 { margin: 0; }
 .kb-article-byline {
   color: var(--color-text-subtle, #6b778c);
-  font-size: 0.8rem;
+  font-size: var(--font-size-base);
   margin: 4px 0 16px;
 }
 .kb-article-body {
@@ -148,7 +148,7 @@
   background: var(--color-hover, rgba(9, 30, 66, 0.06));
   padding: 1px 5px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--font-family-mono);
 }
 .kb-article-actions, .kb-editor-actions {
   display: flex;
