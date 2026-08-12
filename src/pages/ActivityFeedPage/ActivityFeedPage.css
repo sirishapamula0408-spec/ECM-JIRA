@@ -21,11 +21,12 @@
   gap: 10px;
 }
 
+/* JL-386: colour now comes from avatarStyle() (derived from the actor), so the
+   fixed blue background is gone; sizing/typography stays here. */
 .af-avatar.MuiAvatar-root {
   width: 28px;
   height: 28px;
   font-size: 12px;
-  background: var(--jira-blue, #0052cc);
 }
 
 .af-time {

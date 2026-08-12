@@ -46,6 +46,7 @@ import {
 import { EmptyState } from '../../components/common/EmptyState'
 import { usePermissions } from '../../hooks/usePermissions'
 import UserAuditLog from '../../components/users/UserAuditLog.jsx'
+import { avatarStyle } from '../../utils/avatarColour'
 import './UserManagementPage.css'
 
 const ROLE_ORDER = ['Owner', 'Admin', 'Member', 'Viewer']
@@ -535,7 +536,7 @@ export function UserManagementPage() {
                       </TableCell>
                       <TableCell>
                         <div className="user-management-name-cell">
-                          <Avatar className="user-management-avatar">
+                          <Avatar className="user-management-avatar" style={avatarStyle(user)}>
                             {(user.name || '?').slice(0, 2).toUpperCase()}
                           </Avatar>
                           <strong>{user.name}</strong>

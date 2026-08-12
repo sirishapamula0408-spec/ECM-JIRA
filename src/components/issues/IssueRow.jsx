@@ -1,5 +1,6 @@
 import { ISSUE_STATUSES } from '../../constants'
 import { DueDateBadge } from './DueDateBadge'
+import { avatarStyle } from '../../utils/avatarColour'
 
 export function IssueRow({ issue, onMove, dark = false }) {
   const priorityClass = issue.priority === 'High' ? 'priority-high' : issue.priority === 'Medium' ? 'priority-medium' : 'priority-low'
@@ -19,7 +20,7 @@ export function IssueRow({ issue, onMove, dark = false }) {
             {issue.watcherCount}
           </span>
         )}
-        <span className="issue-assignee">{issue.assignee?.slice(0, 2).toUpperCase()}</span>
+        <span className="issue-assignee" style={avatarStyle(issue.assignee)}>{issue.assignee?.slice(0, 2).toUpperCase()}</span>
         <select value={issue.status} onChange={(event) => onMove(issue.id, event.target.value)}>
           {ISSUE_STATUSES.map((item) => (
             <option key={item} value={item}>

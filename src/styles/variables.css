@@ -25,6 +25,25 @@
   --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
   --jira-shadow-modal: 0 10px 40px rgba(9, 30, 66, 0.15), 0 0 1px rgba(9, 30, 66, 0.1);
 
+  /* ── Avatar palette (JL-386) ──
+     Deterministic per-user avatar colours. The slot is chosen in JS by
+     src/utils/avatarColour.js (FNV-1a hash of the user's id/email/name); the
+     colour for that slot lives here so light/dark theming is a stylesheet
+     concern and no call site has to read ThemeContext. Dark-theme overrides are
+     in theme.css under .app-theme-dark.
+
+     These light values are deep fills carrying white text; every pairing is
+     >= 4.5:1 (WCAG AA), floor 5.93:1. Keep in sync with AVATAR_PALETTE — the
+     JL-386 suite fails if these drift. */
+  --avatar-bg-0: #0747A6; --avatar-fg-0: #FFFFFF; /* blue    8.53:1 */
+  --avatar-bg-1: #403294; --avatar-fg-1: #FFFFFF; /* purple  9.99:1 */
+  --avatar-bg-2: #206B74; --avatar-fg-2: #FFFFFF; /* teal    6.15:1 */
+  --avatar-bg-3: #216E4E; --avatar-fg-3: #FFFFFF; /* green   6.17:1 */
+  --avatar-bg-4: #7F5F01; --avatar-fg-4: #FFFFFF; /* yellow  5.93:1 */
+  --avatar-bg-5: #A54800; --avatar-fg-5: #FFFFFF; /* orange  5.95:1 */
+  --avatar-bg-6: #AE2E24; --avatar-fg-6: #FFFFFF; /* red     6.53:1 */
+  --avatar-bg-7: #943D73; --avatar-fg-7: #FFFFFF; /* magenta 6.62:1 */
+
   /* ── Spacing tokens ── */
   --spacing-xs: 4px;
   --spacing-sm: 8px;

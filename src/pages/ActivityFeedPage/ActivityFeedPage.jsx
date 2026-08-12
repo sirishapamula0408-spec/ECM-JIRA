@@ -9,6 +9,7 @@ import { fetchProjects } from '../../api/projectApi'
 import { fetchMembers } from '../../api/memberApi'
 import { EmptyState } from '../../components/common/EmptyState'
 import { RelativeTime } from '../../components/common/RelativeTime'
+import { avatarStyle } from '../../utils/avatarColour'
 import './ActivityFeedPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -168,7 +169,7 @@ export function ActivityFeedPage() {
                   <TableRow key={a.id} hover>
                     <TableCell>
                       <div className="af-user-cell">
-                        <Avatar className="af-avatar">
+                        <Avatar className="af-avatar" style={avatarStyle(a.actor)}>
                           {(a.actor || 'U').slice(0, 2).toUpperCase()}
                         </Avatar>
                         <strong>{a.actor}</strong>

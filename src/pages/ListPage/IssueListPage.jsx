@@ -14,6 +14,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { ListViewControls } from '../../components/listViews/ListViewControls'
 import { EmptyState } from '../../components/common/EmptyState'
 import { initialsFromName } from '../../utils/helpers'
+import { avatarStyle } from '../../utils/avatarColour'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -546,7 +547,7 @@ export function IssueListPage() {
             </span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search list" type="text" />
           </label>
-          <div className="jira-list-presence" aria-hidden="true"><span title={userTooltip}>{normalizedInitials}</span></div>
+          <div className="jira-list-presence" aria-hidden="true"><span title={userTooltip} style={avatarStyle(currentUser)}>{normalizedInitials}</span></div>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="jira-list-select">
             <option value="All">Filter</option>
             <option value="Backlog">Backlog</option>

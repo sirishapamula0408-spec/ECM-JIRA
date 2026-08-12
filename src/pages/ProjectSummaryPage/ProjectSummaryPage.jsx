@@ -5,6 +5,7 @@ import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
 import './ProjectSummaryPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 const STATUS_COLORS = {
@@ -131,7 +132,7 @@ export function ProjectSummaryPage() {
             <span className="ps-key-badge">{project.key}</span>
             <span className="ps-type-chip">{project.type}</span>
             <span className="ps-lead">
-              <span className="ps-lead-avatar">{project.lead.charAt(0).toUpperCase()}</span>
+              <span className="ps-lead-avatar" style={avatarStyle(project.lead)}>{project.lead.charAt(0).toUpperCase()}</span>
               {project.lead}
             </span>
           </div>
@@ -278,7 +279,7 @@ export function ProjectSummaryPage() {
               <div className="ps-assignee-list">
                 {assigneeCounts.map(([name, count]) => (
                   <div key={name} className="ps-assignee-row">
-                    <span className="ps-assignee-avatar">
+                    <span className="ps-assignee-avatar" style={avatarStyle(name)}>
                       {name.charAt(0).toUpperCase()}
                     </span>
                     <span className="ps-assignee-name">{name}</span>
