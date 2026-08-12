@@ -173,8 +173,9 @@ export function approvalRefusalMessage(state, fromStatus, toStatus) {
  * Reuses resolveProjectAccess() from middleware/authorize.js rather than
  * inventing a parallel check, so the semantics match every other gated route:
  *  - workspace Owner/Admin bypass project-level checks (`access.admin`);
- *  - everyone else is judged on effectiveRank = max(workspace rank, project
- *    rank), the same rule src/hooks/usePermissions.js applies on the client.
+ *  - everyone else is judged on effectiveRank, which since JL-289 is the explicit
+ *    project role when there is one and the workspace rank otherwise — the same
+ *    rule src/hooks/usePermissions.js applies on the client.
  */
 export async function canApprove(user, projectId, requiredRole = DEFAULT_APPROVER_ROLE) {
   const access = await resolveProjectAccess(user, projectId)

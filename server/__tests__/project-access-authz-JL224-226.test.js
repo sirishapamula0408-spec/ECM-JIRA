@@ -96,8 +96,10 @@ describe('resolveProjectAccess (authorize.js)', () => {
     const a = await resolveProjectAccess(MEMBER, 5)
     expect(a.hasAccess).toBe(true)
     expect(a.projectRole).toBe('Viewer')
-    // effective rank = max(workspace Member=2, project Viewer=1) = 2
-    expect(a.effectiveRank).toBe(2)
+    // JL-289: an explicit project role is authoritative within its project, so
+    // the effective rank is the project Viewer rank (1), NOT the workspace
+    // Member rank. Read access (hasAccess) is unchanged — only writes narrow.
+    expect(a.effectiveRank).toBe(1)
   })
 
   it('treats the project lead as having access (Lead role)', async () => {
@@ -118,7 +120,7 @@ describe('resolveProjectAccess (authorize.js)', () => {
     get.mockResolvedValueOnce(accessRow({ projectRole: 'Admin' }))
     const a = await resolveProjectAccess(VIEWER, 5)
     expect(a.hasAccess).toBe(true)
-    expect(a.effectiveRank).toBe(3) // max(Viewer=1, Admin=3)
+    expect(a.effectiveRank).toBe(3) // JL-289: explicit project Admin wins → 3
   })
 
   it('canAccessProject reflects admin bypass and membership', async () => {
