@@ -3,12 +3,17 @@
   --jira-bg: #ffffff;
   --jira-surface: #ffffff;
   --jira-surface-subtle: #fafbfc;
+  /* Recessed surface behind cards/columns/code blocks (Atlassian
+     elevation.surface.sunken). Added in JL-392 — the value was already the
+     de-facto literal at every call site that reached for a sunken surface. */
+  --jira-surface-sunken: #f4f5f7;
   /* Opaque background for floating menus/popovers/dropdowns. Overridden for
      dark theme in theme.css. Kept as its own token so panels never fall back
      to a transparent value (JL-298). */
   --jira-menu-bg: #ffffff;
   --jira-menu-hover: #f4f5f7;
   --jira-border: #dfe1e6;
+  --jira-border-subtle: #ebecf0;
   --jira-border-strong: #c1c7d0;
   --jira-text: #172b4d;
   --jira-text-muted: #5e6c84;
@@ -20,6 +25,10 @@
   --jira-success: #00875a;
   --jira-warning: #ff991f;
   --jira-danger: #de350b;
+  /* Translucent hover wash. Deliberately translucent rather than an opaque
+     grey so it darkens whatever surface sits beneath it and therefore needs no
+     per-theme override. Added in JL-392. */
+  --jira-hover-overlay: rgba(9, 30, 66, 0.06);
   --jira-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
   --jira-shadow-soft: 0 2px 10px rgba(9, 30, 66, 0.06);
   --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
@@ -111,4 +120,81 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Compatibility alias layer (JL-392)
+     ══════════════════════════════════════════════════════════════════════
+     Page CSS under src/pages/ grew three competing naming families for the
+     same handful of colours — a --color-* family, a --jira-* family, and bare
+     names like --border / --primary / --surface. None of the 43 names below
+     were ever defined, so each one silently fell back to whatever literal the
+     call site happened to write (and the ~70 call sites with NO fallback were
+     invalid-at-computed-value-time, i.e. the declaration did nothing at all).
+     The theme had zero control over any of them.
+
+     Every alias below points at the canonical token that already carries its
+     value, so there is one source of truth per colour and a single override in
+     the .app-theme-dark block of theme.css now reaches every consumer. Values
+     were chosen to match the fallback literal already written at the call
+     sites; where sites disagreed, the majority won. Deviations are noted.
+
+     New page CSS should use the canonical --jira-* / --font-family-* tokens
+     directly; this layer exists so the existing call sites resolve. */
+
+  /* Borders */
+  --border: var(--jira-border);
+  --border-color: var(--jira-border);         /* sites split #dfe1e6 / #e0e0e0 / #eee */
+  --color-border: var(--jira-border);
+  --list-border: var(--jira-border);
+  --border-subtle: var(--jira-border-subtle); /* was rgba(0, 0, 0, 0.08) */
+  --color-border-subtle: var(--jira-border-subtle);
+
+  /* Surfaces */
+  --surface: var(--jira-surface);
+  --color-surface: var(--jira-surface);
+  --color-surface-raised: var(--jira-surface); /* no distinct raised token; both are #ffffff */
+  --list-surface: var(--jira-surface);
+  --list-row-hover: var(--jira-surface-subtle);
+  --surface-sunken: var(--jira-surface-sunken);
+  --color-surface-sunken: var(--jira-surface-sunken);
+  --color-column-bg: var(--jira-surface-sunken);
+  --jira-bg-muted: var(--jira-surface-sunken);
+  --code-bg: var(--jira-surface-sunken);
+  --hover-bg: var(--jira-surface-sunken);
+  --list-chip-bg: var(--jira-border);          /* chip fill is the same N40 as the border */
+
+  /* Text */
+  --text-primary: var(--jira-text);
+  --text-color: var(--jira-text);
+  --color-text: var(--jira-text);
+  --list-text: var(--jira-text);
+  --text-secondary: var(--jira-text-muted);
+  --text-subtle: var(--jira-text-muted);
+  --text-tertiary: var(--jira-text-muted);     /* no third text tier exists; folds into muted */
+  --text-muted: var(--jira-text-muted);
+  --color-text-subtle: var(--jira-text-muted); /* sites wrote #6b778c / #626f86; canonical is #5e6c84 */
+  --jira-text-secondary: var(--jira-text-muted);
+  --list-subtle: var(--jira-text-muted);
+
+  /* Brand / primary */
+  --primary: var(--jira-blue);
+  --primary-color: var(--jira-blue);
+  --color-primary: var(--jira-blue);
+  --jira-primary: var(--jira-blue);
+  --list-focus: var(--jira-blue);              /* was the #4c9aff focus ring; no ring token exists */
+  --color-primary-subtle: var(--jira-blue-soft);
+  --color-selected: var(--jira-blue-soft);     /* was rgba(0, 82, 204, 0.12) ≈ #e0eaf9 */
+  --jira-selected-bg: var(--jira-blue-soft);   /* was rgba(0, 82, 204, 0.06) — now a stronger tint */
+
+  /* Danger */
+  --color-danger: var(--jira-danger);
+  --jira-red: var(--jira-danger);
+
+  /* Hover wash */
+  --hover: var(--jira-hover-overlay);
+  --color-hover: var(--jira-hover-overlay);
+  --jira-hover: var(--jira-hover-overlay);     /* was rgba(9, 30, 66, 0.08) */
+
+  /* Typography */
+  --font-mono: var(--font-family-mono);
 }

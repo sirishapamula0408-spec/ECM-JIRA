@@ -18,6 +18,49 @@
   --avatar-bg-5: #FEC195; --avatar-fg-5: #172B4D; /* orange  8.92:1 */
   --avatar-bg-6: #FF9C8F; --avatar-fg-6: #172B4D; /* red     6.99:1 */
   --avatar-bg-7: #F797D2; --avatar-fg-7: #172B4D; /* magenta 6.92:1 */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     JL-392 — dark values for the compatibility alias layer
+     ══════════════════════════════════════════════════════════════════════
+     The 43 aliases defined in variables.css resolve, by default, to the light
+     canonical tokens. Aliasing is what makes a per-theme override possible at
+     all: overriding one name here now reaches every call site, which was
+     impossible while the names were undefined.
+
+     The dark palette below introduces no new colours — every value is one this
+     stylesheet already writes literally in the .app-theme-dark rules further
+     down (canvas #1d2125, panel #22272b, hairline/hover #2c333a, body text
+     #dfe1e6, muted text #9fadbc, accent #4c9aff).
+
+     Only the bare-name family is re-pointed. Its consumers (WikiPage,
+     WebhooksPage, SharedDashboardsPage, GoalsPage, AdvancedRoadmapPage,
+     ActivityFeedPage) are entirely token-driven, so they flip cleanly — most of
+     these declarations were dead altogether before, since the names had no
+     fallback. The --color-*, --jira-* and --list-* families are deliberately
+     left on their light values: their consumers (Board, Backlog, IssueDetail,
+     List, Login, Profile, UserManagement) still hardcode #ffffff / #f4f5f7
+     surfaces, so darkening only the token-driven half would put #9fadbc text on
+     a literal white card. Those flip once JL-393/394/395 tokenise the
+     surfaces — at which point the override is one line each, here. */
+  --jira-dark-surface: #22272b;
+  --jira-dark-surface-sunken: #1d2125;
+  --jira-dark-border: #2c333a;
+  --jira-dark-hover: #2c333a;
+  --jira-dark-text: #dfe1e6;
+  --jira-dark-text-muted: #9fadbc;
+  --jira-dark-blue: #4c9aff;
+
+  --surface: var(--jira-dark-surface);
+  --surface-sunken: var(--jira-dark-surface-sunken);
+  --code-bg: var(--jira-dark-surface-sunken);
+  --border: var(--jira-dark-border);
+  --border-subtle: var(--jira-dark-border);
+  --hover: var(--jira-dark-hover);
+  --text-primary: var(--jira-dark-text);
+  --text-secondary: var(--jira-dark-text-muted);
+  --text-tertiary: var(--jira-dark-text-muted);
+  --text-subtle: var(--jira-dark-text-muted);
+  --primary: var(--jira-dark-blue);
 }
 
 .app-theme-dark .notif-dropdown {
