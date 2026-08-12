@@ -1,8 +1,34 @@
+/* ── Page canvas token (JL-393) ──
+   One neutral grey behind every page, so white cards/panels/tables read as
+   raised — Atlassian's model. Previously `.page` defaulted to white and eight
+   pages each re-declared their own background (#f4f5f7, #f7f8fa, #ffffff,
+   var(--jira-bg)); the canvas was effectively four different colours.
+
+   #f4f5f7 is Atlassian's N20 neutral and already the dominant grey in this
+   codebase — --jira-menu-hover, the List page's --list-bg, and roughly a dozen
+   row-hover and chip states all use it. It sits ~2% below white in relative
+   luminance: deep enough that a bordered white card separates from the canvas,
+   which is the whole point, and shallower than a tint you would read as "a
+   colour". Atlassian's newer #F7F8F9 was the alternative; it is close enough to
+   white here that cards stopped reading as raised, which is the bug.
+
+   Defined here rather than in variables.css/theme.css deliberately: those two
+   files belong to JL-392, running in parallel. The dark counterpart is the
+   #1d2125 app canvas theme.css already paints onto `.app-theme-dark .page`;
+   this token mirrors it so anything reading --jira-canvas is theme-correct. */
+:root {
+  --jira-canvas: #f4f5f7;
+}
+
+.app-theme-dark {
+  --jira-canvas: #1d2125;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: 240px 1fr;
   min-height: 100vh;
-  background: var(--jira-bg);
+  background: var(--jira-canvas);
   color: var(--jira-text);
 }
 
@@ -12,12 +38,12 @@
 
 .content {
   min-width: 0;
-  background: var(--jira-surface);
+  background: var(--jira-canvas);
 }
 
 .page {
   padding: 16px;
-  background: var(--jira-surface);
+  background: var(--jira-canvas);
   animation: page-fade-in 250ms ease;
 }
 
@@ -34,7 +60,7 @@
 }
 
 .page-dark {
-  background: #f4f5f7;
+  background: var(--jira-canvas);
   color: var(--jira-text);
   border-radius: 6px;
 }

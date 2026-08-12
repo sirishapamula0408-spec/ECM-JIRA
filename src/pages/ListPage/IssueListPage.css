@@ -1,7 +1,6 @@
 /* IssueListPage (List view) styles */
 
 .jira-list-page {
-  --list-bg: #f4f5f7;
   --list-surface: #ffffff;
   --list-border: #dfe1e6;
   --list-text: #172b4d;
@@ -10,7 +9,10 @@
   --list-focus: #4c9aff;
   --list-row-hover: #fafbfc;
   --list-thumb: rgba(9, 30, 66, 0.45);
-  background: var(--list-bg);
+  /* JL-393: no page-level background here — the global `.page` rule paints the
+     shared --jira-canvas token. The local --list-bg alias (#f4f5f7) existed
+     only to feed this one declaration and went with it; --list-surface below
+     keeps the table itself white. */
   padding: 12px 8px 16px;
 }
 

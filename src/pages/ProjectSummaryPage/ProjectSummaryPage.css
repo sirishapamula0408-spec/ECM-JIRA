@@ -1,8 +1,11 @@
 /* ProjectSummaryPage styles */
 
+/* JL-393: the page background comes from the shared --jira-canvas token on the
+   global `.page` rule (styles/layout.css); this page used to re-point it at
+   var(--jira-bg) (#ffffff). Everything below the header is already a white
+   `.ps-card`, so no wrapper was needed. */
 .ps-page {
   padding: 16px 24px 32px;
-  background: var(--jira-bg);
   min-height: 100%;
 }
 

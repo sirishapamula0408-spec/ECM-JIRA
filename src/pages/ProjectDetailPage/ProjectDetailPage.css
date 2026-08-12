@@ -1,8 +1,10 @@
 /* ProjectDetailPage styles */
 
+/* JL-393: no page-level background — the global `.page` rule paints the shared
+   --jira-canvas token. Like the issue view this page is full-bleed with content
+   sitting directly on it, so the white moved onto the `.pd-main` panel below. */
 .project-detail-page {
   padding: 0;
-  background: #ffffff;
   min-height: 100%;
 }
 
@@ -49,11 +51,19 @@
   font-size: var(--font-size-sm);
 }
 
-/* Main layout */
+/* Main layout — JL-393: the white panel that used to be the page background. */
 .pd-main {
   padding: 24px 32px 40px;
   max-width: 900px;
   overflow-y: auto;
+  background: var(--jira-surface);
+  min-height: 100%;
+}
+
+/* --jira-surface has no dark override; pin the panel to the dark app canvas so
+   dark mode is unchanged by JL-393. */
+.app-theme-dark .pd-main {
+  background: #1d2125;
 }
 
 /* Header row with avatar */

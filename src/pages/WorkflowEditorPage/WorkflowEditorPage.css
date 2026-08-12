@@ -2,13 +2,16 @@
    Workflow Editor Page — Visual JIRA-style workflow editor
    ============================================================ */
 
+/* JL-393: no page-level background — the shared --jira-canvas token on
+   `.content` sits behind this page. Nothing needed a wrapper: header, toolbar,
+   canvas (#fafbfc dotted) and sidebar are all opaque and together fill the
+   flex column, so the canvas token is never actually visible here. */
 .workflow-editor-page {
   display: flex;
   flex-direction: column;
   /* fill remaining viewport below topbar + project panel (~110px) */
   height: calc(100vh - 110px);
   padding: 0;
-  background: #ffffff;
 }
 
 /* ---- Header ---- */

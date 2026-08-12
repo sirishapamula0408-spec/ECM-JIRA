@@ -2,9 +2,13 @@
    Issue Detail Page — Atlassian JIRA style
    ============================================================ */
 
+/* JL-393: no page-level background — the global `.page` rule paints the shared
+   --jira-canvas token. This page is full-bleed and its content sat directly on
+   a white page, so the white moved onto `.id-layout`, the panel that actually
+   holds the issue (see below). Atlassian keeps the issue view a white work
+   surface; it is now a panel rather than a repainted canvas. */
 .issue-detail-page {
   padding: 0;
-  background: #ffffff;
   min-height: 100%;
 }
 
@@ -77,10 +81,20 @@
 }
 
 /* ---- Main grid layout ---- */
+/* JL-393: the white surface the issue body reads against. `.id-main` has no
+   background of its own, so this is the panel that used to be the page. */
 .id-layout {
   display: grid;
   grid-template-columns: 1fr 340px;
   min-height: calc(100vh - 120px);
+  background: var(--jira-surface);
+}
+
+/* --jira-surface has no dark override (theme.css darkens elements, not the
+   token), so pin the panel to the dark app canvas. Dark mode therefore looks
+   exactly as it did before JL-393. */
+.app-theme-dark .id-layout {
+  background: #1d2125;
 }
 
 /* ---- Left: Main content ---- */
