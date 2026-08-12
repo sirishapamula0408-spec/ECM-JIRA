@@ -1,5 +1,5 @@
 .audit-log-page .audit-hash {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family-mono, monospace);
   font-size: 0.8em;
   color: var(--color-text-subtle, #6b778c);
 }
