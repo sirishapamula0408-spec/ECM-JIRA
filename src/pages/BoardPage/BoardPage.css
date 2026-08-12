@@ -521,6 +521,46 @@ body.board-col-resizing {
   font-weight: var(--font-weight-semibold);
 }
 
+/* JL-390: "Show N more" expander. Columns cap at five cards so a busy status
+   can no longer stretch the board past the viewport; this control opens the
+   rest inline (drag-and-drop keeps working on every revealed card). Styled as a
+   full-width quiet row so it reads as part of the column stack, not a card. */
+.kanban-col-show-more {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 6px 8px;
+  border: 1px dashed var(--jira-border);
+  border-radius: 4px;
+  background: transparent;
+  color: #0052cc;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  cursor: pointer;
+}
+
+.kanban-col-show-more:hover {
+  background: #e9f2ff;
+  border-style: solid;
+  border-color: #b3d4ff;
+}
+
+.kanban-col-show-more:focus-visible {
+  outline: 2px solid var(--jira-blue);
+  outline-offset: 2px;
+}
+
+.app-theme-dark .kanban-col-show-more {
+  color: #85b8ff;
+}
+
+.app-theme-dark .kanban-col-show-more:hover {
+  background: rgba(133, 184, 255, 0.12);
+  border-color: rgba(133, 184, 255, 0.5);
+}
+
 .card {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
