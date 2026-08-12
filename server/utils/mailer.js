@@ -221,8 +221,11 @@ export function buildInviteEmail({ recipientName, invitedBy, role, token, appUrl
   // email, so the whole token flow was unreachable from the message the invitee
   // actually receives. Embed it exactly the way buildPasswordResetEmail does
   // (encodeURIComponent + a real front-end route).
-  // Callers that have no token (the members.js invite path — see JL-329) keep
-  // getting the plain app URL, so their courtesy email is unchanged.
+  // JL-329: the members.js invite path used to be the one caller with no token,
+  // so its email carried a bare app link the recipient could not redeem. It now
+  // issues a real invitation and passes the token, like every other caller. The
+  // tokenless branch is kept for callers that genuinely have none (a courtesy
+  // notice rather than a redeemable invite).
   const url = token
     ? `${base}${INVITE_ACCEPT_PATH}?token=${encodeURIComponent(token)}`
     : base

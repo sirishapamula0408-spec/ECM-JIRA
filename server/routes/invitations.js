@@ -1,4 +1,3 @@
-import crypto from 'node:crypto'
 import { Router } from 'express'
 import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
@@ -13,11 +12,14 @@ import { validatePassword } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
 import { issueToken } from '../utils/authToken.js'
 import { safeAppendAudit } from '../services/auditLog.js'
+// JL-329: issuing a pending invitation now lives in one service, shared with
+// POST /api/members, so both entry points write the same row with the same
+// token, the same 7-day TTL and the same "one live token per address" rule.
+import { issueInvitation, listPendingInvitations, INVITE_LIST_COLUMNS } from '../services/invitations.js'
 
 const router = Router()
 
 const VALID_ROLES = ['Admin', 'Member', 'Viewer']
-const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 /**
  * JL-74 — Member invitations.
@@ -51,9 +53,6 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     return
   }
 
-  // Revoke any prior pending invites for this email so only the latest is valid.
-  await run("UPDATE invitations SET status = 'revoked' WHERE LOWER(email) = LOWER(?) AND status = 'pending'", [email])
-
   // JL-325: inviting someone who was previously removed is an explicit decision
   // to re-admit them, so it lifts the signup block. Without this, a removal
   // would be irreversible through the UI.
@@ -62,18 +61,10 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     console.log(`[invitations] Lifted signup block for ${email} (re-invited by ${req.user?.email || 'unknown'})`)
   }
 
-  const token = crypto.randomBytes(32).toString('hex')
-  const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString()
   const invitedBy = req.user?.email || 'Team Admin'
-
-  const created = await run(
-    'INSERT INTO invitations (email, role, token, invited_by, status, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [email, role, token, invitedBy, 'pending', expiresAt],
-  )
-  const invite = await get(
-    'SELECT id, email, role, token, invited_by, status, created_at, expires_at FROM invitations WHERE id = ?',
-    [created.lastID],
-  )
+  // JL-329: issueInvitation revokes any prior pending invite for this address
+  // and writes the tokened row — the same call the members path makes.
+  const invite = await issueInvitation({ email, role, invitedBy })
 
   // Fire-and-forget invite email (never block the response on SMTP).
   // JL-361: pass the freshly-stored token so the email carries a working
@@ -83,7 +74,7 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
     recipientName: email.split('@')[0],
     invitedBy,
     role,
-    token: invite?.token || token,
+    token: invite.token,
   })
   // JL-323: sendMail resolves with { ok:false } on an SMTP rejection rather than
   // rejecting, so the outcome must be read off the result — a bare .catch() here
@@ -104,17 +95,28 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
 }))
 
 // --- List invitations (Admin only) ---
+//
+// JL-329: `?status=pending` is THE canonical answer to "who has a pending
+// invitation?". It used to be a partial answer — anyone added through
+// POST /api/members was pending but had no row here, so this list silently
+// omitted them. Both entry points now write an `invitations` row (and the
+// boot-time reconciliation adopted the pre-existing ones), so this single query
+// over this single table is complete. It delegates to
+// services/invitations.js#listPendingInvitations so the predicate is defined in
+// exactly one place.
 router.get('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   const status = String(req.query?.status || '').trim()
   let rows
-  if (status && ['pending', 'accepted', 'revoked'].includes(status)) {
+  if (status === 'pending') {
+    rows = await listPendingInvitations()
+  } else if (status && ['accepted', 'revoked'].includes(status)) {
     rows = await all(
-      'SELECT id, email, role, invited_by, status, created_at, expires_at FROM invitations WHERE status = ? ORDER BY id DESC',
+      `SELECT ${INVITE_LIST_COLUMNS} FROM invitations WHERE status = ? ORDER BY id DESC`,
       [status],
     )
   } else {
     rows = await all(
-      'SELECT id, email, role, invited_by, status, created_at, expires_at FROM invitations ORDER BY id DESC',
+      `SELECT ${INVITE_LIST_COLUMNS} FROM invitations ORDER BY id DESC`,
     )
   }
   // JL-251: expiry was previously only evaluated at accept-time, so expired
@@ -158,22 +160,11 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
     return
   }
 
-  // Revoke any prior pending invites for this email (including this one) so the
-  // freshly-issued token is the only valid one — same guarantee as create.
-  await run("UPDATE invitations SET status = 'revoked' WHERE LOWER(email) = LOWER(?) AND status = 'pending'", [invite.email])
-
-  const token = crypto.randomBytes(32).toString('hex')
-  const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString()
   const invitedBy = req.user?.email || 'Team Admin'
-
-  const created = await run(
-    'INSERT INTO invitations (email, role, token, invited_by, status, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [invite.email, invite.role, token, invitedBy, 'pending', expiresAt],
-  )
-  const fresh = await get(
-    'SELECT id, email, role, token, invited_by, status, created_at, expires_at FROM invitations WHERE id = ?',
-    [created.lastID],
-  )
+  // Revokes any prior pending invites for this email (including this one) so the
+  // freshly-issued token is the only valid one — same guarantee as create, and
+  // now the same call POST /api/members/:id/resend makes (JL-329).
+  const fresh = await issueInvitation({ email: invite.email, role: invite.role, invitedBy })
 
   // Fire-and-forget courtesy email (never block the response on SMTP).
   // JL-361: resend deliberately mints a NEW token and revokes the previous one
@@ -183,7 +174,7 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
     recipientName: invite.email.split('@')[0],
     invitedBy,
     role: invite.role,
-    token: fresh?.token || token,
+    token: fresh.token,
   })
   // JL-323: read the result flag; see the note on the create route above.
   sendMail({ to: invite.email, subject, html, text, type: 'invite', relatedEntity: `invitation:${fresh.id}` })

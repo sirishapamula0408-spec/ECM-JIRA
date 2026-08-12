@@ -2263,6 +2263,20 @@ export async function initializeDatabase() {
   } catch (err) {
     console.error(`[db] Default-workflow backfill failed: ${err.message}`)
   }
+
+  // --- JL-329: adopt the invites the old members path left with no row ---
+  // Before the convergence, POST /api/members wrote members.status='Invited' and
+  // no `invitations` row, so those people were pending but invisible to the one
+  // canonical list. Give each of them an invitation row (already expired — see
+  // the service for why) so nothing is orphaned. Dynamically imported for the
+  // same reason as the workflow backfill above: the service depends on this
+  // module's query helpers. Idempotent, so it is a no-op on every later boot.
+  try {
+    const { reconcileInvitedMembers } = await import('./services/invitations.js')
+    await reconcileInvitedMembers()
+  } catch (err) {
+    console.error(`[db] Invitation reconciliation failed: ${err.message}`)
+  }
 }
 
 /**
