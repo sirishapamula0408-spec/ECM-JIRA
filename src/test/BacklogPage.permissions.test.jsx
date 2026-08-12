@@ -163,8 +163,13 @@ describe('JL-230 — Viewer sees a read-only Backlog', () => {
     expect(row.getAttribute('draggable')).toBe('false')
     expect(document.querySelector('.backlog-status-select')).toBeNull()
     expect(document.querySelector('.flag-btn')).toBeNull()
-    // Status is still readable as a static chip
-    expect(row.querySelector('.backlog-status-readonly')).toHaveTextContent('BACKLOG')
+    // JL-388: status is still readable as a static chip — now the read-only
+    // variant of the shared StatusLozenge (JL-384) rather than a bespoke span.
+    // It is not a control: no button, no menu.
+    const status = row.querySelector('.status-lozenge')
+    expect(status).toHaveTextContent('Backlog')
+    expect(status).toHaveClass('status-lozenge-readonly')
+    expect(status.tagName).toBe('SPAN')
   })
 })
 
@@ -184,13 +189,15 @@ describe('JL-230 — Member sees create/edit controls', () => {
     expect(options).not.toContain('delete')
   })
 
-  it('shows Import + Export, row checkboxes, status selects and inline create', () => {
+  it('shows Import + Export, row checkboxes, status lozenges and inline create', () => {
     renderBacklog()
     expandSprintPanel()
     expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument()
     expect(screen.getByLabelText('Select TP-1')).toBeInTheDocument()
-    expect(screen.getByLabelText('Status for TP-1')).toBeInTheDocument()
+    // JL-388: the row status control is the StatusLozenge — an operable menu
+    // trigger whose accessible name carries the current status.
+    expect(screen.getByRole('button', { name: /^Status for TP-1: / })).toBeInTheDocument()
     expect(document.querySelector('.sprint-inline-create')).toBeTruthy()
     const row = screen.getByText('Backlog story').closest('.backlog-issue-row')
     expect(row.getAttribute('draggable')).toBe('true')

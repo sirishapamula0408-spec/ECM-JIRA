@@ -355,48 +355,30 @@
   gap: 8px;
 }
 
-.backlog-row-minus {
+/* JL-388: the estimate badge. This column used to render a hardcoded `-` on
+   every row (`.backlog-row-minus`); it is now bound to `issue.storyPoints` and
+   renders nothing at all when the issue has no estimate, so a value in the
+   column always means something. */
+.backlog-points-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
+  min-width: 18px;
   height: 18px;
-  border-radius: 3px;
+  padding: 0 5px;
+  border-radius: 9px;
   background: #f4f5f7;
   color: #42526e;
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-xs);
 }
 
-/* JL-230: static status chip shown to read-only Viewers instead of the select */
-.backlog-status-readonly {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 108px;
-  height: 22px;
-  padding: 0 4px;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-semibold);
-  background: #deebff;
-  color: #172b4d;
-  border: 1px solid #b3d4ff;
-  border-radius: 4px;
-}
-
-.backlog-status-select {
-  width: auto;
-  min-width: 108px;
-  height: 22px;
-  padding: 0 4px;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-semibold);
-  background: #deebff;
-  color: #172b4d;
-  border-color: #b3d4ff;
-  border-radius: 4px;
+/* JL-388: the per-row status control is the shared StatusLozenge (JL-384) —
+   its colours and the read-only variant live in StatusLozenge.css. Only the
+   row-level sizing belongs here. */
+.backlog-status-lozenge {
+  min-width: 96px;
+  justify-content: space-between;
 }
 
 .flag-btn {

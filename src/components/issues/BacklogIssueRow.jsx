@@ -1,13 +1,31 @@
-import { ISSUE_STATUSES } from '../../constants'
 import { DueDateBadge } from './DueDateBadge'
 import { ImpedimentFlagIndicator } from './ImpedimentFlag'
 import { CopyButton } from '../common/CopyButton'
+import { StatusLozenge } from '../common/StatusLozenge'
+import { IssueTypeIcon } from '../icons/IssueTypeIcon'
 import { avatarStyle } from '../../utils/avatarColour'
+
+/**
+ * JL-388: normalise the row's estimate.
+ *
+ * The column used to render a hardcoded `-` with no data binding at all, so
+ * every row looked unestimated. `storyPoints` is on the issue already — the API
+ * maps `storyPoints: row.story_points ?? null` — and the backlog sort
+ * (`sortValue`, BacklogPage) reads it the same way. Returns null when there is
+ * genuinely no estimate so the caller can render *nothing* rather than a dash;
+ * 0 is a real estimate and is kept.
+ */
+function storyPointValue(storyPoints) {
+  if (storyPoints === null || storyPoints === undefined || storyPoints === '') return null
+  const points = Number(storyPoints)
+  return Number.isNaN(points) ? null : points
+}
 
 export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
   const isBlocked = !!blocked?.isBlocked
   const blockers = blocked?.blockedBy || []
+  const points = storyPointValue(issue.storyPoints)
 
   return (
     <div
@@ -26,6 +44,7 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
         />
       )}
       <button className="backlog-issue-main backlog-issue-link" type="button" onClick={onOpen}>
+        <IssueTypeIcon type={issue.issueType} />
         <small>{issue.key}</small>
         <strong>{issue.title}</strong>
       </button>
@@ -51,25 +70,22 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
       )}
       <div className="backlog-issue-actions">
         <DueDateBadge dueDate={issue.dueDate} status={issue.status} />
-        <span className="backlog-row-minus">-</span>
-        {canEdit ? (
-          <select
-            className="backlog-status-select"
-            value={issue.status}
-            onChange={(event) => onMove(issue.id, event.target.value)}
-            aria-label={`Status for ${issue.key}`}
+        {points !== null && (
+          <span
+            className="backlog-points-badge"
+            title={`Estimate: ${points} ${points === 1 ? 'story point' : 'story points'}`}
+            aria-label={`Estimate: ${points} ${points === 1 ? 'story point' : 'story points'}`}
           >
-            {ISSUE_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {status.toUpperCase()}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="backlog-status-readonly" aria-label={`Status for ${issue.key}`}>
-            {issue.status.toUpperCase()}
+            {points}
           </span>
         )}
+        <StatusLozenge
+          className="backlog-status-lozenge"
+          status={issue.status}
+          onChange={(next) => onMove(issue.id, next)}
+          readOnly={!canEdit}
+          context={issue.key}
+        />
         {canEdit && (
           <button
             className="flag-btn"
