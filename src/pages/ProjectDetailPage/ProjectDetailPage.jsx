@@ -4,6 +4,7 @@ import { fetchProjectById } from '../../api/projectApi'
 import { useIssues } from '../../context/IssueContext'
 import { RelativeTime } from '../../components/common/RelativeTime'
 import './ProjectDetailPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function ProjectDetailPage() {
@@ -79,7 +80,7 @@ export function ProjectDetailPage() {
               <dt>Lead</dt>
               <dd>
                 <div className="pd-lead-cell">
-                  <span className="pd-lead-avatar">
+                  <span className="pd-lead-avatar" style={avatarStyle(project.lead)}>
                     {project.lead.charAt(0).toUpperCase()}
                   </span>
                   {project.lead}

@@ -15,6 +15,7 @@ import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
 import { NotificationDropdown } from '../notifications/NotificationDropdown'
 import { KeyboardShortcutsDialog } from '../shortcuts/KeyboardShortcutsDialog'
 import { displayNameFromEmail } from '../../utils/helpers'
+import { avatarStyle } from '../../utils/avatarColour'
 
 export function Topbar({ onCreate, hasProjects }) {
   const { authUser: currentUser, handleLogout } = useAuth()
@@ -39,6 +40,9 @@ export function Topbar({ onCreate, hasProjects }) {
   const email = String(currentUser?.email || '').trim()
   const fullName = String(displayNameFromEmail(email) || profile?.full_name || 'User')
   const avatarText = (fullName || 'U').trim().charAt(0).toUpperCase() || 'U'
+  // JL-386: the signed-in user's own avatar colour, derived from their identity
+  // like everyone else's so they recognise themselves across pages.
+  const ownAvatarStyle = avatarStyle(currentUser)
 
   // JL-75 — global quick-search
   const [searchTerm, setSearchTerm] = useState('')
@@ -250,6 +254,7 @@ export function Topbar({ onCreate, hasProjects }) {
           <button
             className="avatar avatar-btn"
             type="button"
+            style={ownAvatarStyle}
             aria-label="Open user menu"
             title="Open user menu"
             onClick={() => setIsUserMenuOpen((current) => !current)}
@@ -259,7 +264,7 @@ export function Topbar({ onCreate, hasProjects }) {
           {isUserMenuOpen && (
             <div className="topbar-user-menu" role="menu">
               <div className="topbar-user-header">
-                <span className="avatar topbar-user-avatar">{avatarText}</span>
+                <span className="avatar topbar-user-avatar" style={ownAvatarStyle}>{avatarText}</span>
                 <div>
                   <strong>{fullName}</strong>
                   <small>{email || 'user@example.com'}</small>

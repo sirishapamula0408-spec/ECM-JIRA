@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { fetchProjects, deleteProject, archiveProject, unarchiveProject } from '../../api/projectApi'
 import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/favoriteApi'
 import './ProjectsPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePermissions } from '../../hooks/usePermissions'
@@ -236,7 +237,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                   </td>
                   <td>
                     <div className="projects-lead-cell">
-                      <span className="projects-lead-avatar">
+                      <span className="projects-lead-avatar" style={avatarStyle(project.lead)}>
                         {project.lead.charAt(0).toUpperCase()}
                       </span>
                       {project.lead}

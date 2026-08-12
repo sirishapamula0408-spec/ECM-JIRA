@@ -2,6 +2,7 @@ import { ISSUE_STATUSES } from '../../constants'
 import { DueDateBadge } from './DueDateBadge'
 import { ImpedimentFlagIndicator } from './ImpedimentFlag'
 import { CopyButton } from '../common/CopyButton'
+import { avatarStyle } from '../../utils/avatarColour'
 
 export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true }) {
   const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
@@ -81,7 +82,7 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
             ⚑
           </button>
         )}
-        <span className="member-avatar">{issue.assignee.slice(0, 2).toUpperCase()}</span>
+        <span className="member-avatar" style={avatarStyle(issue.assignee)}>{issue.assignee.slice(0, 2).toUpperCase()}</span>
       </div>
     </div>
   )

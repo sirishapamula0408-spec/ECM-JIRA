@@ -6,6 +6,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { fetchParallelSprintSetting, setParallelSprintSetting, addRetro, deleteRetro, fetchRetros } from '../../api/sprintApi'
 import { STATUS_COLUMNS } from '../../constants'
 import './ActiveSprintPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 
@@ -227,7 +228,7 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
                 <div className="active-sprint-card__bottom">
                   <span className={`priority-mark priority-${(issue.priority || 'medium').toLowerCase()}`} title={issue.priority} />
                   {issue.assignee && (
-                    <span className="member-avatar" title={issue.assignee}>
+                    <span className="member-avatar" title={issue.assignee} style={avatarStyle(issue.assignee)}>
                       {issue.assignee.charAt(0).toUpperCase()}
                     </span>
                   )}

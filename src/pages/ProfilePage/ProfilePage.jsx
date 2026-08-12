@@ -5,6 +5,7 @@ import { fetchApiTokens, createApiToken, revokeApiToken } from '../../api/apiTok
 import { fetchMfaStatus, setupMfa, enableMfa, disableMfa, fetchSessions, revokeSession, revokeAllSessions, changePassword } from '../../api/authApi'
 import { NotificationPreferencesSection } from '../../components/notifications/NotificationPreferencesSection'
 import './ProfilePage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 
@@ -473,7 +474,7 @@ export function ProfilePage() {
             {form.avatar_url ? (
               <img className="avatar-preview" src={form.avatar_url} alt="Profile avatar" />
             ) : (
-              <div className="avatar-preview avatar-fallback">{(form.full_name || 'U').slice(0, 2).toUpperCase()}</div>
+              <div className="avatar-preview avatar-fallback" style={avatarStyle(profile || form.full_name)}>{(form.full_name || 'U').slice(0, 2).toUpperCase()}</div>
             )}
             <label className="avatar-upload-btn">Edit<input type="file" accept="image/*" onChange={handleAvatarChange} /></label>
           </div>

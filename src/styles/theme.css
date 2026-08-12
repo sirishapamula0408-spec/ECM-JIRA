@@ -3,6 +3,21 @@
 .app-theme-dark {
   --jira-menu-bg: #282e33;
   --jira-menu-hover: #2c333a;
+
+  /* JL-386: dark-theme avatar palette. Same eight hues as the light palette in
+     variables.css, inverted the way Atlassian inverts them — soft tints
+     carrying dark text, because the deep light-theme fills would sink into the
+     #1d2125 canvas. Every pairing is >= 4.5:1 against its text (floor 6.92:1)
+     and >= 7.9:1 against the dark canvas itself. Keep in sync with
+     AVATAR_PALETTE — the JL-386 suite fails if these drift. */
+  --avatar-bg-0: #9CC3FF; --avatar-fg-0: #172B4D; /* blue    7.83:1 */
+  --avatar-bg-1: #C0B6F2; --avatar-fg-1: #172B4D; /* purple  7.53:1 */
+  --avatar-bg-2: #8FDDE7; --avatar-fg-2: #172B4D; /* teal    9.18:1 */
+  --avatar-bg-3: #7EE2B8; --avatar-fg-3: #172B4D; /* green   9.04:1 */
+  --avatar-bg-4: #F5CD47; --avatar-fg-4: #172B4D; /* yellow  9.20:1 */
+  --avatar-bg-5: #FEC195; --avatar-fg-5: #172B4D; /* orange  8.92:1 */
+  --avatar-bg-6: #FF9C8F; --avatar-fg-6: #172B4D; /* red     6.99:1 */
+  --avatar-bg-7: #F797D2; --avatar-fg-7: #172B4D; /* magenta 6.92:1 */
 }
 
 .app-theme-dark .notif-dropdown {

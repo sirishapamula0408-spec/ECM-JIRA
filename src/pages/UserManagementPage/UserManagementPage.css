@@ -84,11 +84,14 @@
   gap: 10px;
 }
 
+/* JL-386: the fixed `background: var(--jira-blue)` that used to live here made
+   every user's avatar the same blue. The colour now comes from avatarStyle()
+   as an inline style derived from the user's identity; this rule keeps only the
+   sizing/typography. */
 .user-management-avatar.MuiAvatar-root {
   width: 28px;
   height: 28px;
   font-size: 12px;
-  background: var(--jira-blue, #0052cc);
 }
 
 .user-management-role-select {

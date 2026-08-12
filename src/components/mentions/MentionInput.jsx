@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMembers } from '../../context/MemberContext'
 import './MentionInput.css'
+import { avatarStyle } from '../../utils/avatarColour'
 
 /**
  * Render text with @email mentions as clickable styled chips (JL-41).
@@ -113,7 +114,7 @@ export function MentionInput({ value, onChange, placeholder = 'Add a comment...'
               role="option"
               onMouseDown={(e) => { e.preventDefault(); insertMention(m) }}
             >
-              <span className="mention-avatar">{m.name.slice(0, 2).toUpperCase()}</span>
+              <span className="mention-avatar" style={avatarStyle(m)}>{m.name.slice(0, 2).toUpperCase()}</span>
               <div className="mention-info">
                 <span className="mention-name">{m.name}</span>
                 <span className="mention-email">{m.email}</span>

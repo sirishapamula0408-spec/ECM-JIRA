@@ -17,6 +17,7 @@ import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/w
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
 import { EmptyState } from '../../components/common/EmptyState'
 import './TeamsPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 // JL-323: the invite list previously showed nothing about whether the email
@@ -802,7 +803,7 @@ export function TeamsPage() {
                   )}
                   <td>
                     <div className="teams-member-cell">
-                      <span className="teams-member-avatar">{member.name.slice(0, 2).toUpperCase()}</span>
+                      <span className="teams-member-avatar" style={avatarStyle(member)}>{member.name.slice(0, 2).toUpperCase()}</span>
                       <div>
                         <strong>{member.name}</strong>
                         <small>{member.email}</small>

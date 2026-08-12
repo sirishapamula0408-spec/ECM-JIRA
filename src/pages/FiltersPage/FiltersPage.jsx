@@ -7,6 +7,7 @@ import { ListViewControls } from '../../components/listViews/ListViewControls'
 import { DEFAULT_COLUMNS, COLUMN_LABELS } from '../../api/listViewApi'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './FiltersPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 
@@ -33,7 +34,7 @@ function renderCell(issue, key) {
       return issue.assignee
         ? (
           <div className="filters-assignee-cell">
-            <span className="filters-assignee-avatar">{issue.assignee.charAt(0).toUpperCase()}</span>
+            <span className="filters-assignee-avatar" style={avatarStyle(issue.assignee)}>{issue.assignee.charAt(0).toUpperCase()}</span>
             {issue.assignee}
           </div>
         )

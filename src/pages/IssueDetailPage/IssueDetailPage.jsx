@@ -49,6 +49,7 @@ const TipTapEditor = lazy(() =>
 import { looksLikeHtml, isEmptyDoc } from '../../utils/editorContent'
 import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import './IssueDetailPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -280,6 +281,8 @@ export function IssueDetailPage() {
   // Logged-in user display name
   const currentUserName = profile?.full_name || authUser?.email || 'You'
   const currentUserInitials = currentUserName.slice(0, 2).toUpperCase()
+  // JL-386: own avatar colour, derived from the signed-in identity.
+  const currentUserAvatarStyle = avatarStyle(authUser || currentUserName)
 
   // JL-321: always fetch the full issue (even when a lighter copy exists in the
   // context list) so detail-only fields — parentKey, fix/affects versions — are
@@ -1435,7 +1438,7 @@ export function IssueDetailPage() {
             <div className="id-presence" title={`${viewers.map((v) => v.email).filter(Boolean).join(', ')} viewing`}>
               <div className="id-presence-avatars">
                 {viewers.slice(0, 4).map((v, i) => (
-                  <span key={v.email || v.id || i} className="id-presence-avatar" style={{ zIndex: 10 - i }}>
+                  <span key={v.email || v.id || i} className="id-presence-avatar" style={{ zIndex: 10 - i, ...avatarStyle(v) }}>
                     {String(v.email || 'U').slice(0, 2).toUpperCase()}
                   </span>
                 ))}
@@ -1865,7 +1868,7 @@ export function IssueDetailPage() {
             {/* Comment input — show on All or Comments tab (JL-284: canAddComment gates composer) */}
             {canAddComment && (activityTab === 'All' || activityTab === 'Comments') && (
               <div className="id-comment-input">
-                <span className="id-comment-avatar id-comment-avatar--me">{currentUserInitials}</span>
+                <span className="id-comment-avatar id-comment-avatar--me" style={currentUserAvatarStyle}>{currentUserInitials}</span>
                 <div className="id-comment-box">
                   <span className="id-comment-user-name">{currentUserName}</span>
                   <MentionInput rows={2} value={commentText} onChange={setCommentText} placeholder="Add a comment... Use @email to mention someone" className="id-comment-textarea" />
@@ -1924,7 +1927,7 @@ export function IssueDetailPage() {
               )}
               {visibleEntries.map((entry) => (
                 <div key={entry.id} className={`id-activity-item id-activity-item--${entry.type}`}>
-                  <span className={`id-comment-avatar${entry.author === currentUserName ? ' id-comment-avatar--me' : ''}`}>
+                  <span className={`id-comment-avatar${entry.author === currentUserName ? ' id-comment-avatar--me' : ''}`} style={avatarStyle(entry.author)}>
                     {entry.author.slice(0, 2).toUpperCase()}
                   </span>
                   <div className="id-activity-item-body">
@@ -2085,7 +2088,7 @@ export function IssueDetailPage() {
                     onCancel={closeField}
                     display={
                       <div className="id-detail-user">
-                        <span className="id-detail-avatar">{(issue.assignee || 'U').slice(0, 2).toUpperCase()}</span>
+                        <span className="id-detail-avatar" style={avatarStyle(issue.assignee)}>{(issue.assignee || 'U').slice(0, 2).toUpperCase()}</span>
                         <span>{issue.assignee || 'Unassigned'}</span>
                         <span className="id-edit-pencil">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -2117,7 +2120,7 @@ export function IssueDetailPage() {
                 <dt>Reporter</dt>
                 <dd>
                   <div className="id-detail-user">
-                    <span className="id-detail-avatar" style={{ background: '#0052cc', color: '#fff' }}>
+                    <span className="id-detail-avatar" style={avatarStyle(issue.reporter || profile?.full_name)}>
                       {(issue.reporter || profile?.full_name || 'U').slice(0, 2).toUpperCase()}
                     </span>
                     <span>{issue.reporter || profile?.full_name || 'Unknown'}</span>

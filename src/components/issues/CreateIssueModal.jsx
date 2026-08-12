@@ -10,6 +10,7 @@ import { fetchProjectIssueTypes } from '../../api/issueTypeSchemeApi'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
+import { avatarStyle } from '../../utils/avatarColour'
 
 const TYPE_META = {
   Epic:       { icon: '\u{1F3F0}', label: 'Epic' },
@@ -299,7 +300,7 @@ export function CreateIssueModal({ onClose }) {
             <div className="create-issue-field">
               <label>Reporter</label>
               <div className="create-issue-reporter">
-                <span className="create-issue-reporter-avatar">
+                <span className="create-issue-reporter-avatar" style={avatarStyle(reporterName)}>
                   {reporterName.charAt(0).toUpperCase()}
                 </span>
                 <span>{reporterName}</span>

@@ -21,6 +21,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import './ProjectSettingsPage.css'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', SCREENS: 'screens', FIELD_CONFIG: 'fieldconfig' }
@@ -885,7 +886,7 @@ export function ProjectSettingsPage() {
                     <tr key={pm.id}>
                       <td>
                         <div className="member-cell">
-                          <span className="member-avatar">{pm.name.slice(0, 2).toUpperCase()}</span>
+                          <span className="member-avatar" style={avatarStyle(pm)}>{pm.name.slice(0, 2).toUpperCase()}</span>
                           <div>
                             <strong>{pm.name}</strong>
                             {isLead(pm.name) && <span className="ps-lead-badge">Lead</span>}
