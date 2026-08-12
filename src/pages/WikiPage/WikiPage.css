@@ -25,7 +25,7 @@
 
 .wiki-sidebar-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 
@@ -43,7 +43,7 @@
   background: none;
   text-align: left;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-primary);
   transition: background 0.15s;
 }
@@ -59,7 +59,7 @@
 }
 
 .wiki-tree-icon {
-  font-size: 14px;
+  font-size: var(--font-size-md);
 }
 
 .wiki-tree-title {
@@ -72,7 +72,7 @@
   padding: 16px;
   text-align: center;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .wiki-content {
@@ -87,7 +87,7 @@
 }
 
 .wiki-placeholder h2 {
-  font-size: 20px;
+  font-size: var(--font-size-lg);
   margin-bottom: 8px;
 }
 
@@ -99,7 +99,7 @@
 }
 
 .wiki-view-header h1 {
-  font-size: 24px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   margin: 0;
 }
@@ -116,13 +116,13 @@
 .wiki-meta {
   display: flex;
   gap: 16px;
-  font-size: 12px;
+  font-size: var(--font-size-base);
   color: var(--text-tertiary);
   margin-bottom: 20px;
 }
 
 .wiki-body {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   line-height: 1.7;
 }
 
@@ -130,7 +130,7 @@
   white-space: pre-wrap;
   font-family: inherit;
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   line-height: 1.7;
 }
 
@@ -146,7 +146,7 @@
 }
 
 .wiki-children h3 {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   margin-bottom: 8px;
 }
 
@@ -158,7 +158,7 @@
   text-align: left;
   cursor: pointer;
   color: var(--primary);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   border-radius: 4px;
 }
 
@@ -173,7 +173,7 @@
 
 .wiki-create-form h2,
 .wiki-edit-form h2 {
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   margin-bottom: 16px;
 }
 
@@ -185,7 +185,7 @@
   border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   margin-bottom: 12px;
   box-sizing: border-box;
 }
@@ -198,7 +198,7 @@
   border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--font-size-md);
   font-family: 'SFMono-Regular', Consolas, monospace;
   resize: vertical;
   margin-bottom: 12px;
@@ -228,7 +228,7 @@
   border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-base);
   box-sizing: border-box;
 }
 
@@ -240,7 +240,7 @@
   display: flex;
   justify-content: space-between;
   padding: 4px 12px;
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
 
@@ -248,7 +248,7 @@
   background: none;
   border: none;
   color: var(--primary);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
@@ -279,7 +279,7 @@
   background: none;
   text-align: left;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
   border-radius: 4px;
 }
@@ -305,7 +305,7 @@
 }
 
 .wiki-linked-section h3 {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   margin-bottom: 8px;
 }
 
@@ -323,7 +323,7 @@
   padding: 4px 8px;
   border-radius: 4px;
   background: var(--hover);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .wiki-linked-key {
@@ -341,7 +341,7 @@
   background: none;
   border: none;
   color: var(--danger, #ff5630);
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   cursor: pointer;
   padding: 0 4px;
 }
@@ -356,6 +356,6 @@
 .wiki-link-error {
   flex-basis: 100%;
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--font-size-base);
   color: var(--danger, #ff5630);
 }

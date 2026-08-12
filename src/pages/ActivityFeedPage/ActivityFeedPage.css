@@ -26,11 +26,11 @@
 .af-avatar.MuiAvatar-root {
   width: 28px;
   height: 28px;
-  font-size: 12px;
+  font-size: var(--font-size-base);
 }
 
 .af-time {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
 
