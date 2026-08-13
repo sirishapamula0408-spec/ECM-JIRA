@@ -282,11 +282,92 @@ body.col-resizing * {
 }
 
 .jira-list-table .col-check { width: 46px; }
-.jira-list-table .col-type { width: 90px; }
-.jira-list-table .col-key { width: 110px; }
+.jira-list-table .col-work { width: 440px; }
 .jira-list-table .col-status { width: 120px; }
 .jira-list-table .col-comments { width: 140px; }
 .jira-list-table .col-sprint { width: 110px; }
+
+/* ── JL-398: unified Work cell ──
+   Type icon, key, summary and the two row actions on one line. The summary is
+   the flexible element so it takes the slack and ellipsises; the key and the
+   actions keep their intrinsic width. */
+.jira-list-work {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.jira-list-work .jira-list-key-link {
+  flex: 0 0 auto;
+}
+
+.jira-list-work .jira-list-summary-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* The actions stay out of the way until the row is touched, which keeps a dense
+   list readable — but they remain reachable by keyboard via :focus-within. */
+.jira-list-work-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity var(--transition-fast, 120ms) ease;
+}
+
+.jira-list-table tr:hover .jira-list-work-actions,
+.jira-list-work-actions:focus-within {
+  opacity: 1;
+}
+
+.jira-list-work-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--list-subtle);
+  cursor: pointer;
+}
+
+.jira-list-work-action:hover {
+  background: var(--jira-surface-sunken, #f4f5f7);
+  color: var(--list-text);
+}
+
+.jira-list-work-action:focus-visible {
+  outline: 2px solid var(--list-focus);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
+.jira-list-work-sort-caret {
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
+.jira-list-child-create-row td {
+  background: var(--jira-surface-sunken, #f4f5f7);
+}
+
+.jira-list-child-create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
 .jira-list-table .col-plus {
   width: 36px;

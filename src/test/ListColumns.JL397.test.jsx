@@ -1,11 +1,13 @@
-// JL-397 — List view columns: Type/Key/Summary are pinned, and the three
-// standard Jira fields (Reporter, Updated, Story Points) are available.
+// JL-397 — the three standard Jira list fields (Reporter, Updated, Story Points)
+// and the ListViewControls pinnedColumns prop.
 //
-// Two removal routes are covered, because they are separate mechanisms: the
-// ListViewControls picker (guarded by the pinnedColumns prop) and a saved view
-// restoring a stored column array (guarded by the page's normaliser).
+// The original "Type/Key/Summary are pinned as three columns" block is GONE, not
+// skipped: JL-398 merged those three into one fixed "Work" column, so the shape
+// it asserted no longer exists by design. Its replacement is
+// ListWorkColumn.JL398.test.jsx. What remains here is everything JL-398 did not
+// touch, plus the generic pinning contract the Work column now relies on.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const { mockFetchListViews, mockCreateListView, mockUpdateListView, mockDeleteListView } =
@@ -66,17 +68,9 @@ vi.mock('../context/MemberContext', () => ({
 import { IssueListPage } from '../pages/ListPage/IssueListPage'
 import { ListViewControls } from '../components/listViews/ListViewControls'
 
-const PINNED = ['Type', 'Key', 'Summary']
-
 function renderPage() {
   return render(<MemoryRouter><IssueListPage /></MemoryRouter>)
 }
-
-const header = (name) => screen.queryByRole('columnheader', { name: new RegExp(`^${name}`, 'i') })
-
-/** Every column header in render order, including the trailing "+" gutter. */
-const headerNames = () =>
-  screen.getAllByRole('columnheader').map((th) => th.textContent.trim())
 
 /** Add one of the optional columns via the in-table "+" menu. */
 function addColumn(label) {
@@ -97,68 +91,6 @@ const summaryOrder = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   mockFetchListViews.mockResolvedValue([])
-})
-
-describe('JL-397 — Type, Key and Summary are pinned', () => {
-  it('renders all three by default', () => {
-    renderPage()
-    for (const name of PINNED) expect(header(name), name).toBeInTheDocument()
-  })
-
-  it('shows them as permanently on in the column picker, and not the others', async () => {
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Columns' }))
-
-    for (const name of PINNED) {
-      const row = screen.getByText(name, { selector: '.lvc-col-label' })
-        ?? screen.getByLabelText(name)
-      const box = within(row.closest('li')).getByRole('checkbox')
-      expect(box, `${name} checkbox`).toBeDisabled()
-      expect(box).toBeChecked()
-      expect(within(row.closest('li')).getByText(/always/i)).toBeInTheDocument()
-    }
-
-    // A non-pinned column stays removable — pinning must not freeze the picker.
-    const statusItem = screen.getByText('Status', { selector: '.lvc-col-label' }).closest('li')
-    expect(within(statusItem).getByRole('checkbox')).toBeEnabled()
-  })
-
-  it('keeps them reorderable — pinned means non-removable, not frozen', async () => {
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Columns' }))
-    // Type is first, so its "up" is disabled but its "down" must not be.
-    const typeItem = screen.getByText('Type', { selector: '.lvc-col-label' }).closest('li')
-    expect(within(typeItem).getByRole('button', { name: /Move Type down/i })).toBeEnabled()
-  })
-
-  it('reinstates them when a saved default view omits them', async () => {
-    // A view stored before this rule existed: status/sprint only.
-    mockFetchListViews.mockResolvedValue([
-      { id: 10, name: 'Legacy', columns: ['status', 'sprint'], filterJql: null, isDefault: true, projectId: 1 },
-    ])
-    renderPage()
-
-    // One waitFor for the whole end state. Asserting the view's columns first
-    // and the pinned ones second races: ListViewControls applies the default
-    // view from a promise callback outside act(), so the two land on different
-    // ticks and the first assertion can win before the second is even possible.
-    await waitFor(() => {
-      expect(headerNames()).toEqual(['Type', 'Key', 'Summary', 'Status', 'Sprint', '+'])
-    }, { timeout: 5000 })
-  })
-
-  it('reinstates them when a view is picked from the dropdown', async () => {
-    mockFetchListViews.mockResolvedValue([
-      { id: 40, name: 'Status only', columns: ['status'], filterJql: null, isDefault: false, projectId: 1 },
-    ])
-    renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Views' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Status only' }))
-
-    await waitFor(() => {
-      expect(headerNames()).toEqual(['Type', 'Key', 'Summary', 'Status', '+'])
-    }, { timeout: 5000 })
-  })
 })
 
 describe('JL-397 — the three standard Jira fields', () => {

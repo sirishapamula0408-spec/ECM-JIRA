@@ -15,12 +15,15 @@ import { ListViewControls } from '../../components/listViews/ListViewControls'
 import { EmptyState } from '../../components/common/EmptyState'
 import { initialsFromName } from '../../utils/helpers'
 import { avatarStyle } from '../../utils/avatarColour'
+import { createSubtask } from '../../api/issueApi'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
-  type:     { label: 'Type',     thClass: 'col-type',     tdClass: '' },
-  key:      { label: 'Key',      thClass: 'col-key',      tdClass: 'jira-list-key' },
-  summary:  { label: 'Summary',  thClass: 'col-summary',  tdClass: '' },
+  // JL-398: one unified identity column, replacing the separate Type/Key/Summary
+  // columns JL-397 pinned. Atlassian merged those three — "this column is fixed
+  // in position and can't be moved, so that your key work info stays anchored" —
+  // and they no longer exist as individual, repositionable columns.
+  work:     { label: 'Work',     thClass: 'col-work',     tdClass: 'jira-list-work-cell' },
   status:   { label: 'Status',   thClass: 'col-status',   tdClass: '' },
   comments: { label: 'Comments', thClass: 'col-comments', tdClass: '' },
   sprint:   { label: 'Sprint',   thClass: 'col-sprint',   tdClass: 'jira-list-sprint' },
@@ -37,34 +40,38 @@ const ALL_COLUMNS = {
   storyPoints: { label: 'Story Points', thClass: 'col-extra', tdClass: 'jira-list-extra-cell', width: 110 },
 }
 
-/* JL-397: Atlassian pins these three — "You'll always see the type, key, and
- * summary fields." Without Key or Summary a row cannot be identified at all, so
- * this is a correctness rule, not a preference. Pinned means NON-REMOVABLE, not
- * frozen: they still reorder and resize like any other column. */
-const PINNED_COL_KEYS = ['type', 'key', 'summary']
+/* JL-398: the Work column is the row's identity, and Atlassian fixes it in
+ * place. It is therefore neither removable NOR reorderable — which reverses
+ * JL-397's "pinned means non-removable, not frozen" conclusion for this column
+ * specifically. It stays resizable; only its position is fixed. */
+const FIXED_COL_KEY = 'work'
 
-/* JL-397: was type/key/summary/status/comments/sprint. Comments and Sprint as
- * defaults were ours, not Jira's — Jira's "All issues" default leads with Type,
- * Key, Summary, Assignee, Reporter, Priority, Status and Created. This takes all
- * of that except Reporter, which stays available but off by default: at the
- * DEFAULT_WIDTHS below, seven columns total 1082px including the checkbox and
- * "+" gutters and fit a 1440px window, where adding Reporter pushes past the
- * content area and starts the table horizontally scrolling on first load. */
-const DEFAULT_COL_KEYS = ['type', 'key', 'summary', 'status', 'assignee', 'priority', 'created']
+/* The three keys the Work column absorbed. Saved views (JL-255) persist a
+ * `columns` array that may still name them, so they are migrated rather than
+ * dropped — see withWorkColumn. They also survive as SORT ATTRIBUTES, since
+ * merging the headers must not cost the user the ability to sort by them. */
+const LEGACY_IDENTITY_KEYS = ['type', 'key', 'summary']
+const WORK_SORT_ATTRS = LEGACY_IDENTITY_KEYS
+
+/* JL-397 moved the defaults off Comments/Sprint and onto Jira's "All issues"
+ * lead of Assignee, Priority and Created; JL-398 collapses its first three
+ * entries into Work. Reporter stays available but off by default so the table
+ * still fits a 1440px window without horizontally scrolling on first load. */
+const DEFAULT_COL_KEYS = ['work', 'status', 'assignee', 'priority', 'created']
 const EXTRA_COL_KEYS = ['priority', 'assignee', 'created', 'label', 'dueDate', 'reporter', 'updated', 'storyPoints']
 
-/* JL-397: force the pinned columns back into any column set arriving from
- * outside this component — chiefly a saved view (JL-255), whose stored `columns`
- * array predates this rule and may simply not contain them. A missing pinned
- * column is prepended rather than slotted into DEFAULT order, so a user's own
- * arrangement of the columns they DID keep survives untouched. */
-function withPinnedColumns(order) {
+/* JL-398: normalise any column set arriving from outside this component —
+ * chiefly a saved view, whose stored array may predate the Work column and name
+ * 'type'/'key'/'summary' instead. Those collapse to Work rather than being
+ * silently dropped (which would leave rows unidentifiable) or passed through
+ * (which would index ALL_COLUMNS with a key that no longer exists and throw).
+ * Work is always first, matching Atlassian's fixed position. */
+function withWorkColumn(order) {
   const seen = new Set()
-  const valid = (Array.isArray(order) ? order : []).filter(
-    (key) => key in ALL_COLUMNS && !seen.has(key) && seen.add(key),
-  )
-  const missing = PINNED_COL_KEYS.filter((key) => !valid.includes(key))
-  return missing.length ? [...missing, ...valid] : valid
+  const rest = (Array.isArray(order) ? order : [])
+    .map((key) => (LEGACY_IDENTITY_KEYS.includes(key) ? FIXED_COL_KEY : key))
+    .filter((key) => key in ALL_COLUMNS && key !== FIXED_COL_KEY && !seen.has(key) && seen.add(key))
+  return [FIXED_COL_KEY, ...rest]
 }
 
 /* JL-255: expose the List page's own column vocabulary to the shared
@@ -75,7 +82,8 @@ const LIST_COLUMN_LABELS = Object.fromEntries(
 const LIST_ALL_COLUMN_KEYS = Object.keys(ALL_COLUMNS)
 
 const DEFAULT_WIDTHS = {
-  type: 90, key: 110, summary: 300, status: 130,
+  // work absorbs type+key+summary (90+110+300) plus the two row actions.
+  work: 440, status: 130,
   comments: 150, sprint: 120, priority: 100,
   assignee: 150, created: 120, label: 100, dueDate: 120,
   reporter: 150, updated: 120, storyPoints: 120,
@@ -87,6 +95,9 @@ const DEFAULT_WIDTHS = {
  * status/priority sort by their logical order rather than alphabetically. */
 const STATUS_RANK = Object.fromEntries(ISSUE_STATUSES.map((s, i) => [s, i]))
 const PRIORITY_RANK = Object.fromEntries(PRIORITIES.map((p, i) => [p, i]))
+/* JL-398: 'work' is absent here on purpose — it is not itself sortable. The
+ * three attributes it absorbed remain valid sort keys, chosen from a menu on the
+ * Work header, so no sorting capability was lost when the headers merged. */
 const SORT_KIND = {
   type: 'text', key: 'text', summary: 'text', status: 'num', sprint: 'text',
   priority: 'num', assignee: 'text', created: 'date', label: 'text', dueDate: 'date',
@@ -109,7 +120,7 @@ function readStatusParam(searchParams) {
 export function IssueListPage() {
   usePageTitle('List')
   const { confirm, confirmDialog } = useConfirm()
-  const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete } = useIssues()
+  const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete, reloadIssues } = useIssues()
   const { sprints } = useSprints()
   const { authUser: currentUser } = useAuth()
   const { profile } = useMembers()
@@ -140,6 +151,7 @@ export function IssueListPage() {
   const [columnOrder, setColumnOrder] = useState(DEFAULT_COL_KEYS)
   const [showColumnMenu, setShowColumnMenu] = useState(false)
   const [showDisplayMenu, setShowDisplayMenu] = useState(false)
+  const [showWorkSortMenu, setShowWorkSortMenu] = useState(false)
   const [dragColKey, setDragColKey] = useState(null)
   const [dragOverColKey, setDragOverColKey] = useState(null)
   const [columnWidths, setColumnWidths] = useState(DEFAULT_WIDTHS)
@@ -148,6 +160,12 @@ export function IssueListPage() {
   const [createTitle, setCreateTitle] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState('')
+  // JL-398: inline "create child item" state, keyed by the parent row's id so
+  // only one row is ever in edit mode.
+  const [childParentId, setChildParentId] = useState(null)
+  const [childTitle, setChildTitle] = useState('')
+  const [childBusy, setChildBusy] = useState(false)
+  const [childError, setChildError] = useState('')
 
   /* JL-336: ?status= can also change while this component stays mounted (two
    * legend clicks in a row, or the browser back button), and the useState seed
@@ -432,9 +450,9 @@ export function IssueListPage() {
 
   /* ── Column toggle (add / remove from "+" menu) ── */
   function toggleColumn(colKey) {
-    // JL-397: belt and braces. Neither menu that calls this lists a pinned
-    // column today, but the guard means a future menu cannot quietly drop one.
-    if (PINNED_COL_KEYS.includes(colKey)) return
+    // JL-398: belt and braces. No menu that calls this lists the fixed column
+    // today, but the guard means a future one cannot quietly drop it.
+    if (colKey === FIXED_COL_KEY) return
     setColumnOrder((current) => {
       if (current.includes(colKey)) {
         return current.filter((k) => k !== colKey)
@@ -460,7 +478,10 @@ export function IssueListPage() {
 
   function handleColDrop(e, targetColKey) {
     e.preventDefault()
-    if (!dragColKey || dragColKey === targetColKey) {
+    // JL-398: the fixed column is not draggable, so it can never be the source —
+    // but it can still be a DROP TARGET, and splicing at its index would push it
+    // out of first place. Refuse that, and normalise the result as a backstop.
+    if (!dragColKey || dragColKey === targetColKey || targetColKey === FIXED_COL_KEY) {
       setDragColKey(null)
       setDragOverColKey(null)
       return
@@ -469,7 +490,7 @@ export function IssueListPage() {
       const next = current.filter((k) => k !== dragColKey)
       const targetIdx = next.indexOf(targetColKey)
       next.splice(targetIdx, 0, dragColKey)
-      return next
+      return withWorkColumn(next)
     })
     setDragColKey(null)
     setDragOverColKey(null)
@@ -515,12 +536,48 @@ export function IssueListPage() {
   /* ── Cell renderer ── */
   function renderCell(colKey, issue, rowIndex) {
     switch (colKey) {
-      case 'type':
-        return issueTypeIcon(issue.issueType)
-      case 'key':
-        return <button className="jira-list-key-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
-      case 'summary':
-        return <button className="jira-list-summary-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.title}</button>
+      /* JL-398: the unified Work cell — type icon, key, summary, then the two
+       * row actions. The key/summary keep their original class names so the
+       * row-order assertions in the JL-256 sort suite still have their hooks. */
+      case 'work': {
+        // The API rejects a sub-task under a sub-task with a 400, so offering the
+        // control on such a row would guarantee a failure. Hide it instead.
+        const canAddChild = canCreateIssue && issue.issueType !== 'Sub-task'
+        return (
+          <span className="jira-list-work">
+            {issueTypeIcon(issue.issueType)}
+            <button className="jira-list-key-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+            <button className="jira-list-summary-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.title}</button>
+            <span className="jira-list-work-actions">
+              <button
+                className="jira-list-work-action"
+                type="button"
+                title="Open work item"
+                aria-label={`Open work item ${issue.key}`}
+                onClick={() => navigate(`/issues/${issue.id}`)}
+              >
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                  <path d="M6 10l4-4M6.5 5.5H10v3.5" />
+                  <path d="M12.5 9.5v3H3.5v-9h3" />
+                </svg>
+              </button>
+              {canAddChild && (
+                <button
+                  className="jira-list-work-action"
+                  type="button"
+                  title="Create child item"
+                  aria-label={`Create child item under ${issue.key}`}
+                  onClick={() => { setChildParentId(issue.id); setChildTitle(''); setChildError('') }}
+                >
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                    <path d="M8 3.5v9M3.5 8h9" />
+                  </svg>
+                </button>
+              )}
+            </span>
+          </span>
+        )
+      }
       case 'status':
         return (
           <select
@@ -572,6 +629,28 @@ export function IssueListPage() {
 
   const totalColSpan = columnOrder.length + 1 + (canBulkSelect ? 1 : 0) // (checkbox) + columns + "+" column
 
+  /* JL-398: create a child work item from the Work cell's "+". Uses the existing
+   * sub-task endpoint, which inherits project/sprint from the parent, then
+   * reloads so the new row appears without a manual refresh. */
+  async function submitChildCreate() {
+    const title = String(childTitle || '').trim()
+    if (!title) { setChildError('Summary is required.'); return }
+    setChildBusy(true); setChildError('')
+    try {
+      await createSubtask(childParentId, { title, description: 'Created from the list.' })
+      setChildTitle(''); setChildParentId(null)
+      await reloadIssues()
+    } catch (error) {
+      setChildError(error?.message || 'Failed to create child item')
+    } finally {
+      setChildBusy(false)
+    }
+  }
+
+  function cancelChildCreate() {
+    setChildParentId(null); setChildTitle(''); setChildError('')
+  }
+
   async function submitInlineCreate() {
     const title = String(createTitle || '').trim()
     if (!title) { setCreateError('Summary is required.'); return }
@@ -617,11 +696,12 @@ export function IssueListPage() {
               scoped to this project when the route carries a projectId. */}
           <ListViewControls
             columns={columnOrder}
-            /* JL-397: every column set from the picker or a saved view goes
-               through the normaliser, so a view stored before the pinning rule
-               cannot restore a list with no Type/Key/Summary. */
-            onColumnsChange={(cols) => setColumnOrder(withPinnedColumns(cols))}
-            pinnedColumns={PINNED_COL_KEYS}
+            /* JL-398: every column set from the picker or a saved view goes
+               through the normaliser, so a view stored before the Work column
+               existed migrates its type/key/summary entries instead of
+               restoring a list with no row identity. */
+            onColumnsChange={(cols) => setColumnOrder(withWorkColumn(cols))}
+            pinnedColumns={[FIXED_COL_KEY]}
             filterJql={viewFilterState}
             onApplyView={handleApplyView}
             projectId={projectId ?? null}
@@ -711,6 +791,13 @@ export function IssueListPage() {
                   const sortable = SORTABLE.has(colKey)
                   const isSorted = sortKey === colKey
                   const ariaSort = sortable ? (isSorted ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none') : undefined
+                  // JL-398: Work is not itself a sort key; it reports the state of
+                  // whichever of its three attributes is currently sorting.
+                  const isFixed = colKey === FIXED_COL_KEY
+                  const workSortActive = WORK_SORT_ATTRS.includes(sortKey)
+                  const fixedAriaSort = workSortActive
+                    ? (sortDir === 'asc' ? 'ascending' : 'descending')
+                    : 'none'
                   return (
                     <th
                       key={colKey}
@@ -720,21 +807,61 @@ export function IssueListPage() {
                         (isOver ? ' col-drag-over' : '')
                       }
                       style={{ width: w, minWidth: 50 }}
-                      aria-sort={ariaSort}
-                      draggable
-                      onDragStart={(e) => handleColDragStart(e, colKey)}
-                      onDragOver={(e) => handleColDragOver(e, colKey)}
-                      onDrop={(e) => handleColDrop(e, colKey)}
-                      onDragEnd={handleColDragEnd}
-                      onDragLeave={() => { if (dragOverColKey === colKey) setDragOverColKey(null) }}
+                      aria-sort={isFixed ? fixedAriaSort : ariaSort}
+                      /* JL-398: the fixed Work column is not draggable, and
+                         refuses drops, so it stays anchored in first place. */
+                      draggable={!isFixed}
+                      onDragStart={isFixed ? undefined : (e) => handleColDragStart(e, colKey)}
+                      onDragOver={isFixed ? undefined : (e) => handleColDragOver(e, colKey)}
+                      onDrop={isFixed ? undefined : (e) => handleColDrop(e, colKey)}
+                      onDragEnd={isFixed ? undefined : handleColDragEnd}
+                      onDragLeave={isFixed ? undefined : () => { if (dragOverColKey === colKey) setDragOverColKey(null) }}
                     >
                       <span className="col-header-content">
-                        <svg className="col-drag-handle" viewBox="0 0 8 14" width="8" height="14" fill="currentColor" aria-hidden="true">
-                          <circle cx="2" cy="2" r="1" /><circle cx="6" cy="2" r="1" />
-                          <circle cx="2" cy="7" r="1" /><circle cx="6" cy="7" r="1" />
-                          <circle cx="2" cy="12" r="1" /><circle cx="6" cy="12" r="1" />
-                        </svg>
-                        {sortable ? (
+                        {!isFixed && (
+                          <svg className="col-drag-handle" viewBox="0 0 8 14" width="8" height="14" fill="currentColor" aria-hidden="true">
+                            <circle cx="2" cy="2" r="1" /><circle cx="6" cy="2" r="1" />
+                            <circle cx="2" cy="7" r="1" /><circle cx="6" cy="7" r="1" />
+                            <circle cx="2" cy="12" r="1" /><circle cx="6" cy="12" r="1" />
+                          </svg>
+                        )}
+                        {isFixed ? (
+                          /* Merging three headers into one must not cost the user
+                             the ability to sort by them, so the attribute is
+                             chosen from a menu — as Atlassian does. */
+                          <span className="jira-list-col-menu-wrap" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setShowWorkSortMenu(false) }}>
+                            <button
+                              type="button"
+                              className={`col-sort-btn${workSortActive ? ' col-sort-active' : ''}`}
+                              aria-haspopup="menu"
+                              aria-expanded={showWorkSortMenu}
+                              onClick={() => setShowWorkSortMenu((c) => !c)}
+                            >
+                              {def.label}
+                              {workSortActive && (
+                                <span className="col-sort-indicator" aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
+                              )}
+                              <span className="jira-list-work-sort-caret" aria-hidden="true">⋯</span>
+                            </button>
+                            {showWorkSortMenu && (
+                              <span className="jira-list-col-menu" role="menu">
+                                {WORK_SORT_ATTRS.map((attr) => (
+                                  <button
+                                    key={attr}
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={sortKey === attr}
+                                    className={`jira-list-col-menu-item${sortKey === attr ? ' active' : ''}`}
+                                    onClick={() => { handleSort(attr); setShowWorkSortMenu(false) }}
+                                  >
+                                    <span className="jira-list-col-check">{sortKey === attr ? '✓' : ''}</span>
+                                    Sort by {attr === 'key' ? 'key' : attr === 'type' ? 'type' : 'summary'}
+                                  </button>
+                                ))}
+                              </span>
+                            )}
+                          </span>
+                        ) : sortable ? (
                           // Sort is triggered by a click on the label button, which is
                           // distinct from the th's drag-to-reorder gesture (drag never
                           // fires a click), so the two interactions don't conflict.
@@ -819,7 +946,8 @@ export function IssueListPage() {
                   {group.rows.map((issue, index) => {
                     const selected = selectedIds.includes(issue.id)
                     return (
-                      <tr key={issue.id} className={selected ? 'row-selected' : ''}>
+                      <Fragment key={issue.id}>
+                      <tr className={selected ? 'row-selected' : ''}>
                         {canBulkSelect && (
                           <td><input type="checkbox" checked={selected} onChange={(event) => toggleSelectOne(issue.id, event.target.checked)} aria-label={`Select ${issue.key || issue.title || 'issue'}`} /></td>
                         )}
@@ -840,6 +968,33 @@ export function IssueListPage() {
                         })}
                         <td />
                       </tr>
+                      {/* JL-398: inline child-item form, opened by the Work
+                          cell's "+". Sits directly under its parent row. */}
+                      {childParentId === issue.id && (
+                        <tr className="jira-list-child-create-row">
+                          <td colSpan={totalColSpan}>
+                            <span className="jira-list-child-create">
+                              <input
+                                className="quick-create-input"
+                                type="text"
+                                placeholder={`Child item of ${issue.key} — what needs to be done?`}
+                                aria-label={`Summary for the new child item of ${issue.key}`}
+                                value={childTitle}
+                                onChange={(e) => setChildTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') submitChildCreate()
+                                  if (e.key === 'Escape') cancelChildCreate()
+                                }}
+                                autoFocus
+                              />
+                              <button className="btn btn-primary quick-create-btn" type="button" onClick={submitChildCreate} disabled={childBusy}>Create</button>
+                              <button className="btn btn-ghost quick-create-btn" type="button" onClick={cancelChildCreate} disabled={childBusy}>Cancel</button>
+                              {childError && <span className="quick-create-error">{childError}</span>}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     )
                   })}
                 </Fragment>

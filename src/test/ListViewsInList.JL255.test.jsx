@@ -73,7 +73,7 @@ describe('JL-255 — saved views wired into the List page', () => {
 
     // Default view collapses the columns to just key/summary/status, so the
     // page's own default extra columns (Comments, Sprint) disappear.
-    expect(await screen.findByRole('columnheader', { name: /Summary/i })).toBeInTheDocument()
+    expect(await screen.findByRole('columnheader', { name: /Work/i })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.queryByRole('columnheader', { name: /Comments/i })).toBeNull()
       expect(screen.queryByRole('columnheader', { name: /Sprint/i })).toBeNull()
@@ -93,10 +93,10 @@ describe('JL-255 — saved views wired into the List page', () => {
     const payload = mocks.createListView.mock.calls[0][0]
     expect(payload.name).toBe('My View')
     // Persists this page's own column vocabulary (its current column order).
-    // JL-397 moved the default set closer to Jira's "All issues" default:
-    // Comments and Sprint were ours, not Jira's, and Assignee/Priority/Created
-    // took their place. Still asserted exactly, so a further drift is caught.
-    expect(payload.columns).toEqual(['type', 'key', 'summary', 'status', 'assignee', 'priority', 'created'])
+    // JL-397 moved the default set closer to Jira's "All issues" default, then
+    // JL-398 collapsed its type/key/summary entries into the single Work column.
+    // Still asserted exactly, so a further drift is caught.
+    expect(payload.columns).toEqual(['work', 'status', 'assignee', 'priority', 'created'])
     expect(payload.projectId).toBe('1')
     // Filter + sort are serialized into filterJql.
     const parsed = JSON.parse(payload.filterJql)
@@ -122,7 +122,7 @@ describe('JL-255 — saved views wired into the List page', () => {
 
     // Columns collapse to key/summary (Status header removed)...
     await waitFor(() => {
-      expect(screen.getByRole('columnheader', { name: /Summary/i })).toBeInTheDocument()
+      expect(screen.getByRole('columnheader', { name: /Work/i })).toBeInTheDocument()
       expect(screen.queryByRole('columnheader', { name: /Status/i })).toBeNull()
     })
     // ...and the saved status filter is restored on the toolbar filter select.

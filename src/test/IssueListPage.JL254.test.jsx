@@ -31,7 +31,8 @@ describe('JL-254 — List route serves IssueListPage (the issue-list UI)', () =>
     )
     // Issue-list toolbar + table markers.
     expect(screen.getByPlaceholderText('Search list')).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: /Summary/i })).toBeInTheDocument()
+    // JL-398 merged Type/Key/Summary into the single "Work" column.
+    expect(screen.getByRole('columnheader', { name: /Work/i })).toBeInTheDocument()
     // Actual issue rows are listed.
     expect(screen.getByText('Board a rocket')).toBeInTheDocument()
     expect(screen.getByText('TP-1')).toBeInTheDocument()

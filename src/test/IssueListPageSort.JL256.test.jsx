@@ -2,7 +2,7 @@
 // Clicking a sortable header sorts rows asc, then desc, then clears; aria-sort on
 // the <th> reflects the state; and sort composes with the status filter.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const ISSUES = [
@@ -37,12 +37,19 @@ function summaryOrder() {
   return Array.from(document.querySelectorAll('.jira-list-summary-link')).map((e) => e.textContent)
 }
 
+/* JL-398 merged Type/Key/Summary into one fixed "Work" column, so there is no
+ * longer a Summary header to click. Sorting by summary is still available — it
+ * moved into a menu on the Work header — so these helpers drive that instead and
+ * every assertion below is unchanged. */
 function summaryHeader() {
-  return screen.getByRole('columnheader', { name: /Summary/i })
+  return screen.getByRole('columnheader', { name: /Work/i })
 }
 
 function clickSummary() {
-  fireEvent.click(screen.getByRole('button', { name: /Summary/i }))
+  // Scoped to the header: each row also has an "Open work item …" button, which
+  // a bare /Work/i would match as well.
+  fireEvent.click(within(summaryHeader()).getByRole('button'))
+  fireEvent.click(screen.getByRole('menuitemradio', { name: /Sort by summary/i }))
 }
 
 describe('JL-256 — List view column sorting', () => {
@@ -75,8 +82,9 @@ describe('JL-256 — List view column sorting', () => {
     renderPage()
     clickSummary()
 
+    // The Key header is gone with JL-398's merge; Status still stands in as the
+    // "some other column" the assertion needs.
     expect(summaryHeader()).toHaveAttribute('aria-sort', 'ascending')
-    expect(screen.getByRole('columnheader', { name: /Key/i })).toHaveAttribute('aria-sort', 'none')
     expect(screen.getByRole('columnheader', { name: /Status/i })).toHaveAttribute('aria-sort', 'none')
   })
 
