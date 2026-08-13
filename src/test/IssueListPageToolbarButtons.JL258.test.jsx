@@ -61,12 +61,14 @@ describe('JL-258 — List toolbar buttons are functional, not dead affordances',
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: 'Display settings' }))
 
-    // "Priority" column not shown as a table header yet.
+    // JL-397 made Priority a default column, so it is no longer a valid subject
+    // for a "starts hidden, then appears" assertion. Due Date is still off by
+    // default and exercises exactly the same toggle path.
     const header = () => document.querySelector('.jira-list-table thead')
-    expect(header().textContent).not.toContain('Priority')
+    expect(header().textContent).not.toContain('Due Date')
 
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Priority/ }))
-    expect(header().textContent).toContain('Priority')
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Due Date/ }))
+    expect(header().textContent).toContain('Due Date')
   })
 
   it('does not render the dead "More options" button', () => {

@@ -29,10 +29,43 @@ const ALL_COLUMNS = {
   created:  { label: 'Created',  thClass: 'col-extra',    tdClass: 'jira-list-extra-cell', width: 110 },
   label:    { label: 'Label',    thClass: 'col-extra',    tdClass: 'jira-list-extra-cell', width: 100 },
   dueDate:  { label: 'Due Date', thClass: 'col-extra',    tdClass: 'jira-list-extra-cell', width: 110 },
+  // JL-397: three fields Atlassian's list offers that this one did not. All
+  // three are already returned by mapIssue() on every issue, so none of them is
+  // a placeholder column of the kind JL-388 had to delete from the Backlog.
+  reporter:    { label: 'Reporter',     thClass: 'col-extra', tdClass: 'jira-list-extra-cell', width: 140 },
+  updated:     { label: 'Updated',      thClass: 'col-extra', tdClass: 'jira-list-extra-cell', width: 110 },
+  storyPoints: { label: 'Story Points', thClass: 'col-extra', tdClass: 'jira-list-extra-cell', width: 110 },
 }
 
-const DEFAULT_COL_KEYS = ['type', 'key', 'summary', 'status', 'comments', 'sprint']
-const EXTRA_COL_KEYS = ['priority', 'assignee', 'created', 'label', 'dueDate']
+/* JL-397: Atlassian pins these three — "You'll always see the type, key, and
+ * summary fields." Without Key or Summary a row cannot be identified at all, so
+ * this is a correctness rule, not a preference. Pinned means NON-REMOVABLE, not
+ * frozen: they still reorder and resize like any other column. */
+const PINNED_COL_KEYS = ['type', 'key', 'summary']
+
+/* JL-397: was type/key/summary/status/comments/sprint. Comments and Sprint as
+ * defaults were ours, not Jira's — Jira's "All issues" default leads with Type,
+ * Key, Summary, Assignee, Reporter, Priority, Status and Created. This takes all
+ * of that except Reporter, which stays available but off by default: at the
+ * DEFAULT_WIDTHS below, seven columns total 1082px including the checkbox and
+ * "+" gutters and fit a 1440px window, where adding Reporter pushes past the
+ * content area and starts the table horizontally scrolling on first load. */
+const DEFAULT_COL_KEYS = ['type', 'key', 'summary', 'status', 'assignee', 'priority', 'created']
+const EXTRA_COL_KEYS = ['priority', 'assignee', 'created', 'label', 'dueDate', 'reporter', 'updated', 'storyPoints']
+
+/* JL-397: force the pinned columns back into any column set arriving from
+ * outside this component — chiefly a saved view (JL-255), whose stored `columns`
+ * array predates this rule and may simply not contain them. A missing pinned
+ * column is prepended rather than slotted into DEFAULT order, so a user's own
+ * arrangement of the columns they DID keep survives untouched. */
+function withPinnedColumns(order) {
+  const seen = new Set()
+  const valid = (Array.isArray(order) ? order : []).filter(
+    (key) => key in ALL_COLUMNS && !seen.has(key) && seen.add(key),
+  )
+  const missing = PINNED_COL_KEYS.filter((key) => !valid.includes(key))
+  return missing.length ? [...missing, ...valid] : valid
+}
 
 /* JL-255: expose the List page's own column vocabulary to the shared
  * ListViewControls so saved views persist this page's columns verbatim. */
@@ -45,6 +78,7 @@ const DEFAULT_WIDTHS = {
   type: 90, key: 110, summary: 300, status: 130,
   comments: 150, sprint: 120, priority: 100,
   assignee: 150, created: 120, label: 100, dueDate: 120,
+  reporter: 150, updated: 120, storyPoints: 120,
 }
 
 /* ── Column sorting (JL-256) ── *
@@ -56,6 +90,8 @@ const PRIORITY_RANK = Object.fromEntries(PRIORITIES.map((p, i) => [p, i]))
 const SORT_KIND = {
   type: 'text', key: 'text', summary: 'text', status: 'num', sprint: 'text',
   priority: 'num', assignee: 'text', created: 'date', label: 'text', dueDate: 'date',
+  // JL-397: storyPoints is 'num' deliberately — as text, 10 would sort before 2.
+  reporter: 'text', updated: 'date', storyPoints: 'num',
 }
 const SORTABLE = new Set(Object.keys(SORT_KIND))
 
@@ -158,6 +194,11 @@ export function IssueListPage() {
       case 'created': return issue.createdAt || issue.created_at
       case 'label': return issue.label
       case 'dueDate': return issue.dueDate
+      case 'reporter': return issue.reporter
+      case 'updated': return issue.updatedAt || issue.updated_at
+      // Number(), not the raw value: 0 is a legitimate estimate and must not be
+      // treated as missing, but null/'' must be.
+      case 'storyPoints': return issue.storyPoints == null || issue.storyPoints === '' ? null : Number(issue.storyPoints)
       default: return null
     }
   }, [sprintById])
@@ -391,6 +432,9 @@ export function IssueListPage() {
 
   /* ── Column toggle (add / remove from "+" menu) ── */
   function toggleColumn(colKey) {
+    // JL-397: belt and braces. Neither menu that calls this lists a pinned
+    // column today, but the guard means a future menu cannot quietly drop one.
+    if (PINNED_COL_KEYS.includes(colKey)) return
     setColumnOrder((current) => {
       if (current.includes(colKey)) {
         return current.filter((k) => k !== colKey)
@@ -507,9 +551,20 @@ export function IssueListPage() {
       case 'created':
         return <RelativeTime value={issue.createdAt || issue.created_at} fallback="-" />
       case 'label':
+        // Still a placeholder, deliberately. Labels live in the issue_labels
+        // join table and are not carried on the issue objects this page loads,
+        // so there is nothing to render yet — wiring that up is its own ticket.
         return '-'
       case 'dueDate':
-        return '-'
+        // JL-397: was a hardcoded '-' even though mapIssue() returns due_date.
+        return issue.dueDate ? <RelativeTime value={issue.dueDate} fallback="-" /> : '-'
+      case 'reporter':
+        return issue.reporter || '-'
+      case 'updated':
+        return <RelativeTime value={issue.updatedAt || issue.updated_at} fallback="-" />
+      case 'storyPoints':
+        // == null, so a genuine 0-point estimate renders as 0 rather than '-'.
+        return issue.storyPoints == null || issue.storyPoints === '' ? '-' : String(issue.storyPoints)
       default:
         return ''
     }
@@ -562,7 +617,11 @@ export function IssueListPage() {
               scoped to this project when the route carries a projectId. */}
           <ListViewControls
             columns={columnOrder}
-            onColumnsChange={setColumnOrder}
+            /* JL-397: every column set from the picker or a saved view goes
+               through the normaliser, so a view stored before the pinning rule
+               cannot restore a list with no Type/Key/Summary. */
+            onColumnsChange={(cols) => setColumnOrder(withPinnedColumns(cols))}
+            pinnedColumns={PINNED_COL_KEYS}
             filterJql={viewFilterState}
             onApplyView={handleApplyView}
             projectId={projectId ?? null}

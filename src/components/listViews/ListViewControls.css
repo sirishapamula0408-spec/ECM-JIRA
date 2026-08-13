@@ -115,6 +115,24 @@
   color: var(--color-text-subtle, #6b778c);
 }
 
+/* JL-397: marker on a column the consumer has pinned. The disabled checkbox
+   alone reads as "broken"; the word explains that it is deliberate. */
+.lvc-col-pinned {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--jira-surface-sunken, #f4f5f7);
+  color: var(--color-text-subtle, #6b778c);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lvc-col-label:has(input:disabled) {
+  cursor: default;
+}
+
 .lvc-col-reorder {
   display: flex;
   gap: 2px;

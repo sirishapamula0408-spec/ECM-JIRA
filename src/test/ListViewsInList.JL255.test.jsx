@@ -93,7 +93,10 @@ describe('JL-255 — saved views wired into the List page', () => {
     const payload = mocks.createListView.mock.calls[0][0]
     expect(payload.name).toBe('My View')
     // Persists this page's own column vocabulary (its current column order).
-    expect(payload.columns).toEqual(['type', 'key', 'summary', 'status', 'comments', 'sprint'])
+    // JL-397 moved the default set closer to Jira's "All issues" default:
+    // Comments and Sprint were ours, not Jira's, and Assignee/Priority/Created
+    // took their place. Still asserted exactly, so a further drift is caught.
+    expect(payload.columns).toEqual(['type', 'key', 'summary', 'status', 'assignee', 'priority', 'created'])
     expect(payload.projectId).toBe('1')
     // Filter + sort are serialized into filterJql.
     const parsed = JSON.parse(payload.filterJql)

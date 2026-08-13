@@ -25,6 +25,10 @@ import './ListViewControls.css'
  *  - columnLabels?: object  key→label map for the column picker (defaults to the search catalog)
  *  - allColumns?: string[]  full list of selectable column keys (defaults to keys of columnLabels)
  *  - defaultColumns?: string[]  the "reset to default" column set
+ *  - pinnedColumns?: string[]  keys that cannot be removed (JL-397). Their
+ *      checkbox renders checked+disabled instead of silently ignoring a click,
+ *      and they stay reorderable. Defaults to [] so consumers that do not pass
+ *      it keep the previous behaviour exactly.
  */
 export function ListViewControls({
   columns,
@@ -35,6 +39,7 @@ export function ListViewControls({
   columnLabels = COLUMN_LABELS,
   allColumns,
   defaultColumns = DEFAULT_COLUMNS,
+  pinnedColumns = [],
 }) {
   const allColumnKeys = allColumns || Object.keys(columnLabels)
   const [views, setViews] = useState([])
@@ -96,6 +101,9 @@ export function ListViewControls({
   function toggleColumn(key) {
     if (columns.includes(key)) {
       if (columns.length === 1) return // keep at least one column
+      // JL-397: the length check above protects the COUNT; this protects the
+      // IDENTITY of the columns a consumer has declared indispensable.
+      if (pinnedColumns.includes(key)) return
       onColumnsChange(columns.filter((c) => c !== key))
     } else {
       onColumnsChange([...columns, key])
@@ -249,8 +257,19 @@ export function ListViewControls({
               {columns.map((key, i) => (
                 <li key={key} className="lvc-col-item">
                   <label className="lvc-col-label">
-                    <input type="checkbox" checked onChange={() => toggleColumn(key)} />
+                    {/* JL-397: a pinned column shows as checked + disabled so it
+                        reads as permanently on, rather than looking clickable
+                        and then doing nothing. Reorder controls stay enabled. */}
+                    <input
+                      type="checkbox"
+                      checked
+                      disabled={pinnedColumns.includes(key)}
+                      onChange={() => toggleColumn(key)}
+                    />
                     {columnLabels[key] || key}
+                    {pinnedColumns.includes(key) && (
+                      <span className="lvc-col-pinned" title="Always shown">Always</span>
+                    )}
                   </label>
                   <span className="lvc-col-reorder">
                     <button type="button" className="link-btn" disabled={i === 0} onClick={() => move(i, -1)} title="Move up" aria-label={`Move ${columnLabels[key] || key} up`}>↑</button>
