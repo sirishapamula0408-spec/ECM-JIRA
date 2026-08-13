@@ -10,6 +10,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // ── Permission mock (mutated per test, as in ListView.rbac.test.jsx) ──
 let mockPerms = {}
@@ -241,6 +244,49 @@ describe('JL-398 — create child item', () => {
     const input = screen.getByLabelText(/Summary for the new child item of TP-1/i)
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(screen.queryByLabelText(/Summary for the new child item/i)).toBeNull()
+  })
+})
+
+/* These are CSS-source assertions, deliberately. The bug they guard was found by
+ * screenshotting the running app, NOT by the DOM tests above — the sort menu was
+ * rendering with all three items and passing every jsdom assertion while being
+ * visually clipped to the 40px header, so the options were unreachable. jsdom
+ * does no layout and cannot see clipping, so the only honest guard at this level
+ * is to assert the two declarations that keep the popover on screen. */
+describe('JL-398 — the sort menu is not clipped', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const css = readFileSync(
+    path.join(here, '..', 'pages', 'ListPage', 'IssueListPage.css'),
+    'utf8',
+  )
+  const rule = (selector) => {
+    const m = css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*\\{([^}]*)\\}`))
+    return m ? m[1] : null
+  }
+
+  it('.col-work opts out of the overflow:hidden that th sets for cell ellipsis', () => {
+    // .jira-list-table th sets overflow:hidden; a popover inside it is clipped to
+    // the header unless the cell opts out, exactly as .col-plus already does.
+    const block = rule('.jira-list-table .col-work')
+    expect(block, '.jira-list-table .col-work rule not found').not.toBeNull()
+    expect(block).toMatch(/overflow:\s*visible/)
+    expect(block).toMatch(/position:\s*relative/)
+  })
+
+  it('the Work menu is left-aligned so it does not hang off the table edge', () => {
+    // .jira-list-col-menu is right:0 for the trailing-edge "+" trigger; at the
+    // leading edge that pushes a 180px menu off the left and it gets clipped.
+    const block = rule('.col-work .jira-list-col-menu')
+    expect(block, '.col-work .jira-list-col-menu rule not found').not.toBeNull()
+    expect(block).toMatch(/left:\s*0/)
+    expect(block).toMatch(/right:\s*auto/)
+  })
+
+  it('the matching td still clips, so a long summary ellipsises', () => {
+    // Only the TH opts out — if the td did too, long summaries would overflow
+    // their cell instead of truncating.
+    expect(rule('.jira-list-table .col-work')).not.toMatch(/text-overflow/)
+    expect(css).toMatch(/\.jira-list-work \.jira-list-summary-link\s*\{[^}]*text-overflow:\s*ellipsis/)
   })
 })
 

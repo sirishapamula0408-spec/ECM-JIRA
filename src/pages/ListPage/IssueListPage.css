@@ -282,7 +282,18 @@ body.col-resizing * {
 }
 
 .jira-list-table .col-check { width: 46px; }
-.jira-list-table .col-work { width: 440px; }
+/* JL-398 follow-up: the Work header hosts the sort-attribute popover, so it has
+   to opt out of the `overflow: hidden` that .jira-list-table th sets for cell
+   ellipsis — otherwise the menu renders and is then clipped to the 40px header,
+   making all three sort options unreachable. .col-plus already does exactly this
+   for the add-column menu (see below); this is the same escape.
+   Only the TH opts out. The matching td keeps overflow:hidden so a long summary
+   still ellipsises. */
+.jira-list-table .col-work {
+  width: 440px;
+  position: relative;
+  overflow: visible;
+}
 .jira-list-table .col-status { width: 120px; }
 .jira-list-table .col-comments { width: 140px; }
 .jira-list-table .col-sprint { width: 110px; }
@@ -416,6 +427,16 @@ body.col-resizing * {
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
   min-width: 180px;
   padding: 6px 0;
+}
+
+/* JL-398 follow-up: .jira-list-col-menu is right-aligned, which is right for the
+   add-column "+" at the table's trailing edge but wrong for the Work header at
+   the leading edge — a 180px menu hung from `right: 0` there extends off the left
+   of the table and gets clipped by .jira-list-table-shell. Flip it to
+   left-aligned for this one trigger. */
+.col-work .jira-list-col-menu {
+  left: 0;
+  right: auto;
 }
 
 .jira-list-col-menu-item {
