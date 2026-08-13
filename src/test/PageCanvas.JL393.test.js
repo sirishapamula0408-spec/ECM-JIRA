@@ -5,8 +5,20 @@
 // The page background used to be declared four different ways: the global
 // `.page` rule painted it white (var(--jira-surface)) and eight pages then
 // re-declared their own value (#f4f5f7, #f7f8fa, #ffffff, var(--jira-bg)).
-// That inverted Atlassian's model, where a neutral grey canvas is what makes
-// white cards, panels and tables read as raised.
+// Consolidating them onto one token is what this ticket is for.
+//
+// JL-393 originally consolidated onto a GREY canvas, on the reading that
+// Atlassian puts white cards on a grey page. That is inverted. Atlassian's
+// elevation foundation makes elevation.surface — white — "the starting point
+// for body content and page backgrounds", and reserves the grey for
+// elevation.surface.sunken, "a backdrop (or well) where other content sits",
+// its documented example being Kanban board columns. Cards are
+// elevation.surface.raised: white, separated by shadow.
+//
+// A grey canvas therefore put the page and the board columns (#f1f2f4) within
+// ~1% of each other and flattened the content area into a single grey field.
+// The token is now white and the assertions below check the RELATIONSHIP —
+// canvas lighter than its wells — rather than pinning a hex.
 //
 // These assertions read the CSS sources directly — jsdom does not apply
 // external stylesheets, so the declared value is the only thing to check.
@@ -77,7 +89,7 @@ describe('JL-393 page canvas', () => {
   })
 
   describe('the canvas token', () => {
-    it('is defined once with a grey value, not white', () => {
+    it('is defined once as the white baseline surface', () => {
       const defs = [
         ...stripComments(layoutCss).matchAll(
           new RegExp(`${CANVAS_TOKEN}\\s*:\\s*([^;]+);`, 'g'),
@@ -86,18 +98,42 @@ describe('JL-393 page canvas', () => {
       // One light definition + one dark counterpart.
       expect(defs.length).toBe(2)
 
+      // Atlassian's elevation.surface — "the starting point for body content and
+      // page backgrounds". This assertion was inverted until the JL-393 follow-up:
+      // it required a grey canvas, which is what flattened the board (see below).
       const light = defs[0].toLowerCase()
-      expect(light).toMatch(/^#[0-9a-f]{6}$/)
-      expect(light).not.toBe('#ffffff')
-      expect(light).not.toBe('#fff')
+      expect(light).toMatch(/^#(ffffff|fff)$/)
+    })
 
-      // Grey, i.e. no channel more than a few points off the others, and light
-      // enough to still read as a near-white canvas rather than a mid tone.
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(light.slice(i, i + 2), 16))
+    it('is lighter than the wells that sit on it, so wells read as sunken', () => {
+      // The actual design rule, and the one worth guarding: canvas is
+      // elevation.surface, a board column is elevation.surface.sunken, so the
+      // column must be measurably darker than the page behind it. Pinning a hex
+      // is what let the canvas drift to within ~1% of the column and flatten the
+      // whole content area into a single grey field.
+      const light = stripComments(layoutCss)
+        .match(new RegExp(`${CANVAS_TOKEN}\\s*:\\s*([^;]+);`))[1]
+        .trim()
+        .toLowerCase()
+      // BoardPage.css declares .kanban-col twice (layout first, then painting),
+      // so take whichever block actually carries the background rather than the
+      // first one ruleBlock() would find.
+      const boardCss = stripComments(read('pages/BoardPage/BoardPage.css'))
+      const well = [...boardCss.matchAll(/^\.kanban-col\s*\{([^}]*)\}/gm)]
+        .map((m) => m[1].match(/background:\s*(#[0-9a-f]{6})/i)?.[1])
+        .find(Boolean)
+        ?.toLowerCase()
+      expect(well, '.kanban-col should paint its own sunken background').toBeTruthy()
+
+      const luminance = (hex) =>
+        [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0) / 3
+      const canvasHex = light === '#fff' ? '#ffffff' : light
+
+      // The well is grey, not tinted.
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(well.slice(i, i + 2), 16))
       expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThanOrEqual(8)
-      expect(Math.min(r, g, b)).toBeGreaterThan(0xe8)
-      // …but distinct enough from white that a white card separates from it.
-      expect(Math.max(r, g, b)).toBeLessThan(0xfb)
+      // …and sits below the canvas by enough to actually be visible as a well.
+      expect(luminance(canvasHex) - luminance(well)).toBeGreaterThanOrEqual(4)
     })
 
     it('has a dark-theme counterpart under .app-theme-dark', () => {

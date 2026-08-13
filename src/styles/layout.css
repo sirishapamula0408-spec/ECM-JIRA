@@ -1,23 +1,38 @@
-/* ── Page canvas token (JL-393) ──
-   One neutral grey behind every page, so white cards/panels/tables read as
-   raised — Atlassian's model. Previously `.page` defaulted to white and eight
-   pages each re-declared their own background (#f4f5f7, #f7f8fa, #ffffff,
-   var(--jira-bg)); the canvas was effectively four different colours.
+/* ── Page canvas token (JL-393, corrected) ──
+   One canvas colour behind every page. JL-393's consolidation was right — eight
+   pages each re-declaring their own background (#f4f5f7, #f7f8fa, #ffffff,
+   var(--jira-bg)) meant the canvas was effectively four different colours — but
+   it picked the wrong colour, and this corrects that half.
 
-   #f4f5f7 is Atlassian's N20 neutral and already the dominant grey in this
-   codebase — --jira-menu-hover, the List page's --list-bg, and roughly a dozen
-   row-hover and chip states all use it. It sits ~2% below white in relative
-   luminance: deep enough that a bordered white card separates from the canvas,
-   which is the whole point, and shallower than a tint you would read as "a
-   colour". Atlassian's newer #F7F8F9 was the alternative; it is close enough to
-   white here that cards stopped reading as raised, which is the bug.
+   JL-393 read Atlassian as "a neutral grey canvas with white cards on top". It
+   is the other way round. Per Atlassian's elevation foundation:
 
-   Defined here rather than in variables.css/theme.css deliberately: those two
-   files belong to JL-392, running in parallel. The dark counterpart is the
-   #1d2125 app canvas theme.css already paints onto `.app-theme-dark .page`;
-   this token mirrors it so anything reading --jira-canvas is theme-correct. */
+     elevation.surface         the baseline layer, and explicitly "the starting
+                               point for body content and page backgrounds"
+     elevation.surface.sunken  "a backdrop (or well) where other content sits",
+                               the documented example being Kanban board columns
+     elevation.surface.raised  "reserved for cards that can be moved, such as
+                               Jira and Trello cards", always with a shadow
+
+   So the grey is the WELL, not the page. The page is the white baseline; a
+   container that groups things (a board column) is sunken grey; a card inside
+   it is raised white plus shadow. Three tiers, not two.
+
+   Painting the canvas grey collapsed that. The canvas (#f4f5f7) and the board
+   columns (.kanban-col, #f1f2f4) landed ~1% apart in relative luminance, so the
+   wells stopped reading as wells and the whole content area flattened into one
+   grey field — the opposite of the separation JL-393 was trying to create.
+
+   Nothing else needs to move: every grouped surface already carries its own
+   border and shadow rather than relying on canvas contrast (GadgetWrapper and
+   .card use --jira-surface + --jira-border + a shadow, .jira-list-table-shell is
+   bordered), so they stay legible on white. The grey wells that should be grey
+   — board columns — set their own background and are untouched.
+
+   Dark theme is unaffected: #1d2125 is Atlassian's dark elevation.surface, and
+   it mirrors what theme.css already paints onto `.app-theme-dark .page`. */
 :root {
-  --jira-canvas: #f4f5f7;
+  --jira-canvas: #ffffff;
 }
 
 .app-theme-dark {
