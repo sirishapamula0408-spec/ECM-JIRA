@@ -252,8 +252,14 @@
   overflow: hidden;
 }
 
+/* JL-396: was max-height: 1200px, which combined with overflow: hidden silently
+   truncated any sprint whose issue list ran past that. Nothing transitions on
+   this property (the collapsed state is a plain max-height: 0 show/hide, no
+   animation), so the cap bought nothing and only set a ceiling on how many rows
+   a sprint could show. Raising the base font made each row taller and so cut
+   that ceiling by roughly a tenth; removing it fixes the clip at any size. */
 .sprint-issues.expanded {
-  max-height: 1200px;
+  max-height: none;
   margin-top: 0;
   margin-bottom: 8px;
   background: #ffffff;

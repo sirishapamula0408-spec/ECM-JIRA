@@ -100,21 +100,44 @@
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   --font-family-mono: "SFMono-Medium", "SF Mono", "Segoe UI Mono", "Roboto Mono", "Ubuntu Mono", Menlo, Consolas, Courier, monospace;
 
-  --font-size-xs: 9px;     /* captions, tiny badges          */
-  --font-size-sm: 10px;    /* labels, column headers, meta   */
-  --font-size-base: 12px;  /* body, inputs, buttons          */
-  --font-size-md: 14px;    /* h500, panel headings           */
-  --font-size-lg: 18px;    /* h600, modal / section titles   */
-  --font-size-xl: 22px;    /* h700, page titles              */
-  --font-size-xxl: 27px;   /* h800                           */
+  /* JL-396: the scale was raised so --font-size-base is 14px, Atlassian's body
+     size. The whole scale moved, not just the base, for two reasons:
 
-  --line-height-xs: 14px;
-  --line-height-sm: 14px;
-  --line-height-base: 18px;
-  --line-height-md: 18px;
-  --line-height-lg: 22px;
-  --line-height-xl: 26px;
-  --line-height-xxl: 30px;
+       1. Forced. base was 12px and md was 14px. Raising base alone would have
+          made base and md the same value, collapsing two steps into one.
+       2. Correctness. Every step below now lands exactly on a real Atlassian
+          Design System token rather than near one, so the scale IS Atlassian's
+          rather than a shrunken approximation of it:
+            xs 11px  font.body.small          sm 12px  metadata / labels
+            base 14px font.body               md 16px  h600 / body.large
+            lg 20px  h700                     xl 24px  h800
+            xxl 29px h900
+
+     Note this makes the token scale agree with something that was already true:
+     src/index.css sets :root to 14px / line-height 1.4286 (= 20/14), i.e. the
+     Atlassian body metric. Any element that did NOT opt into a token already
+     rendered at 14px, while every element that DID opt in shrank to 12px. The
+     old base was therefore not "the app's body size" so much as a 15% reduction
+     applied unevenly to whichever surfaces happened to use the token.
+
+     Line heights move with it, using Atlassian's own pairings. They are kept as
+     px rather than unitless so a heading that wraps keeps the intended rhythm
+     instead of compounding its own font-size. */
+  --font-size-xs: 11px;    /* captions, tiny badges          */
+  --font-size-sm: 12px;    /* labels, column headers, meta   */
+  --font-size-base: 14px;  /* body, inputs, buttons          */
+  --font-size-md: 16px;    /* h600, panel headings           */
+  --font-size-lg: 20px;    /* h700, modal / section titles   */
+  --font-size-xl: 24px;    /* h800, page titles              */
+  --font-size-xxl: 29px;   /* h900                           */
+
+  --line-height-xs: 16px;
+  --line-height-sm: 16px;
+  --line-height-base: 20px;
+  --line-height-md: 20px;
+  --line-height-lg: 24px;
+  --line-height-xl: 28px;
+  --line-height-xxl: 32px;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
