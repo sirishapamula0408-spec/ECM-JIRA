@@ -68,47 +68,53 @@ describe('JL-399 — both pages opt in to the locked layout', () => {
 describe('JL-399 — the height chain from the viewport down', () => {
   const locked = strip(layoutCss)
 
-  it('bounds the workspace to the viewport, but only when a page opts in', () => {
-    const block = ruleWith(locked, '.workspace:has(.page-viewport)')
-    expect(block, 'no :has()-gated workspace rule').not.toBeNull()
+  it('bounds the workspace to the viewport', () => {
+    // JL-399 gated this on :has(.page-viewport); JL-401 made it unconditional —
+    // see the superseded assertion below for why that became safe.
+    // Scoped to the media-query block: an unqualified `.workspace` lookup finds
+    // the unlocked base rule declared above it.
+    const media = locked.match(/@media \(min-width: 861px\)\s*\{([\s\S]*?)\n\}/)[1]
+    const block = exactRule(media, '.workspace')
+    expect(block, 'no locked workspace rule inside the breakpoint').not.toBeNull()
     expect(block).toMatch(/height:\s*100dvh/)
     expect(block).toMatch(/overflow:\s*hidden/)
   })
 
-  it('never locks .workspace or .page unconditionally', () => {
-    // ~40 other pages share these classes; locking them globally would trap
-    // content on any page that legitimately runs past the viewport.
-    const bare = locked.match(/(^|\})\s*\.workspace\s*\{([^}]*)\}/m)
-    expect(bare, '.workspace base rule not found').not.toBeNull()
-    expect(bare[2]).not.toMatch(/overflow:\s*hidden/)
-    expect(bare[2]).toMatch(/min-height:\s*100vh/)
-
-    const page = locked.match(/(^|\})\s*\.page\s*\{([^}]*)\}/m)
-    expect(page, '.page base rule not found').not.toBeNull()
-    expect(page[2]).not.toMatch(/overflow:\s*hidden/)
-    expect(page[2]).not.toMatch(/(^|[\s;])height:/)
+  it('locks the shell only because every page now has a scroll region (JL-401)', () => {
+    // SUPERSEDED, deliberately. JL-399 asserted the opposite — that .workspace is
+    // never locked unconditionally — because locking a page with no inner
+    // scroller does not make it scroll inside, it clips the content and strands
+    // it. JL-401 removed the hazard rather than the rule: every child of the
+    // content region is now a scroll region by default, so the fallback is
+    // "this scrolls" instead of "this is hidden", and the gate was no longer
+    // buying anything. The guarantee that replaces it is the one below.
+    const region = ruleWith(locked, '.content > *:not(')
+    expect(region, 'no default scroll-region rule — content could be stranded')
+      .not.toBeNull()
+    expect(region).toMatch(/overflow-y:\s*auto/)
+    expect(region).toMatch(/min-height:\s*0/)
   })
 
   it('lets the content column shrink below its content', () => {
     // min-height:0 is the link people forget: grid and flex items default to
     // min-height:auto and refuse to shrink, which defeats every bound below.
-    const block = ruleWith(locked, '.workspace:has(.page-viewport) > .content')
+    const block = ruleWith(locked, '.workspace > .content')
     expect(block).not.toBeNull()
     expect(block).toMatch(/min-height:\s*0/)
     expect(block).toMatch(/flex-direction:\s*column/)
   })
 
   it('keeps a tall sidebar reachable now that the shell cannot scroll', () => {
-    const block = ruleWith(locked, '.workspace:has(.page-viewport) > .sidebar')
+    const block = ruleWith(locked, '.workspace > .sidebar')
     expect(block).not.toBeNull()
     expect(block).toMatch(/overflow-y:\s*auto/)
   })
 
-  it('makes the page a flex column that can shrink', () => {
-    const block = exactRule(locked, '.page-viewport')
-    expect(block, 'no standalone .page-viewport rule').not.toBeNull()
-    expect(block).toMatch(/min-height:\s*0/)
-    expect(block).toMatch(/flex:\s*1 1 auto/)
+  it('makes the opted-out pages flex columns that delegate scrolling', () => {
+    const block = ruleWith(locked, '.content > .page-viewport')
+    expect(block, 'no .page-viewport opt-out rule').not.toBeNull()
+    expect(block).toMatch(/overflow:\s*hidden/)
+    expect(block).toMatch(/flex-direction:\s*column/)
   })
 
   it('applies the lock only above the narrow-width breakpoint', () => {

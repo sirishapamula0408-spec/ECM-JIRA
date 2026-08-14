@@ -67,19 +67,21 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Viewport-locked pages (JL-399) ──
-   Atlassian's shell does not scroll; the region inside it does — the table body
-   on the list, the board area on the board — so the toolbar and column headers
-   stay anchored. This builds the height chain that makes that possible:
-   viewport → .workspace → .content → .page, each one bounded, so the innermost
-   scroll region inherits a REAL bound instead of a calc() guess at how tall the
-   chrome above it happens to be.
+/* ── Viewport-locked shell (JL-399, generalised by JL-401) ──
+   Atlassian's shell does not scroll; the region inside it does. The sidebar,
+   topbar and project tabs stay put while the content scrolls beneath them. This
+   builds the height chain that makes that possible: viewport → .workspace →
+   .content → the page element, each one bounded, so the innermost scroll region
+   inherits a REAL bound rather than a calc() guess at how tall the chrome above
+   it happens to be.
 
-   Opt-in, not global. `.page` and `.workspace` are shared by ~40 pages; locking
-   them everywhere would trap content on any page that legitimately runs past the
-   viewport. So every rule here is gated on a `.page-viewport` marker class that
-   only the List and Board roots carry, matched via :has() on the ancestors
-   (verified supported: CSS.supports('selector(:has(*))') is true).
+   JL-399 gated all of this on a `.page-viewport` marker carried only by List and
+   Board, because locking a page that has no inner scroll region does not make it
+   scroll inside — it clips the overflow and strands the content. JL-401 removes
+   that gate by removing the hazard: the page element itself is now the scroll
+   region by DEFAULT, so the fallback for any page is "this scrolls", never "this
+   is hidden". `.page-viewport` remains as the opt-out for the two pages that
+   delegate scrolling to a bespoke inner region instead.
 
    Above the 860px breakpoint only. Below it the topbar reflows to auto-height
    and the mobile bottom nav appears; a locked shell wrapping a nested scroller is
@@ -87,14 +89,14 @@
    keep ordinary page scrolling, and the components' own max-height bounds (e.g.
    .kanban-col-cards) still apply there — which is why those stay in place. */
 @media (min-width: 861px) {
-  .workspace:has(.page-viewport) {
+  .workspace {
     height: 100dvh;
     overflow: hidden;
   }
 
   /* Grid and flex items default to min-height:auto, which refuses to shrink
      below their content — that alone would defeat every bound below. */
-  .workspace:has(.page-viewport) > .content {
+  .workspace > .content {
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -103,15 +105,40 @@
 
   /* The shell no longer scrolls, so a sidebar taller than the viewport would be
      unreachable without its own scroll. */
-  .workspace:has(.page-viewport) > .sidebar {
+  .workspace > .sidebar {
     overflow-y: auto;
   }
 
-  /* The page fills what the topbar and project panel leave, and hands that
-     height down to whichever child claims flex: 1. */
-  .page-viewport {
+  /* Chrome keeps its natural height and never shrinks. */
+  .content > .topbar,
+  .content > .project-top-panel-wrapper,
+  .content > .banner {
+    flex: 0 0 auto;
+  }
+
+  /* Everything else in the content region IS the scroll region.
+     Targeted structurally rather than by `.page`, because three pages inside the
+     shell root on their own class — RoadmapPage (.timeline-page),
+     WorkflowEditorPage (.workflow-editor-page) and AssetsPage (.assets-page) —
+     and those are precisely the ones a `.page`-only rule would clip. Any future
+     page root is covered too, without having to know this rule exists.
+
+     :where() rather than a chain of :not()s on purpose. Each :not(.x) carries
+     the specificity of .x, so the plain chain scores (0,4,0) and would BEAT the
+     `.content > .page-viewport` opt-out below at (0,2,0) — the board and list
+     would quietly get overflow-y:auto and a second scrollbar on top of their
+     own inner scroller. :where() contributes zero, leaving this at (0,1,0) so
+     the opt-out wins. Verified in the browser, not assumed. */
+  .content > *:not(:where(.topbar, .project-top-panel-wrapper, .banner)) {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Opt-out: these two delegate scrolling to a bespoke inner region (the table
+     body, the board area), so the page element itself must not scroll or the
+     board would get a second, redundant scrollbar. */
+  .content > .page-viewport {
     display: flex;
     flex-direction: column;
     overflow: hidden;
