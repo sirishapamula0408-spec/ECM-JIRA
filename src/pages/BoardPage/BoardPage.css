@@ -394,6 +394,68 @@ body.board-col-resizing {
   margin-bottom: 14px;
 }
 
+/* ── JL-399: board-level scrolling ──
+   Only inside a viewport-locked page (see layout.css); below the 861px
+   breakpoint none of this applies and the page scrolls as before, which is why
+   the base .kanban-col-cards bound (a vh max-height, JL-391) stays exactly as
+   it is rather than being replaced.
+
+   Axis split, deliberately: this region owns the VERTICAL axis (scrolling
+   through swimlanes) and .kanban-grid keeps the HORIZONTAL axis it has owned
+   since JL-320. Putting both on one element would give the board two nested
+   horizontal scrollbars. */
+@media (min-width: 861px) {
+  .page-viewport .board-scroll-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* With swimlanes ON there are several lanes: each keeps its own smaller bound
+     (.kanban-col-cards-laned) and this region scrolls through them.
+     With swimlanes OFF there is exactly one lane, and it should fill the height
+     so the columns — not the page — own the leftover space. :only-child is what
+     distinguishes the two without the CSS needing to know the setting. */
+  .page-viewport .board-scroll-region > .board-swimlane:only-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+  }
+
+  .page-viewport .board-scroll-region > .board-swimlane:only-child > .kanban-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Base rule is align-items: flex-start, which would leave every column at
+       its content height and defeat the fill. */
+    align-items: stretch;
+  }
+
+  /* The column becomes a header + card-list stack so the list can take the
+     slack. The header stays outside the scroll, as JL-391 requires. */
+  .page-viewport .board-scroll-region > .board-swimlane:only-child .kanban-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .page-viewport .board-scroll-region > .board-swimlane:only-child .kanban-col header {
+    flex: 0 0 auto;
+  }
+
+  /* The real bound at last: the flex chain from the viewport, rather than
+     calc(100vh - 260px) guessing at the height of the chrome above. */
+  .page-viewport .board-scroll-region > .board-swimlane:only-child .kanban-col-cards {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
 .board-swimlane-label {
   display: flex;
   align-items: center;

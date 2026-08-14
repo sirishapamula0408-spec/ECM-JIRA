@@ -67,6 +67,57 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Viewport-locked pages (JL-399) ──
+   Atlassian's shell does not scroll; the region inside it does — the table body
+   on the list, the board area on the board — so the toolbar and column headers
+   stay anchored. This builds the height chain that makes that possible:
+   viewport → .workspace → .content → .page, each one bounded, so the innermost
+   scroll region inherits a REAL bound instead of a calc() guess at how tall the
+   chrome above it happens to be.
+
+   Opt-in, not global. `.page` and `.workspace` are shared by ~40 pages; locking
+   them everywhere would trap content on any page that legitimately runs past the
+   viewport. So every rule here is gated on a `.page-viewport` marker class that
+   only the List and Board roots carry, matched via :has() on the ancestors
+   (verified supported: CSS.supports('selector(:has(*))') is true).
+
+   Above the 860px breakpoint only. Below it the topbar reflows to auto-height
+   and the mobile bottom nav appears; a locked shell wrapping a nested scroller is
+   the wrong pattern on a phone, and vh units are unreliable there. Narrow widths
+   keep ordinary page scrolling, and the components' own max-height bounds (e.g.
+   .kanban-col-cards) still apply there — which is why those stay in place. */
+@media (min-width: 861px) {
+  .workspace:has(.page-viewport) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Grid and flex items default to min-height:auto, which refuses to shrink
+     below their content — that alone would defeat every bound below. */
+  .workspace:has(.page-viewport) > .content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* The shell no longer scrolls, so a sidebar taller than the viewport would be
+     unreachable without its own scroll. */
+  .workspace:has(.page-viewport) > .sidebar {
+    overflow-y: auto;
+  }
+
+  /* The page fills what the topbar and project panel leave, and hands that
+     height down to whichever child claims flex: 1. */
+  .page-viewport {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
 .page h1 {
   margin: 0 0 12px;
   font-size: var(--font-size-xl);

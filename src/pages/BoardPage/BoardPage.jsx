@@ -522,7 +522,9 @@ export function BoardPage() {
   }
 
   return (
-    <section className="page">
+    // JL-399: `page-viewport` locks the shell to the viewport so the board area
+    // scrolls instead of the document. See src/styles/layout.css.
+    <section className="page page-viewport">
       <div className="board-jira-header">
         <h1 className="board-jira-title">{projectId ? `${filteredIssues[0]?.key?.split('-')[0] || 'Project'} Board` : 'Kanban board'}</h1>
         <div className="board-jira-actions">
@@ -713,7 +715,11 @@ export function BoardPage() {
         </div>
       )}
 
-      {/* Swimlanes */}
+      {/* Swimlanes.
+          JL-399: wrapped in a scroll region so the board scrolls inside the page
+          rather than growing the document — vertically through the lanes,
+          horizontally through the columns. */}
+      <div className="board-scroll-region">
       {swimlanes.map((lane) => (
         <div className="board-swimlane" key={lane.key} data-swimlane={lane.key}>
           {lane.label !== null && (
@@ -865,6 +871,7 @@ export function BoardPage() {
           </div>
         </div>
       ))}
+      </div>
       {confirmDialog}
     </section>
   )

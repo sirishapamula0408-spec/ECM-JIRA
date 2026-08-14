@@ -128,6 +128,52 @@
   overflow-x: auto;
 }
 
+/* ── JL-399: table-level scrolling ──
+   Only inside a viewport-locked page (see layout.css). Elsewhere — narrow
+   widths, or if this page ever loses the marker class — the rules above stand
+   and the page scrolls normally.
+
+   The shell is the flex child that absorbs the leftover height; the wrapper
+   inside it is the actual scroller, in BOTH axes. min-height:0 on each is what
+   lets them shrink below their content — without it a flex item refuses to go
+   under its intrinsic height and the whole chain silently reverts to growing
+   the page. */
+@media (min-width: 861px) {
+  .page-viewport .jira-list-table-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-viewport .jira-list-table-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  /* The point of a table-level scroll: the header stays while rows move.
+     z-index 1 keeps the header above the scrolling cells; it is deliberately
+     low so the JL-398 Work sort menu (z-index 20, in a th that opts out of
+     overflow) still paints above it. */
+  .page-viewport .jira-list-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--list-surface);
+  }
+
+  /* Toolbar, pagination and the create control are siblings of the shell and
+     must stay anchored rather than scrolling away with the rows. */
+  .page-viewport .jira-list-toolbar,
+  .page-viewport .jira-list-bulk-bar,
+  .page-viewport .jira-list-pagination,
+  .page-viewport .jira-list-create,
+  .page-viewport .quick-create-row {
+    flex: 0 0 auto;
+  }
+}
+
 .jira-list-table {
   /* JL-320: width:auto with max-width lets the fixed-layout table settle at or
      just under its container instead of rounding 1px past it (which showed a

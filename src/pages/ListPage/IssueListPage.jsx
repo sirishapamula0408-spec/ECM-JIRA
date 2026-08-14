@@ -670,8 +670,10 @@ export function IssueListPage() {
   const normalizedInitials = initialsFromName(nameParts.join(' '))
   const userTooltip = currentUserName || currentUserEmail || profile?.full_name || 'User'
 
+  // JL-399: `page-viewport` locks the shell to the viewport so the table body
+  // scrolls instead of the document. See src/styles/layout.css.
   return (
-    <section className="page jira-list-page">
+    <section className="page jira-list-page page-viewport">
       {confirmDialog}
       <div className="jira-list-toolbar">
         <div className="jira-list-toolbar-left">
