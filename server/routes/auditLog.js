@@ -35,6 +35,9 @@ const EXPORT_FIELDS = ['seq', 'actor', 'action', 'target', 'metadata', 'prev_has
 //     `count` in the response reflects how many rows were actually checked.
 const MAX_AUDIT_EXPORT_ROWS = 50000
 
+/** A bound with no time component, e.g. 2026-08-14 (JL-402). */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
 /** Build a WHERE clause + params from the shared filter query params. */
 function buildFilters(query) {
   const clauses = []
@@ -42,7 +45,23 @@ function buildFilters(query) {
   if (query.actor) { clauses.push('actor = ?'); params.push(String(query.actor)) }
   if (query.action) { clauses.push('action = ?'); params.push(String(query.action)) }
   if (query.dateFrom) { clauses.push('created_at >= ?'); params.push(String(query.dateFrom)) }
-  if (query.dateTo) { clauses.push('created_at <= ?'); params.push(String(query.dateTo)) }
+  if (query.dateTo) {
+    // JL-402: the UI sends date-only bounds (YYYY-MM-DD). Compared directly,
+    // `created_at <= '2026-08-14'` means `<= 2026-08-14 00:00:00`, so every
+    // entry recorded ON the To date is excluded and From == To returns nothing.
+    // A date-only bound therefore becomes an exclusive upper bound of the next
+    // day, which covers the whole day without needing a 23:59:59.999 sentinel.
+    // Values that carry a time component keep the original inclusive semantics,
+    // so any caller passing a full timestamp is unaffected.
+    const dateTo = String(query.dateTo)
+    if (DATE_ONLY.test(dateTo)) {
+      clauses.push("created_at < (?::date + INTERVAL '1 day')")
+      params.push(dateTo)
+    } else {
+      clauses.push('created_at <= ?')
+      params.push(dateTo)
+    }
+  }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   return { where, params }
 }
