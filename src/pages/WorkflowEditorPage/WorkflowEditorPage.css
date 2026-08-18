@@ -31,10 +31,14 @@
   gap: 12px;
 }
 
-.wfe-header h2 {
+/* JL-409: was `.wfe-header h2` at --font-size-lg/semibold. The element is
+   now an h1 (this page roots on .workflow-editor-page, not .page, so the shared
+   `.page h1` rule cannot reach it) and the values match that rule. */
+.wfe-header h1 {
   margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-medium);
   color: var(--jira-text);
 }
 

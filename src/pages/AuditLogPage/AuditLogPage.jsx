@@ -86,7 +86,8 @@ export function AuditLogPage() {
     <Box className="page audit-log-page" sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Audit Log</Typography>
+          {/* JL-409: plain h1 — see ActivityFeedPage for the rationale. */}
+          <h1>Audit Log</h1>
           <Typography variant="body2" color="text.secondary">
             Tamper-evident, hash-chained record of security-relevant events.
           </Typography>

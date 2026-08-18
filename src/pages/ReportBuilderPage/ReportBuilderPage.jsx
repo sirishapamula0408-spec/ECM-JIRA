@@ -176,9 +176,8 @@ export function ReportBuilderPage() {
 
   return (
     <div className="page report-builder-page">
-      <Typography variant="h4" sx={{ mb: 1, fontWeight: 600 }}>
-        Report Builder
-      </Typography>
+      {/* JL-409: plain h1 — was a MUI h4, the largest page title in the app. */}
+      <h1>Report Builder</h1>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
         Build a custom report: pick a dimension, a measure, a chart type and optional filters.
       </Typography>

@@ -747,7 +747,7 @@ export function WorkflowEditorPage() {
       {/* Header */}
       <div className="wfe-header">
         <div className="wfe-header-left">
-          <h2>Workflow Editor</h2>
+          <h1>Workflow Editor</h1>
           <label className="wfe-project-select-label">
             <span className="visually-hidden">Project</span>
             <select

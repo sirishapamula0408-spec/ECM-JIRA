@@ -25,12 +25,16 @@ function renderWithRouter(component) {
 describe('ActivityFeedPage shell (JL-378)', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('renders the "Activity Feed" title as an MUI heading', () => {
+  it('renders the "Activity Feed" title as the page level-1 heading', () => {
     renderWithRouter(<ActivityFeedPage />)
     const heading = screen.getByRole('heading', { name: /activity feed/i })
     expect(heading).toBeInTheDocument()
-    // Typography variant="h5" renders an <h5> element
-    expect(heading.tagName).toBe('H5')
+    // JL-409: was an <h5>, because the title used Typography variant="h5".
+    // That gave this page no h1 at all — a screen reader got an outline starting
+    // mid-hierarchy — and a size (21px) no other page used. It is now a plain
+    // <h1> picking up the shared `.page h1` treatment, so the assertion checks
+    // the level rather than the MUI element it used to render.
+    expect(heading.tagName).toBe('H1')
   })
 
   it('renders a descriptive subtitle beneath the heading', () => {

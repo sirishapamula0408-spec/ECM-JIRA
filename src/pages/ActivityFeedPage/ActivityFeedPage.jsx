@@ -92,7 +92,10 @@ export function ActivityFeedPage() {
     <Box className="page activity-feed-page" sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Activity Feed</Typography>
+          {/* JL-409: plain h1 so the page title is a level-1 heading and picks up
+              the shared `.page h1` treatment, rather than a MUI variant that
+              rendered an h5 at a size no other page used. */}
+          <h1>Activity Feed</h1>
           <Typography variant="body2" color="text.secondary">
             Chronological record of issue, comment and sprint activity across your projects.
           </Typography>

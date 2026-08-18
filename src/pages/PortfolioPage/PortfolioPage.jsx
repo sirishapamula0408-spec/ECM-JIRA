@@ -74,9 +74,10 @@ export function PortfolioPage() {
   return (
     <div className="page portfolio-page">
       <header className="page-header">
-        <Typography variant="h5" component="h1" fontWeight={600}>
-          Portfolio
-        </Typography>
+        {/* JL-409: plain h1. This already rendered correctly because `.page h1`
+            outranks the MUI class, but a variant that is always overridden is
+            misleading to read. */}
+        <h1>Portfolio</h1>
         <Typography variant="body2" color="text.secondary">
           Cross-project roll-up across every project you can access.
         </Typography>
