@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { all, get, run } from '../db.js'
+import { all, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 

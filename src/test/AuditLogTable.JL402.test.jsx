@@ -1,6 +1,6 @@
 // JL-402 — Audit Log: trimmed columns, real pagination, date-only filters.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const { mockFetchAuditLog, mockVerify, mockDownload } = vi.hoisted(() => ({
   mockFetchAuditLog: vi.fn(),

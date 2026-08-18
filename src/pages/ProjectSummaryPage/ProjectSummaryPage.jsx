@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { fetchProjectById } from '../../api/projectApi'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
-import { useMembers } from '../../context/MemberContext'
 import './ProjectSummaryPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -34,7 +33,6 @@ export function ProjectSummaryPage() {
   const navigate = useNavigate()
   const { issues } = useIssues()
   const { sprints } = useSprints()
-  const { members } = useMembers()
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

@@ -332,7 +332,10 @@ export function KnowledgeBasePage() {
                 {selected.author_email && <span>by {selected.author_email} · </span>}
                 <span>{selected.views ?? 0} views</span>
               </p>
-              {/* eslint-disable-next-line react/no-danger */}
+              {/* JL-406: the react/no-danger disable that was here referenced a rule
+                  this flat config does not define, so ESLint errored on the
+                  comment itself. The injection is deliberate and safe: `rendered`
+                  is passed through sanitizeHtml() above (JL-344). */}
               <div className="kb-article-body" dangerouslySetInnerHTML={{ __html: rendered }} />
               {canAuthor && (
                 <div className="kb-article-actions">

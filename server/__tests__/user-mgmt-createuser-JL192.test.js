@@ -17,7 +17,7 @@ vi.mock('../utils/mailer.js', () => ({
   buildInviteEmail: vi.fn().mockReturnValue({ subject: 's', html: 'h', text: 't' }),
 }))
 
-import { run, all, get } from '../db.js'
+import { run, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import { hashPassword } from '../middleware/validate.js'
 

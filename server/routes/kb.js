@@ -32,7 +32,7 @@ async function uniqueSlug(table, title, excludeId = null) {
   const base = slugify(title) || 'untitled'
   let candidate = base
   let n = 1
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     const existing = excludeId
       ? await get(`SELECT id FROM ${table} WHERE slug = ? AND id <> ?`, [candidate, excludeId])

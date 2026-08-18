@@ -22,7 +22,7 @@ vi.mock('../db.js', () => ({
   tableExists: vi.fn(),
 }))
 
-import { run, all, get } from '../db.js'
+import { run, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import {
   isPrivateHost,

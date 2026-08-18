@@ -394,7 +394,7 @@ function compileScanned(scanned, ctx, resolved) {
 
 // Resolve DB-backed functions (membersOf / linkedIssues) into concrete value
 // lists, bound later as parameters. Returns a Map keyed `fn:arg`.
-async function resolveFunctions(clauses, ctx) {
+async function resolveFunctions(clauses, _ctx) {
   const resolved = new Map()
   for (const c of clauses) {
     if (c.funcName == null) continue

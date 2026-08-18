@@ -170,7 +170,7 @@ describe('webhook pull_request', () => {
   })
 
   it('opened PR updates state on an existing link (UPDATE path)', async () => {
-    get.mockImplementation(async (sql, params) => {
+    get.mockImplementation(async (sql, _params) => {
       if (sql.includes('FROM issues WHERE issue_key')) return { id: 5 }
       if (sql.includes("link_type = 'pull_request'")) return { id: 99 }
       return null

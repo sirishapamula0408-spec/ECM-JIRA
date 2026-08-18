@@ -45,7 +45,6 @@ let mockSprints = []
 
 function renderPage(projectId) {
   const route = projectId ? `/projects/${projectId}/active-sprint` : '/active-sprint'
-  const path = projectId ? '/projects/:projectId/active-sprint' : '/active-sprint'
   return render(
     <MemoryRouter initialEntries={[route]}>
       <ActiveSprintPage />
@@ -368,7 +367,6 @@ describe('ActiveSprintPage — CSS design enhancements', () => {
   it('card has transition property for animation support', () => {
     renderPage()
     const card = screen.getByText('Setup project').closest('.active-sprint-card')
-    const styles = window.getComputedStyle(card)
     // Verify the card element exists and is rendered with the base class
     expect(card.classList.contains('active-sprint-card')).toBe(true)
   })

@@ -12,7 +12,7 @@ import { fetchIssueApprovals, submitApproval, checkApproval } from '../../api/ap
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
 import { ImpedimentFlagToggle } from '../../components/issues/ImpedimentFlag'
-import { fetchProjectComponents, fetchIssueComponents, setIssueComponents } from '../../api/componentApi'
+import { fetchProjectComponents, fetchIssueComponents } from '../../api/componentApi'
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'

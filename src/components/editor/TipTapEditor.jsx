@@ -88,7 +88,7 @@ export function TipTapEditor({ value = '', onChange, placeholder = 'Write someth
     if (!bothEmpty && sanitizeHtml(current) !== sanitizeHtml(incoming)) {
       editor.commands.setContent(incoming, { emitUpdate: false })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [value, editor])
 
   const runSlash = useCallback(
@@ -168,7 +168,7 @@ export function TipTapEditor({ value = '', onChange, placeholder = 'Write someth
 
 function setLink(editor) {
   const prev = editor.getAttributes('link').href || ''
-  // eslint-disable-next-line no-alert
+
   const url = typeof window !== 'undefined' && window.prompt ? window.prompt('Enter URL', prev) : prev
   if (url === null) return
   if (url === '') {

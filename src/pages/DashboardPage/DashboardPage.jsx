@@ -49,7 +49,7 @@ export function DashboardPage() {
 
   // Fetch projects for the filter and default to the first project
   const [projectList, setProjectList] = useState([])
-  const [projectsLoaded, setProjectsLoaded] = useState(false)
+  const [, setProjectsLoaded] = useState(false)
   useEffect(() => {
     fetchProjects()
       .then((data) => {
@@ -63,13 +63,6 @@ export function DashboardPage() {
   }, [])
 
   // Build projectId → name lookup
-  const projectMap = useMemo(() => {
-    const map = {}
-    for (const p of projectList) {
-      map[p.id] = p.name
-    }
-    return map
-  }, [projectList])
 
   // Global filters
   const [filters, setFilters] = useState({

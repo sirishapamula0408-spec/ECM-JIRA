@@ -49,7 +49,7 @@ export function AutomationPage() {
     fetchAutomationRules(projectId).then((d) => setRules(Array.isArray(d) ? d : [])).catch(() => setRules([]))
     fetchAutomationLogs(projectId).then((d) => setLogs(Array.isArray(d) ? d : [])).catch(() => setLogs([]))
   }
-  useEffect(() => { reload() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [projectId])
+  useEffect(() => { reload() }, [projectId])
 
   async function handleCreate(e) {
     e.preventDefault()

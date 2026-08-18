@@ -42,7 +42,7 @@ export function ReleasesPage() {
       .then((d) => setReleases(Array.isArray(d) ? d : []))
       .catch(() => setReleases([]))
   }
-  useEffect(() => { reload() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [projectId])
+  useEffect(() => { reload() }, [projectId])
 
   async function handleCreate(e) {
     e.preventDefault()

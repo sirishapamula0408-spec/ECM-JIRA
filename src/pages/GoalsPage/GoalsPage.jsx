@@ -45,7 +45,7 @@ export function GoalsPage() {
       .then((d) => setGoals(Array.isArray(d) ? d : []))
       .catch(() => setGoals([]))
   }
-  useEffect(() => { reload() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [projectId])
+  useEffect(() => { reload() }, [projectId])
 
   async function handleCreate(e) {
     e.preventDefault()

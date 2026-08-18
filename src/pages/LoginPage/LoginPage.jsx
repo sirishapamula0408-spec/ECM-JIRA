@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { forgotPassword, resetPassword, fetchSsoStatus, startOidcLogin, startSamlLogin } from '../../api/authApi'
 import sedinLogo from '../../assets/sedin-logo.svg'
-import sedinLogoFull from '../../assets/sedin-logo-full.svg'
 import './LoginPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 

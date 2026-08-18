@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     // Surface the error for debugging without crashing the app.
-    // eslint-disable-next-line no-console
+
     console.error('ErrorBoundary caught an error:', error, info)
   }
 

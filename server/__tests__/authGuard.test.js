@@ -8,10 +8,9 @@ import { authGuard } from '../middleware/authGuard.js'
 function createApp() {
   const app = express()
   app.use(express.json())
-  app.get('/protected', authGuard, (_req, res) => {
+  app.get('/protected', authGuard, (req, res) => {
     res.json({ user: req.user, ok: true })
   })
-  // Fix: use req from handler params
   app.get('/whoami', authGuard, (req, res) => {
     res.json({ userId: req.user.id, email: req.user.email })
   })

@@ -9,7 +9,8 @@ import { safeEqual } from '../utils/safeEqual.js'
 const router = Router()
 
 // PR states a webhook may set on a git_links pull_request row.
-const PR_STATES = ['open', 'merged', 'closed']
+// JL-406: kept as reference documentation (prefixed to satisfy no-unused-vars).
+const _PR_STATES = ['open', 'merged', 'closed']
 
 export const GIT_LINK_TYPES = ['branch', 'commit', 'pull_request']
 

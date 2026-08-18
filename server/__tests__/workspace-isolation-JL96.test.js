@@ -11,7 +11,7 @@ vi.mock('../db.js', () => ({
   tableExists: vi.fn(),
 }))
 
-import { run, all, get } from '../db.js'
+import { all, get } from '../db.js'
 import { resolveWorkspace, isWorkspaceMember, pickWorkspaceId } from '../middleware/workspace.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import projectRoutes from '../routes/projects.js'

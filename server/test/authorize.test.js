@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, initTestSchema, seedTestMembers, seedTestProject } from './setup.js'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import './setup.js'
 
 // We test the middleware logic by mocking the db module
 // and calling the middleware functions directly with mock req/res/next

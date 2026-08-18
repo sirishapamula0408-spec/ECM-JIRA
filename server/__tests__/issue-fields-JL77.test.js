@@ -24,7 +24,7 @@ vi.mock('../services/automation.js', () => ({
   runStatusChangeAutomations: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { run, all, get } from '../db.js'
+import { run, get } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 
 function createApp(routeModule, mountPath = '/api/issues') {

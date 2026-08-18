@@ -20,7 +20,8 @@ import { hashPassword } from '../middleware/validate.js'
 const USER_SCHEMA = 'urn:ietf:params:scim:schemas:core:2.0:User'
 const GROUP_SCHEMA = 'urn:ietf:params:scim:schemas:core:2.0:Group'
 const LIST_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:ListResponse'
-const PATCH_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:PatchOp'
+// JL-406: one of the four SCIM schema URNs; kept for reference.
+const _PATCH_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:PatchOp'
 const ERROR_SCHEMA = 'urn:ietf:params:scim:api:messages:2.0:Error'
 
 const SCIM_CONTENT_TYPE = 'application/scim+json'

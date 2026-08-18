@@ -21,7 +21,7 @@ vi.mock('../routes/notifications.js', async (importOriginal) => {
 })
 
 import { run, all, get } from '../db.js'
-import { errorHandler, asyncHandler } from '../middleware/errorHandler.js'
+import { errorHandler } from '../middleware/errorHandler.js'
 
 // Helper: create an app with auth middleware stub
 function createApp(routeModule, mountPath = '/api') {

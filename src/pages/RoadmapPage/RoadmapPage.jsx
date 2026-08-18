@@ -2,7 +2,6 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAppData } from '../../context/AppDataContext'
 import { useIssues } from '../../context/IssueContext'
-import { useSprints } from '../../context/SprintContext'
 import { ISSUE_STATUSES } from '../../constants'
 import './RoadmapPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -89,7 +88,6 @@ export function RoadmapPage() {
   usePageTitle('Roadmap')
   const { roadmap } = useAppData()
   const { issues } = useIssues()
-  const { sprints } = useSprints()
   const { projectId } = useParams()
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState({})
@@ -130,7 +128,7 @@ export function RoadmapPage() {
   }, [epics, issueList])
 
   // Compute timeline range
-  const { timelineStart, timelineEnd, weeks, months } = useMemo(() => {
+  const { timelineStart, weeks, months } = useMemo(() => {
     let minDate = null
     let maxDate = null
     epics.forEach((ep) => {
@@ -267,7 +265,7 @@ export function RoadmapPage() {
             {rows.length === 0 && (
               <div className="tl-empty">No epics on the roadmap yet.</div>
             )}
-            {rows.map((row, i) => {
+            {rows.map((row, _i) => {
               if (row.type === 'epic') {
                 const ep = row.epic
                 return (
@@ -350,7 +348,7 @@ export function RoadmapPage() {
               )}
 
               {/* Gantt rows */}
-              {rows.map((row, i) => {
+              {rows.map((row, _i) => {
                 if (row.type === 'epic') {
                   const ep = row.epic
                   const style = barStyle(ep.startDate, ep.endDate)

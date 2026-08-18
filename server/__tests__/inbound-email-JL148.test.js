@@ -26,7 +26,7 @@ vi.mock('../config.js', async (importOriginal) => {
   }
 })
 
-import { run, all, get } from '../db.js'
+import { run, get } from '../db.js'
 import inboundEmailRoutes, {
   parseInboundEmail,
   extractIssueKey,
