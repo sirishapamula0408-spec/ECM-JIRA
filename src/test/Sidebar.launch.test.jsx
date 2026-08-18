@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // ── Sidebar deps ──
 vi.mock('../hooks/usePermissions', () => ({
@@ -66,9 +69,47 @@ describe('JL-277 launch sidebar', () => {
     expect(screen.getByRole('link', { name: 'Dashboards' })).toHaveAttribute('href', '/dashboard')
     expect(screen.getByRole('link', { name: 'Portfolio' })).toHaveAttribute('href', '/portfolio')
     expect(screen.getByRole('link', { name: 'Report Builder' })).toHaveAttribute('href', '/report-builder')
-    expect(screen.getByRole('link', { name: 'Advanced Roadmap' })).toHaveAttribute('href', '/advanced-roadmap')
-    expect(screen.getByRole('link', { name: 'Shared Dashboards' })).toHaveAttribute('href', '/shared-dashboards')
-    expect(screen.getByRole('link', { name: 'Cross-Project Boards' })).toHaveAttribute('href', '/cross-project-boards')
+  })
+
+  it('JL-403: no longer advertises Advanced Roadmap, Shared Dashboards or Cross-Project Boards', () => {
+    // Inverted rather than deleted: this test used to assert all three were
+    // present as links. They are HIDDEN from the nav, not removed — the routes,
+    // pages and APIs are untouched, so a bookmark still resolves. Restoring one
+    // means putting its label back in LAUNCH_NAV.
+    renderSidebar()
+    for (const label of ['Advanced Roadmap', 'Shared Dashboards', 'Cross-Project Boards']) {
+      expect(screen.queryByRole('link', { name: label }), label).toBeNull()
+    }
+  })
+
+  it('JL-403: hides them via the allow-list, keeping the definitions and routes', () => {
+    // The distinction this guards: dropping the labels from LAUNCH_NAV hides
+    // them while leaving the path/icon wiring in utilityItems, so flipping
+    // LAUNCH_SIDEBAR to false brings the full nav back and restoring a single
+    // entry is a one-word edit. Deleting the utilityItems rows would look
+    // identical on screen and silently destroy both of those properties.
+    const here = path.dirname(fileURLToPath(import.meta.url))
+    const sidebar = fs.readFileSync(
+      path.join(here, '..', 'components', 'layout', 'Sidebar.jsx'), 'utf8',
+    )
+    const launchNav = sidebar.match(/const LAUNCH_NAV = \[([^\]]*)\]/)[1]
+    const utilityBlock = sidebar.match(/const utilityItems = \[([\s\S]*?)\]/)[1]
+
+    for (const [label, route] of [
+      ['Advanced Roadmap', '/advanced-roadmap'],
+      ['Shared Dashboards', '/shared-dashboards'],
+      ['Cross-Project Boards', '/cross-project-boards'],
+    ]) {
+      expect(launchNav, `${label} should be out of LAUNCH_NAV`).not.toContain(label)
+      expect(utilityBlock, `${label} definition should remain`).toContain(label)
+      expect(utilityBlock, `${route} wiring should remain`).toContain(route)
+    }
+
+    // And the routes themselves are untouched, so a bookmark still resolves.
+    const app = fs.readFileSync(path.join(here, '..', 'App.jsx'), 'utf8')
+    for (const route of ['/advanced-roadmap', '/shared-dashboards', '/cross-project-boards']) {
+      expect(app, `${route} route should still exist`).toContain(`path="${route}"`)
+    }
   })
 
   it('hides all non-launch nav items', () => {

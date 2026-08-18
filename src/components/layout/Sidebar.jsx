@@ -10,7 +10,11 @@ import './Sidebar.css'
 // JL-277: launch sidebar shows only these sections; flip LAUNCH_SIDEBAR to false to restore the full nav.
 // JL-282: Projects kept so the launch sidebar retains an entry point to boards/backlogs.
 const LAUNCH_SIDEBAR = true
-const LAUNCH_NAV = ['Projects', 'Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder', 'Advanced Roadmap', 'Shared Dashboards', 'Cross-Project Boards']
+// JL-403: Advanced Roadmap, Shared Dashboards and Cross-Project Boards dropped
+// from this allow-list. Their entries stay in utilityItems below and their
+// routes stay in App.jsx — the pages are HIDDEN from the nav, not removed, so a
+// bookmark or a pasted link still resolves and restoring one is a one-word edit.
+const LAUNCH_NAV = ['Projects', 'Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
