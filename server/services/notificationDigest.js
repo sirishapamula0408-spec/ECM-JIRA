@@ -78,7 +78,7 @@ export async function runDigests(now = new Date()) {
          FROM notifications
          WHERE recipient_email = ?
            AND is_read = FALSE
-           AND (? IS NULL OR created_at > ?)
+           AND (?::timestamptz IS NULL OR created_at > ?)
            AND created_at <= ?
          ORDER BY created_at ASC`,
         [pref.user_email, pref.last_digest_sent_at, pref.last_digest_sent_at, nowIso],

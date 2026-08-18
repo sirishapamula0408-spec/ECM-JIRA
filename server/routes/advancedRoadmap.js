@@ -174,7 +174,7 @@ async function accessibleProjects(req) {
       `SELECT DISTINCT p.id, p.key, p.name FROM projects p
          LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
         WHERE (pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?))
-          AND (? IS NULL OR p.workspace_id = ?)
+          AND (?::int IS NULL OR p.workspace_id = ?)
         ORDER BY p.id ASC`,
       [member.id, member.name, workspaceId, workspaceId],
     )) || []
@@ -182,7 +182,7 @@ async function accessibleProjects(req) {
   return (await all(
     `SELECT id, key, name FROM projects
       WHERE LOWER(lead) = LOWER(?)
-        AND (? IS NULL OR workspace_id = ?)
+        AND (?::int IS NULL OR workspace_id = ?)
       ORDER BY id ASC`,
     [userEmail, workspaceId, workspaceId],
   )) || []
