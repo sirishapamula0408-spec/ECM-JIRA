@@ -13,6 +13,9 @@ const HIDDEN_ROUTES = [
   '/issues',
   '/activity',
   '/audit-log',
+  '/filters',
+  '/portfolio',
+  '/report-builder',
   '/teams',
   '/users',
 ]
