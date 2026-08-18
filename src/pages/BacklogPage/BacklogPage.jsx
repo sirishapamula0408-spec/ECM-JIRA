@@ -446,6 +446,8 @@ export function BacklogPage() {
 
   return (
     <section className="page backlog-page">
+      {/* JL-410: see ListPage — this page had no heading element either. */}
+      <h1>Backlog</h1>
       <div className="backlog-toolbar">
         <div className="backlog-toolbar-left">
           <input className="backlog-search-input" placeholder="Search backlog..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />

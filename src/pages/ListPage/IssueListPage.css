@@ -165,6 +165,9 @@
 
   /* Toolbar, pagination and the create control are siblings of the shell and
      must stay anchored rather than scrolling away with the rows. */
+  /* JL-410: the h1 joins the pinned chrome. As a flex child it would default to
+     `flex: 0 1 auto` and could be squeezed when the table competes for space. */
+  .page-viewport > h1,
   .page-viewport .jira-list-toolbar,
   .page-viewport .jira-list-bulk-bar,
   .page-viewport .jira-list-pagination,

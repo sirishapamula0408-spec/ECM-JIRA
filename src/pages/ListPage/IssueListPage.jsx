@@ -675,6 +675,10 @@ export function IssueListPage() {
   return (
     <section className="page jira-list-page page-viewport">
       {confirmDialog}
+      {/* JL-410: this page had no heading at all, so assistive tech announced no
+          page title on one of the app's densest surfaces. Plain h1 so the shared
+          `.page h1` rule owns the treatment (JL-409 convention). */}
+      <h1>List</h1>
       <div className="jira-list-toolbar">
         <div className="jira-list-toolbar-left">
           <label className="jira-list-search">

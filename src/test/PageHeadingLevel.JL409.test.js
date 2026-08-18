@@ -31,6 +31,10 @@ const PAGES = [
   ['DashboardPage/DashboardPage.jsx', null],
   ['PortfolioPage/PortfolioPage.jsx', 'Portfolio'],
   ['ReportBuilderPage/ReportBuilderPage.jsx', 'Report Builder'],
+  // JL-410: these two had NO heading element at all — the more severe form of
+  // the same defect, on the app's two densest surfaces.
+  ['ListPage/IssueListPage.jsx', 'List'],
+  ['BacklogPage/BacklogPage.jsx', 'Backlog'],
 ]
 
 describe('JL-409 — every page declares an h1 title', () => {
