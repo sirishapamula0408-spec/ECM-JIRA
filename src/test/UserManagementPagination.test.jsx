@@ -11,7 +11,7 @@ vi.mock('../api/memberApi', () => ({
 }))
 
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
-import { MemberProvider } from '../context/MemberContext'
+import { MemberProvider } from '../context/MemberProvider'
 import { fetchMembersPage } from '../api/memberApi'
 
 // 30 members: "User 01".."User 30"; only "User 01" is Admin, rest Members.

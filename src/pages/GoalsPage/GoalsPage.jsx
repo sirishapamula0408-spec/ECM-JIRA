@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchProjects } from '../../api/projectApi'
 import {
@@ -6,7 +6,7 @@ import {
   createKeyResult, updateKeyResult, deleteKeyResult,
 } from '../../api/goalApi'
 import { usePermissions } from '../../hooks/usePermissions'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 import { EmptyState } from '../../components/common/EmptyState'
 import './GoalsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -39,13 +39,20 @@ export function GoalsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeProjectId])
 
-  function reload() {
+  // JL-407: `reload` is memoised on projectId and the effect depends on the memo.
+  // It used to be a plain function redeclared every render, with the effect
+  // depending on `projectId` instead — which worked, but only because the stale
+  // closure happened to be equivalent to a fresh one. Naming `reload` as the
+  // dependency is what the rule asked for, and the useCallback is what makes that
+  // safe: without it the identity changes every render and the effect refetches
+  // in a loop.
+  const reload = useCallback(() => {
     if (!projectId) return
     fetchProjectGoals(projectId)
       .then((d) => setGoals(Array.isArray(d) ? d : []))
       .catch(() => setGoals([]))
-  }
-  useEffect(() => { reload() }, [projectId])
+  }, [projectId])
+  useEffect(() => { reload() }, [reload])
 
   async function handleCreate(e) {
     e.preventDefault()

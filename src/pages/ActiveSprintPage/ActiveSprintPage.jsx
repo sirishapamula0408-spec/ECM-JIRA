@@ -8,7 +8,7 @@ import { STATUS_COLUMNS } from '../../constants'
 import './ActiveSprintPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 
 const RETRO_COLUMNS = [
   { key: 'well', label: 'What went well' },
@@ -307,6 +307,11 @@ function RetroPanel({ sprintId, canEdit }) {
     }
   }, [sprintId])
 
+  // JL-407: a false positive. `load` is async and its first statement is
+  // `await fetchRetros(...)` — nothing sets state before that await, so nothing
+  // here runs synchronously within the effect. The rule does not model the
+  // suspension point and treats the whole async body as the effect body.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
   useEffect(() => { load() }, [load])
 
   async function onAdd(category) {

@@ -146,18 +146,31 @@ function GadgetCard({ gadget, catalog, readOnly, onRemove, onMoveUp, onMoveDown 
     () => catalog.find((c) => c.type === gadget.type),
     [catalog, gadget.type],
   )
+  // JL-407: the effect below depends on `config`, not on `gadget.config`. The
+  // stringified key was already here to get value equality — a config object
+  // rebuilt with identical contents must not trigger a refetch — but the effect
+  // then read `gadget.config` directly, which the deps array did not list. Round
+  // the key back into an object and depend on that: one dependency that is both
+  // exhaustive and value-compared.
   const configKey = JSON.stringify(gadget.config || {})
+  const config = useMemo(() => JSON.parse(configKey), [configKey])
 
   useEffect(() => {
     let active = true
+    // JL-407: reset the in-flight/error pair before refetching. The trigger is
+    // the gadget's own type/config changing underneath this card, which this
+    // component never sees as an event, so there is nowhere else to put it.
+    // Leaving the stale error visible while the new request runs would be worse
+    // than the extra render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setLoading(true)
     setError(false)
-    fetchGadgetData(gadget.type, gadget.config || {})
+    fetchGadgetData(gadget.type, config)
       .then((res) => { if (active) setData(res?.data) })
       .catch(() => { if (active) setError(true) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [gadget.type, configKey])
+  }, [gadget.type, config])
 
   return (
     <div className="gadget-card">

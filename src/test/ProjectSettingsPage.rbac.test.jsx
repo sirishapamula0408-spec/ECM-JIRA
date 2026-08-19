@@ -93,7 +93,8 @@ vi.mock('../context/MemberContext', () => ({
 vi.mock('../hooks/usePermissions', () => ({
   usePermissions: () => mockState.perms,
 }))
-vi.mock('../components/common/ConfirmDialog', () => ({
+// JL-407: useConfirm moved into its own module; mock that, not the dialog.
+vi.mock('../components/common/useConfirm', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true), confirmDialog: null }),
 }))
 

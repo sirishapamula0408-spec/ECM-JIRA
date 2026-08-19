@@ -27,7 +27,7 @@ vi.mock('../hooks/usePermissions', () => ({
 }))
 
 import { TeamsPage } from '../pages/TeamsPage/TeamsPage'
-import { MemberProvider } from '../context/MemberContext'
+import { MemberProvider } from '../context/MemberProvider'
 import { usePermissions } from '../hooks/usePermissions'
 import { fetchMembers, fetchInvitations } from '../api/memberApi'
 

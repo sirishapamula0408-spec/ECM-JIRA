@@ -31,10 +31,19 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   const projectMatch = matchPath('/projects/:projectId/*', location.pathname)
   const activeProjectId = projectMatch?.params?.projectId
 
-  // Auto-expand when navigating to a project route
-  useEffect(() => {
+  // Auto-expand when navigating to a project route.
+  // JL-407: done during render rather than in an effect, so the tree is already
+  // open in the commit that navigates instead of opening one render later.
+  // `seenProjectId` tracks the raw value including undefined, which keeps parity
+  // with the effect this replaced on all four transitions: mount inside a
+  // project expands; A→B expands; leaving a project route does nothing (so a
+  // manual collapse survives); and re-entering a project you had collapsed
+  // expands again, because leaving reset the tracked value to undefined.
+  const [seenProjectId, setSeenProjectId] = useState(undefined)
+  if (activeProjectId !== seenProjectId) {
+    setSeenProjectId(activeProjectId)
     if (activeProjectId) setProjectsExpanded(true)
-  }, [activeProjectId])
+  }
 
   // Fetch projects when expanded
   const loadProjects = useCallback(() => {
@@ -47,10 +56,18 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     if (projectsExpanded && projects.length === 0) loadProjects()
   }, [projectsExpanded, loadProjects, projects.length])
 
-  // Re-fetch projects when a new project is created
+  // Re-fetch projects when a new project is created.
+  // JL-407: this one stays an effect. Its substance is the `loadProjects()`
+  // fetch, which cannot move into render, and the expand is part of the same
+  // "a project was just created" response. Splitting the expand out into the
+  // render-adjust above would scatter one behaviour across two mechanisms
+  // keyed on two different triggers. The real fix is for the parent to call
+  // back instead of bumping a counter, which is a change to App.jsx and the
+  // create-project flow, not to this line.
   useEffect(() => {
     if (projectRefreshKey > 0) {
       loadProjects()
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       setProjectsExpanded(true)
     }
   }, [projectRefreshKey, loadProjects])

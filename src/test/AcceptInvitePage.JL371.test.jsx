@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 import { AcceptInvitePage } from '../pages/AcceptInvitePage/AcceptInvitePage'
-import { AuthProvider } from '../context/AuthContext'
+import { AuthProvider } from '../context/AuthProvider'
 import { acceptInvitation, lookupInvitation } from '../api/memberApi'
 
 /**

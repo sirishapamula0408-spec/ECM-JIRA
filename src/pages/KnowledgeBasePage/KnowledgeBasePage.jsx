@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 import { EmptyState } from '../../components/common/EmptyState'
 import {
   fetchKbCategories, createKbCategory,

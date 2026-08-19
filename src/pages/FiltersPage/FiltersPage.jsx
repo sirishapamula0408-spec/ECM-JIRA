@@ -9,7 +9,7 @@ import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import './FiltersPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 
 const EMPTY_CRITERIA = { status: 'All', priority: 'All', issueType: 'All', assignee: '', text: '', projectId: 'All' }
 

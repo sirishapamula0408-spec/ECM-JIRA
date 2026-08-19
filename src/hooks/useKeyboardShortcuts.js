@@ -67,8 +67,17 @@ export function useKeyboardShortcuts({
   enabled = true,
   sequenceTimeout = 1000,
 } = {}) {
+  // JL-407: the latest-handlers ref is published from an effect, not written
+  // during render. A render can be thrown away or replayed, and a ref written
+  // during one would leak handlers from a render that never committed. Nothing
+  // reads this during render — `handleKeyDown` only ever reads it from a DOM
+  // keydown, which cannot be delivered before the commit's effects have run,
+  // and effects run in declaration order so this one lands before the listener
+  // below is attached.
   const handlersRef = useRef({})
-  handlersRef.current = { onCreate, onFocusSearch, onNavigate, onShowHelp }
+  useEffect(() => {
+    handlersRef.current = { onCreate, onFocusSearch, onNavigate, onShowHelp }
+  }, [onCreate, onFocusSearch, onNavigate, onShowHelp])
 
   const gPendingRef = useRef(false)
   const gTimerRef = useRef(null)

@@ -60,7 +60,7 @@ vi.mock('../api/workspaceApi', () => ({
 // NB: ThemeContext is intentionally NOT mocked — we use the real provider so a
 // theme toggle is observable via the <html> class it manages.
 import { Topbar } from '../components/layout/Topbar'
-import { ThemeProvider } from '../context/ThemeContext'
+import { ThemeProvider } from '../context/ThemeProvider'
 
 function LocationProbe() {
   const location = useLocation()

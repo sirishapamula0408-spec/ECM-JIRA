@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, renderHook, fireEvent } from '@testing-library/react'
 import { usePageTitle, setUnreadTitleCount, APP_NAME } from '../hooks/usePageTitle'
-import { NotificationProvider, useNotifications } from '../context/NotificationContext'
+import { useNotifications } from '../context/NotificationContext'
+import { NotificationProvider } from '../context/NotificationProvider'
 import { fetchNotifications, markAllNotificationsRead } from '../api/notificationApi'
 
 vi.mock('../api/notificationApi', () => ({

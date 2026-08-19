@@ -16,7 +16,7 @@ vi.mock('../api/memberApi', () => ({
 }))
 
 import { UserManagementPage } from '../pages/UserManagementPage/UserManagementPage'
-import { MemberProvider } from '../context/MemberContext'
+import { MemberProvider } from '../context/MemberProvider'
 import {
   fetchMembersPage,
   createMember,

@@ -218,7 +218,9 @@ describe('JL-392 — dark mode reaches the aliases', () => {
     expect(varsAt).toBeGreaterThan(-1);
     expect(themeAt).toBeGreaterThan(varsAt);
 
-    const themeContext = fs.readFileSync(path.join(ROOT, 'src/context/ThemeContext.jsx'), 'utf8');
+    // JL-407: the class toggle lives in ThemeProvider.jsx now — ThemeContext.jsx
+    // holds only the context object and the useTheme hook.
+    const themeContext = fs.readFileSync(path.join(ROOT, 'src/context/ThemeProvider.jsx'), 'utf8');
     expect(themeContext).toMatch(/documentElement\.classList\.toggle\('app-theme-dark'/);
   });
 

@@ -15,6 +15,12 @@ export function usePluginContributions(extensionPoint) {
 
   useEffect(() => {
     let active = true
+    // JL-407: the spinner has to come back when `extensionPoint` changes, and
+    // that trigger is a prop change — there is no user event in this hook to
+    // hang the flag off, and no render-time derivation for "a request is in
+    // flight". On mount the value is already true so React bails out; the one
+    // extra render is only paid on an actual extension-point switch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setLoading(true)
     fetchContributions(extensionPoint)
       .then((data) => { if (active) setContributions(Array.isArray(data) ? data : []) })

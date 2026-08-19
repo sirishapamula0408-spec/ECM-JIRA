@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 import { ResetPasswordPage } from '../pages/ResetPasswordPage/ResetPasswordPage'
 import { LoginPage } from '../pages/LoginPage/LoginPage'
-import { AuthProvider } from '../context/AuthContext'
+import { AuthProvider } from '../context/AuthProvider'
 import { forgotPassword, resetPassword } from '../api/authApi'
 
 // JL-370: the page is the destination of the token link in the password-reset

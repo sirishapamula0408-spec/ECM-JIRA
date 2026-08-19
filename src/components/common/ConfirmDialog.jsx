@@ -1,4 +1,3 @@
-import { useCallback, useRef, useState } from 'react'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -71,53 +70,6 @@ export function ConfirmDialog({
       </DialogActions>
     </Dialog>
   )
-}
-
-/**
- * useConfirm — promise-based adapter around ConfirmDialog.
- *
- * Returns `{ confirm, confirmDialog }`:
- *   - `confirm(options)` opens the dialog and resolves to `true` (confirmed) or
- *     `false` (cancelled/Escape). `options` are ConfirmDialog props (title,
- *     message, confirmLabel, danger, …).
- *   - `confirmDialog` is the element to render once in the component tree.
- *
- * Usage:
- *   const { confirm, confirmDialog } = useConfirm()
- *   async function onDelete() {
- *     if (!(await confirm({ title: 'Delete?', message: '…', danger: true, confirmLabel: 'Delete' }))) return
- *     await doDelete()
- *   }
- *   return (<>… {confirmDialog}</>)
- */
-export function useConfirm() {
-  const [state, setState] = useState({ open: false, options: {} })
-  const resolverRef = useRef(null)
-
-  const confirm = useCallback((options = {}) => {
-    return new Promise((resolve) => {
-      resolverRef.current = resolve
-      setState({ open: true, options })
-    })
-  }, [])
-
-  const settle = useCallback((result) => {
-    const resolve = resolverRef.current
-    resolverRef.current = null
-    setState((s) => ({ ...s, open: false }))
-    if (resolve) resolve(result)
-  }, [])
-
-  const confirmDialog = (
-    <ConfirmDialog
-      open={state.open}
-      {...state.options}
-      onConfirm={() => settle(true)}
-      onCancel={() => settle(false)}
-    />
-  )
-
-  return { confirm, confirmDialog }
 }
 
 export default ConfirmDialog

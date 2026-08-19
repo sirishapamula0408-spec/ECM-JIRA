@@ -34,7 +34,15 @@ const VIEW_LABELS = {
 export function ProjectTopPanel({ hasProjects }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [projectName, setProjectName] = useState('')
+  // JL-407: the fetched name is stored *with the id it belongs to*, and the
+  // displayed name is derived by matching that id against the current URL. This
+  // replaced a bare `projectName` string plus a synchronous `setProjectName('')`
+  // at the top of the effect. Two things improve: the effect no longer sets
+  // state during the render pass that scheduled it, and — the real bug — moving
+  // from project A to project B used to leave A's name in the header until B's
+  // request came back, because the clear only ran when projectId went falsy. A
+  // name that does not belong to the project in the URL is now simply not shown.
+  const [fetched, setFetched] = useState({ id: null, name: '' })
 
   // Detect project context from URL
   const projectMatch = matchPath('/projects/:projectId/*', location.pathname)
@@ -42,11 +50,15 @@ export function ProjectTopPanel({ hasProjects }) {
 
   // Fetch project name when project context is detected
   useEffect(() => {
-    if (!projectId) { setProjectName(''); return }
+    if (!projectId) return
+    let active = true
     fetchProjectById(projectId)
-      .then((data) => setProjectName(data?.name || ''))
-      .catch(() => setProjectName(''))
+      .then((data) => { if (active) setFetched({ id: projectId, name: data?.name || '' }) })
+      .catch(() => { if (active) setFetched({ id: projectId, name: '' }) })
+    return () => { active = false }
   }, [projectId])
+
+  const projectName = projectId && fetched.id === projectId ? fetched.name : ''
 
   // Determine current view label from the URL tail
   const viewSegment = projectId

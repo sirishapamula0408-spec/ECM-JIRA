@@ -11,7 +11,8 @@ vi.mock('../api/notificationApi', () => ({
 }))
 
 import { fetchNotifications, markNotificationRead } from '../api/notificationApi'
-import { NotificationProvider, useNotifications } from '../context/NotificationContext'
+import { useNotifications } from '../context/NotificationContext'
+import { NotificationProvider } from '../context/NotificationProvider'
 import { NotificationDropdown } from '../components/notifications/NotificationDropdown'
 
 // JL-341: two already-read rows plus one unread row, server unread total 1.

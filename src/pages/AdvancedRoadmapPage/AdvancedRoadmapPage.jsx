@@ -63,14 +63,28 @@ export function AdvancedRoadmapPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // JL-407: flagged because the rule follows `reload` in and finds its opening
+  // `setLoading(true)`. `reload` is also the retry handler and the post-mutation
+  // refresh, so the flag belongs inside it, not duplicated at three call sites.
+  // Here the dep is a `useCallback` with no deps, so this fires once on mount
+  // with `loading` already true and React bails out.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
   useEffect(() => { reload() }, [reload])
 
-  const epics = data?.epics || []
-  const dependencies = data?.dependencies || []
-  const capacities = data?.capacities || []
-  const violations = data?.violations || []
-  const capacityLoad = data?.capacityLoad || []
-  const projects = data?.projects || []
+  // JL-407: unpacked through a single useMemo keyed on `data`. Each of these was
+  // a bare `data?.x || []`, which hands back a brand-new array on every render
+  // whenever the key is absent — so `projectName` and `violatedEpicIds` below
+  // recomputed every render despite being memoised, and `datedEpics`/`win` with
+  // them. Memoising here fixes all of the downstream deps at once instead of
+  // patching each consumer.
+  const { epics, dependencies, capacities, violations, capacityLoad, projects } = useMemo(() => ({
+    epics: data?.epics || [],
+    dependencies: data?.dependencies || [],
+    capacities: data?.capacities || [],
+    violations: data?.violations || [],
+    capacityLoad: data?.capacityLoad || [],
+    projects: data?.projects || [],
+  }), [data])
 
   const projectName = useMemo(() => {
     const map = new Map(projects.map((p) => [p.id, p.key || p.name]))

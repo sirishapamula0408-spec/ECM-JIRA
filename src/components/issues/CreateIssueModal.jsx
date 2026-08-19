@@ -107,14 +107,26 @@ export function CreateIssueModal({ onClose }) {
     return () => { cancelled = true }
   }, [form.projectId])
 
-  // When profile loads after mount, default assignee
+  // When profile loads after mount, default assignee.
+  // JL-407: `form.assignee` is read but deliberately not a dependency. It is a
+  // guard against overwriting a choice, not a trigger — listing it would refire
+  // this effect the moment the user cleared the Assignee field and immediately
+  // put their own name back, making the field impossible to empty. The trigger is
+  // the profile arriving, and that is the only dependency.
   useEffect(() => {
     if (profile?.full_name && !form.assignee) {
       setForm((c) => ({ ...c, assignee: profile.full_name }))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [profile])
 
-  // Sprint-status logic: disable sprint when Backlog
+  // Sprint-status logic: disable sprint when Backlog.
+  // JL-407: same reasoning as the effect above — this reacts to the *status
+  // transition*, so `form.status` is the whole dependency list on purpose.
+  // `form.sprintId` is a guard: adding it would re-select the first sprint every
+  // time the user chose "no sprint" outside Backlog. `sprints` is read only to
+  // pick that default, and refiring when the sprint list happens to load would
+  // silently overwrite a sprint the user had already picked.
   useEffect(() => {
     if (form.status === 'Backlog') {
       setForm((c) => ({ ...c, sprintId: null }))
@@ -122,6 +134,7 @@ export function CreateIssueModal({ onClose }) {
       // Auto-select first sprint when moving out of Backlog
       setForm((c) => ({ ...c, sprintId: sprints[0].id }))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [form.status])
 
   function update(field, value) {

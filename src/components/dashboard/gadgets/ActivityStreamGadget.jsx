@@ -7,9 +7,17 @@ export function ActivityStreamGadget({ activity: initialActivity, config }) {
   const intervalRef = useRef(null)
   const refreshInterval = config.refreshInterval || 30000
 
-  useEffect(() => {
+  // JL-407: `items` can't be plain derived state — the poller below replaces it
+  // — but a fresh `initialActivity` prop must still win. That reset is now done
+  // during render (React's "adjusting state when a prop changes" pattern) rather
+  // than in an effect. React restarts the render immediately instead of
+  // committing, so the list never paints one frame of the previous prop's items,
+  // and the state update is skipped entirely when the prop is unchanged.
+  const [lastProp, setLastProp] = useState(initialActivity)
+  if (initialActivity !== lastProp) {
+    setLastProp(initialActivity)
     setItems(initialActivity || [])
-  }, [initialActivity])
+  }
 
   useEffect(() => {
     intervalRef.current = setInterval(async () => {

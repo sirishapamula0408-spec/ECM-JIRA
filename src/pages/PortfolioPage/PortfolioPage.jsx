@@ -31,6 +31,12 @@ export function PortfolioPage() {
 
   useEffect(() => {
     let active = true
+    // JL-407: this effect has an empty dep list, so this runs once on mount when
+    // `loading` is already true — React bails out and it costs no render at all.
+    // Kept rather than deleted because it is what makes the flag correct if this
+    // ever gains a refetch trigger, and because the pattern reads the same here
+    // as on every other page that loads through a spinner.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setLoading(true)
     fetchPortfolioSummary()
       .then((res) => {
@@ -50,10 +56,15 @@ export function PortfolioPage() {
     }
   }, [])
 
-  const projects = data?.projects || []
-  const aggregate = data?.aggregate || {
-    projectCount: 0, total: 0, open: 0, done: 0, overdue: 0, completionPct: 0,
-  }
+  // JL-407: memoised on `data` so the fallbacks keep a stable identity. As bare
+  // `data?.x || …` expressions they produced a fresh array/object every render,
+  // which made the `chartData` useMemo below recompute every render.
+  const { projects, aggregate } = useMemo(() => ({
+    projects: data?.projects || [],
+    aggregate: data?.aggregate || {
+      projectCount: 0, total: 0, open: 0, done: 0, overdue: 0, completionPct: 0,
+    },
+  }), [data])
 
   // Bar chart: completion % by project (reuses the shared SvgBarChart).
   const chartData = useMemo(

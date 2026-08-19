@@ -14,7 +14,7 @@ import {
 } from '../../api/assetApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 import './AssetsPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 

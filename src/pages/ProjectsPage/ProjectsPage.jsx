@@ -5,7 +5,7 @@ import { fetchFavorites, favoriteProject, unfavoriteProject } from '../../api/fa
 import './ProjectsPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 import { usePermissions } from '../../hooks/usePermissions'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
@@ -25,6 +25,11 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
   const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
+    // JL-407: the spinner must return when `showArchived` is toggled or
+    // `projectRefreshKey` is bumped. Both are refetch triggers rather than
+    // derived state, and "a request is in flight" is not computable during
+    // render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     setLoading(true)
     fetchProjects({ includeArchived: showArchived })
       .then((data) => {

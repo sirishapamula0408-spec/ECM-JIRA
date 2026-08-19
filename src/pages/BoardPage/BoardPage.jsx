@@ -15,7 +15,7 @@ import { avatarStyle } from '../../utils/avatarColour'
 import { defaultCategoryForStatus, isCancelStatus } from '../../utils/statusCategory'
 import './BoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 
 const SWIMLANE_OPTIONS = [
   { value: 'none', label: 'No swimlanes' },

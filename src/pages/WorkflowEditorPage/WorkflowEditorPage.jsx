@@ -25,7 +25,7 @@ import { readableTextColor, borderFor } from '../../utils/color'
 import { snapToGrid } from '../../utils/layoutGrid' // JL-330: snap dropped nodes to the grid
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 import './WorkflowEditorPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -1117,6 +1117,15 @@ export function WorkflowEditorPage() {
         {/* JL-79: Configurable workflow transition rules (persisted per project).
             JL-275: moved out of the full-width bottom slot into the right sidebar. */}
         <WorkflowRulesPanel
+          // JL-407: keyed on the project so switching projects remounts the
+          // panel with fresh form state. This replaces an effect that called
+          // resetForm() on every projectId change — React's documented way to
+          // reset all of a subtree's state when an input changes, and it clears
+          // the state in the same commit as the switch rather than one render
+          // later. It also clears `formError`, which resetForm() missed: a
+          // validation error raised against project A had no business surviving
+          // into project B's form.
+          key={projectId}
           isAdmin={isAdmin}
           projectId={projectId}
           statuses={statusNames}
@@ -1522,8 +1531,9 @@ function WorkflowRulesPanel({ isAdmin, projectId, statuses, transitions, loading
     setSetField(''); setSetValue(''); setCommentText('')
   }, [])
 
-  // Cancel edit if the project changes underneath us.
-  useEffect(() => { resetForm() }, [projectId, resetForm])
+  // JL-407: "cancel edit if the project changes underneath us" is now handled by
+  // the `key={projectId}` on this component's render site, not by an effect that
+  // fired seven setState calls after the project had already changed.
 
   const buildBody = () => {
     const validators = requiredField ? [{ type: 'required_field', field: requiredField }] : []

@@ -48,12 +48,22 @@ function SvgPie({ rows }) {
   const r = 90
   const cx = size / 2
   const cy = size / 2
-  let angle = -Math.PI / 2
+  const startAngle = -Math.PI / 2
+  // JL-407: cumulative slice offsets are computed as a prefix scan instead of by
+  // reassigning an `angle` accumulator from inside the map callback below. That
+  // callback runs during render, so an outer `let` it mutates is render-time
+  // state whose value depends on how many times the callback ran — a replayed
+  // or partially-discarded render would keep advancing it and the slices would
+  // walk around the circle. `offsets[i]`/`offsets[i + 1]` bracket slice `i`
+  // regardless of evaluation order or count. (The sibling chart gadgets use a
+  // plain `for` loop for the same job, which has no closure to capture.)
+  const offsets = rows.reduce(
+    (acc, row) => [...acc, acc[acc.length - 1] + (Number(row.value) || 0) / total],
+    [0],
+  )
   const slices = rows.map((row, i) => {
-    const frac = (Number(row.value) || 0) / total
-    const start = angle
-    const end = angle + frac * 2 * Math.PI
-    angle = end
+    const start = startAngle + offsets[i] * 2 * Math.PI
+    const end = startAngle + offsets[i + 1] * 2 * Math.PI
     const x1 = cx + r * Math.cos(start)
     const y1 = cy + r * Math.sin(start)
     const x2 = cx + r * Math.cos(end)

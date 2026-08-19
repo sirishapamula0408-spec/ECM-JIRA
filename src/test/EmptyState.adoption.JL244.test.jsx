@@ -62,7 +62,7 @@ vi.mock('../hooks/usePermissions', () => ({
 import { TeamsPage } from '../pages/TeamsPage/TeamsPage'
 import { SharedDashboardsPage } from '../pages/SharedDashboardsPage/SharedDashboardsPage'
 import { ListViewControls } from '../components/listViews/ListViewControls'
-import { MemberProvider } from '../context/MemberContext'
+import { MemberProvider } from '../context/MemberProvider'
 import { usePermissions } from '../hooks/usePermissions'
 
 beforeEach(() => {

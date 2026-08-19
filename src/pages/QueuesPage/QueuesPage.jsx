@@ -16,7 +16,7 @@ import {
   fetchQueues, fetchQueueIssues, createQueue, updateQueue, deleteQueue,
 } from '../../api/queueApi.js'
 import { EmptyState } from '../../components/common/EmptyState.jsx'
-import { useConfirm } from '../../components/common/ConfirmDialog.jsx'
+import { useConfirm } from '../../components/common/useConfirm'
 import './QueuesPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 

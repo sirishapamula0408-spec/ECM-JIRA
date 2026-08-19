@@ -7,7 +7,8 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { BoardPage } from '../pages/BoardPage/BoardPage'
 import { BacklogIssueRow } from '../components/issues/BacklogIssueRow'
 import { ImpedimentFlagToggle } from '../components/issues/ImpedimentFlag'
-import { IssueProvider, useIssues } from '../context/IssueContext'
+import { useIssues } from '../context/IssueContext'
+import { IssueProvider } from '../context/IssueProvider'
 
 // ── Mocks ──
 const mockPerms = { canEditIssue: true, canManageProjectSettings: false }

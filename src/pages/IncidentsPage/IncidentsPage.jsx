@@ -74,6 +74,12 @@ export function IncidentsPage() {
     }
   }, [])
 
+  // JL-407: the only synchronous setState the rule can reach is the
+  // `setShifts([])` in `loadOnCall`'s no-schedule branch, which clears a
+  // previous schedule's shifts rather than deriving anything. `loadOnCall` is
+  // also the schedule-picker's own handler path, so the clear has to live in
+  // the function, not at this call site.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
   useEffect(() => { loadOnCall(activeSchedule) }, [activeSchedule, loadOnCall])
 
   async function openDetail(id) {

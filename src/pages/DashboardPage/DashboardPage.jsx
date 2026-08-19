@@ -47,6 +47,22 @@ export function DashboardPage() {
     updateGadgetConfig, updateGadgetSize, updateGadgetTitle, reorderGadgets,
   } = useDashboardLayout()
 
+  // Global filters.
+  // JL-407: declared *above* the projects effect, which defaults
+  // `filters.project` to the first project. It used to sit below, so the effect
+  // closed over `setFilters` before its own `const` — legal only because the
+  // effect body is deferred past the whole render. It read as a plain
+  // use-before-declaration and would become a TDZ crash the day that call moved
+  // anywhere synchronous.
+  const [filters, setFilters] = useState({
+    project: 'All',
+    issueType: 'All',
+    priority: 'All',
+    status: 'All',
+    assignee: 'All',
+    sprint: 'All',
+  })
+
   // Fetch projects for the filter and default to the first project
   const [projectList, setProjectList] = useState([])
   const [, setProjectsLoaded] = useState(false)
@@ -61,18 +77,6 @@ export function DashboardPage() {
       })
       .catch(() => { setProjectsLoaded(true) })
   }, [])
-
-  // Build projectId → name lookup
-
-  // Global filters
-  const [filters, setFilters] = useState({
-    project: 'All',
-    issueType: 'All',
-    priority: 'All',
-    status: 'All',
-    assignee: 'All',
-    sprint: 'All',
-  })
 
   // "My open issues" quick filter: issues assigned to the current user that are not Done
   const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)

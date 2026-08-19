@@ -11,7 +11,7 @@ import {
   deleteCrossProjectBoard, fetchCrossProjectBoardIssues,
 } from '../../api/crossProjectBoardApi'
 import EmptyState from '../../components/common/EmptyState'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 import { usePermissions } from '../../hooks/usePermissions'
 import './CrossProjectBoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'

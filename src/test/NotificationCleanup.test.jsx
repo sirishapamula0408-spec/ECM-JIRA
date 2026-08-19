@@ -15,7 +15,8 @@ import {
   deleteNotification,
   clearReadNotifications,
 } from '../api/notificationApi'
-import { NotificationProvider, useNotifications } from '../context/NotificationContext'
+import { useNotifications } from '../context/NotificationContext'
+import { NotificationProvider } from '../context/NotificationProvider'
 import { NotificationDropdown } from '../components/notifications/NotificationDropdown'
 
 const NOTIFICATIONS = [

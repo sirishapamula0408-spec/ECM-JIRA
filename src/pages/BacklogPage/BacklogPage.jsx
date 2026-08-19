@@ -20,7 +20,7 @@ import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { initialsFromName } from '../../utils/helpers'
 import { usePermissions } from '../../hooks/usePermissions'
-import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useConfirm } from '../../components/common/useConfirm'
 
 // JL-234 — client-side backlog sort control
 const SORT_STORAGE_KEY = 'backlogSort'
