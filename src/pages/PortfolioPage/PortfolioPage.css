@@ -4,9 +4,64 @@
 
 .portfolio-page .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: var(--space-3, 12px);
   margin-top: var(--space-3, 12px);
+  /* JL-411: the narrowest a KPI card may become before its label has to break
+     mid-word. Measured, not chosen: the longest label renders as the single
+     unbreakable word "THROUGHPUT" at 99px, plus 32px of card padding. */
+  --stat-min-width: 131px;
+}
+
+/* JL-411: the seven KPI cards are one row that divides the available width.
+   They used to be laid out with `repeat(auto-fill, minmax(140px, 1fr))`, which
+   broke in two directions: the 140px floor overstated what a card actually
+   needs (the widest, "Throughput (30d)", needs 131px), so at a 1280px viewport
+   auto-fill computed six columns and orphaned the seventh card onto its own row
+   even though the 1008px grid had room for all seven; and above ~1500px auto-fill
+   kept minting tracks past the number of cards — ten of them at 1920px — so the
+   cards stayed ~155px and the strip trailed off into empty space.
+
+   `grid-auto-flow: column` states the intent directly and takes the card count
+   from the markup rather than from a pixel guess, so adding an eighth KPI cannot
+   silently reintroduce the wrap. */
+@media (min-width: 861px) {
+  .portfolio-page .stats-grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    /* The floor is measured, not guessed: the widest label renders as the single
+       unbreakable word "THROUGHPUT" at 99px, and with 32px of card padding that
+       is 131px. Seven of those plus six 12px gaps needs a 989px grid. Above that
+       `1fr` wins and the cards divide the width; below it the floor holds and the
+       strip scrolls sideways rather than squeezing a card until the word has to
+       break mid-syllable ("THROU/GHPUT"). Component-level scrolling here follows
+       JL-399/JL-401 — the page itself never gains a horizontal scrollbar. */
+    grid-auto-columns: minmax(var(--stat-min-width), 1fr);
+    overflow-x: auto;
+    /* Room for the scrollbar in the band where one appears, so it does not sit
+       on top of the card borders. */
+    padding-bottom: 2px;
+  }
+}
+
+/* JL-411: below the desktop range the strip needs to wrap — seven cards abreast
+   on a phone is unusable. These are spelled out per-page rather than left to the
+   shared `.stats-grid` overrides in layout.css, because those overrides are
+   inert: layout.css is imported *before* shared.css (App.jsx) and both rules are
+   specificity (0,1,0), so shared.css's unconditional `repeat(4, minmax(0, 1fr))`
+   wins at every width. That affects every page with a stats grid, not just this
+   one, and unpicking it belongs in its own ticket — fixing the import order here
+   would silently re-lay-out Dashboard and Reports too. */
+@media (max-width: 860px) {
+  .portfolio-page .stats-grid {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .portfolio-page .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .portfolio-page .stat {
@@ -14,12 +69,30 @@
   border: 1px solid var(--jira-border, #dfe1e6);
   border-radius: 8px;
   padding: 12px 16px;
+  /* Grid items refuse to shrink below their content without this, which would
+     force an overflow instead of a narrower card. */
+  min-width: 0;
+  /* Below roughly a 1180px viewport the cards drop under 131px and the longest
+     labels take two lines. Grid already stretches every card to the tallest in
+     the row, so the cards stay level; this keeps the *numbers* level too by
+     pinning them to the bottom instead of letting them float up under a
+     single-line label. */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .portfolio-page .stat p {
   margin: 0 0 4px;
   font-size: var(--font-size-base);
   color: var(--jira-text-muted, #6b778c);
+  /* Wrap at spaces only. `overflow-wrap: break-word` was tried here and looked
+     fine to every measurement — one row, nothing clipped — but rendered
+     "PROJEC/TS", "OVERD/UE" and "COMPL/ETION" once the cards narrowed. The card
+     floor above is what keeps the words whole; this makes sure they are never
+     broken even if that floor is later lowered. */
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .portfolio-page .stat strong {
