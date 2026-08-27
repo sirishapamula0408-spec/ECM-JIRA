@@ -245,13 +245,19 @@
 
 /* ---- JL-412: divider + collapse toggle between the two columns ---- */
 /* The rail owns the boundary line that .wfe-sidebar used to draw, so collapsing
-   the sidebar leaves the canvas with a proper edge instead of a raw cut. */
+   the sidebar leaves the canvas with a proper edge instead of a raw cut.
+   It is painted as a SUNKEN gutter rather than plain white: at 12px wide and
+   surface-coloured it disappeared into the panel beside it, which left the
+   toggle reading as a stray dot rather than a control on a seam. The tinted
+   channel between two rules is what makes the boundary legible, and the button
+   inherits that legibility. */
 .wfe-sidebar-divider {
   position: relative;
-  width: 12px;
+  width: 16px;
   flex-shrink: 0;
-  background: var(--jira-surface);
+  background: var(--jira-surface-sunken);
   border-left: 1px solid var(--jira-border);
+  border-right: 1px solid var(--jira-border);
 }
 
 /* Centred on the DIVIDER LINE — the rail's left edge — rather than on the rail
@@ -266,26 +272,44 @@
   top: 50%;
   left: 0;
   transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
+  /* 28px, not 22px. At 22 with a 1px hairline border and muted glyph this read
+     as decoration on the dotted canvas; the first thing users said about it was
+     that they could not find it. 28px clears the 24px minimum comfortable
+     target and carries a bolder border and a real shadow so it sits ABOVE the
+     seam rather than in it. Still fits on screen when collapsed: centred on the
+     rail's left edge, the circle spans (viewport - 30) to (viewport - 2). */
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: 1px solid var(--jira-border);
+  /* Tinted blue AT REST, not just on hover. A white circle with a grey glyph
+     reads as a decoration sitting on the seam; the blue lozenge reads as a
+     control, which is the whole problem this styling exists to solve. Hover
+     then goes to a solid fill, so there is still a clear pressed-ness gradient
+     between the two states. */
+  border: 1px solid var(--jira-blue);
   border-radius: 50%;
-  background: var(--jira-surface);
-  color: var(--jira-text-muted);
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 2;
-  box-shadow: var(--jira-shadow-soft);
-  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  box-shadow: var(--jira-shadow);
+  transition: background-color 120ms ease, color 120ms ease,
+              border-color 120ms ease, box-shadow 120ms ease;
 }
 
+/* Hovering anywhere on the gutter lights the button, so the whole seam behaves
+   as one target and the control announces itself before it is clicked. The
+   hover state is a solid blue fill rather than a tint — at this size a subtle
+   wash was not readable against the canvas dots. */
+.wfe-sidebar-divider:hover .wfe-sidebar-toggle,
 .wfe-sidebar-toggle:hover {
-  background: var(--jira-menu-hover);
-  border-color: var(--jira-border-strong);
-  color: var(--jira-blue);
+  background: var(--jira-blue);
+  border-color: var(--jira-blue);
+  color: #ffffff;
+  box-shadow: var(--jira-shadow-hover);
 }
 
 .wfe-sidebar-toggle:focus-visible {
@@ -294,9 +318,10 @@
 }
 
 /* The chevron glyphs are small at their natural size; bump them and kill the
-   line box so they sit optically centred in the 22px circle. */
+   line box so they sit optically centred in the 28px circle. */
 .wfe-sidebar-toggle-icon {
-  font-size: 16px;
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
   line-height: 1;
   /* Compensate for the glyph's own left/right side bearing. */
   transform: translateY(-1px);
