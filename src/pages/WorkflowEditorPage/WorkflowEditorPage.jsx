@@ -106,6 +106,31 @@ function readPositions(projectId) {
   }
 }
 
+// JL-412: the Properties / Transition-rules sidebar can be collapsed so the
+// diagram gets the full width of the page. Which state it is in is a per-user
+// layout preference rather than project data, so it lives in localStorage
+// alongside the board and backlog view preferences instead of on the server.
+// The read is defensive: a browser with storage disabled — or a value written
+// by an older build — must fall back to "expanded" rather than throw.
+const SIDEBAR_COLLAPSED_KEY = 'wfEditor:sidebarCollapsed'
+
+function readSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+// Writes are best-effort too: Safari private mode and a full quota both throw
+// here, and losing a layout preference is not a reason to break the toggle the
+// user just clicked.
+function writeSidebarCollapsed(collapsed) {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+  } catch { /* preference is best-effort */ }
+}
+
 function statusNamesOf(list) {
   return (list || [])
     .map((s) => (typeof s === 'string' ? s : s?.name))
@@ -141,6 +166,52 @@ export function WorkflowEditorPage() {
   const [selectedNodeName, setSelectedNodeName] = useState(null)
   const [selectedTransId, setSelectedTransId] = useState(null)
   const [zoom, setZoom] = useState(1)
+
+  // JL-412: lazy initialiser, so the stored preference is read once on mount
+  // rather than on every render.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
+  const sidebarRef = useRef(null)
+  const sidebarToggleRef = useRef(null)
+
+  // ── JL-412: sidebar collapse ──
+  // These two are the only writers of the flag, and both persist as they go, so
+  // the React state and the stored preference can never disagree.
+  const expandSidebar = useCallback(() => {
+    setSidebarCollapsed(false)
+    writeSidebarCollapsed(false)
+  }, [])
+
+  const toggleSidebar = useCallback(() => {
+    // Collapsing the panel that currently holds focus would strand the keyboard
+    // user on <body>. Pull focus back to the toggle first — it is the control
+    // that will expand the panel again, so it is the right place to land.
+    const sidebar = sidebarRef.current
+    if (sidebar && sidebar.contains(document.activeElement)) {
+      sidebarToggleRef.current?.focus()
+    }
+    // Functional update rather than `!sidebarCollapsed`, so the callback does
+    // not need the current value as a dependency and stays referentially stable.
+    setSidebarCollapsed((prev) => {
+      writeSidebarCollapsed(!prev)
+      return !prev
+    })
+  }, [])
+
+  // Selecting a node or a transition is a request to SEE its properties, so it
+  // reopens the sidebar if the user had collapsed it — otherwise the click
+  // would appear to do nothing. Both helpers also clear the other kind of
+  // selection, which every call site used to do by hand.
+  const selectNode = useCallback((name) => {
+    setSelectedNodeName(name)
+    setSelectedTransId(null)
+    expandSidebar()
+  }, [expandSidebar])
+
+  const selectTransition = useCallback((transId) => {
+    setSelectedTransId(transId)
+    setSelectedNodeName(null)
+    expandSidebar()
+  }, [expandSidebar])
 
   // JL-324: drag-to-create-transition. `linkDrag` is null when idle; while
   // dragging from a node's connector it holds the source status, the live
@@ -400,10 +471,9 @@ export function WorkflowEditorPage() {
     dragging.current = { name, offsetX: pos.x - node.x, offsetY: pos.y - node.y }
     didDrag.current = false
     gestureActive.current = true
-    setSelectedNodeName(name)
-    setSelectedTransId(null)
+    selectNode(name) // JL-412: reopens the sidebar if it was collapsed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeByName, zoom, isAdmin, isRedundantMouseEvent])
+  }, [nodeByName, zoom, isAdmin, isRedundantMouseEvent, selectNode])
 
   // ── JL-324: drag from a node's connector onto another node to create a transition ──
   const handleConnectorDragStart = useCallback((e, name) => {
@@ -496,9 +566,8 @@ export function WorkflowEditorPage() {
 
   const handleTransitionClick = useCallback((e, transId) => {
     e.stopPropagation()
-    setSelectedTransId(transId)
-    setSelectedNodeName(null)
-  }, [])
+    selectTransition(transId)
+  }, [selectTransition])
 
   // ── Zoom ──
   const handleZoomIn = () => setZoom((z) => Math.min(2.0, +(z + 0.1).toFixed(1)))
@@ -696,8 +765,7 @@ export function WorkflowEditorPage() {
   const handleNodeKeyDown = useCallback((e, node) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      setSelectedNodeName(node.name)
-      setSelectedTransId(null)
+      selectNode(node.name) // JL-412: reopens the sidebar if it was collapsed
       return
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && isAdmin) {
@@ -722,7 +790,7 @@ export function WorkflowEditorPage() {
         return next
       })
     }
-  }, [isAdmin, requestDeleteNode, persistPositions])
+  }, [isAdmin, requestDeleteNode, persistPositions, selectNode])
 
   // ── Helpers ──
   const selectedNode = nodeByName(selectedNodeName)
@@ -1042,7 +1110,7 @@ export function WorkflowEditorPage() {
                     aria-label={`Status ${node.name}, category ${style.label}`}
                     onPointerDown={(e) => handleNodeDragStart(e, node.name)}
                     onMouseDown={(e) => handleNodeDragStart(e, node.name)}
-                    onClick={(e) => { e.stopPropagation(); setSelectedNodeName(node.name); setSelectedTransId(null) }}
+                    onClick={(e) => { e.stopPropagation(); selectNode(node.name) }}
                     onKeyDown={(e) => handleNodeKeyDown(e, node)}
                   >
                     {/* JL-324: the category sub-label (raw `todo`/`inprogress`/
@@ -1069,8 +1137,45 @@ export function WorkflowEditorPage() {
         </div>
         </div>
 
+        {/* JL-412: divider between the two columns, carrying the collapse toggle.
+            The rail is always rendered — when the sidebar is collapsed it is the
+            only thing left to expand it again. */}
+        <div className="wfe-sidebar-divider">
+          <button
+            type="button"
+            className="wfe-sidebar-toggle"
+            data-testid="wfe-sidebar-toggle"
+            ref={sidebarToggleRef}
+            onClick={toggleSidebar}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="wfe-sidebar"
+            aria-label={sidebarCollapsed ? 'Expand properties panel' : 'Collapse properties panel'}
+            title={sidebarCollapsed ? 'Expand properties panel' : 'Collapse properties panel'}
+          >
+            {/* Chevron points at what the click will do: right (towards the
+                sidebar) to push it away, left (back over the canvas) to pull it
+                out again. Decorative — the accessible name is on the button. */}
+            <span className="wfe-sidebar-toggle-icon" aria-hidden="true">
+              {sidebarCollapsed ? '‹' : '›'}
+            </span>
+          </button>
+        </div>
+
         {/* Right sidebar: Properties (top) + Transition Rules (below) */}
-        <aside className="wfe-sidebar" data-testid="wfe-sidebar">
+        {/* JL-412: the <aside> stays mounted while collapsed so that the
+            toggle's aria-controls always resolves; it is the inner wrapper that
+            holds the fixed 360px width, which lets the panel slide out cleanly
+            instead of its text reflowing as the width animates to zero. */}
+        <aside
+          id="wfe-sidebar"
+          ref={sidebarRef}
+          className="wfe-sidebar"
+          data-testid="wfe-sidebar"
+          data-collapsed={sidebarCollapsed ? 'true' : 'false'}
+          aria-hidden={sidebarCollapsed || undefined}
+          inert={sidebarCollapsed || undefined}
+        >
+        <div className="wfe-sidebar-inner">
         {/* Properties Panel */}
         <div className="wfe-properties">
           <h3 className="wfe-sidebar-heading">Properties</h3>
@@ -1101,7 +1206,7 @@ export function WorkflowEditorPage() {
                         <button
                           type="button"
                           className="wfe-trans-select-btn"
-                          onClick={() => { setSelectedTransId(t.id); setSelectedNodeName(null) }}
+                          onClick={() => selectTransition(t.id)}
                         >
                           {t.fromStatus} → {t.toStatus}
                         </button>
@@ -1134,6 +1239,7 @@ export function WorkflowEditorPage() {
           error={error}
           onChanged={() => reload(projectId)}
         />
+        </div>
         </aside>
       </div>
 

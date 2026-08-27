@@ -243,16 +243,105 @@
   position: relative;
 }
 
-/* RIGHT column: fixed-width sidebar holding Properties + Transition rules */
+/* ---- JL-412: divider + collapse toggle between the two columns ---- */
+/* The rail owns the boundary line that .wfe-sidebar used to draw, so collapsing
+   the sidebar leaves the canvas with a proper edge instead of a raw cut. */
+.wfe-sidebar-divider {
+  position: relative;
+  width: 12px;
+  flex-shrink: 0;
+  background: var(--jira-surface);
+  border-left: 1px solid var(--jira-border);
+}
+
+/* Centred on the DIVIDER LINE — the rail's left edge — rather than on the rail
+   itself, so the 22px hit area is not limited by the 12px gutter and, more
+   importantly, the button still fits on screen when the sidebar is collapsed.
+   Centring it on the rail put half the circle past the right edge of the
+   viewport once the rail slid flush against it, leaving a ~6px sliver that was
+   almost impossible to hit. Anchored here the button overhangs onto the canvas
+   instead, which is always there. */
+.wfe-sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--jira-border);
+  border-radius: 50%;
+  background: var(--jira-surface);
+  color: var(--jira-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  box-shadow: var(--jira-shadow-soft);
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.wfe-sidebar-toggle:hover {
+  background: var(--jira-menu-hover);
+  border-color: var(--jira-border-strong);
+  color: var(--jira-blue);
+}
+
+.wfe-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--jira-blue);
+  outline-offset: 2px;
+}
+
+/* The chevron glyphs are small at their natural size; bump them and kill the
+   line box so they sit optically centred in the 22px circle. */
+.wfe-sidebar-toggle-icon {
+  font-size: 16px;
+  line-height: 1;
+  /* Compensate for the glyph's own left/right side bearing. */
+  transform: translateY(-1px);
+}
+
+/* RIGHT column: fixed-width sidebar holding Properties + Transition rules.
+   JL-412: the width lives on the <aside> and animates; the 360px is restated on
+   .wfe-sidebar-inner so the contents keep their layout and slide out of view
+   rather than reflowing as the width runs down to zero. */
 .wfe-sidebar {
   width: 360px;
   flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  border-left: 1px solid var(--jira-border);
+  overflow: hidden;
   background: #ffffff;
+  transition: width 180ms ease;
+}
+
+.wfe-sidebar-inner {
+  width: 360px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.wfe-sidebar[data-collapsed='true'] {
+  width: 0;
+  /* visibility (not display) keeps the width transition running, and the 180ms
+     delay holds the contents on screen until the slide has finished. Once
+     hidden the subtree leaves the tab order and the accessibility tree, which
+     backs up the inert attribute on browsers that do not support it yet. */
+  visibility: hidden;
+  transition: width 180ms ease, visibility 0s linear 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wfe-sidebar,
+  .wfe-sidebar[data-collapsed='true'],
+  .wfe-sidebar-toggle {
+    transition: none;
+  }
 }
 
 /* Atlassian-style section heading shared by Properties + Transition rules */
