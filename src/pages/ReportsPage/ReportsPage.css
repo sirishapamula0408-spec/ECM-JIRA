@@ -154,7 +154,7 @@
   display: block;
   text-align: center;
   color: var(--jira-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   white-space: nowrap;
   overflow: hidden;

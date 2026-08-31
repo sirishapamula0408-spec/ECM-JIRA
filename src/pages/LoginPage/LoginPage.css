@@ -8,7 +8,6 @@
   display: flex;
   font-family: var(--font-family-sans);
 
-  --font-size-xs: 9px;
   --font-size-sm: 10px;
   --font-size-base: 11px;
   --font-size-md: 13px;
@@ -16,7 +15,6 @@
   --font-size-xl: 19px;
   --font-size-xxl: 23px;
 
-  --line-height-xs: 13px;
   --line-height-sm: 13px;
   --line-height-base: 16px;
   --line-height-md: 16px;

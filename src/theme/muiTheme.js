@@ -23,15 +23,18 @@ import { createTheme } from '@mui/material/styles'
  * Keep in sync with variables.css. The JL408 test suite fails if they diverge.
  */
 
-// Mirrors --font-family-sans.
-const FONT_FAMILY = [
-  '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Oxygen',
-  'Ubuntu', '"Fira Sans"', '"Droid Sans"', '"Helvetica Neue"', 'sans-serif',
-].join(', ')
+// JL-414: consume --font-family-sans instead of restating it. This used to be
+// a third copy of the same stack (index.css and variables.css held the others),
+// so a change to one silently left MUI on the old value. Emotion emits this
+// verbatim and the browser resolves it from :root.
+const FONT_FAMILY = 'var(--font-family-sans, sans-serif)'
 
 // --font-size-* / --line-height-* / --font-weight-*
-const SIZE = { xs: 11, sm: 12, base: 14, md: 16, lg: 20, xl: 24, xxl: 29 }
-const LEADING = { xs: 16, sm: 16, base: 20, md: 20, lg: 24, xl: 28, xxl: 32 }
+// JL-414: xs (11px) retired — Atlassian raised it to 12px for accessibility
+// and dropped the step, so former xs consumers use sm. xxl corrected 29->28
+// (29 was the legacy ADG3 value) and the missing 32px step added.
+const SIZE = { sm: 12, base: 14, md: 16, lg: 20, xl: 24, xxl: 28, xxxl: 32 }
+const LEADING = { sm: 16, base: 20, md: 20, lg: 24, xl: 28, xxl: 32, xxxl: 36 }
 const WEIGHT = { regular: 400, medium: 500, semibold: 600, bold: 700 }
 
 const variant = (step, weight = WEIGHT.regular) => ({
@@ -93,8 +96,10 @@ export function buildMuiTheme(mode = 'light') {
       // 14px matches this project's own `.btn` class, so MUI buttons and CSS
       // buttons finally agree instead of differing by ~2px.
       button: { ...variant('base', WEIGHT.medium), textTransform: 'none' },
-      caption: variant('xs'),
-      overline: { ...variant('xs', WEIGHT.medium), textTransform: 'uppercase' },
+      // JL-414: were variant('xs') at 11px; xs is retired, so both move to the
+      // 12px step. This is the same accessibility raise, applied to MUI.
+      caption: variant('sm'),
+      overline: { ...variant('sm', WEIGHT.medium), textTransform: 'uppercase' },
     },
   })
 }

@@ -205,7 +205,7 @@
 }
 
 .teams-member-cell small {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted);
 }
 
@@ -222,7 +222,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }

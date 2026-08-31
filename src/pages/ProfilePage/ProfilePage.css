@@ -74,7 +74,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   text-transform: none;
   letter-spacing: 0;
@@ -88,7 +88,7 @@
 
 .profile-avatar-panel small {
   color: var(--jira-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
 

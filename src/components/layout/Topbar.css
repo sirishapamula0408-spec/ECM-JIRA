@@ -86,13 +86,13 @@
 
 .topbar-search-status {
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-subtle, #6b778c);
 }
 
 .topbar-search-section-label {
   padding: 8px 10px 4px;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -132,7 +132,7 @@
 }
 
 .topbar-clock-date {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-medium);
 }

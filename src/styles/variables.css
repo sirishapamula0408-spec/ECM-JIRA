@@ -108,10 +108,15 @@
        2. Correctness. Every step below now lands exactly on a real Atlassian
           Design System token rather than near one, so the scale IS Atlassian's
           rather than a shrunken approximation of it:
-            xs 11px  font.body.small          sm 12px  metadata / labels
-            base 14px font.body               md 16px  h600 / body.large
-            lg 20px  h700                     xl 24px  h800
-            xxl 29px h900
+            sm 12px  font.body.small         base 14px font.body
+            md 16px  heading.small            lg 20px  heading.medium
+            xl 24px  heading.large            xxl 28px heading.xlarge
+            xxxl 32px heading.xxlarge
+
+     JL-414 retired the h600/h700/h800/h900 names this block used to
+     carry. Those are the legacy ADG3 labels; Atlassian's own token
+     metadata now reads "Migrate instances of H900 to Heading XXL", so
+     the mapping is stated in the current heading.* names instead.
 
      Note this makes the token scale agree with something that was already true:
      src/index.css sets :root to 14px / line-height 1.4286 (= 20/14), i.e. the
@@ -123,26 +128,60 @@
      Line heights move with it, using Atlassian's own pairings. They are kept as
      px rather than unitless so a heading that wraps keeps the intended rhythm
      instead of compounding its own font-size. */
-  --font-size-xs: 11px;    /* captions, tiny badges          */
-  --font-size-sm: 12px;    /* labels, column headers, meta   */
-  --font-size-base: 14px;  /* body, inputs, buttons          */
-  --font-size-md: 16px;    /* h600, panel headings           */
-  --font-size-lg: 20px;    /* h700, modal / section titles   */
-  --font-size-xl: 24px;    /* h800, page titles              */
-  --font-size-xxl: 29px;   /* h900                           */
+  --font-size-sm: 12px;   /* labels, column headers, meta    */
+  --font-size-base: 14px; /* body, inputs, buttons           */
+  --font-size-md: 16px;   /* heading.small, panel headings   */
+  --font-size-lg: 20px;   /* heading.medium, section titles  */
+  --font-size-xl: 24px;   /* heading.large, page titles      */
+  --font-size-xxl: 28px;  /* heading.xlarge                  */
+  --font-size-xxxl: 32px; /* heading.xxlarge                 */
 
-  --line-height-xs: 16px;
   --line-height-sm: 16px;
   --line-height-base: 20px;
   --line-height-md: 20px;
   --line-height-lg: 24px;
   --line-height-xl: 28px;
   --line-height-xxl: 32px;
+  --line-height-xxxl: 36px;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  /* JL-414 — deliberate divergences from Atlassian, recorded per AC#5.
+
+     1. TYPEFACE: option A. We keep the system stack above and load no
+        webfont. Atlassian Jira ships Atlassian Sans / Atlassian Mono, but
+        that is their proprietary brand typeface and this is a Jira clone, so
+        shipping it is a licensing question rather than an engineering one.
+        Inter (option B) was also declined. The cost is a visual gap we accept
+        knowingly; the benefit is no licensing exposure, no font payload and
+        no FOUT.
+
+     2. ROOT SIZE: we keep 14px; Atlassian uses a never-reset 16px root.
+        src/index.css sets :root { font-size: 14px }, and changing it would
+        rescale EVERY rem/em in the app. src/theme/muiTheme.js documents that
+        exact re-scaling hazard as the cause of the JL-408 drift, which is why
+        both the theme and this scale are expressed in px. A root change needs
+        its own ticket and a human visual pass; no test can catch the drift.
+        Note the body size itself does NOT diverge: --font-size-base is 14px,
+        which IS Atlassian's font.body. Only the root value differs.
+
+     3. WEIGHTS: --font-weight-bold stays 700 and headings are not unified on
+        653. Atlassian's 653 is an optical weight on a VARIABLE FONT AXIS and
+        is only expressible with Atlassian Sans loaded. Against a static
+        system stack it would round to whatever the platform happens to have,
+        so it is meaningless here. Revisit only if option B/C is ever taken.
+
+     4. --font-size-md is heading.small (16/20), NOT body.large (16/24).
+        Atlassian has both at 16px and they differ only in leading. This scale
+        carries the heading pairing; a 16/24 body step would need its own
+        token rather than a second meaning for this one.
+
+     The 11px xs step is NOT a divergence — it was retired here because
+        Atlassian raised 11px to 12px for accessibility and dropped the step.
+        Former xs consumers now use sm (12px). */
 
   /* ══════════════════════════════════════════════════════════════════════
      Compatibility alias layer (JL-392)

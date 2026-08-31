@@ -70,7 +70,7 @@
   border-radius: 10px;
   background: #ebecf0;
   padding: 0 8px;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: #42526e;
 }
@@ -92,7 +92,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
@@ -132,7 +132,7 @@
 }
 
 .ps-stat-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted);
   margin-top: 4px;
   font-weight: var(--font-weight-medium);
@@ -313,7 +313,7 @@
 }
 
 .ps-issue-status {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   padding: 2px 6px;
   border-radius: 3px;
@@ -382,7 +382,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }

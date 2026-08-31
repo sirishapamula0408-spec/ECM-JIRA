@@ -233,7 +233,7 @@
   justify-content: center;
   background: #ebecf0;
   color: #42526e;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -327,7 +327,7 @@
 
 .backlog-issue-main small {
   color: #42526e;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
 
@@ -375,7 +375,7 @@
   background: #f4f5f7;
   color: #42526e;
   font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 
 /* JL-388: the per-row status control is the shared StatusLozenge (JL-384) —
@@ -491,7 +491,7 @@
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
@@ -661,7 +661,7 @@
   color: #091e42;
   display: grid;
   place-items: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-bold);
 }
@@ -676,7 +676,7 @@
   border-radius: 10px;
   background: #ffe2e0;
   color: #ae2a19;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
   cursor: help;
@@ -720,7 +720,7 @@
   border-radius: 10px;
   background: #fff0b3;
   color: #974f0c;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
   cursor: help;
