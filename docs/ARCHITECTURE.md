@@ -313,7 +313,7 @@ app.use('/api/sprints', authGuard, sprintRoutes)
 | API Protection    | None                        | authGuard middleware on routes   |
 | Password Storage  | PBKDF2 (good)               | Keep PBKDF2 (already secure)    |
 | Input Validation  | Partial server-side         | Full validation middleware      |
-| CORS              | Wide open `cors()`          | Configured origin whitelist     |
+| CORS              | In-house `corsAllowList`    | Configured origin whitelist     |
 | Error Handling    | Inline try/catch            | Centralized error handler       |
 
 ---
