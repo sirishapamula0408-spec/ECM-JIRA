@@ -15,10 +15,6 @@ vi.mock('../api/memberApi', () => ({
   deleteMember: vi.fn(),
   bulkDeleteMembers: vi.fn(),
 }))
-vi.mock('../api/securityPolicyApi', () => ({
-  fetchSecurityPolicy: vi.fn(() => Promise.resolve(null)),
-  updateSecurityPolicy: vi.fn(),
-}))
 vi.mock('../api/workspaceApi', () => ({
   fetchWorkspaceSettings: vi.fn(() => Promise.resolve({})),
   updateProjectCreationPolicy: vi.fn(),

@@ -13,10 +13,6 @@ vi.mock('../api/memberApi', () => ({
   resendMemberInvite: vi.fn(),
   updateProfile: vi.fn(),
 }))
-vi.mock('../api/securityPolicyApi', () => ({
-  fetchSecurityPolicy: vi.fn(() => Promise.resolve(null)),
-  updateSecurityPolicy: vi.fn(),
-}))
 vi.mock('../api/workspaceApi', () => ({
   fetchWorkspaceSettings: vi.fn(() => Promise.resolve({})),
   updateProjectCreationPolicy: vi.fn(),

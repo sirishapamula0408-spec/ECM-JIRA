@@ -91,7 +91,10 @@
   padding-bottom: 1px;
 }
 
-/* JL-134: security policy form */
+/* JL-134 form layout, retained by JL-413 for the Project Creation panel — the
+   Security Policy panel that introduced these class names is gone, but the
+   Project Creation panel above it shares .teams-security-panel and
+   .teams-security-form, so they are still live, not dead. */
 .teams-security-form {
   display: flex;
   flex-direction: column;
@@ -106,26 +109,6 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--jira-text-muted);
-}
-
-.teams-security-form > label input[type='number'] {
-  max-width: 160px;
-}
-
-.teams-security-check {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 8px !important;
-}
-
-/* JL-253: shared.css sets `input { width: 100% }` globally, which stretched the
-   security-policy checkboxes full-width and pushed their labels far right.
-   Reset just these checkboxes so each sits ~8px left of its label text. */
-.teams-security-check input[type='checkbox'] {
-  width: auto;
-  flex: none;
-  margin: 0;
-  padding: 0;
 }
 
 .teams-table-shell {
