@@ -7,11 +7,20 @@ import DialogContentText from '@mui/material/DialogContentText'
 import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
 import { useMembers } from '../../context/MemberContext'
 import { usePermissions } from '../../hooks/usePermissions'
-import { fetchMembers, fetchInvitations, createInvitation, revokeInvitation, resendInvitation, deleteMember, bulkDeleteMembers } from '../../api/memberApi'
+import {
+  fetchMembers, fetchInvitations, createInvitation, revokeInvitation, resendInvitation,
+  deleteMember, bulkDeleteMembers,
+  // JL-417: these three have existed and been tested since JL-191/JL-192 but the
+  // Teams page never called them — role was a read-only pill and there was no
+  // way to suspend anyone without deleting them.
+  updateMemberRole, deactivateMember, reactivateMember,
+} from '../../api/memberApi'
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
 import { EmptyState } from '../../components/common/EmptyState'
@@ -22,6 +31,22 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 // JL-323: the invite list previously showed nothing about whether the email
 // actually left the building — a Gmail rejection looked identical to a delivered
 // invite. `email_status` comes from the newest email_log row for that address.
+// JL-417: the roles a member's row may be switched to. Owner is deliberately
+// absent — ownership is a flag on the row (JL-317), not a role you can assign
+// from a dropdown, and the server rejects it. Keep this list textually in step
+// with VALID_ROLES in server/routes/members.js.
+const ASSIGNABLE_ROLES = ['Admin', 'Member', 'Viewer']
+
+// JL-417: Active / Invited / Deactivated used to collapse into two colours, so
+// a suspended member was indistinguishable from one who had simply not accepted
+// their invite yet. Mirrors Atlassian's lozenge semantics: success = active,
+// in-progress = awaiting action, removed = no longer has access.
+const STATUS_PILL = {
+  Active: 'pill-green',
+  Invited: 'pill-yellow',
+  Deactivated: 'pill-red',
+}
+
 const DELIVERY_STYLES = {
   sent: { label: 'Sent', background: '#e3fcef', color: '#006644' },
   failed: { label: 'Failed', background: '#ffebe6', color: '#bf2600' },
@@ -87,6 +112,9 @@ export function TeamsPage() {
   const [revokeBusy, setRevokeBusy] = useState(false)
 
   // JL-252: single + bulk member delete (Admin/Owner only).
+  // JL-417: id of the row whose role/status change is in flight, so that row's
+  // controls disable without freezing the whole table.
+  const [rowBusyId, setRowBusyId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
@@ -129,7 +157,11 @@ export function TeamsPage() {
 
   // JL-250: client-side filter / sort / pagination for the members table.
   const [roleFilter, setRoleFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
+  // JL-417: default to Active. Atlassian's user list hides non-active accounts
+  // until you ask for them, and a workspace accumulates Invited/Deactivated rows
+  // that otherwise pad the list with people who cannot act. "All statuses" is
+  // one click away and still shows everyone.
+  const [statusFilter, setStatusFilter] = useState('Active')
   const [sortBy, setSortBy] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
   const [page, setPage] = useState(0)
@@ -137,8 +169,6 @@ export function TeamsPage() {
 
   // JL-74: token-based invitations
   const [invites, setInvites] = useState([])
-  const [inviteEmailForm, setInviteEmailForm] = useState({ email: '', role: 'Member' })
-  const [sendState, setSendState] = useState({ saving: false, error: '', message: '' })
   // JL-251: track which pending invite is currently being resent.
   const [resendingInviteId, setResendingInviteId] = useState(null)
 
@@ -155,19 +185,6 @@ export function TeamsPage() {
   useEffect(() => {
     loadInvites()
   }, [loadInvites])
-
-  async function handleSendInvitation(event) {
-    event.preventDefault()
-    setSendState({ saving: true, error: '', message: '' })
-    try {
-      await createInvitation(inviteEmailForm)
-      setInviteEmailForm({ email: '', role: 'Member' })
-      setSendState({ saving: false, error: '', message: 'Invitation sent.' })
-      loadInvites()
-    } catch (err) {
-      setSendState({ saving: false, error: err.message, message: '' })
-    }
-  }
 
   // JL-251: re-issue a token invitation and refresh the list.
   async function handleResendInvitation(inv) {
@@ -287,6 +304,49 @@ export function TeamsPage() {
     }
   }
 
+  // ── JL-417: row-level member administration ──
+  // The endpoints below already enforce the Owner and last-Admin rules server
+  // side (server/routes/members.js), so the UI does not duplicate that logic —
+  // it surfaces the rejection instead. Duplicating the rule in the client is how
+  // the two drift apart.
+  async function handleRoleChange(member, nextRole) {
+    if (!nextRole || nextRole === member.role) return
+    setRowBusyId(member.id)
+    try {
+      await updateMemberRole(member.id, nextRole)
+      await loadMembers()
+      showFeedback(`${member.name} is now ${nextRole}.`, 'success')
+    } catch (roleError) {
+      showFeedback(roleError.message || `Could not change the role for ${member.name}.`, 'error')
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
+  // Deactivate is a suspension, not a deletion: it blocks sign-in and keeps the
+  // member's role and history, which is why it is offered alongside Delete
+  // rather than instead of it.
+  async function handleToggleActive(member) {
+    const deactivating = member.status !== 'Deactivated'
+    setRowBusyId(member.id)
+    try {
+      await (deactivating ? deactivateMember(member.id) : reactivateMember(member.id))
+      await loadMembers()
+      showFeedback(
+        deactivating ? `${member.name} has been deactivated.` : `${member.name} has been reactivated.`,
+        'success',
+      )
+    } catch (toggleError) {
+      showFeedback(
+        toggleError.message
+          || `Could not ${deactivating ? 'deactivate' : 'reactivate'} ${member.name}.`,
+        'error',
+      )
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
   // JL-250: distinct role/status values present in the member list drive the
   // filter dropdowns, so they stay in sync with whatever the data contains.
   const roleOptions = useMemo(
@@ -306,7 +366,14 @@ export function TeamsPage() {
     return m.name.toLowerCase().includes(normalizedQuery) || m.email.toLowerCase().includes(normalizedQuery)
   })
 
-  const hasActiveFilters = normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all'
+  // JL-417: `&& members.length > 0` is load-bearing. The status filter now
+  // defaults to 'Active' rather than 'all', so this was true on first paint even
+  // for a brand-new workspace — which sent the genuinely-empty case down the
+  // "No members match your filters" branch and swallowed the Invite CTA. A
+  // filter can only be hiding something if there was something to hide.
+  const hasActiveFilters =
+    members.length > 0
+    && (normalizedQuery !== '' || roleFilter !== 'all' || statusFilter !== 'all')
 
   // JL-250: sort the filtered rows by the active column/direction. Names and
   // roles/statuses compare as strings; task_count compares numerically.
@@ -452,37 +519,16 @@ export function TeamsPage() {
 
       {canInviteMembers && (
         <article className="panel teams-invitations-panel">
-          <h3>Invite Members</h3>
+          {/* JL-417: this panel used to carry a SECOND invite form, identical in
+              behaviour to the "+ Invite Member" one in the header — same
+              createInvitation call, same three roles, both on screen at once.
+              JL-247 had already declared the header flow "the single canonical
+              invite path"; this is the leftover. The panel now does one job:
+              show what is outstanding. */}
+          <h3>Pending Invitations</h3>
           <p className="teams-subtitle">
-            Send a token-based invitation email. The recipient joins with the assigned role when they accept.
+            Invitations that have been sent but not yet accepted. Use <strong>+ Invite Member</strong> above to send a new one.
           </p>
-          <form className="teams-invite-form" onSubmit={handleSendInvitation}>
-            <label>
-              Email
-              <input
-                placeholder="Email address"
-                type="email"
-                value={inviteEmailForm.email}
-                onChange={(e) => setInviteEmailForm((c) => ({ ...c, email: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Role
-              <select value={inviteEmailForm.role} onChange={(e) => setInviteEmailForm((c) => ({ ...c, role: e.target.value }))}>
-                <option>Viewer</option>
-                <option>Member</option>
-                <option>Admin</option>
-              </select>
-            </label>
-            <div className="teams-invite-actions">
-              <button className="btn btn-primary" type="submit" disabled={sendState.saving}>
-                {sendState.saving ? 'Sending...' : 'Send Invitation'}
-              </button>
-            </div>
-          </form>
-          {sendState.error && <p className="banner error">{sendState.error}</p>}
-          {sendState.message && <p className="banner">{sendState.message}</p>}
 
           {invites.length > 0 && (
             <table className="table teams-table" style={{ marginTop: 16 }}>
@@ -701,21 +747,65 @@ export function TeamsPage() {
                       </div>
                     </div>
                   </td>
-                  <td><span className="pill">{member.role}</span></td>
                   <td>
-                    <span className={`pill ${member.status === 'Active' ? 'pill-green' : 'pill-gray'}`}>
+                    {/* JL-417: was a read-only pill. The PATCH endpoint and its
+                        Owner / last-Admin guards have existed since JL-191; only
+                        the control was missing. Owner stays static — ownership is
+                        a flag, not an assignable role. */}
+                    {isOwnerRow(member) ? (
+                      <span className="pill">{member.role}</span>
+                    ) : (
+                      <Select
+                        size="small"
+                        variant="standard"
+                        disableUnderline
+                        className="teams-role-select"
+                        value={ASSIGNABLE_ROLES.includes(member.role) ? member.role : ''}
+                        disabled={rowBusyId === member.id}
+                        onChange={(e) => handleRoleChange(member, e.target.value)}
+                        inputProps={{ 'aria-label': `Change role for ${member.name}` }}
+                        SelectDisplayProps={{ 'aria-label': `Change role for ${member.name}` }}
+                      >
+                        {/* A role the server allows but this list does not (e.g. a
+                            legacy value) still renders, rather than silently
+                            showing the row as blank. */}
+                        {!ASSIGNABLE_ROLES.includes(member.role) && member.role && (
+                          <MenuItem value="">{member.role}</MenuItem>
+                        )}
+                        {ASSIGNABLE_ROLES.map((role) => (
+                          <MenuItem key={role} value={role}>{role}</MenuItem>
+                        ))}
+                      </Select>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`pill ${STATUS_PILL[member.status] || 'pill-gray'}`}>
                       {member.status}
                     </span>
                   </td>
                   <td>{member.task_count || 0}</td>
                   <td>
                     <div className="teams-row-actions">
-                      {member.status === 'Invited' ? (
+                      {member.status === 'Invited' && (
                         <button className="link-btn" type="button" onClick={() => handleResend(member.id)} disabled={resendState.id === member.id}>
                           {resendState.id === member.id ? 'Resending...' : 'Resend Invite'}
                         </button>
-                      ) : (
-                        <span className="teams-active-label">Active</span>
+                      )}
+                      {/* JL-417: this slot used to print the literal word
+                          "Active" for every row that was not Invited — including
+                          Deactivated ones, which read as a contradiction against
+                          their own Status cell. It is now the suspend control.
+                          Deactivating preserves the member's role and history;
+                          Delete remains separate. */}
+                      {isAdmin && !isOwnerRow(member) && member.status !== 'Invited' && (
+                        <Button
+                          size="small"
+                          onClick={() => handleToggleActive(member)}
+                          disabled={rowBusyId === member.id}
+                          aria-label={`${member.status === 'Deactivated' ? 'Reactivate' : 'Deactivate'} ${member.name}`}
+                        >
+                          {member.status === 'Deactivated' ? 'Reactivate' : 'Deactivate'}
+                        </Button>
                       )}
                       {isAdmin && !isOwnerRow(member) && (
                         <Button

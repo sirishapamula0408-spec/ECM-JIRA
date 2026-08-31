@@ -53,6 +53,15 @@ function renderPage() {
 
 async function renderLoaded() {
   renderPage()
+  // JL-417: the Status filter now defaults to 'Active' (matching Atlassian,
+  // which hides non-active accounts until asked). This fixture makes every 4th
+  // member 'Invited' — Member 01 among them — so the default would hide 3 of
+  // the 12. These suites are about filtering, pagination and sorting across the
+  // WHOLE set, so widen the filter up front; otherwise every test below would
+  // quietly be exercising a 9-row subset and the pagination assertions would be
+  // measuring the wrong thing.
+  await waitFor(() => expect(screen.getByText('Member 02')).toBeInTheDocument())
+  fireEvent.change(screen.getByLabelText('Filter by status'), { target: { value: 'all' } })
   await waitFor(() => expect(screen.getByText('Member 01')).toBeInTheDocument())
 }
 

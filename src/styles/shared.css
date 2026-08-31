@@ -291,6 +291,19 @@
   color: #505f79;
 }
 
+/* JL-417: Active / Invited / Deactivated previously collapsed onto two colours,
+   so a suspended member looked identical to one who simply had not accepted
+   their invite. Both new pairs clear 4.5:1 on their own background. */
+.pill-yellow {
+  background: #fffae6;
+  color: #974f0c;
+}
+
+.pill-red {
+  background: #ffebe6;
+  color: #bf2600;
+}
+
 .link-btn {
   border: none;
   background: transparent;

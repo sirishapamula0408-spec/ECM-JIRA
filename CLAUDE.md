@@ -52,7 +52,9 @@ ECM JIRA Clone — a full-stack agile project management tool (JIRA clone) built
 - **Hook:** `src/hooks/usePermissions.js` — `usePermissions(projectId?)` returns capability booleans (`canEditIssue`, `canCreateIssue`, `canManageMembers`, `canManageSprints`, `canEditWorkflows`, `isAdmin`, etc.)
 - **Component:** `src/components/RequireRole.jsx` — wrapper that conditionally renders children based on role
 - **UI gating:** All pages gate create/edit/delete actions using `usePermissions()`. Viewers see read-only UI.
-- **Role editing:** Inline `<select>` dropdowns on TeamsPage (workspace roles) and ProjectSettingsPage Access tab (project roles). Backend endpoints enforce Owner/last-Admin/Lead protections.
+- **Role editing (JL-417):** Inline role dropdowns on **TeamsPage** and **UserManagementPage** (`/users`) for workspace roles. Owner rows stay static — ownership is a flag (JL-317), not an assignable role. Backend endpoints enforce Owner/last-Admin protections and the UI surfaces the rejection rather than duplicating the rule. **ProjectSettingsPage has no role dropdown** — this line used to claim one and was wrong; project-role changes are not editable inline there.
+- **Member status (JL-417):** `Active` / `Invited` / `Deactivated` each get a distinct pill (`.pill-green` / `.pill-yellow` / `.pill-red` in `shared.css`). Deactivate is a suspension that preserves role and history; Delete is separate. The Teams members table defaults its Status filter to `Active`.
+- **`members.task_count` is not authoritative (JL-417).** The column is written on INSERT and never updated. `GET /api/members` derives the count from `issues` instead, matching `issues.assignee` against the member's name **or** email (both forms occur). Do not read the stored column expecting a real number.
 - **API client:** `src/api/client.js` auto-handles 403 responses with Snackbar notifications via `SnackbarContext`.
 
 ### Collaboration & Communication Modules

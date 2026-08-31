@@ -159,6 +159,23 @@ router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
+// JL-417: task_count is DERIVED, not read from members.task_count.
+// That column is written by five INSERT paths and updated by none of them, so
+// the stored value was whatever the row was created with — 0 for every real
+// user, and hardcoded demo numbers for the seed. The Teams page renders it as a
+// SORTABLE column, which meant sorting on noise.
+//
+// issues.assignee is free text holding either a display name or an email (both
+// occur in real data), so a member matches on either. A scalar subquery is used
+// rather than a LEFT JOIN onto a grouped table: a member whose issues are
+// assigned under BOTH their name and their email would match two grouped rows
+// and be duplicated in the result.
+const TASK_COUNT_SELECT = `(
+      SELECT COUNT(*)::int FROM issues i
+       WHERE i.assignee IS NOT NULL AND i.assignee <> ''
+         AND (LOWER(i.assignee) = LOWER(m.name) OR LOWER(i.assignee) = LOWER(m.email))
+    ) AS task_count`
+
 // JL-281: server-side pagination + search/filtering for the members list.
 //
 // Backward compatibility: the historical response is a plain array of all
@@ -201,7 +218,10 @@ router.get('/', asyncHandler(async (req, res) => {
   // Legacy path: no pagination/filter params → return the full list as an array.
   if (!paginated) {
     const rows = await all(
-      'SELECT id, name, email, role, status, task_count, invited_by, is_owner FROM members ORDER BY id ASC',
+      `SELECT m.id, m.name, m.email, m.role, m.status, ${TASK_COUNT_SELECT},
+              m.invited_by, m.is_owner
+         FROM members m
+         ORDER BY m.id ASC`,
     )
     res.json(rows)
     return
@@ -209,13 +229,14 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const { limit, offset } = parsePagination(req.query, { defaultLimit: 25, maxLimit: 200 })
   const rows = await all(
-    `SELECT id, name, email, role, status, task_count, invited_by, is_owner
-       FROM members ${where}
-       ORDER BY id ASC
+    `SELECT m.id, m.name, m.email, m.role, m.status, ${TASK_COUNT_SELECT},
+            m.invited_by, m.is_owner
+       FROM members m ${where}
+       ORDER BY m.id ASC
        LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   )
-  const totalRow = await get(`SELECT COUNT(*)::int AS total FROM members ${where}`, params)
+  const totalRow = await get(`SELECT COUNT(*)::int AS total FROM members m ${where}`, params)
   const total = Number(totalRow?.total || 0)
 
   res.json({ items: rows, total, limit, offset })

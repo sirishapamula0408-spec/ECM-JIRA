@@ -227,9 +227,24 @@
   flex-shrink: 0;
 }
 
-.teams-active-label {
+/* JL-417: inline role editor in the members table. Sized so it does not change
+   the row height, with a visible hover affordance — an editable control that
+   looks like static text is exactly the failure mode Atlassian's inline-edit
+   guidance warns about.
+   (.teams-active-label lived here until JL-417. It styled a hardcoded "Active"
+   label that was printed for every non-Invited row, Deactivated ones included;
+   that slot is now the Deactivate/Reactivate control, so the rule had no
+   subject left.) */
+.teams-role-select {
   font-size: var(--font-size-sm);
-  color: var(--jira-text-muted);
+  min-width: 96px;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.teams-role-select:hover {
+  background: var(--jira-menu-hover);
+  box-shadow: inset 0 0 0 1px var(--jira-border);
 }
 
 .teams-empty {

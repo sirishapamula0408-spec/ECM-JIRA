@@ -69,8 +69,8 @@ async function seedMembers() {
     ['David Chen', 'david.c@tracker.io', 'Admin', 'Active', 12, null],
     ['Sarah Jenkins', 's.jenkins@tracker.io', 'Member', 'Active', 8, null],
     ['Marcus V', 'marcus.v@tracker.io', 'Viewer', 'Invited', 0, 'Alex Rivers'],
-    ['Alex Rivera', 'alex@tracker.io', 'Lead Dev', 'Active', 15, null],
-    ['Jordan Smith', 'jordan@tracker.io', 'Engineer', 'Active', 8, null],
+    ['Alex Rivera', 'alex@tracker.io', 'Admin', 'Active', 15, null],
+    ['Jordan Smith', 'jordan@tracker.io', 'Member', 'Active', 8, null],
   ]
 
   for (const member of members) {
