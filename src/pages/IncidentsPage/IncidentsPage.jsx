@@ -145,7 +145,7 @@ export function IncidentsPage() {
 
   return (
     <Box className="page incidents-page" sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>Incidents & On-call</Typography>
+      <h1>Incidents &amp; On-call</h1>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       {/* On-call widget */}

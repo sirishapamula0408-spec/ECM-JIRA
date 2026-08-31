@@ -100,7 +100,7 @@
 
 .wiki-view-header h1 {
   font-size: var(--font-size-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   margin: 0;
 }
 
@@ -199,7 +199,7 @@
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-md);
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-family-mono);
   resize: vertical;
   margin-bottom: 12px;
   box-sizing: border-box;

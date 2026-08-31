@@ -210,7 +210,7 @@ export function QueuesPage() {
     <Box className="page queues-page">
       {confirmDialog}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h5">Queues</Typography>
+        <h1>Queues</h1>
         {isAdmin && (
           <Button variant="contained" startIcon={<AddIcon />}
             onClick={() => { setEditing(null); setEditorOpen(true) }}>New queue</Button>

@@ -75,7 +75,7 @@ export function PortalPage() {
 
   return (
     <Box className="portal-page">
-      <Typography variant="h4" component="h1" gutterBottom>Help Center</Typography>
+      <h1 className="page-title-standalone">Help Center</h1>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Pick a request type, tell us what you need, and track your submitted requests.
       </Typography>

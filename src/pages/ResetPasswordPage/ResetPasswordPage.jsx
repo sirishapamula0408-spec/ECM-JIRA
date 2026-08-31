@@ -82,9 +82,9 @@ export function ResetPasswordPage() {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, sm: 6 } }}>
       <Paper elevation={0} sx={{ p: 4, maxWidth: 480, width: '100%', border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h5" component="h1" gutterBottom>
+        <h1 className="page-title-standalone">
           {successMessage ? 'Password reset' : 'Choose a new password'}
-        </Typography>
+        </h1>
 
         {/* Missing token gets its own explanation — a bare /reset-password hit
             (truncated link, hand-typed URL) is not the same failure as a bad

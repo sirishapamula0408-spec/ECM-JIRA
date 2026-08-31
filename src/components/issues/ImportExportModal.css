@@ -20,7 +20,7 @@
 .ie-hint { font-size: 13px; color: var(--text-subtle, #5e6c84); margin: 0; }
 .ie-hint code { background: rgba(9,30,66,0.06); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
 .ie-textarea {
-  width: 100%; font-family: monospace; font-size: 13px; padding: 8px;
+  width: 100%; font-family: var(--font-family-mono); font-size: 13px; padding: 8px;
   border: 1px solid var(--border, #dfe1e6); border-radius: 4px; resize: vertical; box-sizing: border-box;
 }
 .ie-actions { display: flex; gap: 8px; }

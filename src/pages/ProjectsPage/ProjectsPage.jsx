@@ -126,7 +126,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
   return (
     <section className="page projects-page">
       <div className="projects-header">
-        <h2>Projects</h2>
+        <h1>Projects</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <label className="projects-search">
             <span className="projects-search-icon" aria-hidden="true">

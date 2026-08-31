@@ -62,7 +62,7 @@ export function BiExportPage() {
 
   return (
     <Box className="page bi-export-page">
-      <Typography variant="h4" gutterBottom>BI / Data Warehouse Export</Typography>
+      <h1>BI / Data Warehouse Export</h1>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         A normalized, star-schema-style dataset (issues fact table + dimension lookups) for
         your data warehouse or BI tool. Supports incremental pulls by <code>updated_at</code>.

@@ -66,11 +66,11 @@
   background: #091e420f;
   border-radius: 4px;
   padding: 10px 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-family-mono);
   font-size: 0.85em;
   overflow-x: auto;
 }
-.tte-content code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tte-content code { font-family: var(--font-family-mono); }
 .tte-content :not(pre) > code {
   background: #091e420f;
   border-radius: 3px;

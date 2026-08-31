@@ -143,7 +143,7 @@ export function AssetsPage() {
     <Box className="assets-page" sx={{ p: 3 }}>
       {confirmDialog}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-        <Typography variant="h5" fontWeight={600}>Assets (CMDB)</Typography>
+        <h1 className="page-title-standalone">Assets (CMDB)</h1>
         <Stack direction="row" spacing={1}>
           {isAdmin && (
             <Button variant="outlined" onClick={() => setTypeDialogOpen(true)}>New asset type</Button>

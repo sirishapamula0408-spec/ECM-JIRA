@@ -67,7 +67,7 @@ a:focus-visible {
   background: var(--jira-blue);
   color: #ffffff;
   border-radius: 4px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   text-decoration: none;
   box-shadow: var(--jira-shadow-hover);
   transition: top var(--transition-fast) var(--ease-standard);

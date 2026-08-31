@@ -152,6 +152,23 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* JL-416: page titles that the `.page h1` rule above cannot reach.
+   AcceptInvite and ResetPassword are centred cards rendered outside the app
+   shell; Assets and Portal root on their own class. Each previously rendered
+   its title as a MUI Typography variant and so took MUI’s size instead of the
+   page-title size — 14px on the two auth cards, 16px on Portal.
+   Defined ONCE here rather than restated per page: restating it per page is
+   exactly how the six divergent weight overrides this ticket removes arose.
+   `margin: 0` deliberately, not `0 0 12px`: Assets renders its title inside a
+   centred flex row where a bottom margin would push it off-centre, and every
+   consumer already spaces the element that follows. */
+.page-title-standalone {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-medium);
+}
+
 .page-dark {
   background: var(--jira-canvas);
   color: var(--jira-text);

@@ -93,7 +93,7 @@ export function MarketplacePage() {
   return (
     <Box className="page marketplace-page" sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h4" component="h1">Marketplace</Typography>
+        <h1>Marketplace</h1>
         {isAdmin && (
           <Button variant="contained" onClick={() => setShowRegister(true)}>Register app</Button>
         )}

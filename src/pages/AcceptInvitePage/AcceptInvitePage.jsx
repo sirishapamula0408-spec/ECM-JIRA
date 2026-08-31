@@ -128,9 +128,9 @@ export function AcceptInvitePage() {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, sm: 6 } }}>
       <Paper elevation={0} sx={{ p: 4, maxWidth: 480, width: '100%', border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h5" component="h1" gutterBottom>
+        <h1 className="page-title-standalone">
           {accepted ? 'Invitation accepted' : 'Accept your invitation'}
-        </Typography>
+        </h1>
 
         {loading && (
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 2 }}>

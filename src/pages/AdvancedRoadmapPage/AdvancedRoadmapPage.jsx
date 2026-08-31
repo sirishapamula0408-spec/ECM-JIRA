@@ -121,7 +121,7 @@ export function AdvancedRoadmapPage() {
   return (
     <div className="page advanced-roadmap-page">
       <header className="page-header">
-        <Typography variant="h5" component="h1" fontWeight={600}>Advanced Roadmap</Typography>
+        <h1>Advanced Roadmap</h1>
         <Typography variant="body2" color="text.secondary">
           Multi-project epic timeline with dependency and capacity awareness.
         </Typography>

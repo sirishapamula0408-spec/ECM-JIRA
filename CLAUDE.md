@@ -121,6 +121,14 @@ Vite dev server proxies `/api/*` requests to `http://localhost:4000` (configured
 
 ESLint uses **flat config** (`eslint.config.js`) with separate configs for frontend (`src/**/*.{js,jsx}` — React hooks/refresh plugins) and backend (`server/**/*.js` — Node.js globals only).
 
+**`npm run lint` runs ESLint *and* stylelint** (JL-416). `stylelint.config.mjs` enforces that every `font-size` / `font-weight` / `font-family` in `src/**/*.css` resolves to a `var(--font-*)` token. The rule itself lives once in `src/test/typographyRule.mjs` and is imported by both the stylelint config and the vitest guard — a rule stated twice is how the original four typography guards drifted from reality.
+
+257 literal font declarations across 46 files predate this (clearing them is JL-415), so both gates are scoped by a **frozen baseline**, `src/test/typography-baseline.json`:
+- **stylelint** exempts a baselined file *entirely*, so it hard-gates only the ~20 already-clean stylesheets. Drop a file from the baseline and it becomes gated automatically, with no config edit.
+- **`TypographyTokens.JL394.test.js`** counts per file, so it catches a new violation *inside* an already-baselined file — which stylelint cannot — and it also **fails when a violation is fixed without the baseline shrinking**. The count can only go down.
+
+Re-baseline with `npm run typography:baseline` (it refuses to raise the total).
+
 ## Environment
 
 Copy `.env.example` to `.env`. Key variables: `PORT`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `APP_URL`, `TEST_DATABASE_URL`, SMTP config (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`). Run `docker compose up -d` or install PostgreSQL 16 locally.
@@ -130,7 +138,7 @@ Copy `.env.example` to `.env`. Key variables: `PORT`, `DATABASE_URL`, `JWT_SECRE
 - Existing CSS layout classes (`.workspace`, `.sidebar`, `.topbar`, `.page`) remain for responsive grid
 - Co-locate page CSS files with their JSX components in `src/pages/<PageName>/`
 - Use `src/theme/muiTheme.js` to adjust global MUI theme tokens — keep its values in sync with `variables.css` (a test enforces this)
-- **A page title is a plain `<h1>` (JL-409).** The shared `.page h1` rule in `layout.css` owns the treatment; do not reach for `<Typography variant="h4|h5">` as a page title, which bypasses that rule and leaves the page with no level-1 heading
+- **A page title is a plain `<h1>` (JL-409).** The shared `.page h1` rule in `layout.css` owns the treatment; do not reach for `<Typography variant="h4|h5">` as a page title, which bypasses that rule and leaves the page with no level-1 heading. `Typography component="h1"` is not a fix either — it emits an emotion class the shared rule then has to out-specify. JL-416 enforces this across **all 42 pages** by enumerating `src/pages/*/` rather than a hardcoded list. For the four pages that root *outside* `.page` (`AcceptInvitePage`, `ResetPasswordPage`, `AssetsPage`, `PortalPage`) use `<h1 className="page-title-standalone">` — one shared rule in `layout.css`, not a per-page restatement
 - Markdown formatting used for issue descriptions (rendered by RichTextEditor)
 - **`src/utils/sanitizeHtml.js` is the only HTML sanitiser in the codebase (JL-359).** Every string that reaches `dangerouslySetInnerHTML` must pass through it — `RichTextEditor`, `KnowledgeBasePage`, `IssueDetailPage` and `TipTapEditor` all do. It is a dependency-free allow-list (tags, per-tag attributes, and URL schemes) and carries the JL-344 attribute-breakout defence, the JL-358 control-character URL normalization and the JL-368 URL scheme allow-list. There used to be a second, DOM-based sanitiser in `src/utils/editorContent.js`; it was deleted because the two allow-lists had drifted and a fix to one never reached the other's consumers. **Do not add another sanitiser** — need a new tag or attribute? Extend `ALLOWED_TAGS` / `ALLOWED_ATTRS` in that one module and add a case to `src/test/sanitizeHtml.test.jsx`. `editorContent.js` now holds only pure text helpers (`htmlToPlainText`, `isEmptyDoc`, `looksLikeHtml`, `decodeEntities`).
 - Use `asyncHandler` wrapper for all async Express route handlers

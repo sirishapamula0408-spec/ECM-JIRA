@@ -80,6 +80,7 @@ export function ActiveSprintPage() {
   if (activeSprints.length === 0) {
     return (
       <section className="page">
+        <h1>Active Sprint</h1>
         {parallelToggle}
         <div className="active-sprint-empty">
           <h2>No active sprints</h2>
@@ -93,6 +94,7 @@ export function ActiveSprintPage() {
 
   return (
     <section className="page">
+      <h1>Active Sprint</h1>
       {parallelToggle}
 
       {activeSprints.length > 1 && (

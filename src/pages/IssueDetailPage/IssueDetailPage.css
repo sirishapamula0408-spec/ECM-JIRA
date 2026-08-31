@@ -1315,7 +1315,7 @@
 .id-ci-status--pending { background: #97a0af; }
 .id-ci-status--canceled { background: #6b778c; }
 .id-ci-pipeline { font-weight: 600; }
-.id-ci-branch { color: #5e6c84; font-family: monospace; font-size: 12px; }
+.id-ci-branch { color: #5e6c84; font-family: var(--font-family-mono); font-size: 12px; }
 .id-ci-duration { color: #97a0af; font-size: 12px; }
 .id-ci-link { margin-left: auto; color: #0065ff; text-decoration: none; font-weight: 600; }
 .id-ci-link:hover { text-decoration: underline; }

@@ -12,7 +12,7 @@
 
 .sd-header h1 {
   font-size: var(--font-size-xl);
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   margin: 0;
 }
 
