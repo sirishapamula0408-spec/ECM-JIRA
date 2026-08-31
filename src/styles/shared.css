@@ -28,8 +28,8 @@
 }
 
 .table th {
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--jira-text-muted);
@@ -67,8 +67,8 @@
 
 .stat p {
   margin: 0;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--jira-text-muted);
@@ -276,8 +276,8 @@
   padding: 2px 8px;
   background: #ebecf0;
   color: #42526e;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -462,8 +462,8 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-bold);
 }
 
@@ -482,8 +482,8 @@ textarea:focus {
 .member-cell small {
   display: block;
   color: var(--jira-text-muted);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .priority-mark {
@@ -509,8 +509,8 @@ textarea:focus {
   color: #42526e;
   border-radius: 3px;
   padding: 2px 6px;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .issue-watcher-count {
@@ -518,8 +518,8 @@ textarea:focus {
   align-items: center;
   gap: 2px;
   color: #6b778c;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .due-badge {
@@ -527,8 +527,8 @@ textarea:focus {
   align-items: center;
   border-radius: 3px;
   padding: 2px 6px;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
@@ -609,6 +609,10 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* JL-414 resolved the annotation that used to sit here: the scale keeps no
+     sub-12px step, since Atlassian raised its smallest to 12px for legibility.
+     The bubble joins sm rather than keeping a literal 10px. Leading stays
+     tight so the pill does not grow. */
   font-size: var(--font-size-sm);
   line-height: 12px;
   font-weight: var(--font-weight-bold);

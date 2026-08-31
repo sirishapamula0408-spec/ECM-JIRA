@@ -32,23 +32,36 @@ const token = (name) => {
 
 describe('JL-408 — the theme mirrors the CSS token scale', () => {
   it('uses every font-size token at the value variables.css declares', () => {
-    for (const step of ['xs', 'sm', 'base', 'md', 'lg', 'xl', 'xxl']) {
+    for (const step of ['sm', 'base', 'md', 'lg', 'xl', 'xxl', 'xxxl']) {
       expect(SIZE[step], `--font-size-${step}`).toBe(token(`font-size-${step}`))
     }
   })
 
   it('uses every line-height token at the declared value', () => {
-    for (const step of ['xs', 'sm', 'base', 'md', 'lg', 'xl', 'xxl']) {
+    for (const step of ['sm', 'base', 'md', 'lg', 'xl', 'xxl', 'xxxl']) {
       expect(LEADING[step], `--line-height-${step}`).toBe(token(`line-height-${step}`))
     }
   })
 
-  it('declares the same font family as the app, not Roboto', () => {
+  it('consumes the font-family token rather than restating the stack', () => {
     const theme = buildMuiTheme('light')
-    // Roboto may appear later in the stack as a fallback (index.css lists it),
-    // but it must not be what MUI asks for FIRST, because it is never loaded.
-    expect(theme.typography.fontFamily.split(',')[0].trim()).toBe('-apple-system')
-    expect(variablesCss).toContain('-apple-system')
+    // JL-414 changed this contract. The stack used to be written out three
+    // times — index.css, variables.css and muiTheme.js — so a change to one
+    // silently left the others behind. The theme now references the token, and
+    // the assertion follows the value to its single definition instead of
+    // re-checking a copy.
+    expect(theme.typography.fontFamily).toContain('var(--font-family-sans')
+
+    // The original intent still holds: whatever the token resolves to must not
+    // ask for Roboto first, because this app never loads it. Roboto may appear
+    // later in the stack as a fallback.
+    const declared = variablesCss
+      .split(/\r?\n/)
+      .find((l) => l.trim().startsWith('--font-family-sans:'))
+    expect(declared, '--font-family-sans must be declared').toBeTruthy()
+    const firstFace = declared.split(':')[1].split(',')[0].trim()
+    expect(firstFace).toBe('-apple-system')
+    expect(declared).toContain('sans-serif')
   })
 })
 

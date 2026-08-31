@@ -74,7 +74,7 @@
   display: grid;
   place-items: center;
   color: #ffffff;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: 1;
   font-weight: var(--font-weight-bold);
   border: 1px solid #ffffff;

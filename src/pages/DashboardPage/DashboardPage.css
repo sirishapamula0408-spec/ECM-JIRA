@@ -135,7 +135,7 @@
   left: 50%;
   transform: translateX(-50%);
   color: var(--jira-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -177,7 +177,7 @@
   transform: translateX(-50%);
   background: #172b4d;
   color: #fff;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   padding: 3px 8px;
   border-radius: 3px;
   white-space: nowrap;
@@ -224,7 +224,7 @@
 }
 
 .donut-hole span {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted);
 }
 
@@ -393,7 +393,7 @@
 }
 
 .bar-gadget-v-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted);
   text-align: center;
   white-space: nowrap;
@@ -435,7 +435,7 @@
 }
 
 .sort-icon {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   margin-left: 2px;
   color: #8993a4;
 }
@@ -552,7 +552,7 @@
 .sprint-health-empty-hint {
   margin: 0;
   color: var(--jira-text-muted);
-  font-size: var(--font-size-xs, 12px);
+  font-size: var(--font-size-sm);
 }
 
 .sprint-health-error {

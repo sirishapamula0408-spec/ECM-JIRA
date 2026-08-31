@@ -12,7 +12,10 @@ const read = (rel) => fs.readFileSync(path.join(srcDir, rel), 'utf8');
 // The scale, smallest to largest. Order matters — the monotonicity check below
 // is the thing that would have caught the naive version of this change, where
 // base moves to 14px and collides with md, which was already 14px.
-const STEPS = ['xs', 'sm', 'base', 'md', 'lg', 'xl', 'xxl'];
+// JL-414: xs (11px) retired — Atlassian raised its smallest step to 12px for
+// accessibility and dropped 11px, so former xs consumers use sm. xxxl (32px,
+// heading.xxlarge) added; it was missing from this scale entirely.
+const STEPS = ['sm', 'base', 'md', 'lg', 'xl', 'xxl', 'xxxl'];
 
 /** Pull a `--name: <n>px;` declaration out of a stylesheet as a number. */
 function pxToken(css, name) {
@@ -41,9 +44,11 @@ describe('JL-396: the typography scale is Atlassian-sized', () => {
   });
 
   it('lands on the Atlassian Design System values at every step', () => {
-    // xs/sm are body.small and metadata; base is font.body; md..xxl are h600..h900.
+    // sm is body.small, base is font.body, and md..xxxl are heading.small
+    // through heading.xxlarge. JL-414 corrected xxl 29->28 (29 was the legacy
+    // ADG3 value) and added the 32px step. The old h600..h900 names are retired.
     expect(STEPS.map((step) => pxToken(variables, `font-size-${step}`)))
-      .toEqual([11, 12, 14, 16, 20, 24, 29]);
+      .toEqual([12, 14, 16, 20, 24, 28, 32]);
   });
 
   it('pairs every font size with a line height that can actually contain it', () => {

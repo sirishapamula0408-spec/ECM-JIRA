@@ -77,8 +77,8 @@
 }
 
 .create-project-hint {
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   color: var(--jira-text-muted);
 }
 

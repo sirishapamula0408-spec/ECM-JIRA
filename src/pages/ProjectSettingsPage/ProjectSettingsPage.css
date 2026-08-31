@@ -83,8 +83,8 @@
 
 .ps-project-meta span {
   display: block;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   color: var(--jira-text-muted);
 }
 
@@ -175,11 +175,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* JL-415: intentionally still a literal. JL-414 is adding a 32px step to
-     the scale; this maps straight onto it once that lands. Snapping it to
-     --font-size-xxl now would be wrong twice over, since JL-414 also moves
-     xxl from 29px to 28px. */
-  font-size: 32px;
+  /* JL-414 added the 32px step (xxxl / heading.xxlarge) this was waiting on. */
+  font-size: var(--font-size-xxxl);
   font-weight: var(--font-weight-bold);
   color: #fff;
   margin-bottom: 20px;

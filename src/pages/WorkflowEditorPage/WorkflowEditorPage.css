@@ -209,7 +209,7 @@
 }
 
 .wfe-zoom-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted);
   min-width: 36px;
   text-align: center;
@@ -584,7 +584,7 @@
 
 .wfe-prop-label {
   display: block;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text-muted);
   margin-bottom: 4px;
@@ -603,7 +603,7 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: 3px;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 

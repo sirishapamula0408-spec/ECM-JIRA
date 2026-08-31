@@ -476,7 +476,7 @@ body.board-col-resizing {
   color: #5e6c84;
   display: grid;
   place-items: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 
 .kanban-count-over {
@@ -578,7 +578,7 @@ body.board-col-resizing {
   color: var(--jira-text-muted);
   display: grid;
   place-items: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
 }
