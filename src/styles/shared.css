@@ -609,10 +609,7 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* stylelint-disable-next-line declaration-property-value-allowed-list --
-     no 10px token exists and JL-414 is retiring the 11px step rather than
-     adding smaller ones. Revisit when that ticket settles the scale. */
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   line-height: 12px;
   font-weight: var(--font-weight-bold);
   margin-top: 1px;

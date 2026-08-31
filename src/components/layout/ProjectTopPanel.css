@@ -17,8 +17,11 @@
   background: none;
   border: none;
   color: #6b778c;
-  font-size: inherit;
-  font-weight: 500;
+  /* Was `inherit`. The only parent is .project-breadcrumbs above, which is
+     already --font-size-sm, so this states the same value through the token
+     instead of through the cascade (JL-415). */
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
   padding: 0;
   text-decoration: none;
@@ -31,13 +34,13 @@
 
 .project-breadcrumb-sep {
   color: #97a0af;
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   user-select: none;
 }
 
 .project-breadcrumb-current {
   color: #172b4d;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .app-project-top-panel {

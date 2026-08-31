@@ -41,7 +41,7 @@
   font-size: var(--font-size-base);
 }
 .kb-cat:hover { background: var(--color-hover, rgba(9, 30, 66, 0.06)); }
-.kb-cat--active { background: var(--color-selected, rgba(0, 82, 204, 0.12)); font-weight: 600; }
+.kb-cat--active { background: var(--color-selected, rgba(0, 82, 204, 0.12)); font-weight: var(--font-weight-semibold); }
 .kb-cat-count {
   font-size: var(--font-size-sm);
   color: var(--color-text-subtle, #6b778c);
@@ -102,7 +102,7 @@
 }
 .kb-article-row:hover { border-color: var(--color-primary, #0052cc); }
 .kb-article-row--active { border-color: var(--color-primary, #0052cc); box-shadow: 0 0 0 1px var(--color-primary, #0052cc); }
-.kb-article-title { font-weight: 600; }
+.kb-article-title { font-weight: var(--font-weight-semibold); }
 .kb-article-cat, .kb-article-views {
   font-size: var(--font-size-sm);
   color: var(--color-text-subtle, #6b778c);

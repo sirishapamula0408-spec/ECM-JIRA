@@ -366,7 +366,7 @@ export function ReportBuilderPage() {
                     justifyContent="space-between"
                   >
                     <div>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'var(--font-weight-medium)' }}>
                         {report.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">

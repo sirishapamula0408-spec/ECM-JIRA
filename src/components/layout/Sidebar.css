@@ -377,8 +377,8 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
 }
 
@@ -388,12 +388,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .sidebar-project-key {
   color: var(--jira-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   flex-shrink: 0;
 }
 

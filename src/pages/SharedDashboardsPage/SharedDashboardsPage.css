@@ -53,7 +53,7 @@
 
 .sd-section h2 {
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 12px;
 }
 
@@ -92,7 +92,7 @@
   padding: 2px 8px;
   border-radius: 10px;
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .sd-visibility-badge--private {

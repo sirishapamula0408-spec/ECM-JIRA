@@ -279,8 +279,8 @@
   align-items: stretch;
 }
 .active-sprint-goal__label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-subtle, #6b778c);
@@ -326,8 +326,8 @@
   gap: 8px;
 }
 .active-sprint-retro__col > header {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-subtle, #6b778c);
 }
 .active-sprint-retro__note {
@@ -348,7 +348,7 @@
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   line-height: 1;
   color: var(--color-text-subtle, #6b778c);
 }

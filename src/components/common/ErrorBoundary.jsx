@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component {
               An unexpected error occurred while rendering this view.
             </Box>
             {this.state.error?.message && (
-              <Box component="pre" className="error-boundary-detail" sx={{ mb: 2, whiteSpace: 'pre-wrap', fontSize: 13, opacity: 0.85 }}>
+              <Box component="pre" className="error-boundary-detail" sx={{ mb: 2, whiteSpace: 'pre-wrap', fontSize: 'var(--font-size-base)', opacity: 0.85 }}>
                 {this.state.error.message}
               </Box>
             )}

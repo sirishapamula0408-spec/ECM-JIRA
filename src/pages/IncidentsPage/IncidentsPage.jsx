@@ -233,7 +233,7 @@ export function IncidentsPage() {
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip size="small" color={SEV_COLOR[inc.severity]} label={inc.severity} />
                     <Chip size="small" color={STATUS_COLOR[inc.status]} label={inc.status} />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{inc.title}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'var(--font-weight-semibold)' }}>{inc.title}</Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>{durationLabel(inc.started_at, inc.resolved_at)}</Typography>
                   </Stack>
                 </Paper>

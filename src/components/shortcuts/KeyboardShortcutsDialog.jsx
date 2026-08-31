@@ -20,8 +20,8 @@ function KeyCap({ label }) {
         px: 0.75,
         py: 0.25,
         textAlign: 'center',
-        fontFamily: 'monospace',
-        fontSize: '0.8rem',
+        fontFamily: 'var(--font-family-mono)',
+        fontSize: 'var(--font-size-sm)',
         lineHeight: 1.4,
         borderRadius: 1,
         border: '1px solid',
@@ -50,7 +50,7 @@ export function KeyboardShortcutsDialog({ open, onClose }) {
                   {shortcut.keys.map((k, idx) => (
                     <Box component="span" key={`${k}-${idx}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       {idx > 0 && (
-                        <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                        <Box component="span" sx={{ color: 'text.secondary', fontSize: 'var(--font-size-sm)' }}>
                           then
                         </Box>
                       )}

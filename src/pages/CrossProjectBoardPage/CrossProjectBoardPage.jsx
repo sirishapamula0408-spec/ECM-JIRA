@@ -138,6 +138,8 @@ export function CrossProjectBoardPage() {
         <Box className="cpb-loading"><CircularProgress size={28} /></Box>
       ) : boards.length === 0 ? (
         <EmptyState
+          /* JL-415: 40px is artwork, not text - see .empty-state__icon in
+             EmptyState.css. The scale has no display step above h900. */
           icon={<span style={{ fontSize: 40 }}>🗂️</span>}
           title="No cross-project boards yet"
           description="Create a board that aggregates issues from multiple projects into one Kanban view."

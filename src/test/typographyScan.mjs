@@ -24,9 +24,12 @@ export const keyOf = (abs) => path.relative(repoRoot, abs).split(path.sep).join(
 /**
  * Scan every stylesheet under src/ with no baseline exemptions applied.
  *
- * @returns {Promise<{counts: Record<string, number>, detail: Record<string, string[]>}>}
- *   counts — violations per repo-relative file, omitting clean files.
- *   detail — human-readable `file:line:col  message` lines, for failure output.
+ * @returns {Promise<{counts: Record<string, number>, detail: Record<string, string[]>, scanned: number}>}
+ *   counts  — violations per repo-relative file, omitting clean files.
+ *   detail  — human-readable `file:line:col  message` lines, for failure output.
+ *   scanned — how many stylesheets stylelint actually parsed. JL-415 drove the
+ *             violation count to ~0, so baseline size is no longer usable as a
+ *             "did the scan collapse?" signal; this is.
  */
 export async function scanTypography() {
   const result = await stylelint.lint({
@@ -59,5 +62,5 @@ export async function scanTypography() {
     counts[key] = hits.length
     detail[key] = hits.map((w) => `${key}:${w.line}:${w.column}  ${w.text}`)
   }
-  return { counts, detail }
+  return { counts, detail, scanned: result.results.length }
 }

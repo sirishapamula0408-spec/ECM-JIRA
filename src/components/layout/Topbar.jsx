@@ -273,7 +273,7 @@ export function Topbar({ onCreate, hasProjects }) {
                       label={currentMember?.isOwner ? 'Owner' : workspaceRole}
                       size="small"
                       color={workspaceRole === 'Admin' ? 'primary' : workspaceRole === 'Member' ? 'default' : 'warning'}
-                      sx={{ mt: 0.5, height: 20, fontSize: '0.7rem' }}
+                      sx={{ mt: 0.5, height: 20, fontSize: 'var(--font-size-sm)' }}
                     />
                   )}
                 </div>

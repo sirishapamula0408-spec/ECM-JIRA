@@ -56,7 +56,7 @@
 }
 
 .user-management-bulkbar-count {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin-right: auto;
 }
 
@@ -91,12 +91,12 @@
 .user-management-avatar.MuiAvatar-root {
   width: 28px;
   height: 28px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .user-management-role-select {
   min-width: 96px;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .user-management-audit.MuiAccordion-root {

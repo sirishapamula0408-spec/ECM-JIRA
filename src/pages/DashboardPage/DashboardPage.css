@@ -159,8 +159,8 @@
    dark outline drawn under the white fill. pointer-events:none so labels
    never steal hover from the slice paths beneath them. */
 .pie-gadget-slice-label {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
   fill: #fff;
   paint-order: stroke;
   stroke: rgba(9, 30, 66, 0.65);

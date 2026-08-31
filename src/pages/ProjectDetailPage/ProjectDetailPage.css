@@ -82,14 +82,14 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 20px;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
 
 .pd-title {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: #172b4d;
   line-height: 1.25;
@@ -247,7 +247,7 @@
 }
 
 .pd-status-count {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: #172b4d;
   line-height: 1;
@@ -362,6 +362,6 @@
   }
 
   .pd-title {
-    font-size: 20px;
+    font-size: var(--font-size-lg);
   }
 }

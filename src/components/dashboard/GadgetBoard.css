@@ -11,7 +11,7 @@
 .gadget-board-empty,
 .gadget-picker-empty {
   color: var(--jira-text-muted, #6b778c);
-  font-size: 14px;
+  font-size: var(--font-size-base);
 }
 
 .gadget-picker {
@@ -42,13 +42,13 @@
 }
 
 .gadget-picker-cat {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   color: var(--jira-text-muted, #6b778c);
 }
 
 .gadget-picker-desc {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted, #6b778c);
 }
 
@@ -77,8 +77,8 @@
 }
 
 .gadget-card-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
 }
 
 .gadget-card-controls {
@@ -90,7 +90,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1;
   padding: 2px 6px;
   border-radius: 4px;
@@ -111,15 +111,20 @@
 }
 
 .gadget-stat {
+  /* stylelint-disable-next-line declaration-property-value-allowed-list --
+     JL-415: a hero numeral, one per gadget. Same reasoning as
+     .empty-state__icon: the text scale ends at h900 and has no display step,
+     so this stays a literal until JL-414 decides whether the scale grows
+     one. */
   font-size: 40px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   color: var(--jira-primary, #0052cc);
   text-align: center;
 }
 
 .gadget-muted {
   color: var(--jira-text-muted, #6b778c);
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .gadget-activity,
@@ -127,7 +132,7 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .gadget-activity li,
@@ -137,13 +142,13 @@
 }
 
 .gadget-list-key {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--jira-primary, #0052cc);
   margin-right: 4px;
 }
 
 .gadget-list-status {
   float: right;
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--jira-text-muted, #6b778c);
 }

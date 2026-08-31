@@ -123,11 +123,19 @@ ESLint uses **flat config** (`eslint.config.js`) with separate configs for front
 
 **`npm run lint` runs ESLint *and* stylelint** (JL-416). `stylelint.config.mjs` enforces that every `font-size` / `font-weight` / `font-family` in `src/**/*.css` resolves to a `var(--font-*)` token. The rule itself lives once in `src/test/typographyRule.mjs` and is imported by both the stylelint config and the vitest guard — a rule stated twice is how the original four typography guards drifted from reality.
 
-257 literal font declarations across 46 files predate this (clearing them is JL-415), so both gates are scoped by a **frozen baseline**, `src/test/typography-baseline.json`:
-- **stylelint** exempts a baselined file *entirely*, so it hard-gates only the ~20 already-clean stylesheets. Drop a file from the baseline and it becomes gated automatically, with no config edit.
+Both gates are scoped by a **frozen baseline**, `src/test/typography-baseline.json`:
+- **stylelint** exempts a baselined file *entirely*. Drop a file from the baseline and it becomes gated automatically, with no config edit.
 - **`TypographyTokens.JL394.test.js`** counts per file, so it catches a new violation *inside* an already-baselined file — which stylelint cannot — and it also **fails when a violation is fixed without the baseline shrinking**. The count can only go down.
 
 Re-baseline with `npm run typography:baseline` (it refuses to raise the total).
+
+**JL-415 emptied that baseline: 257 literal declarations across 46 files → 1**, so stylelint now hard-gates essentially every stylesheet under `src/`. The one entry left is `ProjectSettingsPage.css`'s `32px` avatar initial, deliberately deferred to JL-414, which is adding a 32px step to the scale. Rules applied in the sweep, so new CSS follows the same ones:
+- **`13px` (38 sites) → `--font-size-base` (14px), uniformly.** 13px was never a step — it was "one notch above the pre-JL-396 12px base", i.e. body copy, and since JL-396 the body token *is* 14px. Snapping down to 12px would have re-imposed the very shrink JL-396 removed.
+- `7px`/`9px`/`10px`/`11px` → `--font-size-sm` (12px). 9px and 7px went on accessibility grounds; 11px maps to `sm` rather than `xs` because JL-414 retires the 11px step. **Do not add new `--font-size-xs` references.**
+- `15px`→base, `18px`→lg, `22px`→xl, `30px`→xxl.
+- `em`/`rem` font sizes are gone from CSS *and* JSX — they are the JL-408 re-scaling bug, and the root is 14px. Editor heading levels map to xl/lg/md (Atlassian h800/h700/h600) rather than to their nearest computed value, which would have collapsed h1 and h2 onto one step.
+- Three literals survive with a `stylelint-disable-next-line` and a reason: `.empty-state__icon` and `.gadget-stat` (40px) and `.not-found-page h1` (72px). All three size *artwork*, and the text scale has no display step above h900. `.mention-chip` keeps `font-size: inherit` because it is `display: inline` inside arbitrary copy.
+- The print stylesheet in `src/utils/printDocument.js` is a separate document with none of the app's CSS loaded, so it **declares** the tokens in its own `:root` from `FONT_FAMILY`/`SIZE`/`WEIGHT` in `src/theme/muiTheme.js` and then references them. Do not restate a font stack there.
 
 ## Environment
 

@@ -49,7 +49,7 @@
 .wh-events-label {
   display: block;
   font-size: var(--font-size-base);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   margin-bottom: 6px;
 }
 
@@ -229,7 +229,7 @@
 }
 
 .wh-log-event {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   min-width: 120px;
 }
 
@@ -267,7 +267,7 @@
 .wh-tab--active {
   color: var(--text-primary);
   border-bottom-color: var(--primary, #0052cc);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .wh-delivery-filters {
   display: flex;

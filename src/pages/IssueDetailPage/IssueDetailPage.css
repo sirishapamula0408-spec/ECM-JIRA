@@ -131,7 +131,7 @@
   background: var(--jira-surface, #fff);
   border: 2px dashed var(--jira-primary, #0052cc);
   color: var(--jira-primary, #0052cc);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   box-shadow: 0 8px 24px rgba(9, 30, 66, 0.18);
 }
 
@@ -166,7 +166,7 @@
 /* Title */
 .id-title {
   margin: 0 0 12px;
-  font-size: 24px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: #172b4d;
   line-height: 1.25;
@@ -281,7 +281,7 @@
   font-size: var(--font-size-base);
   line-height: 1.6;
   color: #172b4d;
-  font-family: inherit;
+  font-family: var(--font-family-sans);
   resize: vertical;
   outline: none;
 }
@@ -358,7 +358,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
@@ -382,7 +382,7 @@
   border: 1px solid #dfe1e6;
   border-radius: 4px;
   font-size: var(--font-size-base);
-  font-family: inherit;
+  font-family: var(--font-family-sans);
   line-height: 1.5;
   color: #172b4d;
   resize: vertical;
@@ -475,7 +475,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: #5e6c84;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .id-comment-action-link:hover {
@@ -523,7 +523,7 @@
   color: #0052cc;
 }
 .id-reaction-count {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .id-reaction-picker {
   position: relative;
@@ -537,7 +537,7 @@
   background: #fff;
   cursor: pointer;
   color: #5e6c84;
-  font-size: 15px;
+  font-size: var(--font-size-base);
   line-height: 1;
 }
 .id-reaction-add:hover {
@@ -564,7 +564,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   padding: 2px 4px;
   border-radius: 4px;
 }
@@ -584,7 +584,7 @@
   border-radius: 9px;
   background: #dfe1e6;
   color: #42526e;
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
@@ -601,7 +601,7 @@
   border-radius: 3px;
   background: #eae6ff;
   color: #5243aa;
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -623,7 +623,7 @@
   border-radius: 3px;
   background: #e3fcef;
   color: #006644;
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -746,7 +746,7 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
 }
@@ -820,7 +820,7 @@
   border: none;
   background: none;
   color: #0052cc;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
@@ -838,7 +838,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
@@ -855,7 +855,7 @@
 }
 
 .id-priority-arrow {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
@@ -1030,7 +1030,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   cursor: pointer;
 }
 
@@ -1058,7 +1058,7 @@
   color: #6b778c;
   cursor: pointer;
   padding: 0;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -1123,7 +1123,7 @@
   }
 
   .id-title {
-    font-size: 20px;
+    font-size: var(--font-size-lg);
   }
 
   .id-quick-actions {
@@ -1159,12 +1159,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .id-approval-badge {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   text-transform: capitalize;
 }
 
@@ -1182,7 +1182,7 @@
 
 .id-approval-by {
   color: var(--jira-text-secondary, #6b778c);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1197,7 +1197,7 @@
 .id-label-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .id-label-suggestion {
   border: 1px dashed currentColor; background: transparent; border-radius: 12px;
-  padding: 2px 8px; font-size: 12px; cursor: pointer; opacity: 0.85;
+  padding: 2px 8px; font-size: var(--font-size-sm); cursor: pointer; opacity: 0.85;
 }
 .id-label-suggestion:hover { opacity: 1; background: rgba(0,0,0,0.03); }
 
@@ -1215,20 +1215,20 @@
   width: 26px; height: 26px; padding: 0; border: 1px solid #dfe1e6;
   border-radius: 4px; background: none; cursor: pointer;
 }
-.id-label-edit-error { color: #de350b; font-size: 12px; }
+.id-label-edit-error { color: #de350b; font-size: var(--font-size-sm); }
 
 /* Theme-1 #1: sub-tasks */
 .id-subtask-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .id-subtask-progress { display: flex; align-items: center; gap: 8px; }
 .id-subtask-bar { width: 120px; height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
 .id-subtask-bar-fill { height: 100%; background: #36b37e; transition: width 0.2s; }
-.id-subtask-progress-label { font-size: 12px; color: #5e6c84; white-space: nowrap; }
+.id-subtask-progress-label { font-size: var(--font-size-sm); color: #5e6c84; white-space: nowrap; }
 .id-subtask-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .id-subtask-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid #dfe1e6; border-radius: 4px; cursor: pointer; }
 .id-subtask-row:hover { background: #f4f5f7; }
-.id-subtask-key { font-size: 12px; font-weight: 600; color: #0052cc; }
-.id-subtask-title { flex: 1; font-size: 13px; }
-.id-subtask-status { font-size: 11px; padding: 2px 8px; border-radius: 3px; background: #dfe1e6; color: #42526e; }
+.id-subtask-key { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: #0052cc; }
+.id-subtask-title { flex: 1; font-size: var(--font-size-base); }
+.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: 3px; background: #dfe1e6; color: #42526e; }
 .id-subtask-status--done { background: #e3fcef; color: #006644; }
 .id-subtask-status--in-progress { background: #deebff; color: #0052cc; }
 .id-subtask-status--code-review { background: #eae6ff; color: #5243aa; }
@@ -1240,32 +1240,32 @@
   70% { background: #deebff; border-color: #0052cc; }
   100% { background: transparent; border-color: #dfe1e6; }
 }
-.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: #0052cc; cursor: pointer; font-size: 13px; padding: 4px 0; }
+.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: #0052cc; cursor: pointer; font-size: var(--font-size-base); padding: 4px 0; }
 
 /* Theme-1 #3: attachments */
 .id-attach-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .id-attach-card { display: flex; align-items: center; border: 1px solid #dfe1e6; border-radius: 4px; overflow: hidden; }
 .id-attach-open { display: flex; align-items: center; gap: 8px; background: #fff; border: none; padding: 8px 10px; cursor: pointer; max-width: 240px; }
 .id-attach-open:hover { background: #f4f5f7; }
-.id-attach-icon { font-size: 16px; }
-.id-attach-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-.id-attach-size { font-size: 11px; color: #5e6c84; }
-.id-attach-delete { border: none; background: #fafbfc; color: #5e6c84; cursor: pointer; font-size: 16px; padding: 0 8px; align-self: stretch; }
+.id-attach-icon { font-size: var(--font-size-md); }
+.id-attach-name { font-size: var(--font-size-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+.id-attach-size { font-size: var(--font-size-sm); color: #5e6c84; }
+.id-attach-delete { border: none; background: #fafbfc; color: #5e6c84; cursor: pointer; font-size: var(--font-size-md); padding: 0 8px; align-self: stretch; }
 .id-attach-delete:hover { background: #ffebe6; color: #bf2600; }
 
 /* Theme-1 #4: issue links */
 .id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: #f4f5f7; border-radius: 4px; }
 .id-link-dialog-actions { display: flex; gap: 6px; }
-.id-link-type { font-size: 11px; text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: 600; }
+.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: var(--font-weight-semibold); }
 
 /* JL-55: Git integration (Development panel) */
 .id-git-group { margin-bottom: 10px; }
-.id-git-group-label { font-size: 11px; text-transform: uppercase; color: #5e6c84; font-weight: 600; margin: 6px 0 2px; }
+.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
 .id-git-icon { min-width: 16px; text-align: center; color: #5e6c84; }
-.id-git-author { font-size: 12px; color: #5e6c84; margin-left: auto; }
+.id-git-author { font-size: var(--font-size-sm); color: #5e6c84; margin-left: auto; }
 
 /* JL-147: pull-request state chips */
-.id-pr-state { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; color: #fff; text-transform: capitalize; }
+.id-pr-state { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); padding: 1px 8px; border-radius: 10px; color: #fff; text-transform: capitalize; }
 .id-pr-state--open { background: #0052cc; }
 .id-pr-state--merged { background: #6554c0; }
 .id-pr-state--closed { background: #97a0af; }
@@ -1274,10 +1274,10 @@
 .id-time-summary { margin-bottom: 10px; }
 .id-time-bar { height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
 .id-time-bar-fill { height: 100%; background: #0052cc; transition: width 0.2s; }
-.id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #5e6c84; margin-top: 4px; }
+.id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: var(--font-size-sm); color: #5e6c84; margin-top: 4px; }
 
 /* Theme-1 #7: custom fields */
-.id-cf-delete { border: none; background: none; color: #97a0af; cursor: pointer; font-size: 14px; margin-left: 4px; padding: 0 2px; }
+.id-cf-delete { border: none; background: none; color: #97a0af; cursor: pointer; font-size: var(--font-size-base); margin-left: 4px; padding: 0 2px; }
 .id-cf-delete:hover { color: #bf2600; }
 .id-cf-add { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 
@@ -1291,15 +1291,15 @@
   border: 1px solid #ffbdad;
   border-radius: 3px;
   padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* JL-113: extended custom-field types */
-.id-cf-calculated { font-weight: 600; color: #172b4d; }
+.id-cf-calculated { font-weight: var(--font-weight-semibold); color: #172b4d; }
 .id-cf-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 12px; background: #dfe1e6; color: #172b4d; font-size: 12px; }
-.id-cf-chip button { border: none; background: none; color: #5e6c84; cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
+.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 12px; background: #dfe1e6; color: #172b4d; font-size: var(--font-size-sm); }
+.id-cf-chip button { border: none; background: none; color: #5e6c84; cursor: pointer; font-size: var(--font-size-base); line-height: 1; padding: 0; }
 .id-cf-chip-toggle { cursor: pointer; user-select: none; }
 .id-cf-chip-toggle input { margin: 0; }
 .id-cf-chip-toggle.selected { background: #4c9aff; color: #fff; }
@@ -1307,17 +1307,17 @@
 
 /* JL-56: CI/CD pipeline status */
 .id-ci-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: 4px; font-size: 13px; }
-.id-ci-status { text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 8px; border-radius: 10px; color: #fff; }
+.id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: 4px; font-size: var(--font-size-base); }
+.id-ci-status { text-transform: uppercase; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: .04em; padding: 2px 8px; border-radius: 10px; color: #fff; }
 .id-ci-status--success { background: #36b37e; }
 .id-ci-status--failed { background: #de350b; }
 .id-ci-status--running { background: #0065ff; }
 .id-ci-status--pending { background: #97a0af; }
 .id-ci-status--canceled { background: #6b778c; }
-.id-ci-pipeline { font-weight: 600; }
-.id-ci-branch { color: #5e6c84; font-family: var(--font-family-mono); font-size: 12px; }
-.id-ci-duration { color: #97a0af; font-size: 12px; }
-.id-ci-link { margin-left: auto; color: #0065ff; text-decoration: none; font-weight: 600; }
+.id-ci-pipeline { font-weight: var(--font-weight-semibold); }
+.id-ci-branch { color: #5e6c84; font-family: var(--font-family-mono); font-size: var(--font-size-sm); }
+.id-ci-duration { color: #97a0af; font-size: var(--font-size-sm); }
+.id-ci-link { margin-left: auto; color: #0065ff; text-decoration: none; font-weight: var(--font-weight-semibold); }
 .id-ci-link:hover { text-decoration: underline; }
 
 /* JL-136: real-time presence ("who's viewing this issue") */
@@ -1326,12 +1326,12 @@
 .id-presence-avatar {
   width: 26px; height: 26px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: #fff; background: #6554c0;
+  font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); color: #fff; background: #6554c0;
   border: 2px solid var(--surface, #fff); margin-left: -8px;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
 }
 .id-presence-avatar:first-child { margin-left: 0; }
-.id-presence-label { font-size: 12px; color: #5e6c84; white-space: nowrap; }
+.id-presence-label { font-size: var(--font-size-sm); color: #5e6c84; white-space: nowrap; }
 
 /* JL-215: impediment flag toggle below the status select */
 .id-sidebar-flag {

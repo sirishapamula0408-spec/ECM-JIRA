@@ -24,7 +24,7 @@
   border-radius: 4px;
   background: transparent;
   color: var(--text-primary, #172b4d);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   cursor: pointer;
   transition: background var(--transition-fast, 120ms) ease;
 }
@@ -45,15 +45,21 @@
   min-height: 120px;
   padding: 10px 12px;
   outline: none;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--text-primary, #172b4d);
 }
 .tte-content:focus { outline: none; }
 .tte-content > *:first-child { margin-top: 0; }
-.tte-content h1 { font-size: 1.5em; margin: 0.6em 0 0.3em; }
-.tte-content h2 { font-size: 1.3em; margin: 0.6em 0 0.3em; }
-.tte-content h3 { font-size: 1.1em; margin: 0.6em 0 0.3em; }
+/* JL-415: these were 1.5em / 1.3em / 1.1em - the exact re-scaling failure mode
+   muiTheme.js documents from JL-408, and against the 14px root they computed
+   to 21 / 18.2 / 15.4px, none of them on the scale. Mapped by heading LEVEL
+   rather than by nearest value: xl/lg/md are Atlassian's h800/h700/h600
+   steps, which is what h1/h2/h3 are. Nearest-value snapping would have put
+   h1 and h2 both on lg and collapsed two levels into one. */
+.tte-content h1 { font-size: var(--font-size-xl); margin: 0.6em 0 0.3em; }
+.tte-content h2 { font-size: var(--font-size-lg); margin: 0.6em 0 0.3em; }
+.tte-content h3 { font-size: var(--font-size-md); margin: 0.6em 0 0.3em; }
 .tte-content p { margin: 0.4em 0; }
 .tte-content ul, .tte-content ol { padding-left: 1.4em; margin: 0.4em 0; }
 .tte-content blockquote {
@@ -67,7 +73,7 @@
   border-radius: 4px;
   padding: 10px 12px;
   font-family: var(--font-family-mono);
-  font-size: 0.85em;
+  font-size: var(--font-size-sm);
   overflow-x: auto;
 }
 .tte-content code { font-family: var(--font-family-mono); }
@@ -75,7 +81,7 @@
   background: #091e420f;
   border-radius: 3px;
   padding: 0.1em 0.3em;
-  font-size: 0.85em;
+  font-size: var(--font-size-sm);
 }
 .tte-content hr { border: none; border-top: 2px solid var(--border-color, #dfe1e6); margin: 0.8em 0; }
 .tte-content a { color: #0052cc; text-decoration: underline; }
@@ -86,7 +92,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border-color, #dfe1e6);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   resize: vertical;
 }
 
@@ -106,7 +112,7 @@
   padding: 4px;
 }
 .tte-slash-title {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-secondary, #5e6c84);
@@ -125,5 +131,5 @@
   text-align: left;
 }
 .tte-slash-item:hover { background: rgba(9, 30, 66, 0.06); }
-.tte-slash-label { font-size: 13px; color: var(--text-primary, #172b4d); }
-.tte-slash-hint { font-size: 11px; color: var(--text-secondary, #5e6c84); }
+.tte-slash-label { font-size: var(--font-size-base); color: var(--text-primary, #172b4d); }
+.tte-slash-hint { font-size: var(--font-size-sm); color: var(--text-secondary, #5e6c84); }

@@ -41,10 +41,10 @@
   border-radius: 4px;
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
   color: var(--jira-text-muted, #6b778c);
-  font-family: inherit;
+  font-family: var(--font-family-sans);
   transition: background 100ms ease, color 100ms ease;
 }
 
@@ -82,8 +82,8 @@
   border-radius: 4px;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--jira-text-muted, #6b778c);
   transition: all 100ms ease;
   white-space: nowrap;
@@ -114,7 +114,7 @@
   box-shadow: none !important;
   outline: none;
   resize: vertical;
-  font-family: inherit;
+  font-family: var(--font-family-sans);
   font-size: var(--font-size-base, 14px);
   line-height: 1.5;
   color: var(--jira-text, #172b4d);
@@ -144,7 +144,7 @@
 }
 
 .rte-preview strong {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .rte-preview em {
@@ -156,12 +156,27 @@
   opacity: 0.7;
 }
 
+/* JL-415: markdown `#` / `##` in the preview. See RichTextEditor.jsx - these
+   used to be inline em sizes that sanitizeHtml discarded, so they had no
+   effect; the size lives here now and does. */
+.rte-md-h1 {
+  display: inline-block;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+}
+
+.rte-md-h2 {
+  display: inline-block;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+}
+
 .rte-preview code {
   padding: 2px 5px;
   border-radius: 3px;
   background: #f4f5f7;
   font-family: var(--font-family-mono);
-  font-size: 0.9em;
+  font-size: var(--font-size-sm);
   color: #d63384;
 }
 
@@ -177,7 +192,7 @@
   padding: 0;
   background: none;
   color: var(--jira-text, #172b4d);
-  font-size: 0.9em;
+  font-size: var(--font-size-sm);
 }
 
 .rte-preview blockquote {

@@ -6,7 +6,7 @@
 .au-builder { display: flex; flex-direction: column; gap: 12px; background: #f4f5f7; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
 .au-name { max-width: 280px; }
 .au-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.au-when, .au-then { font-weight: 700; font-size: var(--font-size-base); color: #5e6c84; width: 44px; }
+.au-when, .au-then { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: #5e6c84; width: 44px; }
 .au-error { color: #bf2600; font-size: var(--font-size-base); margin: 0; }
 .au-section-title { margin: 20px 0 8px; font-size: var(--font-size-md); }
 .au-empty { color: #97a0af; font-size: var(--font-size-md); }
@@ -18,8 +18,8 @@
 .au-rule-actions { display: flex; gap: 6px; }
 .au-logs { display: flex; flex-direction: column; gap: 4px; }
 .au-log { display: flex; gap: 10px; align-items: center; font-size: var(--font-size-base); padding: 4px 0; border-bottom: 1px solid #f4f5f7; }
-.au-log-status { font-size: var(--font-size-sm); text-transform: uppercase; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+.au-log-status { font-size: var(--font-size-sm); text-transform: uppercase; padding: 2px 8px; border-radius: 3px; font-weight: var(--font-weight-semibold); }
 .au-log-status--success { background: #e3fcef; color: #006644; }
 .au-log-status--failure { background: #ffebe6; color: #bf2600; }
-.au-log-rule { font-weight: 600; }
+.au-log-rule { font-weight: var(--font-weight-semibold); }
 .au-log-msg { color: #5e6c84; }

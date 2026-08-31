@@ -46,8 +46,8 @@
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,13 +61,13 @@
 }
 
 .mention-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
 
 .mention-email {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,8 +81,13 @@
   border-radius: 10px;
   background: color-mix(in srgb, var(--primary, #0052cc) 14%, transparent);
   color: var(--primary, #0052cc);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list --
+     JL-415: `inherit` is deliberate here, not an un-migrated literal. A mention
+     chip is `display: inline` inside whatever copy contains it - a comment, a
+     description, an issue title - and has to take that run's size. Pinning it
+     to one token would make chips disagree with the text they sit in. */
   font-size: inherit;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   border: none;
   cursor: pointer;
   transition: background 0.15s;

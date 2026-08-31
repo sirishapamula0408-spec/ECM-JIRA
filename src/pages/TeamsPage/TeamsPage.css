@@ -168,7 +168,6 @@
   color: inherit;
   text-transform: inherit;
   letter-spacing: inherit;
-  font-weight: inherit;
 }
 
 .teams-sort-btn:hover {
@@ -304,7 +303,7 @@
 }
 
 .teams-bulkbar-count {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: #0c66e4;
 }
 

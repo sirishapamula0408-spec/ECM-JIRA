@@ -93,7 +93,7 @@
 .topbar-search-section-label {
   padding: 8px 10px 4px;
   font-size: var(--font-size-xs);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--jira-text-subtle, #6b778c);
@@ -267,8 +267,8 @@
   border-radius: 8px;
   background: #ff5630;
   color: #fff;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -285,8 +285,8 @@
   cursor: pointer;
 }
 .topbar-workspace-icon {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--text-subtle, #626f86);
@@ -299,6 +299,6 @@
   border-radius: 6px;
   background: var(--surface, #fff);
   color: var(--text-color, #172b4d);
-  font-size: 13px;
+  font-size: var(--font-size-base);
   cursor: pointer;
 }

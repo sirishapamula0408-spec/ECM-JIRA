@@ -53,7 +53,7 @@
 
 .goal-badge {
   font-size: var(--font-size-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   padding: 2px 8px;
   border-radius: 10px;
   text-transform: capitalize;
@@ -72,7 +72,7 @@
   overflow: hidden;
 }
 .goal-bar-fill { height: 100%; background: #36B37E; transition: width 0.3s ease; }
-.goal-progress-text { font-size: var(--font-size-base); font-weight: 600; white-space: nowrap; }
+.goal-progress-text { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); white-space: nowrap; }
 
 .goal-krs { margin: 8px 0; }
 .goal-kr {

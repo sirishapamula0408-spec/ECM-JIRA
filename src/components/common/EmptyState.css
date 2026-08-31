@@ -15,6 +15,12 @@
   justify-content: center;
   margin-bottom: var(--space-1, 4px);
   color: var(--jira-border-strong);
+  /* stylelint-disable-next-line declaration-property-value-allowed-list --
+     JL-415: this sizes a GLYPH, not text - the illustration at the top of an
+     empty state. The scale tops out at --font-size-xxl (h900), and snapping a
+     40px illustration down to it would shrink the artwork by a quarter for no
+     typographic gain. Adding a display step is JL-414's call, not this
+     ticket's. */
   font-size: 40px;
   line-height: 1;
 }

@@ -61,7 +61,7 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
@@ -175,6 +175,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* JL-415: intentionally still a literal. JL-414 is adding a 32px step to
+     the scale; this maps straight onto it once that lands. Snapping it to
+     --font-size-xxl now would be wrong twice over, since JL-414 also moves
+     xxl from 29px to 28px. */
   font-size: 32px;
   font-weight: var(--font-weight-bold);
   color: #fff;
@@ -215,7 +219,7 @@
 
 .ps-lead-badge {
   display: inline-block;
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   background: var(--jira-blue-soft, #deebff);
   color: var(--jira-blue, #0052cc);

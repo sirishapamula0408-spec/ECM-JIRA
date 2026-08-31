@@ -18,7 +18,7 @@
 }
 
 .advanced-roadmap-page .arm-key {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .advanced-roadmap-page .arm-track {

@@ -229,7 +229,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                       <div className="projects-name-text">
                         <strong className="projects-name-link">{project.name}</strong>
                         {project.archived && (
-                          <span className="projects-archived-chip" style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: '3px', background: 'var(--color-neutral-200, #dfe1e6)', color: 'var(--color-text-subtle, #5e6c84)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          <span className="projects-archived-chip" style={{ marginLeft: '8px', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', padding: '2px 6px', borderRadius: '3px', background: 'var(--color-neutral-200, #dfe1e6)', color: 'var(--color-text-subtle, #5e6c84)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             Archived
                           </span>
                         )}

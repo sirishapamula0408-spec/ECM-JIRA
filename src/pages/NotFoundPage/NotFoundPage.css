@@ -9,6 +9,10 @@
 
 .not-found-page h1 {
   margin: 0;
+  /* stylelint-disable-next-line declaration-property-value-allowed-list --
+     JL-415: the "404" numeral. Deliberately far off the text scale - it is
+     the page's illustration, and h900 (--font-size-xxl) is less than half
+     this size. Left as a literal rather than pretending a token fits. */
   font-size: 72px;
   line-height: 1;
   font-weight: var(--font-weight-bold);

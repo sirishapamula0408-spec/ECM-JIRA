@@ -6,7 +6,17 @@
  * print dialog (Save as PDF). No server-side PDF libraries.
  *
  * Both functions are pure/injectable so they can be unit-tested without a real browser.
+ *
+ * JL-415 — the print stylesheet is a SEPARATE document: none of the app's
+ * stylesheets are loaded in the popup, so `var(--font-*)` would resolve to
+ * nothing there. Rather than leave a second, silently diverging font stack
+ * (this file's was already missing Oxygen / Ubuntu / Fira Sans / Droid Sans and
+ * carried Helvetica + Arial that the app's does not), the print document now
+ * DECLARES the tokens in its own `:root` from the same JS constants the MUI
+ * theme is built from, and then references them. One source of truth; a change
+ * to the scale reaches print without anyone remembering this file.
  */
+import { FONT_FAMILY, SIZE, WEIGHT } from '../theme/muiTheme.js'
 
 /**
  * Escape a string for safe interpolation into HTML text/attributes.
@@ -94,33 +104,40 @@ export function buildIssuePrintHtml(issue, opts = {}) {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${escapeHtml(key)} ${escapeHtml(title)}</title>
 <style>
-  :root { color-scheme: light; }
+  :root {
+    color-scheme: light;
+    --font-family-sans: ${FONT_FAMILY};
+    --font-size-sm: ${SIZE.sm}px;
+    --font-size-base: ${SIZE.base}px;
+    --font-size-xl: ${SIZE.xl}px;
+    --font-weight-semibold: ${WEIGHT.semibold};
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     padding: 32px 40px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-family-sans);
     color: #172b4d;
     background: #fff;
     line-height: 1.5;
   }
-  .pd-crumb { font-size: 12px; color: #6b778c; margin-bottom: 4px; }
-  .pd-key { font-size: 13px; font-weight: 600; color: #0052cc; letter-spacing: .02em; }
-  h1.pd-title { font-size: 24px; margin: 4px 0 20px; font-weight: 600; }
-  h2.pd-h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: #6b778c; margin: 24px 0 8px; }
+  .pd-crumb { font-size: var(--font-size-sm); color: #6b778c; margin-bottom: 4px; }
+  .pd-key { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: #0052cc; letter-spacing: .02em; }
+  h1.pd-title { font-size: var(--font-size-xl); margin: 4px 0 20px; font-weight: var(--font-weight-semibold); }
+  h2.pd-h2 { font-size: var(--font-size-base); text-transform: uppercase; letter-spacing: .04em; color: #6b778c; margin: 24px 0 8px; }
   dl.pd-details { margin: 0; display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; }
   .pd-row { display: contents; }
-  .pd-row dt { color: #6b778c; font-size: 13px; }
-  .pd-row dd { margin: 0; font-size: 13px; color: #172b4d; }
-  .pd-desc { font-size: 14px; white-space: normal; }
+  .pd-row dt { color: #6b778c; font-size: var(--font-size-base); }
+  .pd-row dd { margin: 0; font-size: var(--font-size-base); color: #172b4d; }
+  .pd-desc { font-size: var(--font-size-base); white-space: normal; }
   .pd-muted { color: #97a0af; }
   .pd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .pd-chip {
     display: inline-block; padding: 1px 8px; border: 1px solid #c1c7d0; border-radius: 3px;
-    font-size: 12px; color: #42526e; background: #fff;
+    font-size: var(--font-size-sm); color: #42526e; background: #fff;
   }
   .pd-divider { border: none; border-top: 1px solid #dfe1e6; margin: 24px 0; }
-  .pd-footer { margin-top: 32px; font-size: 11px; color: #97a0af; }
+  .pd-footer { margin-top: 32px; font-size: var(--font-size-sm); color: #97a0af; }
   @media print {
     body { padding: 0; }
     .pd-footer { position: fixed; bottom: 0; }

@@ -262,7 +262,7 @@
 }
 
 .col-sort-indicator {
-  font-size: 9px;
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 
@@ -448,7 +448,7 @@ body.col-resizing * {
 .jira-list-col-menu-trigger {
   border: none;
   background: transparent;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--list-subtle);
   cursor: pointer;
@@ -515,7 +515,7 @@ body.col-resizing * {
   width: 16px;
   text-align: center;
   color: #0052cc;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
 }
 
@@ -721,8 +721,8 @@ body.col-resizing * {
 }
 
 .jira-list-bulk-count {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
   color: var(--list-subtle);
   white-space: nowrap;
 }

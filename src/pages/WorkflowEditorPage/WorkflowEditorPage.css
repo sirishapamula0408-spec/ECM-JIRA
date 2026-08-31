@@ -111,7 +111,7 @@
   border-radius: 12px;
   background: #deebff;
   color: #0747a6;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   cursor: default;
@@ -136,7 +136,7 @@
   border-radius: 12px;
   background: transparent;
   color: #6b778c;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   white-space: nowrap;
   cursor: default;
 }
@@ -320,7 +320,7 @@
 /* The chevron glyphs are small at their natural size; bump them and kill the
    line box so they sit optically centred in the 28px circle. */
 .wfe-sidebar-toggle-icon {
-  font-size: 20px;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   line-height: 1;
   /* Compensate for the glyph's own left/right side bearing. */
@@ -443,7 +443,7 @@
 }
 
 .wfe-node-name {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -541,7 +541,7 @@
 /* JL-307: transition labels sit over the dotted canvas — a white halo
    (paint-order stroke) keeps them legible without a background rect. */
 .wfe-arrow-label {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   fill: #5e6c84;
   paint-order: stroke;

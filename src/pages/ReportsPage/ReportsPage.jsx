@@ -978,7 +978,7 @@ export function ReportsPage() {
                             `${row.capacityPoints} pts`
                           )}
                         </TableCell>
-                        <TableCell align="right" style={over ? { color: 'var(--jira-danger, #de350b)', fontWeight: 600 } : undefined}>
+                        <TableCell align="right" style={over ? { color: 'var(--jira-danger, #de350b)', fontWeight: 'var(--font-weight-semibold)' } : undefined}>
                           {row.utilizationPct === null ? '—' : `${row.utilizationPct}%`}
                         </TableCell>
                       </TableRow>

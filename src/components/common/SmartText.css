@@ -1,7 +1,7 @@
 /* Smart issue-key links (JL-138) */
 .smart-issue-link {
   color: var(--color-primary, #0052cc);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   text-decoration: none;
   border-radius: 3px;
   padding: 0 2px;

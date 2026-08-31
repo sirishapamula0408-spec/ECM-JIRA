@@ -395,15 +395,18 @@
   line-height: 1;
 }
 
+/* JL-415: the glyph was 7px, removed on accessibility grounds (AC#6). The
+   11px box was sized around that 7px glyph, so it grows with it - a 12px
+   character does not fit an 11px chip. */
 .issue-priority-icon {
-  width: 11px;
-  height: 11px;
+  width: 16px;
+  height: 16px;
   border-radius: 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 7px;
-  line-height: 10px;
+  font-size: var(--font-size-sm);
+  line-height: 1;
   font-weight: var(--font-weight-semibold);
 }
 

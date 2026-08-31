@@ -2563,7 +2563,7 @@ export function IssueDetailPage() {
                         </div>
                       ) : (
                         projectComponents.length === 0 && (
-                          <p className="id-empty-text" style={{ fontSize: '12px' }}>No components defined. Add them in Project settings.</p>
+                          <p className="id-empty-text" style={{ fontSize: 'var(--font-size-sm)' }}>No components defined. Add them in Project settings.</p>
                         )
                       )}
                     </div>
@@ -2707,7 +2707,7 @@ export function IssueDetailPage() {
               </select>
             ) : (
               !currentSecurityLevel && (
-                <p className="id-empty-text" style={{ fontSize: '12px', padding: '4px 0' }}>Public</p>
+                <p className="id-empty-text" style={{ fontSize: 'var(--font-size-sm)', padding: '4px 0' }}>Public</p>
               )
             )}
           </div>
@@ -2719,7 +2719,7 @@ export function IssueDetailPage() {
 
             {/* JL-360: show whether the chosen transition is gated and how far the
                 quorum has got, so a refused move is explainable before it happens. */}
-            <label className="id-approval-target" style={{ display: 'block', fontSize: '12px', marginBottom: '6px' }}>
+            <label className="id-approval-target" style={{ display: 'block', fontSize: 'var(--font-size-sm)', marginBottom: '6px' }}>
               Transition to
               <select
                 aria-label="Approval target status"
@@ -2737,7 +2737,7 @@ export function IssueDetailPage() {
               <div
                 className={`id-approval-gate${approvalGate.satisfied ? ' id-approval-gate--satisfied' : ''}`}
                 data-testid="approval-gate"
-                style={{ fontSize: '12px', padding: '6px 8px', marginBottom: '8px', borderRadius: '3px', background: approvalGate.rejected ? '#ffebe6' : approvalGate.satisfied ? '#e3fcef' : '#fffae6' }}
+                style={{ fontSize: 'var(--font-size-sm)', padding: '6px 8px', marginBottom: '8px', borderRadius: '3px', background: approvalGate.rejected ? '#ffebe6' : approvalGate.satisfied ? '#e3fcef' : '#fffae6' }}
               >
                 {approvalGate.rejected ? (
                   <strong>Rejected — this transition is blocked</strong>
@@ -2752,13 +2752,13 @@ export function IssueDetailPage() {
                 )}
               </div>
             ) : (
-              <p className="id-empty-text" style={{ fontSize: '12px', padding: '0 0 6px' }}>
+              <p className="id-empty-text" style={{ fontSize: 'var(--font-size-sm)', padding: '0 0 6px' }}>
                 No approval required for this transition.
               </p>
             )}
 
             {approvals.length === 0 ? (
-              <p className="id-empty-text" style={{ fontSize: '12px', padding: '4px 0' }}>No approvals yet.</p>
+              <p className="id-empty-text" style={{ fontSize: 'var(--font-size-sm)', padding: '4px 0' }}>No approvals yet.</p>
             ) : (
               <div className="id-approval-list">
                 {approvals.slice(0, 5).map((a) => (
@@ -2774,7 +2774,7 @@ export function IssueDetailPage() {
             {/* JL-360: only offer the buttons when the server says this user holds
                 the rule's approver_role — the POST is authoritative either way. */}
             {approvalGate?.required && approvalGate.canApprove === false ? (
-              <p className="id-empty-text" style={{ fontSize: '12px', marginTop: '8px' }}>
+              <p className="id-empty-text" style={{ fontSize: 'var(--font-size-sm)', marginTop: '8px' }}>
                 Only a {approvalGate.approverRole} can approve this transition.
               </p>
             ) : (

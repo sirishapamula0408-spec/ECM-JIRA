@@ -26,7 +26,7 @@
 .wiki-sidebar-header h3 {
   margin: 0;
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .wiki-tree {
@@ -55,7 +55,7 @@
 .wiki-tree-item--active {
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   color: var(--primary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .wiki-tree-icon {
@@ -128,7 +128,7 @@
 
 .wiki-content-pre {
   white-space: pre-wrap;
-  font-family: inherit;
+  font-family: var(--font-family-sans);
   margin: 0;
   font-size: var(--font-size-md);
   line-height: 1.7;
@@ -327,7 +327,7 @@
 }
 
 .wiki-linked-key {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--primary);
   min-width: 60px;
 }

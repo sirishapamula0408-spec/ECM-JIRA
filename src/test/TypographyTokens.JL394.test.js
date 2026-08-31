@@ -9,8 +9,7 @@
 // font declarations accumulated underneath it.
 //
 // This version scans the filesystem through stylelint (see typographyScan.mjs
-// for why that, and not a regex, is the scanner). Since 257 violations cannot
-// be fixed in this ticket — that is JL-415 — the known set is frozen in
+// for why that, and not a regex, is the scanner). The known set is frozen in
 // typography-baseline.json as a per-file COUNT, and this test ratchets:
 //
 //   * a NEW violation, in any file, listed or not        -> fail
@@ -20,12 +19,22 @@
 // can only go down. Counts are per file rather than per line, so unrelated
 // edits that shift line numbers do not churn the baseline.
 //
+// JL-415 then cleared the baseline: 257 violations across 46 files went to 1,
+// so `npm run lint` now hard-gates every stylesheet but one. That removed the
+// original "guard the guard" signal, which asserted the baseline was LARGE —
+// true when 257 violations were outstanding, meaningless at 1. It is replaced
+// below by two checks that survive an empty baseline: the scan must report
+// having parsed the whole stylesheet tree, and the rule must still flag a
+// known-bad probe.
+//
 // Re-baseline with:  node scripts/typography-baseline.mjs
 import { describe, it, expect, beforeAll } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import stylelint from 'stylelint'
 import { scanTypography, repoRoot } from './typographyScan.mjs'
+import { TOKEN_ONLY, RULE_NAME } from './typographyRule.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(here, '..')
@@ -36,19 +45,42 @@ const baseline = JSON.parse(
 
 let current = {}
 let detail = {}
+let scanned = 0
 
 beforeAll(async () => {
   const scan = await scanTypography()
   current = scan.counts
   detail = scan.detail
+  scanned = scan.scanned
 }, 60_000)
 
 describe('JL-416 — the typography guard enumerates the filesystem', () => {
-  it('the baseline covers many files, not a hardcoded handful', () => {
+  it('parses the whole stylesheet tree, not a handful of files', () => {
     // Guards the guard: if the scan ever collapses, every assertion below
-    // becomes vacuously true.
-    expect(Object.keys(baseline.files).length).toBeGreaterThan(30)
-    expect(baseline.total).toBeGreaterThan(100)
+    // becomes vacuously true. Post-JL-415 the baseline is nearly empty, so the
+    // signal has to be how many files the scanner OPENED, not how many it
+    // complained about.
+    const onDisk = (function walk(dir, n = 0) {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.isDirectory()) n = walk(path.join(dir, e.name), n)
+        else if (e.name.endsWith('.css')) n++
+      }
+      return n
+    })(srcDir)
+    expect(onDisk).toBeGreaterThan(30)
+    expect(scanned).toBe(onDisk)
+  })
+
+  it('still flags a known-bad declaration', async () => {
+    // Positive control. An allow-list rule that silently stopped applying —
+    // renamed, mis-scoped, dropped by a stylelint upgrade — would report zero
+    // violations and agree with a zero baseline perfectly.
+    const probe = await stylelint.lint({
+      code: '.probe { font-size: 13px; font-weight: 600; }',
+      config: { rules: { [RULE_NAME]: [TOKEN_ONLY] } },
+    })
+    const hits = probe.results[0].warnings.filter((w) => w.rule === RULE_NAME)
+    expect(hits).toHaveLength(2)
   })
 
   it('the recorded total matches the recorded per-file counts', () => {

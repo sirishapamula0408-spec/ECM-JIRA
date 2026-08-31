@@ -87,8 +87,14 @@ export function RichTextEditor({ value, onChange, placeholder, rows = 6, require
       // Inline code
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       // Headings
-      .replace(/^## (.+)$/gm, '<strong style="font-size:1.1em">$1</strong>')
-      .replace(/^# (.+)$/gm, '<strong style="font-size:1.25em">$1</strong>')
+      // JL-415: these carried inline `style="font-size:1.1em"` /
+      // `1.25em`. Two faults in one: an em size (which re-scales with the
+      // root, the JL-408 failure mode) and a `style` attribute, which
+      // sanitizeHtml strips - so the size never applied at all and both
+      // heading levels rendered as plain bold. The size is now a class the
+      // sanitizer keeps, sized from the tokens in RichTextEditor.css.
+      .replace(/^## (.+)$/gm, '<strong class="rte-md-h2">$1</strong>')
+      .replace(/^# (.+)$/gm, '<strong class="rte-md-h1">$1</strong>')
       // Bold
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       // Italic

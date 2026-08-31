@@ -25,7 +25,7 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 20px;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
@@ -39,7 +39,7 @@
 
 .ps-title {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--jira-text);
   line-height: 1.25;
@@ -125,7 +125,7 @@
 }
 
 .ps-stat-value {
-  font-size: 22px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--jira-text);
   line-height: 1;
@@ -293,7 +293,7 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   flex-shrink: 0;
 }
 
@@ -469,7 +469,7 @@
   }
 
   .ps-title {
-    font-size: 20px;
+    font-size: var(--font-size-lg);
   }
 
   .ps-stats-row {

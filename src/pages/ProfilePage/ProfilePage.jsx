@@ -215,10 +215,10 @@ function MfaSection() {
         <div style={{ marginTop: 12 }}>
           <p>1. Add this secret to your authenticator app (or scan the otpauth URL as a QR code):</p>
           <div style={{ display: 'flex', gap: 8, margin: '8px 0', flexWrap: 'wrap' }}>
-            <input readOnly value={setup.secret} style={{ flex: 1, minWidth: 220, fontFamily: 'monospace' }} />
+            <input readOnly value={setup.secret} style={{ flex: 1, minWidth: 220, fontFamily: 'var(--font-family-mono)' }} />
             <button className="btn btn-ghost" type="button" onClick={() => navigator.clipboard?.writeText(setup.secret)}>Copy secret</button>
           </div>
-          <input readOnly value={setup.otpauthUrl} style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, marginBottom: 12 }} />
+          <input readOnly value={setup.otpauthUrl} style={{ width: '100%', fontFamily: 'var(--font-family-mono)', fontSize: 'var(--font-size-sm)', marginBottom: 12 }} />
           <p>2. Enter the 6-digit code your app shows to confirm:</p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
@@ -226,7 +226,7 @@ function MfaSection() {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="6-digit code"
               inputMode="numeric"
-              style={{ maxWidth: 160, fontFamily: 'monospace', letterSpacing: 2 }}
+              style={{ maxWidth: 160, fontFamily: 'var(--font-family-mono)', letterSpacing: 2 }}
             />
             <button className="btn btn-primary" type="button" onClick={handleEnable} disabled={busy || code.length !== 6}>
               {busy ? 'Verifying...' : 'Enable'}
@@ -297,7 +297,7 @@ function SessionsSection() {
             <tr key={s.id} style={{ borderTop: '1px solid var(--border, #ebecf0)' }}>
               <td style={{ padding: '8px 4px' }}>
                 {s.browser} on {s.os}
-                {s.current && <span style={{ marginLeft: 8, color: 'var(--success, #00875a)', fontWeight: 600 }}>(this device)</span>}
+                {s.current && <span style={{ marginLeft: 8, color: 'var(--success, #00875a)', fontWeight: 'var(--font-weight-semibold)' }}>(this device)</span>}
               </td>
               <td><code>{s.ip || '—'}</code></td>
               <td>{s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleString() : '—'}</td>
@@ -359,7 +359,7 @@ function ApiTokensSection() {
         <div className="api-token-reveal" style={{ background: 'var(--surface-hover, #f4f5f7)', padding: 12, borderRadius: 6, margin: '12px 0' }}>
           <strong>Copy your new token now — it won't be shown again:</strong>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <input readOnly value={newToken} style={{ flex: 1, fontFamily: 'monospace' }} />
+            <input readOnly value={newToken} style={{ flex: 1, fontFamily: 'var(--font-family-mono)' }} />
             <button className="btn btn-ghost" type="button" onClick={() => navigator.clipboard?.writeText(newToken)}>Copy</button>
             <button className="btn btn-ghost" type="button" onClick={() => setNewToken(null)}>Dismiss</button>
           </div>

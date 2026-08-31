@@ -7,17 +7,19 @@
 // stated twice is exactly how the original four guards drifted.
 //
 // WHY THE EXEMPTION LIST IS GENERATED, NOT HANDWRITTEN
-// 257 literal font declarations exist today across 46 files; clearing them is
-// JL-415. A hard gate over all of them would make `npm run lint` permanently
-// red, so the frozen baseline that scopes the vitest ratchet scopes this too.
-// The useful consequence: when JL-415 cleans a file and drops it from the
-// baseline, that file becomes hard-gated here automatically, with no config
-// edit. The list can only shrink.
+// When this landed, 257 literal font declarations existed across 46 files and a
+// hard gate over all of them would have made `npm run lint` permanently red, so
+// the frozen baseline that scopes the vitest ratchet scoped this too. JL-415
+// then cleared them: the baseline is down to ONE file, so effectively every
+// stylesheet under src/ is now hard-gated here. The generated list is what made
+// that migration cost nothing — each file dropped from the baseline became
+// hard-gated automatically, with no config edit. The list can only shrink.
 //
 // COVERAGE SPLIT — the two gates are complementary, not redundant:
-//   * stylelint exempts a baselined file ENTIRELY, so it hard-gates only the
-//     20 already-clean stylesheets. It cannot see a new violation added to a
-//     file that still has old ones.
+//   * stylelint exempts a baselined file ENTIRELY, so it cannot see a new
+//     violation added to a file that still has old ones. That mattered a lot at
+//     257 and barely at all at 1, but the asymmetry is structural, not a
+//     function of the count.
 //   * the vitest ratchet counts per file, so it DOES catch that case, and it
 //     also fails when a violation is fixed without the baseline shrinking.
 // Verified both ways when this landed: a probe violation in a clean file fails
