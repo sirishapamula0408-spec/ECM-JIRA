@@ -167,7 +167,16 @@
    never steal hover from the slice paths beneath them. */
 .pie-gadget-slice-label {
   font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
+  /* JL-418: regular, not bold. These read heavier than everything around them
+     and pulled focus from the data they annotate.
+
+     stroke-width deliberately UNCHANGED at 2.5px. paint-order: stroke draws
+     the outline first and the fill over it, so the halo sits OUTSIDE the
+     glyphs and never eats into them — a lighter weight does not close up the
+     counters in 0, 8 or %. Leaving it also keeps DonutLabelClipping.JL335
+     exact: its LABEL_HALF_WIDTH models this very value, and changing one
+     without the other is how a test quietly stops describing the CSS. */
+  font-weight: var(--font-weight-regular);
   fill: #fff;
   paint-order: stroke;
   stroke: rgba(9, 30, 66, 0.65);

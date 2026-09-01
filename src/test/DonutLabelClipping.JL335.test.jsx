@@ -32,6 +32,13 @@ const RING_OUTER_RADIUS = 80
 // 26.4 user units wide, plus the 2.5-unit outline from .pie-gadget-slice-label
 // (paint-order:stroke extends 1.25 beyond the glyphs on each side).
 // jsdom has no text metrics, so the measured worst case is asserted here.
+//
+// JL-418 dropped the label weight from bold to regular. 26.4 was measured on
+// the BOLD glyphs, and regular is narrower, so this constant is now a slight
+// OVER-estimate — the clearance assertions below hold with more margin than
+// before, not less. Left at the measured-bold figure deliberately: it is the
+// conservative bound, and re-measuring in Chromium is the only honest way to
+// lower it. The 2.5 outline is unchanged by JL-418.
 const LABEL_HALF_WIDTH = (26.4 + 2.5) / 2
 
 // Four roughly equal slices put labels near 12, 3, 6 and 9 o'clock — the
