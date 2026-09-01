@@ -43,7 +43,9 @@ EXPOSE 4000
 #   JWT_SECRET     token signing secret (required in prod)
 #   JWT_EXPIRES_IN token lifetime (default 7d)
 #   APP_URL        public URL of the app (used in emails/links)
-#   CORS_ORIGIN    allowed origin(s) for the API
+#   CORS_ALLOWED_ORIGINS  comma-separated browser origins allowed to call the
+#                         API. REQUIRED in production (JL-435) — an empty value
+#                         means permissive origin reflection.
 #   SMTP_*         optional email delivery settings
 # NODE_ENV=production enables serving the built /dist with an SPA fallback.
 

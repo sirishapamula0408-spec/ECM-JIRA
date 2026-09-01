@@ -55,6 +55,8 @@ describe('JL-102 validateConfig — production secret enforcement', () => {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://user:pass@host:5432/db',
       JWT_SECRET: STRONG_SECRET,
+      // JL-435: production now also requires an explicit CORS allow-list.
+      CORS_ALLOWED_ORIGINS: 'https://app.example.com',
     })
     expect(res.ok).toBe(true)
     expect(res.errors).toHaveLength(0)
@@ -136,6 +138,8 @@ describe('JL-102 assertValidConfig — throwing wrapper', () => {
         NODE_ENV: 'production',
         JWT_SECRET: STRONG_SECRET,
         DATABASE_URL: 'postgresql://user:pass@host:5432/db',
+        // JL-435: production now also requires an explicit CORS allow-list.
+        CORS_ALLOWED_ORIGINS: 'https://app.example.com',
       },
       { logger: silentLogger },
     )
@@ -177,5 +181,70 @@ describe('JL-102 scan-secrets matcher', () => {
   it('reports line numbers for findings', () => {
     const findings = scanText('line one\nline two\nkey = "AKIAIOSFODNN7EXAMPLE"')
     expect(findings[0].line).toBe(3)
+  })
+})
+
+describe('JL-435 — CORS allow-list must be explicit in production', () => {
+  const silentLogger = { warn() {}, error() {} }
+  // corsAllowList treats an empty allow-list as PERMISSIVE (reflect any Origin).
+  // With credentials: true that is authenticated cross-origin access from any
+  // site. Production shipped that way because docker-compose.prod.yml set
+  // CORS_ORIGIN, a name no code reads, so CORS_ALLOWED_ORIGINS was always empty.
+  const PROD = {
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgresql://user:pass@host:5432/db',
+    JWT_SECRET: STRONG_SECRET,
+  }
+
+  it('is a fatal error when unset in production', () => {
+    const res = validateConfig(PROD)
+    expect(res.ok).toBe(false)
+    expect(res.errors.some((e) => /CORS_ALLOWED_ORIGINS/.test(e))).toBe(true)
+  })
+
+  it('is a fatal error when set to whitespace in production', () => {
+    const res = validateConfig({ ...PROD, CORS_ALLOWED_ORIGINS: '   ' })
+    expect(res.ok).toBe(false)
+    expect(res.errors.some((e) => /CORS_ALLOWED_ORIGINS/.test(e))).toBe(true)
+  })
+
+  it('names the variable and explains the risk, so the message is actionable', () => {
+    const res = validateConfig(PROD)
+    const msg = res.errors.find((e) => /CORS_ALLOWED_ORIGINS/.test(e))
+    expect(msg).toBeTruthy()
+    expect(msg).toMatch(/permissive/i)
+    expect(msg).toMatch(/credential/i)
+  })
+
+  it('passes in production once an allow-list is set', () => {
+    const res = validateConfig({ ...PROD, CORS_ALLOWED_ORIGINS: 'https://app.example.com' })
+    expect(res.ok).toBe(true)
+    expect(res.errors).toHaveLength(0)
+  })
+
+  it('accepts a comma-separated list of origins', () => {
+    const res = validateConfig({
+      ...PROD,
+      CORS_ALLOWED_ORIGINS: 'https://app.example.com,https://admin.example.com',
+    })
+    expect(res.ok).toBe(true)
+  })
+
+  it('does NOT require it outside production, so dev and the suites still work', () => {
+    // Permissive-when-empty is deliberate in dev: it keeps the Vite proxy and
+    // same-origin requests working. Only production fails closed.
+    for (const NODE_ENV of ['development', 'test', undefined]) {
+      const res = validateConfig({ NODE_ENV, JWT_SECRET: STRONG_SECRET })
+      expect(
+        res.errors.some((e) => /CORS_ALLOWED_ORIGINS/.test(e)),
+        `NODE_ENV=${NODE_ENV} must not be fatal`,
+      ).toBe(false)
+    }
+  })
+
+  it('refuses to start via assertValidConfig when unset in production', () => {
+    expect(() => assertValidConfig(PROD, { logger: silentLogger })).toThrow(
+      /Insecure or incomplete configuration/i,
+    )
   })
 })
