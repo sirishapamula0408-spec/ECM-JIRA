@@ -14,7 +14,11 @@ const LAUNCH_SIDEBAR = true
 // from this allow-list. Their entries stay in utilityItems below and their
 // routes stay in App.jsx — the pages are HIDDEN from the nav, not removed, so a
 // bookmark or a pasted link still resolves and restoring one is a one-word edit.
-const LAUNCH_NAV = ['Projects', 'Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
+// JL-436: 'Team directory' belongs here. JL-421 added the nav item but not this
+// entry, so launchFilter silently dropped it and the whole JL-419 Teams feature
+// was reachable only by typing the URL. SidebarNavCoverage.JL436 now fails if a
+// nav item is neither listed here nor declared deliberately hidden.
+const LAUNCH_NAV = ['Projects', 'Team directory', 'Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
