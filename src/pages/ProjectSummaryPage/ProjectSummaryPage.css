@@ -20,7 +20,7 @@
 .ps-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -56,8 +56,8 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 3px;
-  background: #deebff;
+  border-radius: var(--radius-xs);
+  background: var(--jira-blue-soft);
   color: var(--jira-blue);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -67,12 +67,12 @@
   display: inline-flex;
   align-items: center;
   height: 20px;
-  border-radius: 10px;
-  background: #ebecf0;
+  border-radius: var(--radius-md);
+  background: var(--jira-border-subtle);
   padding: 0 8px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: #42526e;
+  color: var(--jira-text-muted);
 }
 
 .ps-lead {
@@ -86,8 +86,8 @@
 .ps-lead-avatar {
   width: 22px;
   height: 22px;
-  border-radius: 999px;
-  background: #dfe1e6;
+  border-radius: var(--radius-pill);
+  background: var(--jira-border);
   color: #344563;
   display: inline-flex;
   align-items: center;
@@ -110,7 +110,7 @@
   flex-direction: column;
   align-items: center;
   padding: 14px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
   box-shadow: var(--jira-shadow-soft);
@@ -167,14 +167,14 @@
 
 .ps-progress-bar {
   height: 8px;
-  border-radius: 4px;
-  background: #ebecf0;
+  border-radius: var(--radius-sm);
+  background: var(--jira-border-subtle);
   overflow: hidden;
 }
 
 .ps-progress-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--jira-success);
   transition: width 0.4s ease;
 }
@@ -197,7 +197,7 @@
 .ps-card {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 16px;
   box-shadow: var(--jira-shadow-soft);
 }
@@ -241,14 +241,14 @@
 
 .ps-bar-track {
   height: 8px;
-  border-radius: 4px;
-  background: #ebecf0;
+  border-radius: var(--radius-sm);
+  background: var(--jira-border-subtle);
   overflow: hidden;
 }
 
 .ps-bar-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: width 0.35s ease;
 }
 
@@ -272,7 +272,7 @@
   padding: 8px 10px;
   border: none;
   background: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
   font-size: var(--font-size-sm);
@@ -282,13 +282,13 @@
 }
 
 .ps-issue-row:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .ps-issue-type-icon {
   width: 18px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -316,7 +316,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -339,7 +339,7 @@
 .ps-priority-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   flex-shrink: 0;
 }
 
@@ -376,7 +376,7 @@
 .ps-assignee-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--jira-blue);
   color: #ffffff;
   display: inline-flex;
@@ -413,9 +413,9 @@
   gap: 5px;
   padding: 5px 10px;
   border: 1px solid var(--jira-border);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--jira-surface-subtle, #fafbfc);
-  color: #42526e;
+  color: var(--jira-text-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -423,8 +423,8 @@
 }
 
 .ps-quick-btn:hover {
-  background: #ebecf0;
-  border-color: #c1c7d0;
+  background: var(--jira-border-subtle);
+  border-color: var(--jira-border-strong);
 }
 
 /* ── Loading / Error states ── */
@@ -518,7 +518,7 @@
 }
 
 .ps-team-error {
-  color: #de350b;
+  color: var(--jira-danger);
   margin: 8px 0 0;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);

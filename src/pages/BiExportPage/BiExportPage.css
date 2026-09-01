@@ -4,7 +4,7 @@
 
 .bi-export-page code {
   background: var(--color-surface-sunken, rgba(9, 30, 66, 0.06));
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   padding: 1px 5px;
   font-size: var(--font-size-sm);
 }

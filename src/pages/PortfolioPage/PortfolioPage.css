@@ -67,7 +67,7 @@
 .portfolio-page .stat {
   background: var(--jira-surface, #fff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 12px 16px;
   /* Grid items refuse to shrink below their content without this, which would
      force an overflow instead of a narrower card. */

@@ -22,7 +22,7 @@
   margin-bottom: 12px;
   background: var(--jira-surface-sunken, #f4f5f7);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .gadget-picker-item {
@@ -33,7 +33,7 @@
   padding: 10px;
   background: var(--jira-surface, #fff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
@@ -63,7 +63,7 @@
   flex-direction: column;
   background: var(--jira-surface, #fff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -93,7 +93,7 @@
   font-size: var(--font-size-base);
   line-height: 1;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--jira-text-muted, #6b778c);
 }
 
@@ -102,7 +102,7 @@
 }
 
 .gadget-btn-danger:hover {
-  color: #de350b;
+  color: var(--jira-danger);
 }
 
 .gadget-card-body {

@@ -46,7 +46,7 @@
 .avatar-preview {
   width: 112px;
   height: 112px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--jira-border);
   object-fit: cover;
 }
@@ -55,8 +55,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #deebff;
-  color: #0052cc;
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
   font-size: var(--font-size-xxl);
   font-weight: var(--font-weight-bold);
 }
@@ -65,7 +65,7 @@
   position: absolute;
   right: -10px;
   bottom: -10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--jira-border);
   background: var(--jira-surface);
   color: var(--jira-text);

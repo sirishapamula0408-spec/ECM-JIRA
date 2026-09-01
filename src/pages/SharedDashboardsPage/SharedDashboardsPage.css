@@ -21,7 +21,7 @@
 .sd-form {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 20px;
   margin-bottom: 24px;
 }
@@ -36,7 +36,7 @@
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-base);
@@ -75,7 +75,7 @@
 .sd-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 16px;
 }
 
@@ -92,19 +92,19 @@
 
 .sd-visibility-badge {
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
 .sd-visibility-badge--private {
-  background: #dfe1e6;
-  color: #42526e;
+  background: var(--jira-border);
+  color: var(--jira-text-muted);
 }
 
 .sd-visibility-badge--public {
-  background: #e3fcef;
-  color: #006644;
+  background: var(--jira-success-bg);
+  color: var(--jira-success-text);
 }
 
 .sd-card-desc {

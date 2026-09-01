@@ -34,7 +34,7 @@
   text-align: left;
   padding: 8px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   cursor: pointer;
   color: inherit;
@@ -46,7 +46,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-subtle, #6b778c);
   background: var(--color-hover, rgba(9, 30, 66, 0.06));
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0 8px;
 }
 .kb-add-cat {
@@ -59,7 +59,7 @@
   min-width: 0;
   padding: 6px 8px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 /* Article list */
@@ -77,7 +77,7 @@
 .kb-list-toolbar select {
   padding: 6px 8px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .kb-article-list {
   list-style: none;
@@ -95,7 +95,7 @@
   text-align: left;
   padding: 10px 12px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-surface, #fff);
   cursor: pointer;
   color: inherit;
@@ -114,16 +114,16 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   align-self: start;
 }
-.kb-badge--published { background: #e3fcef; color: #006644; }
+.kb-badge--published { background: var(--jira-success-bg); color: var(--jira-success-text); }
 .kb-badge--draft { background: #fffae6; color: #974f0c; }
 
 /* Viewer / editor */
 .kb-viewer {
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: var(--space-4, 16px);
   background: var(--color-surface, #fff);
   min-height: 240px;
@@ -147,7 +147,7 @@
 .kb-article-body code {
   background: var(--color-hover, rgba(9, 30, 66, 0.06));
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-family-mono);
 }
 .kb-article-actions, .kb-editor-actions {
@@ -163,7 +163,7 @@
 .kb-editor input, .kb-editor textarea, .kb-editor select {
   padding: 8px 10px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font: inherit;
   width: 100%;
 }

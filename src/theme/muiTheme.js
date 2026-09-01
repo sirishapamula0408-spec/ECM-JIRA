@@ -41,6 +41,16 @@ const LEADING = { xs: 16, sm: 20, base: 24, md: 28, lg: 32, xl: 32, xxl: 36 }
 // Keep in sync with --font-weight-heading in variables.css.
 const WEIGHT = { regular: 400, medium: 500, semibold: 600, heading: 653, bold: 700 }
 
+// JL-439 — control geometry, mirroring the --control-height-* / --radius-*
+// tokens in variables.css. MUI cannot read a CSS custom property for a value
+// it needs to compute against (and `height: var(...)` on a Button works, but
+// the numbers are wanted here for the shape/spacing maths anyway), so these
+// are the one place the numbers are repeated. MuiThemeTokens.JL408 fails if
+// they drift from the stylesheet.
+const CONTROL_HEIGHT = 40
+const CONTROL_HEIGHT_SM = 32
+const RADIUS = { xs: 3, sm: 6, md: 8, lg: 12 }
+
 const variant = (step, weight = WEIGHT.regular) => ({
   fontSize: `${SIZE[step]}px`,
   lineHeight: `${LEADING[step]}px`,
@@ -66,19 +76,124 @@ export function buildMuiTheme(mode = 'light') {
       text: { primary: c.text, secondary: c.muted },
       divider: c.divider,
     },
+    shape: { borderRadius: RADIUS.sm },
     components: {
-      // MUI's size variants carry their OWN rem font-sizes, independent of
-      // typography.button — size="small" is 0.8125rem, which computed to
+      // ── JL-439 ────────────────────────────────────────────────────────
+      // Why this block exists: 25 of the 44 pages render MUI Button, Select,
+      // TextField, Table and Dialog, and the other 19 hand-roll the same
+      // controls in page CSS. styles/shared.css now states one contract for
+      // the hand-rolled half; this states the SAME contract for the MUI half,
+      // once, instead of each page passing sx props. Adding a component here
+      // is how a control changes app-wide — not by editing a page.
+      //
+      // MUI's size variants also carry their OWN rem font-sizes, independent
+      // of typography.button — size="small" is 0.8125rem, which computed to
       // 11.375px against the 14px root and stayed off-scale even after the
-      // typography fix above. Pin both ends onto the token scale.
+      // typography fix below. Pinning both ends onto the token scale (JL-408)
+      // is still done here.
       MuiButton: {
+        defaultProps: { disableElevation: true },
         styleOverrides: {
-          sizeSmall: { fontSize: SIZE.sm + 'px' },
-          sizeLarge: { fontSize: SIZE.md + 'px' },
+          root: {
+            minHeight: CONTROL_HEIGHT,
+            borderRadius: RADIUS.sm,
+            padding: '0 14px',
+            fontWeight: WEIGHT.medium,
+          },
+          sizeSmall: { fontSize: SIZE.sm + 'px', minHeight: CONTROL_HEIGHT_SM, padding: '0 10px' },
+          sizeLarge: { fontSize: SIZE.md + 'px', minHeight: 48 },
+          contained: { fontWeight: WEIGHT.semibold },
         },
       },
+      MuiIconButton: {
+        styleOverrides: {
+          root: { borderRadius: RADIUS.sm },
+        },
+      },
+      // Brief §36: 40px tall, radius 6, the stronger hairline on the control
+      // itself so a field reads as interactive against a bordered card.
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: { borderRadius: RADIUS.sm },
+          input: { fontSize: SIZE.base + 'px' },
+          inputSizeSmall: { fontSize: SIZE.sm + 'px' },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: { root: { fontSize: SIZE.sm + 'px', fontWeight: WEIGHT.medium } },
+      },
+      MuiFormHelperText: {
+        styleOverrides: { root: { fontSize: SIZE.xs + 'px' } },
+      },
+      MuiSelect: {
+        styleOverrides: { select: { minHeight: 0 } },
+      },
+      MuiMenuItem: {
+        styleOverrides: { root: { fontSize: SIZE.base + 'px', minHeight: CONTROL_HEIGHT_SM } },
+      },
+      // Brief §35: one table design app-wide. Sunken header, 14/600 header
+      // text, 12x16 cells.
       MuiTableCell: {
-        styleOverrides: { sizeSmall: { fontSize: SIZE.sm + 'px' } },
+        styleOverrides: {
+          root: { padding: '12px 16px', fontSize: SIZE.base + 'px' },
+          head: {
+            fontSize: SIZE.sm + 'px',
+            fontWeight: WEIGHT.semibold,
+            textTransform: 'uppercase',
+            letterSpacing: '0.03em',
+          },
+          sizeSmall: { fontSize: SIZE.sm + 'px', padding: '8px 12px' },
+        },
+      },
+      // Brief §37: radius 8, 24px padding, the overlay shadow — not MUI’s
+      // default elevation stack, which the brief rules out (§34).
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            borderRadius: RADIUS.md,
+            boxShadow: 'var(--shadow-overlay, 0 4px 8px rgba(9, 30, 66, 0.15))',
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: { root: { fontSize: SIZE.md + 'px', fontWeight: WEIGHT.semibold, padding: '24px 24px 8px' } },
+      },
+      MuiDialogContent: {
+        styleOverrides: { root: { padding: '8px 24px' } },
+      },
+      MuiDialogActions: {
+        styleOverrides: { root: { padding: '16px 24px 24px' } },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: { borderRadius: RADIUS.md, boxShadow: 'var(--shadow-overlay, 0 4px 8px rgba(9, 30, 66, 0.15))' },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: { tooltip: { fontSize: SIZE.xs + 'px', borderRadius: RADIUS.xs } },
+      },
+      // Brief §38: 48px tall, 14/500, no shouting caps.
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            minHeight: 48,
+            textTransform: 'none',
+            fontSize: SIZE.sm + 'px',
+            fontWeight: WEIGHT.medium,
+          },
+        },
+      },
+      MuiTabs: {
+        styleOverrides: { root: { minHeight: 48 } },
+      },
+      MuiChip: {
+        styleOverrides: { root: { borderRadius: RADIUS.xs, fontSize: SIZE.sm + 'px' } },
+      },
+      MuiAlert: {
+        styleOverrides: { root: { borderRadius: RADIUS.sm, fontSize: SIZE.base + 'px' } },
+      },
+      MuiPaper: {
+        styleOverrides: { rounded: { borderRadius: RADIUS.md } },
       },
     },
     typography: {
@@ -108,4 +223,4 @@ export function buildMuiTheme(mode = 'light') {
   })
 }
 
-export { FONT_FAMILY, SIZE, LEADING, WEIGHT }
+export { FONT_FAMILY, SIZE, LEADING, WEIGHT, CONTROL_HEIGHT, CONTROL_HEIGHT_SM, RADIUS }

@@ -28,7 +28,7 @@
   align-items: center;
   gap: var(--space-2, 8px);
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border, #dfe1e6);
   cursor: pointer;
   background: var(--color-surface, #fff);
@@ -51,7 +51,7 @@
   cursor: pointer;
   font-size: var(--font-size-base);
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .cpb-tab-btn:hover { background: var(--color-hover, #ebecf0); }
 .cpb-tab-btn-danger:hover { color: var(--color-danger, #de350b); }
@@ -96,7 +96,7 @@
   flex: 1 0 240px;
   min-width: 240px;
   background: var(--color-column-bg, #f4f5f7);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
 }
@@ -115,7 +115,7 @@
 
 .cpb-column-count {
   background: var(--color-hover, #ebecf0);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0 8px;
   font-size: var(--font-size-sm);
 }
@@ -130,7 +130,7 @@
 
 .cpb-card {
   background: var(--color-surface, #fff);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 1px 2px rgba(9, 30, 66, 0.15);
   padding: 10px;
   cursor: pointer;

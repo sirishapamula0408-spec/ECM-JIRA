@@ -2,12 +2,12 @@
 
 .jira-list-page {
   --list-surface: #ffffff;
-  --list-border: #dfe1e6;
-  --list-text: #172b4d;
-  --list-subtle: #6b778c;
-  --list-chip-bg: #dfe1e6;
-  --list-focus: #4c9aff;
-  --list-row-hover: #fafbfc;
+  --list-border: var(--jira-border);
+  --list-text: var(--jira-text);
+  --list-subtle: var(--jira-text-subtlest);
+  --list-chip-bg: var(--jira-border);
+  --list-focus: var(--jira-blue);
+  --list-row-hover: var(--jira-surface-subtle);
   --list-thumb: rgba(9, 30, 66, 0.45);
   /* JL-393: no page-level background here — the global `.page` rule paints the
      shared --jira-canvas token. The local --list-bg alias (#f4f5f7) existed
@@ -49,7 +49,7 @@
   height: 32px;
   border: 1px solid var(--list-border);
   background: var(--list-surface);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0 10px 0 30px;
   font-size: var(--font-size-base);
   color: var(--list-text);
@@ -70,7 +70,7 @@
 .jira-list-presence span {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: grid;
   place-items: center;
   color: #ffffff;
@@ -87,7 +87,7 @@
 }
 
 .jira-list-presence span:last-child {
-  background: #0065ff;
+  background: var(--jira-blue-hover);
 }
 
 .jira-list-select,
@@ -95,7 +95,7 @@
   height: 32px;
   border: 1px solid var(--list-border);
   background: var(--list-surface);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--list-text);
   font-size: var(--font-size-base);
 }
@@ -119,7 +119,7 @@
 
 .jira-list-table-shell {
   border: 1px solid var(--list-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--list-surface);
   overflow: hidden;
 }
@@ -218,7 +218,7 @@
   height: 42px;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
-  background: #fafbfc;
+  background: var(--jira-surface-sunken);
   position: relative;
   user-select: none;
 }
@@ -254,11 +254,11 @@
 }
 
 .col-sort-btn:hover {
-  color: #0052cc;
+  color: var(--jira-blue);
 }
 
 .col-sort-active {
-  color: #0052cc;
+  color: var(--jira-blue);
 }
 
 .col-sort-indicator {
@@ -288,14 +288,14 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: #0052cc;
-  border-radius: 2px;
+  background: var(--jira-blue);
+  border-radius: var(--radius-xs);
   z-index: 2;
 }
 
 .jira-list-table td.col-dragging {
   opacity: 0.4;
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 /* Column resize */
@@ -321,7 +321,7 @@
 }
 
 .col-resize-handle:hover::after {
-  background: #0052cc;
+  background: var(--jira-blue);
 }
 
 body.col-resizing,
@@ -396,7 +396,7 @@ body.col-resizing * {
   height: 22px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--list-subtle);
   cursor: pointer;
@@ -454,14 +454,14 @@ body.col-resizing * {
   cursor: pointer;
   width: 28px;
   height: 28px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   line-height: 1;
 }
 
 .jira-list-col-menu-trigger:hover {
-  background: #ebecf0;
+  background: var(--jira-border-subtle);
   color: var(--list-text);
 }
 
@@ -472,7 +472,7 @@ body.col-resizing * {
   z-index: 20;
   background: var(--list-surface);
   border: 1px solid var(--list-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
   min-width: 180px;
   padding: 6px 0;
@@ -504,7 +504,7 @@ body.col-resizing * {
 }
 
 .jira-list-col-menu-item:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .jira-list-col-menu-item.active {
@@ -514,7 +514,7 @@ body.col-resizing * {
 .jira-list-col-check {
   width: 16px;
   text-align: center;
-  color: #0052cc;
+  color: var(--jira-blue);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
 }
@@ -552,7 +552,7 @@ body.col-resizing * {
   border: none;
   padding: 0;
   background: transparent;
-  color: #0052cc;
+  color: var(--jira-blue);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -561,7 +561,7 @@ body.col-resizing * {
 
 .jira-list-key-link:hover {
   text-decoration: underline;
-  color: #0747a6;
+  color: var(--jira-blue-hover);
 }
 
 .jira-list-summary-link {
@@ -582,7 +582,7 @@ body.col-resizing * {
 .list-type-mark {
   width: 16px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   display: inline-block;
   position: relative;
 }
@@ -593,7 +593,7 @@ body.col-resizing * {
 
 .list-type-bug::before {
   content: '>';
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   font-size: var(--font-size-base);
   position: absolute;
   left: 2px;
@@ -613,15 +613,15 @@ body.col-resizing * {
 }
 
 .list-type-task {
-  border: 2px solid #0065ff;
+  border: 2px solid var(--jira-blue-hover);
 }
 
 .list-type-task::after {
   content: '';
   width: 6px;
   height: 3px;
-  border-left: 2px solid #0065ff;
-  border-bottom: 2px solid #0065ff;
+  border-left: 2px solid var(--jira-blue-hover);
+  border-bottom: 2px solid var(--jira-blue-hover);
   transform: rotate(-45deg);
   position: absolute;
   left: 3px;
@@ -632,7 +632,7 @@ body.col-resizing * {
   display: inline-flex;
   align-items: center;
   height: 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--list-chip-bg);
   padding: 0 6px;
   font-size: var(--font-size-sm);
@@ -643,7 +643,7 @@ body.col-resizing * {
 .jira-list-status-select {
   height: 24px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--list-chip-bg);
   padding: 0 4px;
   font-size: var(--font-size-sm);
@@ -681,7 +681,7 @@ body.col-resizing * {
 .jira-list-comment-count i {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #0c66e4;
   display: inline-block;
 }
@@ -700,12 +700,12 @@ body.col-resizing * {
   display: flex;
   align-items: center;
   padding: 0 22px;
-  color: #42526e;
+  color: var(--jira-text-muted);
   cursor: pointer;
 }
 
 .jira-list-create:hover {
-  background: #fafbfc;
+  background: var(--jira-surface-subtle);
 }
 
 /* ── Bulk-action bar (JL-257) ── */
@@ -716,7 +716,7 @@ body.col-resizing * {
   padding: 8px 16px;
   margin-bottom: 8px;
   border: 1px solid var(--list-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--list-surface);
 }
 

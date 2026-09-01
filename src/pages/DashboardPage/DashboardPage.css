@@ -37,7 +37,7 @@
 .dashboard-title-edit {
   opacity: 0;
   transition: opacity 0.15s ease;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
 }
 
 .dashboard-title:hover .dashboard-title-edit {
@@ -52,8 +52,8 @@
      visibly thickened the moment you clicked to edit it. */
   font-weight: var(--font-weight-medium);
   padding: 2px 8px;
-  border: 2px solid #4c9aff;
-  border-radius: 4px;
+  border: 2px solid var(--jira-blue);
+  border-radius: var(--radius-sm);
   width: 300px;
   max-width: 100%;
 }
@@ -93,7 +93,7 @@
   min-height: 300px;
   background: var(--jira-surface);
   border: 2px dashed var(--jira-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 32px;
 }
 
@@ -150,7 +150,7 @@
 .pie-gadget-disc {
   width: 140px;
   height: 140px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   position: relative;
 }
 
@@ -159,7 +159,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 /* On-slice percentage labels (JL-299) — legible on any slice colour via a
@@ -191,11 +191,11 @@
   bottom: -24px;
   left: 50%;
   transform: translateX(-50%);
-  background: #172b4d;
+  background: var(--jira-text);
   color: #fff;
   font-size: var(--font-size-sm);
   padding: 3px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
   pointer-events: none;
   z-index: 10;
@@ -215,7 +215,7 @@
      KEEP IN SYNC with HOLE_RADIUS in DonutChartGadget.jsx — the label radius is
      derived from it, and DonutLabelClipping.JL335.test.jsx asserts they match. */
   inset: 30px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--jira-surface);
   display: grid;
   place-content: center;
@@ -286,7 +286,7 @@
   border: none;
   background: none;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 
@@ -298,7 +298,7 @@
 .pie-gadget-legend .legend-dot {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   display: block;
 }
@@ -306,7 +306,7 @@
 .pie-gadget-legend .legend-label-link {
   color: inherit;
   text-decoration: none;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 /* the link opts out of underlines, so re-assert the hidden-slice strikethrough */
@@ -361,13 +361,13 @@
 .bar-gadget-track {
   height: 20px;
   background: #f0f1f2;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 
 .bar-gadget-bar {
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   transition: width 0.3s ease;
 }
 
@@ -474,9 +474,9 @@
   text-decoration: underline;
 }
 
-.pill-priority--high { background: #ffebe6; color: #bf2600; }
+.pill-priority--high { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
 .pill-priority--medium { background: #fff3e0; color: #974f0c; }
-.pill-priority--low { background: #e3fcef; color: #006644; }
+.pill-priority--low { background: var(--jira-success-bg); color: var(--jira-success-text); }
 
 .filter-results-pagination {
   display: flex;
@@ -546,7 +546,7 @@
 }
 
 .legend-line--solid {
-  border-color: #0052cc;
+  border-color: var(--jira-blue);
 }
 
 .sprint-health-stat {

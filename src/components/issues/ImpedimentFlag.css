@@ -12,3 +12,23 @@
 .impediment-flag-toggle {
   align-self: flex-start;
 }
+
+/* Brief §23: the Add-flag button is an amber-outlined white button, 42px,
+   with warning-coloured text - not a filled amber block. */
+.impediment-flag-toggle.impediment-flag-toggle {
+  height: var(--control-height-flag);
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #ffab00;
+  background: var(--jira-surface);
+  color: var(--jira-warning-text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  text-transform: none;
+}
+
+.impediment-flag-toggle.impediment-flag-toggle:hover {
+  background: var(--jira-warning-bg);
+  border-color: #ffab00;
+}

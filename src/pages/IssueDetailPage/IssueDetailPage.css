@@ -12,62 +12,25 @@
   min-height: 100%;
 }
 
-/* ---- Breadcrumb bar ---- */
-.id-breadcrumb-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 24px;
-  border-bottom: 1px solid var(--jira-border);
-  background: #fafbfc;
-}
-
-.id-breadcrumbs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-}
-
-.id-breadcrumb-link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: #6b778c;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.id-breadcrumb-link:hover {
-  color: #0052cc;
-  text-decoration: underline;
-}
-
-.id-breadcrumb-sep {
-  color: #c1c7d0;
-  font-size: var(--font-size-sm);
-}
-
-.id-breadcrumb-current {
-  color: #172b4d;
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-sm);
-}
+/* ---- Breadcrumb bar ----
+   JL-439: the geometry and typography now come from the shared
+   .breadcrumb-bar / .breadcrumb-* classes in styles/shared.css, which
+   ProjectTopPanel renders too. The whole .id-breadcrumb-* family that used
+   to live here is gone; the element keeps .id-breadcrumb-bar only so the
+   480px override below can still reach it. */
 
 .id-top-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .id-action-btn {
-  width: 32px;
-  height: 32px;
+  width: var(--control-height);
+  height: var(--control-height);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #6b778c;
+  color: var(--jira-text);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -76,8 +39,8 @@
 }
 
 .id-action-btn:hover {
-  background: #ebecf0;
-  color: #172b4d;
+  background: var(--jira-surface-hover);
+  color: var(--jira-text);
 }
 
 /* ---- Main grid layout ---- */
@@ -85,7 +48,7 @@
    background of its own, so this is the panel that used to be the page. */
 .id-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr var(--layout-details-panel-width);
   min-height: calc(100vh - 120px);
   background: var(--jira-surface);
 }
@@ -99,7 +62,7 @@
 
 /* ---- Left: Main content ---- */
 .id-main {
-  padding: 24px 32px 40px;
+  padding: var(--layout-content-padding) var(--layout-content-padding) var(--space-40);
   border-right: 1px solid var(--jira-border);
   overflow-y: auto;
   position: relative;
@@ -127,7 +90,7 @@
   align-items: center;
   gap: 8px;
   padding: 20px 28px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--jira-surface, #fff);
   border: 2px dashed var(--jira-primary, #0052cc);
   color: var(--jira-primary, #0052cc);
@@ -139,8 +102,8 @@
 .id-type-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .id-type-icon {
@@ -151,9 +114,10 @@
 
 /* JL-321: issue key is now a link (Atlassian-style) */
 .id-issue-key {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
   font-weight: var(--font-weight-medium);
-  color: #0052cc;
+  color: var(--jira-blue);
   letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
@@ -163,57 +127,70 @@
   text-decoration: underline;
 }
 
-/* Title */
+/* Title. Brief §17 - the dominant element on the reference page: 36/700/44,
+   -0.2px tracking. This is the one place --font-size-display is used; a
+   generic page heading stays on `.page h1` (28px) because a page title and
+   an issue summary are different roles. */
 .id-title {
-  margin: 0 0 12px;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  color: #172b4d;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  margin: var(--space-4) 0 18px;
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-display);
+  font-weight: var(--font-weight-bold);
+  color: var(--jira-text);
+  letter-spacing: -0.2px;
 }
 
 /* Quick action buttons */
 .id-quick-actions {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-bottom: var(--space-6);
   flex-wrap: wrap;
 }
 
+/* Brief §18. Same contract as the shared .btn - 40px, white, bordered,
+   16/500 - restated here only because the markup names this class in ~14
+   places and renaming all of them is JL-440 work, not JL-439 work. */
 .id-quick-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border: 1px solid #dfe1e6;
-  border-radius: 3px;
-  background: #fafbfc;
-  color: #42526e;
-  font-size: var(--font-size-sm);
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 14px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
+  background: var(--jira-surface);
+  color: var(--jira-text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+  transition: background var(--transition-fast) var(--ease-standard),
+    border-color var(--transition-fast) var(--ease-standard);
 }
 
 .id-quick-btn:hover {
-  background: #ebecf0;
-  border-color: #c1c7d0;
+  background: var(--jira-surface-hover);
 }
 
-/* ---- Sections ---- */
+/* ---- Sections ----
+   Brief §20: 40px between the stacked sections (Description -> Child issues
+   -> Linked issues -> Affected assets). "Do not compress sections together." */
 .id-section {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-40);
 }
 
+/* Brief §19/§24: 18/600, muted, 0.3px tracking - the same treatment as the
+   shared .section-label, which this matches deliberately. */
 .id-section-title {
-  margin: 0 0 10px;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-detail);
+  line-height: var(--line-height-detail);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #6b778c;
+  letter-spacing: 0.3px;
+  color: var(--jira-text-muted);
 }
 
 /* Collapsible section title */
@@ -225,12 +202,12 @@
   background: none;
   padding: 4px 8px 4px 0;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   transition: color 0.12s ease;
 }
 
 .id-section-title--collapsible:hover {
-  color: #172b4d;
+  color: var(--jira-text);
 }
 
 .id-collapse-chevron {
@@ -245,25 +222,27 @@
 /* Description */
 .id-description {
   padding: 10px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: text;
-  transition: background 0.12s ease;
+  transition: background var(--transition-fast) var(--ease-standard);
   min-height: 44px;
 }
 
 .id-description:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-hover);
 }
 
+/* Brief §19: 20/400/28. Leading is stated in px, not 1.6, so it stays on
+   the same rhythm as --line-height-md everywhere else. */
 .id-description p {
   margin: 0;
-  font-size: var(--font-size-base);
-  line-height: 1.6;
-  color: #172b4d;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  color: var(--jira-text);
 }
 
 .id-placeholder {
-  color: #97a0af;
+  color: var(--jira-text-subtlest);
   font-style: italic;
 }
 
@@ -276,11 +255,11 @@
 .id-desc-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 2px solid #4c9aff;
-  border-radius: 4px;
-  font-size: var(--font-size-base);
-  line-height: 1.6;
-  color: #172b4d;
+  border: 1px solid var(--jira-blue);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  color: var(--jira-text);
   font-family: var(--font-family-sans);
   resize: vertical;
   outline: none;
@@ -291,11 +270,13 @@
   gap: 6px;
 }
 
+/* Brief §39: empty states stay plain - 16px, muted, no illustration. */
 .id-empty-text {
   margin: 0;
-  padding: 8px 0;
+  padding: var(--space-2) 0;
   font-size: var(--font-size-base);
-  color: #97a0af;
+  line-height: var(--line-height-base);
+  color: var(--jira-text-subtlest);
 }
 
 /* ---- Activity tabs ---- */
@@ -303,19 +284,30 @@
   display: inline-flex;
   gap: 0;
   margin-bottom: 16px;
-  border-bottom: 2px solid #dfe1e6;
+  border-bottom: 2px solid var(--jira-border);
 }
 
+/* Brief §38: 48px tall, 14/500, muted until active. Same contract as the
+   shared .tab in styles/shared.css and as .wh-tab on Webhooks. */
 .id-activity-tab {
   border: none;
   background: transparent;
-  padding: 8px 14px;
+  height: var(--control-height-nav);
+  padding: 0 var(--space-3);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-medium);
-  color: #6b778c;
+  color: var(--jira-text-muted);
   cursor: pointer;
   position: relative;
-  transition: color 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: color var(--transition-fast) var(--ease-standard);
+}
+
+.id-activity-tab:hover:not(.active) {
+  background: var(--jira-surface-hover);
 }
 
 .id-activity-tab::after {
@@ -330,15 +322,15 @@
 }
 
 .id-activity-tab:hover {
-  color: #172b4d;
+  color: var(--jira-text);
 }
 
 .id-activity-tab.active {
-  color: #0052cc;
+  color: var(--jira-blue);
 }
 
 .id-activity-tab.active::after {
-  background: #0052cc;
+  background: var(--jira-blue);
 }
 
 /* ---- Comment input ---- */
@@ -353,8 +345,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #dfe1e6;
-  color: #42526e;
+  background: var(--jira-border);
+  color: var(--jira-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -372,30 +364,30 @@
   display: block;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: #172b4d;
+  color: var(--jira-text);
   margin-bottom: 4px;
 }
 
 .id-comment-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #dfe1e6;
-  border-radius: 4px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-base);
   font-family: var(--font-family-sans);
   line-height: 1.5;
-  color: #172b4d;
+  color: var(--jira-text);
   resize: vertical;
   outline: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .id-comment-textarea::placeholder {
-  color: #97a0af;
+  color: var(--jira-text-subtlest);
 }
 
 .id-comment-textarea:focus {
-  border-color: #4c9aff;
+  border-color: var(--jira-blue);
   box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
 }
 
@@ -440,25 +432,25 @@
 .id-comment-meta strong {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
-  color: #172b4d;
+  color: var(--jira-text);
 }
 
 .id-comment-time {
   font-size: var(--font-size-sm);
-  color: #97a0af;
+  color: var(--jira-text-subtlest);
 }
 
 .id-comment-text {
   margin: 0;
   font-size: var(--font-size-base);
   line-height: 1.5;
-  color: #172b4d;
+  color: var(--jira-text);
 }
 
 /* JL-160: comment edit/delete controls */
 .id-comment-edited {
   font-size: var(--font-size-sm);
-  color: #97a0af;
+  color: var(--jira-text-subtlest);
   font-style: italic;
 }
 
@@ -474,12 +466,12 @@
   padding: 0;
   cursor: pointer;
   font-size: var(--font-size-sm);
-  color: #5e6c84;
+  color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
 }
 
 .id-comment-action-link:hover {
-  color: #0052cc;
+  color: var(--jira-blue);
   text-decoration: underline;
 }
 
@@ -489,7 +481,7 @@
 
 /* Logged-in user avatar highlight */
 .id-comment-avatar--me {
-  background: #0052cc;
+  background: var(--jira-blue);
   color: #fff;
 }
 
@@ -506,21 +498,21 @@
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border: 1px solid #dfe1e6;
-  border-radius: 12px;
-  background: #f4f5f7;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-lg);
+  background: var(--jira-surface-sunken);
   cursor: pointer;
   font-size: var(--font-size-sm, 13px);
   line-height: 1.4;
   transition: background var(--transition-fast, 120ms), border-color var(--transition-fast, 120ms);
 }
 .id-reaction-chip:hover {
-  background: #ebecf0;
+  background: var(--jira-border-subtle);
 }
 .id-reaction-chip--mine {
-  background: #deebff;
-  border-color: #4c9aff;
-  color: #0052cc;
+  background: var(--jira-blue-soft);
+  border-color: var(--jira-blue);
+  color: var(--jira-blue);
 }
 .id-reaction-count {
   font-weight: var(--font-weight-semibold);
@@ -532,16 +524,16 @@
 .id-reaction-add {
   width: 26px;
   height: 26px;
-  border: 1px solid #dfe1e6;
+  border: 1px solid var(--jira-border);
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
-  color: #5e6c84;
+  color: var(--jira-text-muted);
   font-size: var(--font-size-base);
   line-height: 1;
 }
 .id-reaction-add:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 .id-reaction-menu {
   position: absolute;
@@ -551,8 +543,8 @@
   gap: 2px;
   padding: 4px;
   background: #fff;
-  border: 1px solid #dfe1e6;
-  border-radius: 8px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
   z-index: var(--z-dropdown, 100);
 }
@@ -566,10 +558,10 @@
   cursor: pointer;
   font-size: var(--font-size-lg);
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .id-reaction-option:hover {
-  background: #ebecf0;
+  background: var(--jira-border-subtle);
 }
 
 /* Tab count badge */
@@ -581,16 +573,16 @@
   height: 18px;
   padding: 0 5px;
   margin-left: 4px;
-  border-radius: 9px;
-  background: #dfe1e6;
-  color: #42526e;
+  border-radius: var(--radius-md);
+  background: var(--jira-border);
+  color: var(--jira-text-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
 .id-activity-tab.active .id-tab-count {
-  background: #deebff;
-  color: #0052cc;
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
 }
 
 /* History entry */
@@ -598,7 +590,7 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: #eae6ff;
   color: #5243aa;
   font-size: var(--font-size-sm);
@@ -611,7 +603,7 @@
   margin: 0;
   font-size: var(--font-size-base);
   line-height: 1.5;
-  color: #5e6c84;
+  color: var(--jira-text-muted);
   font-style: italic;
 }
 
@@ -620,9 +612,9 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: 3px;
-  background: #e3fcef;
-  color: #006644;
+  border-radius: var(--radius-xs);
+  background: var(--jira-success-bg);
+  color: var(--jira-success-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -640,16 +632,16 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 3px;
-  background: #deebff;
-  color: #0052cc;
+  border-radius: var(--radius-xs);
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .id-worklog-desc {
   font-size: var(--font-size-base);
-  color: #5e6c84;
+  color: var(--jira-text-muted);
 }
 
 /* Work log add button */
@@ -662,10 +654,10 @@
   align-items: center;
   gap: 5px;
   padding: 6px 12px;
-  border: 1px dashed #c1c7d0;
-  border-radius: 4px;
+  border: 1px dashed var(--jira-border-strong);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -673,9 +665,9 @@
 }
 
 .id-worklog-add-btn:hover {
-  background: #f4f5f7;
-  border-color: #97a0af;
-  color: #172b4d;
+  background: var(--jira-surface-sunken);
+  border-color: var(--jira-text-subtlest);
+  color: var(--jira-text);
 }
 
 /* Work log form */
@@ -684,9 +676,9 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #dfe1e6;
-  border-radius: 4px;
-  background: #fafbfc;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
+  background: var(--jira-surface-subtle);
 }
 
 .id-worklog-form-row {
@@ -698,7 +690,7 @@
 .id-worklog-form-row label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
 }
 
 .id-worklog-form-actions {
@@ -709,26 +701,34 @@
 /* ============================================================
    RIGHT SIDEBAR
    ============================================================ */
+/* Brief §21: the details panel is a white surface, 28px padding, separated
+   from the content by the border on .id-main - not by a grey fill. */
 .id-sidebar {
-  padding: 20px;
-  background: #fafbfc;
+  padding: var(--space-28);
+  background: var(--jira-surface);
   overflow-y: auto;
 }
 
 /* Status select */
 .id-sidebar-status {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-20);
 }
 
+/* Brief §22: 44 x ~220, 18/600, radius 6. The background comes from the
+   status-category class the markup adds; --jira-border is the neutral
+   fallback the brief names for TO DO. */
 .id-status-select {
-  width: auto;
-  min-width: 140px;
-  height: 32px;
-  padding: 0 28px 0 10px;
+  width: var(--control-width-status);
+  max-width: 100%;
+  height: var(--control-height-status);
+  padding: 0 var(--space-28) 0 var(--space-3);
   border: none;
-  border-radius: 4px;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-sm);
+  background: var(--jira-border);
+  color: var(--jira-text);
+  font-size: var(--font-size-detail);
+  line-height: var(--line-height-detail);
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -745,7 +745,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
@@ -753,9 +753,9 @@
 
 /* Sidebar sections */
 .id-sidebar-section {
-  margin-bottom: 20px;
-  border-top: 1px solid #ebecf0;
-  padding-top: 16px;
+  margin-bottom: var(--space-5);
+  border-top: 1px solid var(--jira-border-subtle);
+  padding-top: var(--space-4);
 }
 
 .id-sidebar-section:first-of-type {
@@ -767,13 +767,15 @@
   margin-bottom: 12px;
 }
 
+/* Brief §24: the "DETAILS" heading - 18/600, muted, 0.3px, uppercase. */
 .id-sidebar-section-header h4 {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-detail);
+  line-height: var(--line-height-detail);
   font-weight: var(--font-weight-semibold);
-  color: #6b778c;
+  color: var(--jira-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.3px;
 }
 
 /* Detail list (key-value pairs) */
@@ -781,11 +783,13 @@
   margin: 0;
 }
 
+/* Brief §25: 24px between fields, flat - "Do not make fields look like
+   individual cards." */
 .id-detail-row {
   display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 8px;
-  margin-bottom: 14px;
+  grid-template-columns: 120px 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
   align-items: center;
 }
 
@@ -794,47 +798,52 @@
 }
 
 .id-detail-row dt {
-  font-size: var(--font-size-sm);
-  color: #6b778c;
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-detail);
+  line-height: var(--line-height-detail);
+  color: var(--jira-text-muted);
+  font-weight: var(--font-weight-regular);
 }
 
 .id-detail-row dd {
   margin: 0;
-  font-size: var(--font-size-base);
-  color: #172b4d;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  color: var(--jira-text);
+  font-weight: var(--font-weight-regular);
 }
 
 /* User display (avatar + name) */
 .id-detail-user {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 /* JL-162: one-click "Assign to me" shortcut under the Assignee field */
+/* Brief §26: the assignee action link is 18px in the brand blue. */
 .id-assign-to-me {
   display: inline-block;
-  margin-top: 4px;
+  margin-top: var(--space-1);
   padding: 0;
   border: none;
   background: none;
-  color: #0052cc;
-  font-size: var(--font-size-sm);
+  color: var(--jira-blue);
+  font-size: var(--font-size-detail);
+  line-height: var(--line-height-detail);
   cursor: pointer;
 }
 
 .id-assign-to-me:hover {
-  color: #0747a6;
+  color: var(--jira-blue-hover);
   text-decoration: underline;
 }
 
 .id-detail-avatar {
-  width: 24px;
-  height: 24px;
+  width: var(--avatar-size-md);
+  height: var(--avatar-size-md);
   border-radius: 50%;
-  background: #dfe1e6;
-  color: #42526e;
+  background: var(--jira-border);
+  color: var(--jira-text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -843,15 +852,34 @@
   flex-shrink: 0;
 }
 
-/* Priority badge */
+/* Priority badge — brief §27: 32px tall, 0 12px, radius 4 (the scale has 3),
+   16/600, and a SUBTLE fill. The three variants below are the only place
+   these colours are written; the JSX picks a modifier, not a hex. */
 .id-priority-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: var(--font-size-sm);
+  gap: var(--space-1);
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
+}
+
+.id-priority-badge--high {
+  background: var(--jira-danger-bg);
+  color: var(--jira-danger-text);
+}
+
+.id-priority-badge--medium {
+  background: var(--jira-warning-bg);
+  color: var(--jira-warning-text);
+}
+
+.id-priority-badge--low {
+  background: var(--jira-success-bg);
+  color: var(--jira-success-text);
 }
 
 .id-priority-arrow {
@@ -876,7 +904,7 @@
 
 /* Empty value */
 .id-empty-value {
-  color: #97a0af;
+  color: var(--jira-text-subtlest);
   font-size: var(--font-size-base);
 }
 
@@ -886,10 +914,10 @@
   align-items: center;
   gap: 5px;
   padding: 4px 8px;
-  border: 1px solid #dfe1e6;
-  border-radius: 3px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-xs);
   background: #fff;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -897,7 +925,7 @@
 }
 
 .id-watch-btn:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 /* Small button variant */
@@ -916,20 +944,20 @@
   cursor: pointer;
   padding: 2px 4px;
   margin: -2px -4px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   transition: background 0.1s ease;
   position: relative;
 }
 
 .id-inline-display:hover {
-  background: #ebecf0;
+  background: var(--jira-border-subtle);
 }
 
 .id-edit-pencil {
   display: inline-flex;
   align-items: center;
   margin-left: 6px;
-  color: #97a0af;
+  color: var(--jira-text-subtlest);
   opacity: 0;
   transition: opacity 0.12s ease;
 }
@@ -950,10 +978,10 @@
   min-width: 0;
   height: 32px;
   padding: 0 8px;
-  border: 2px solid #4c9aff;
-  border-radius: 3px;
+  border: 2px solid var(--jira-blue);
+  border-radius: var(--radius-xs);
   font-size: var(--font-size-base);
-  color: #172b4d;
+  color: var(--jira-text);
   background: #fff;
   outline: none;
   cursor: pointer;
@@ -964,10 +992,10 @@
   min-width: 0;
   height: 32px;
   padding: 0 8px;
-  border: 2px solid #4c9aff;
-  border-radius: 3px;
+  border: 2px solid var(--jira-blue);
+  border-radius: var(--radius-xs);
   font-size: var(--font-size-base);
-  color: #172b4d;
+  color: var(--jira-text);
   background: #fff;
   outline: none;
 }
@@ -983,7 +1011,7 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -992,22 +1020,22 @@
 }
 
 .id-inline-save {
-  background: #0052cc;
+  background: var(--jira-blue);
   color: #fff;
 }
 
 .id-inline-save:hover {
-  background: #0747a6;
+  background: var(--jira-blue-hover);
 }
 
 .id-inline-cancel {
-  background: #f4f5f7;
-  color: #6b778c;
+  background: var(--jira-surface-sunken);
+  color: var(--jira-text-subtlest);
 }
 
 .id-inline-cancel:hover {
-  background: #ebecf0;
-  color: #172b4d;
+  background: var(--jira-border-subtle);
+  color: var(--jira-text);
 }
 
 /* Sprint display */
@@ -1045,17 +1073,17 @@
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  background: #ebecf0;
-  border-radius: 3px;
+  background: var(--jira-border-subtle);
+  border-radius: var(--radius-xs);
   font-size: var(--font-size-sm);
-  color: #42526e;
+  color: var(--jira-text-muted);
   font-weight: var(--font-weight-medium);
 }
 
 .id-label-remove {
   border: none;
   background: transparent;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   cursor: pointer;
   padding: 0;
   font-size: var(--font-size-base);
@@ -1065,7 +1093,7 @@
 }
 
 .id-label-remove:hover {
-  color: #de350b;
+  color: var(--jira-danger);
 }
 
 .id-label-add-row {
@@ -1076,10 +1104,10 @@
 .id-label-add-btn {
   height: 32px;
   padding: 0 10px;
-  border: 1px solid #dfe1e6;
-  border-radius: 3px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-xs);
   background: #fff;
-  color: #42526e;
+  color: var(--jira-text-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -1087,7 +1115,7 @@
 }
 
 .id-label-add-btn:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 /* ============================================================
@@ -1105,7 +1133,8 @@
   }
 
   .id-sidebar {
-    padding: 16px;
+    padding: var(--space-4);
+    border-top: 1px solid var(--jira-border);
   }
 
   .id-detail-row {
@@ -1115,7 +1144,7 @@
 
 @media (max-width: 480px) {
   .id-breadcrumb-bar {
-    padding: 10px 12px;
+    padding: var(--space-3);
   }
 
   .id-main {
@@ -1123,7 +1152,8 @@
   }
 
   .id-title {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-xl);
   }
 
   .id-quick-actions {
@@ -1169,11 +1199,11 @@
 }
 
 .id-approval-badge--approved {
-  color: #006644;
+  color: var(--jira-success-text);
 }
 
 .id-approval-badge--rejected {
-  color: #bf2600;
+  color: var(--jira-danger-text);
 }
 
 .id-approval-badge--pending {
@@ -1196,7 +1226,7 @@
 /* Theme-1 #2: label picker suggestions */
 .id-label-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .id-label-suggestion {
-  border: 1px dashed currentColor; background: transparent; border-radius: 12px;
+  border: 1px dashed currentColor; background: transparent; border-radius: var(--radius-lg);
   padding: 2px 8px; font-size: var(--font-size-sm); cursor: pointer; opacity: 0.85;
 }
 .id-label-suggestion:hover { opacity: 1; background: rgba(0,0,0,0.03); }
@@ -1207,78 +1237,78 @@
 .id-label-edit-btn {
   display: inline-flex; align-items: center; justify-content: center;
   border: none; background: transparent; color: inherit; cursor: pointer;
-  padding: 2px; border-radius: 4px; opacity: 0.6;
+  padding: 2px; border-radius: var(--radius-sm); opacity: 0.6;
 }
 .id-label-edit-btn:hover { opacity: 1; background: rgba(0,0,0,0.06); }
 .id-label-edit-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .id-label-color-input {
-  width: 26px; height: 26px; padding: 0; border: 1px solid #dfe1e6;
-  border-radius: 4px; background: none; cursor: pointer;
+  width: 26px; height: 26px; padding: 0; border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm); background: none; cursor: pointer;
 }
-.id-label-edit-error { color: #de350b; font-size: var(--font-size-sm); }
+.id-label-edit-error { color: var(--jira-danger); font-size: var(--font-size-sm); }
 
 /* Theme-1 #1: sub-tasks */
 .id-subtask-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .id-subtask-progress { display: flex; align-items: center; gap: 8px; }
-.id-subtask-bar { width: 120px; height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
+.id-subtask-bar { width: 120px; height: 8px; background: var(--jira-border); border-radius: var(--radius-sm); overflow: hidden; }
 .id-subtask-bar-fill { height: 100%; background: #36b37e; transition: width 0.2s; }
-.id-subtask-progress-label { font-size: var(--font-size-sm); color: #5e6c84; white-space: nowrap; }
+.id-subtask-progress-label { font-size: var(--font-size-sm); color: var(--jira-text-muted); white-space: nowrap; }
 .id-subtask-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.id-subtask-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid #dfe1e6; border-radius: 4px; cursor: pointer; }
-.id-subtask-row:hover { background: #f4f5f7; }
-.id-subtask-key { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: #0052cc; }
+.id-subtask-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--jira-border); border-radius: var(--radius-sm); cursor: pointer; }
+.id-subtask-row:hover { background: var(--jira-surface-sunken); }
+.id-subtask-key { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--jira-blue); }
 .id-subtask-title { flex: 1; font-size: var(--font-size-base); }
-.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: 3px; background: #dfe1e6; color: #42526e; }
-.id-subtask-status--done { background: #e3fcef; color: #006644; }
-.id-subtask-status--in-progress { background: #deebff; color: #0052cc; }
+.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: var(--radius-xs); background: var(--jira-border); color: var(--jira-text-muted); }
+.id-subtask-status--done { background: var(--jira-success-bg); color: var(--jira-success-text); }
+.id-subtask-status--in-progress { background: var(--jira-blue-soft); color: var(--jira-blue); }
 .id-subtask-status--code-review { background: #eae6ff; color: #5243aa; }
 .id-subtask-form { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
 /* JL-300: brief highlight of a newly added sub-task / linked-issue row */
 .id-subtask-row.id-row-flash { animation: id-row-flash 2.5s ease-out; }
 @keyframes id-row-flash {
-  0% { background: #deebff; border-color: #0052cc; }
-  70% { background: #deebff; border-color: #0052cc; }
-  100% { background: transparent; border-color: #dfe1e6; }
+  0% { background: var(--jira-blue-soft); border-color: var(--jira-blue); }
+  70% { background: var(--jira-blue-soft); border-color: var(--jira-blue); }
+  100% { background: transparent; border-color: var(--jira-border); }
 }
-.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: #0052cc; cursor: pointer; font-size: var(--font-size-base); padding: 4px 0; }
+.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: var(--jira-blue); cursor: pointer; font-size: var(--font-size-base); padding: 4px 0; }
 
 /* Theme-1 #3: attachments */
 .id-attach-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.id-attach-card { display: flex; align-items: center; border: 1px solid #dfe1e6; border-radius: 4px; overflow: hidden; }
+.id-attach-card { display: flex; align-items: center; border: 1px solid var(--jira-border); border-radius: var(--radius-sm); overflow: hidden; }
 .id-attach-open { display: flex; align-items: center; gap: 8px; background: #fff; border: none; padding: 8px 10px; cursor: pointer; max-width: 240px; }
-.id-attach-open:hover { background: #f4f5f7; }
+.id-attach-open:hover { background: var(--jira-surface-sunken); }
 .id-attach-icon { font-size: var(--font-size-md); }
 .id-attach-name { font-size: var(--font-size-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-.id-attach-size { font-size: var(--font-size-sm); color: #5e6c84; }
-.id-attach-delete { border: none; background: #fafbfc; color: #5e6c84; cursor: pointer; font-size: var(--font-size-md); padding: 0 8px; align-self: stretch; }
-.id-attach-delete:hover { background: #ffebe6; color: #bf2600; }
+.id-attach-size { font-size: var(--font-size-sm); color: var(--jira-text-muted); }
+.id-attach-delete { border: none; background: var(--jira-surface-subtle); color: var(--jira-text-muted); cursor: pointer; font-size: var(--font-size-md); padding: 0 8px; align-self: stretch; }
+.id-attach-delete:hover { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
 
 /* Theme-1 #4: issue links */
-.id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: #f4f5f7; border-radius: 4px; }
+.id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: var(--jira-surface-sunken); border-radius: var(--radius-sm); }
 .id-link-dialog-actions { display: flex; gap: 6px; }
-.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: var(--font-weight-semibold); }
+.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; color: var(--jira-text-muted); min-width: 92px; font-weight: var(--font-weight-semibold); }
 
 /* JL-55: Git integration (Development panel) */
 .id-git-group { margin-bottom: 10px; }
-.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
-.id-git-icon { min-width: 16px; text-align: center; color: #5e6c84; }
-.id-git-author { font-size: var(--font-size-sm); color: #5e6c84; margin-left: auto; }
+.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; color: var(--jira-text-muted); font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
+.id-git-icon { min-width: 16px; text-align: center; color: var(--jira-text-muted); }
+.id-git-author { font-size: var(--font-size-sm); color: var(--jira-text-muted); margin-left: auto; }
 
 /* JL-147: pull-request state chips */
-.id-pr-state { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); padding: 1px 8px; border-radius: 10px; color: #fff; text-transform: capitalize; }
-.id-pr-state--open { background: #0052cc; }
+.id-pr-state { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); padding: 1px 8px; border-radius: var(--radius-md); color: #fff; text-transform: capitalize; }
+.id-pr-state--open { background: var(--jira-blue); }
 .id-pr-state--merged { background: #6554c0; }
-.id-pr-state--closed { background: #97a0af; }
+.id-pr-state--closed { background: var(--jira-text-subtlest); }
 
 /* Theme-1 #5: time tracking */
 .id-time-summary { margin-bottom: 10px; }
-.id-time-bar { height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
-.id-time-bar-fill { height: 100%; background: #0052cc; transition: width 0.2s; }
-.id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: var(--font-size-sm); color: #5e6c84; margin-top: 4px; }
+.id-time-bar { height: 8px; background: var(--jira-border); border-radius: var(--radius-sm); overflow: hidden; }
+.id-time-bar-fill { height: 100%; background: var(--jira-blue); transition: width 0.2s; }
+.id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: var(--font-size-sm); color: var(--jira-text-muted); margin-top: 4px; }
 
 /* Theme-1 #7: custom fields */
-.id-cf-delete { border: none; background: none; color: #97a0af; cursor: pointer; font-size: var(--font-size-base); margin-left: 4px; padding: 0 2px; }
-.id-cf-delete:hover { color: #bf2600; }
+.id-cf-delete { border: none; background: none; color: var(--jira-text-subtlest); cursor: pointer; font-size: var(--font-size-base); margin-left: 4px; padding: 0 2px; }
+.id-cf-delete:hover { color: var(--jira-danger-text); }
 .id-cf-add { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 
 /* JL-131: issue security-level chip */
@@ -1286,38 +1316,38 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #ffebe6;
-  color: #bf2600;
+  background: var(--jira-danger-bg);
+  color: var(--jira-danger-text);
   border: 1px solid #ffbdad;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   padding: 2px 8px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 /* JL-113: extended custom-field types */
-.id-cf-calculated { font-weight: var(--font-weight-semibold); color: #172b4d; }
+.id-cf-calculated { font-weight: var(--font-weight-semibold); color: var(--jira-text); }
 .id-cf-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 12px; background: #dfe1e6; color: #172b4d; font-size: var(--font-size-sm); }
-.id-cf-chip button { border: none; background: none; color: #5e6c84; cursor: pointer; font-size: var(--font-size-base); line-height: 1; padding: 0; }
+.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--radius-lg); background: var(--jira-border); color: var(--jira-text); font-size: var(--font-size-sm); }
+.id-cf-chip button { border: none; background: none; color: var(--jira-text-muted); cursor: pointer; font-size: var(--font-size-base); line-height: 1; padding: 0; }
 .id-cf-chip-toggle { cursor: pointer; user-select: none; }
 .id-cf-chip-toggle input { margin: 0; }
-.id-cf-chip-toggle.selected { background: #4c9aff; color: #fff; }
+.id-cf-chip-toggle.selected { background: var(--jira-blue); color: #fff; }
 .id-cf-cascade { display: flex; flex-direction: column; gap: 4px; }
 
 /* JL-56: CI/CD pipeline status */
 .id-ci-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: 4px; font-size: var(--font-size-base); }
-.id-ci-status { text-transform: uppercase; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: .04em; padding: 2px 8px; border-radius: 10px; color: #fff; }
+.id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: var(--radius-sm); font-size: var(--font-size-base); }
+.id-ci-status { text-transform: uppercase; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: .04em; padding: 2px 8px; border-radius: var(--radius-md); color: #fff; }
 .id-ci-status--success { background: #36b37e; }
-.id-ci-status--failed { background: #de350b; }
-.id-ci-status--running { background: #0065ff; }
-.id-ci-status--pending { background: #97a0af; }
-.id-ci-status--canceled { background: #6b778c; }
+.id-ci-status--failed { background: var(--jira-danger); }
+.id-ci-status--running { background: var(--jira-blue-hover); }
+.id-ci-status--pending { background: var(--jira-text-subtlest); }
+.id-ci-status--canceled { background: var(--jira-text-subtlest); }
 .id-ci-pipeline { font-weight: var(--font-weight-semibold); }
-.id-ci-branch { color: #5e6c84; font-family: var(--font-family-mono); font-size: var(--font-size-sm); }
-.id-ci-duration { color: #97a0af; font-size: var(--font-size-sm); }
-.id-ci-link { margin-left: auto; color: #0065ff; text-decoration: none; font-weight: var(--font-weight-semibold); }
+.id-ci-branch { color: var(--jira-text-muted); font-family: var(--font-family-mono); font-size: var(--font-size-sm); }
+.id-ci-duration { color: var(--jira-text-subtlest); font-size: var(--font-size-sm); }
+.id-ci-link { margin-left: auto; color: var(--jira-blue-hover); text-decoration: none; font-weight: var(--font-weight-semibold); }
 .id-ci-link:hover { text-decoration: underline; }
 
 /* JL-136: real-time presence ("who's viewing this issue") */
@@ -1331,7 +1361,7 @@
   box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
 }
 .id-presence-avatar:first-child { margin-left: 0; }
-.id-presence-label { font-size: var(--font-size-sm); color: #5e6c84; white-space: nowrap; }
+.id-presence-label { font-size: var(--font-size-sm); color: var(--jira-text-muted); white-space: nowrap; }
 
 /* JL-215: impediment flag toggle below the status select */
 .id-sidebar-flag {

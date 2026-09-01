@@ -314,7 +314,11 @@
   --jira-selected-bg: var(--jira-blue-soft);   /* was rgba(0, 82, 204, 0.06) — now a stronger tint */
 
   /* Danger */
-  --color-danger: var(--jira-danger);
+  /* JL-439: retargeted from --jira-danger (#de350b) to #ae2e24, which the
+     brief pins for this name and which §27 asks for (unsaturated status
+     colour). --jira-danger is unchanged for consumers that want the
+     saturated red. */
+  --color-danger: var(--jira-danger-text);
   --jira-red: var(--jira-danger);
 
   /* Hover wash */
@@ -324,4 +328,99 @@
 
   /* Typography */
   --font-mono: var(--font-family-mono);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     JL-439 — design-system layer
+     ══════════════════════════════════════════════════════════════════════
+     Derived from the issue-detail page named as the visual reference for the
+     global redesign. Everything the reference states as a literal number lives
+     here as a token, so the sidebar width, header height and control heights
+     have one definition instead of one per stylesheet.
+
+     Where the brief states a size for a GENERIC component (tables 14px, forms
+     14-16px, modals 14-16px, tabs 14px, empty states 16px) those land on the
+     existing xs/sm/base ladder unchanged — the brief and JL-438 agree there.
+     Only the issue-page chrome is larger, and those sizes are the role tokens
+     below rather than a shift of the ladder. */
+
+  /* ── Two type steps the reference needs that the ladder has no name for.
+     The brief's scale is 12 14 16 18 20 24 28 36; 12/14/16 are xs/sm/base and
+     20/24/28 are md/lg/xl, so only 18 and 36 are new (32 = xxl stays for h1).
+     Named by role, not ordinal: inserting 18 between base and md would
+     renumber the ladder and silently move every existing call site. ── */
+  --font-size-detail: 18px;    /* DETAILS/DESCRIPTION labels, breadcrumb, field labels */
+  --line-height-detail: 24px;
+  --font-size-display: 36px;   /* issue title — the reference's dominant text */
+  --line-height-display: 44px;
+  --font-size-brand: 30px;     /* sidebar wordmark */
+  --line-height-brand: 36px;
+
+  /* ── Border radius (brief §33): 3 / 6 / 8 / 12. Controls 6, cards 8. ── */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  /* Fully rounded. Not part of the brief's 3/6/8/12 scale - it is the pill
+     shape used by counters, chips and progress tracks, where the radius is
+     "half the height" rather than a step on a scale. */
+  --radius-pill: 999px;
+
+  /* ── The three spacing steps the ordinal scale is missing. The brief wants
+     4 8 12 16 20 24 28 32 40 48 64; --space-1..8 covers all but 20/28/40.
+     Named by value because renumbering --space-5..8 would move every existing
+     call site without any of them changing. ── */
+  --space-20: 20px;
+  --space-28: 28px;
+  --space-40: 40px;
+
+  /* ── Overlay shadow (brief §34). Dropdowns, modals, floating menus and
+     tooltips only — the reference is otherwise flat and leans on borders. ── */
+  --shadow-overlay: 0 4px 8px rgba(9, 30, 66, 0.15);
+
+  /* Table row hover (brief §35). Its own token rather than a reuse of
+     --jira-surface-hover: the brief distinguishes the two (#f7f8fa on a row,
+     #f1f2f4 on a control), and dark theme has to override this one alone. */
+  --jira-row-hover: #f7f8fa;
+
+  /* ── Layout dimensions. These were literals spread across layout.css,
+     Topbar.css and Sidebar.css, which is exactly how the three drifted apart. ── */
+  --layout-sidebar-width: 326px;
+  --layout-sidebar-collapsed-width: 76px;
+  --layout-header-height: 86px;
+  --layout-breadcrumb-height: 76px;
+  --layout-details-panel-width: 332px;   /* brief §21 allows 320-340 */
+  --layout-content-padding: 32px;
+
+  /* ── Control geometry. One height per role; a page that needs a control
+     taller or shorter than these is a bug in the page, not a new size. ── */
+  --control-height-sm: 32px;      /* badge, dense chip            */
+  --control-height: 40px;         /* default button/input/select  */
+  --control-height-flag: 42px;    /* Add flag                     */
+  --control-height-status: 44px;  /* issue status dropdown        */
+  --control-height-nav: 48px;     /* sidebar nav row, tab strip   */
+  --control-height-search: 52px;  /* global search                */
+  --control-height-create: 54px;  /* Create button                */
+  --control-width-status: 220px;
+
+  --avatar-size-sm: 24px;
+  --avatar-size-md: 34px;         /* details-panel user rows      */
+  --avatar-size-lg: 48px;         /* topbar account avatar        */
+
+  /* ── The --color-* names from the brief that the JL-392 alias layer above
+     does not already carry. Same rule as that layer: every one points at the
+     canonical token, so there is still one source of truth per colour. ── */
+  --color-primary-hover: var(--jira-blue-hover);
+  --color-text-primary: var(--jira-text);
+  --color-text-secondary: var(--jira-text-muted);
+  --color-text-muted: var(--jira-text-subtlest);
+  --color-background: var(--jira-surface);
+  --color-background-page: var(--jira-canvas);
+  --color-background-hover: var(--jira-surface-hover);
+  --color-background-selected: var(--jira-surface-selected);
+  --color-border-strong: var(--jira-border-strong);
+  --color-success: var(--jira-success-text);
+  --color-success-bg: var(--jira-success-bg);
+  --color-warning: var(--jira-warning-text);
+  --color-warning-bg: var(--jira-warning-bg);
+  --color-danger-bg: var(--jira-danger-bg);
 }

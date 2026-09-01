@@ -1,12 +1,12 @@
 .topbar {
-  height: 64px;
-  padding: 8px 16px;
+  height: var(--layout-header-height);
+  padding: 0 var(--layout-content-padding);
   background: var(--jira-surface);
   border-bottom: 1px solid var(--jira-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .topbar-left {
@@ -17,13 +17,24 @@
   min-width: 0;
 }
 
+/* Brief §10: the global search is a prominent control, not a text field
+   that happens to sit in the header - 52px tall, 20px text, ~500-550 wide. */
 .search {
   width: 100%;
+  height: var(--control-height-search);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  border-color: var(--jira-border);
+  padding: 0 var(--space-4);
+}
+
+.search:focus {
+  border-color: var(--jira-blue);
 }
 
 .topbar-search-wrap {
   position: relative;
-  width: min(740px, 100%);
+  width: min(550px, 100%);
 }
 
 .topbar-search-spinner {
@@ -42,7 +53,7 @@
   z-index: 1300;
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   max-height: 380px;
   overflow-y: auto;
@@ -59,7 +70,7 @@
   background: transparent;
   text-align: left;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   color: var(--jira-text);
 }
@@ -105,14 +116,15 @@
   font-size: var(--font-size-sm);
 }
 
+/* Brief §12: consistent 24px spacing between the header action icons. */
 .top-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-5);
   align-items: center;
 }
 
 .top-actions-jira {
-  gap: 10px;
+  gap: var(--space-5);
 }
 
 .topbar-live-clock {
@@ -147,8 +159,8 @@
   right: 0;
   width: 290px;
   background: #ffffff;
-  border: 1px solid #dfe1e6;
-  border-radius: 10px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
   box-shadow: 0 12px 24px rgba(9, 30, 66, 0.2);
   overflow: hidden;
   z-index: var(--z-sticky);
@@ -159,7 +171,7 @@
   gap: 12px;
   align-items: center;
   padding: 14px 14px 12px;
-  border-bottom: 1px solid #ebecf0;
+  border-bottom: 1px solid var(--jira-border-subtle);
 }
 
 .topbar-user-avatar {
@@ -170,7 +182,7 @@
 
 .topbar-user-header strong {
   display: block;
-  color: #172b4d;
+  color: var(--jira-text);
   font-size: var(--font-size-md);
   line-height: var(--line-height-md);
 }
@@ -178,7 +190,7 @@
 .topbar-user-header small {
   display: block;
   margin-top: 2px;
-  color: #5e6c84;
+  color: var(--jira-text-muted);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
 }
@@ -199,7 +211,7 @@
 }
 
 .topbar-user-item:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .topbar-user-item-icon {
@@ -208,12 +220,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
 }
 
 .topbar-user-item-arrow {
   margin-left: auto;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   font-size: var(--font-size-sm);
 }
 
@@ -227,8 +239,8 @@
   top: 2px;
   width: 140px;
   background: #ffffff;
-  border: 1px solid #dfe1e6;
-  border-radius: 8px;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.2);
   z-index: calc(var(--z-sticky) + 1);
 }
@@ -249,7 +261,7 @@
 }
 
 .topbar-user-divider {
-  border-top: 1px solid #ebecf0;
+  border-top: 1px solid var(--jira-border-subtle);
   margin: 4px 0;
 }
 
@@ -264,7 +276,7 @@
   right: 2px;
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #ff5630;
   color: #fff;
   font-size: var(--font-size-sm);
@@ -285,7 +297,7 @@
   cursor: pointer;
 }
 .topbar-workspace-icon {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -293,12 +305,41 @@
 }
 .topbar-workspace-select {
   appearance: auto;
-  max-width: 180px;
-  padding: 4px 8px;
-  border: 1px solid var(--border-color, #dfe1e6);
-  border-radius: 6px;
-  background: var(--surface, #fff);
-  color: var(--text-color, #172b4d);
-  font-size: var(--font-size-base);
+  max-width: 200px;
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
+  background: var(--jira-surface);
+  color: var(--jira-text);
+  font-size: var(--font-size-detail);
   cursor: pointer;
+}
+
+/* Brief §13: the account avatar in the header is 48px with 18px initials.
+   Sized here rather than in shared.css because .avatar is shared with list
+   rows and board cards, which stay at their dense size. */
+.topbar .avatar-btn {
+  width: var(--avatar-size-lg);
+  height: var(--avatar-size-lg);
+  font-size: var(--font-size-detail);
+  font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 860px) {
+  .topbar {
+    height: auto;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .search {
+    height: var(--control-height);
+    font-size: var(--font-size-base);
+  }
+
+  .topbar .avatar-btn {
+    width: 36px;
+    height: 36px;
+    font-size: var(--font-size-sm);
+  }
 }

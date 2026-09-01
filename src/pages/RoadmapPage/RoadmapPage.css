@@ -44,7 +44,7 @@
 .tl-view-toggle {
   display: inline-flex;
   border: 1px solid var(--jira-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -52,7 +52,7 @@
   padding: 4px 12px;
   border: none;
   background: #ffffff;
-  color: #42526e;
+  color: var(--jira-text-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -60,12 +60,12 @@
 }
 
 .tl-view-btn:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .tl-view-btn.active {
-  background: #deebff;
-  color: #0052cc;
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -97,7 +97,7 @@
   padding: 0 12px;
   height: 40px;
   border-bottom: 1px solid var(--jira-border);
-  background: #fafbfc;
+  background: var(--jira-surface-subtle);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   color: var(--jira-text-muted);
@@ -123,12 +123,12 @@
 }
 
 .tl-row-left:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .tl-row-left--epic {
   font-weight: var(--font-weight-semibold);
-  background: #fafbfc;
+  background: var(--jira-surface-subtle);
 }
 
 .tl-row-left--child {
@@ -140,19 +140,19 @@
   height: 20px;
   border: none;
   background: transparent;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-sm);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   transition: background 0.1s ease, transform 0.15s ease;
 }
 
 .tl-expand-btn:hover {
-  background: #ebecf0;
+  background: var(--jira-border-subtle);
 }
 
 .tl-expand-btn--open {
@@ -162,14 +162,14 @@
 .tl-type-mark {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 
 .tl-type-epic { background: #5243aa; }
 .tl-type-story { border: 2px solid #5e9e31; background: transparent; }
-.tl-type-bug { background: #de350b; }
-.tl-type-task { border: 2px solid #0065ff; background: transparent; }
+.tl-type-bug { background: var(--jira-danger); }
+.tl-type-task { border: 2px solid var(--jira-blue-hover); background: transparent; }
 
 .tl-row-key {
   font-size: var(--font-size-sm);
@@ -192,7 +192,7 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
@@ -201,13 +201,13 @@
   white-space: nowrap;
 }
 
-.tl-status-planned    { background: #deebff; color: #0052cc; }
+.tl-status-planned    { background: var(--jira-blue-soft); color: var(--jira-blue); }
 .tl-status-inprogress { background: #fff0b3; color: #ff8b00; }
-.tl-status-done       { background: #e3fcef; color: #006644; }
-.tl-status-atrisk     { background: #ffebe6; color: #bf2600; }
-.tl-status-todo       { background: #dfe1e6; color: #42526e; }
+.tl-status-done       { background: var(--jira-success-bg); color: var(--jira-success-text); }
+.tl-status-atrisk     { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
+.tl-status-todo       { background: var(--jira-border); color: var(--jira-text-muted); }
 .tl-status-review     { background: #eae6ff; color: #5243aa; }
-.tl-status-backlog    { background: #f4f5f7; color: #6b778c; }
+.tl-status-backlog    { background: var(--jira-surface-sunken); color: var(--jira-text-subtlest); }
 
 /* ---- Right panel (Gantt chart) ---- */
 .tl-right {
@@ -228,7 +228,7 @@
   z-index: 5;
   display: flex;
   height: 40px;
-  background: #fafbfc;
+  background: var(--jira-surface-subtle);
   border-bottom: 1px solid var(--jira-border);
 }
 
@@ -287,7 +287,7 @@
 }
 
 .tl-grid-col {
-  border-right: 1px solid #f4f5f7;
+  border-right: 1px solid var(--jira-surface-sunken);
   box-sizing: border-box;
 }
 
@@ -300,7 +300,7 @@
   position: absolute;
   top: 10px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   padding: 0 8px;
@@ -320,13 +320,13 @@
 }
 
 .tl-bar--epic      { background: #c0b6f2; color: #403294; }
-.tl-bar--planned    { background: #b3d4ff; color: #0747a6; }
+.tl-bar--planned    { background: #b3d4ff; color: var(--jira-blue-hover); }
 .tl-bar--inprogress { background: #ffe380; color: #974f0c; }
-.tl-bar--done       { background: #79f2c0; color: #006644; }
-.tl-bar--atrisk     { background: #ffbdad; color: #bf2600; }
-.tl-bar--todo       { background: #dfe1e6; color: #42526e; }
+.tl-bar--done       { background: #79f2c0; color: var(--jira-success-text); }
+.tl-bar--atrisk     { background: #ffbdad; color: var(--jira-danger-text); }
+.tl-bar--todo       { background: var(--jira-border); color: var(--jira-text-muted); }
 .tl-bar--review     { background: #c0b6f2; color: #403294; }
-.tl-bar--backlog    { background: #ebecf0; color: #6b778c; }
+.tl-bar--backlog    { background: var(--jira-border-subtle); color: var(--jira-text-subtlest); }
 
 /* Today marker */
 .tl-today-line {
@@ -334,7 +334,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #de350b;
+  background: var(--jira-danger);
   z-index: 3;
   pointer-events: none;
 }
@@ -346,11 +346,11 @@
   transform: translateX(-50%);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  color: #de350b;
+  color: var(--jira-danger);
   white-space: nowrap;
   background: #ffffff;
   padding: 1px 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 /* ---- Create child row ---- */
@@ -361,7 +361,7 @@
   padding: 0 12px 0 40px;
   height: 36px;
   border-bottom: 1px solid #f0f1f3;
-  color: #6b778c;
+  color: var(--jira-text-subtlest);
   font-size: var(--font-size-sm);
   cursor: pointer;
   transition: background 0.1s ease, color 0.1s ease;
@@ -372,8 +372,8 @@
 }
 
 .tl-create-child:hover {
-  background: #f4f5f7;
-  color: #0052cc;
+  background: var(--jira-surface-sunken);
+  color: var(--jira-blue);
 }
 
 /* ---- Empty state ---- */

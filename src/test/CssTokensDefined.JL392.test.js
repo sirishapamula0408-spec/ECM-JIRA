@@ -303,7 +303,12 @@ describe('JL-392 — light-theme values match the fallback literals they replace
     '--color-border': '#dfe1e6',
     '--color-border-subtle': '#ebecf0',
     '--color-column-bg': '#f4f5f7',
-    '--color-danger': '#de350b',
+    // JL-439 retargeted this alias from --jira-danger (#de350b) to
+    // --jira-danger-text (#ae2e24). The design brief pins #ae2e24 for the
+    // --color-danger name specifically, and §27 asks for unsaturated status
+    // colour. --jira-danger itself is unchanged, so nothing that wants the
+    // saturated red lost it.
+    '--color-danger': '#ae2e24',
     '--color-primary': '#0c66e4',
     '--color-primary-subtle': '#e9f2ff',
     '--color-surface': '#ffffff',

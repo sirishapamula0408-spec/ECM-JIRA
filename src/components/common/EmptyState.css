@@ -50,7 +50,7 @@
 }
 
 .app-theme-dark .empty-state__title {
-  color: #dfe1e6;
+  color: var(--jira-border);
 }
 
 .app-theme-dark .empty-state__description,

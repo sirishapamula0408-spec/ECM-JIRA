@@ -31,8 +31,14 @@
 
    Dark theme is unaffected: #1d2125 is Atlassian's dark elevation.surface, and
    it mirrors what theme.css already paints onto `.app-theme-dark .page`. */
+/* JL-439 amends the colour, not the reasoning above. The three-tier model
+   (surface / sunken / raised) still holds; the visual reference the global
+   redesign is built from paints the page itself at #f7f8fa with white
+   content surfaces on top, and states that directly. #f7f8fa is a much
+   lighter tint than the #f4f5f7 JL-393 was corrected for, so it sits above
+   the board-column well (#f1f2f4) rather than collapsing into it. */
 :root {
-  --jira-canvas: #ffffff;
+  --jira-canvas: #f7f8fa;
 }
 
 .app-theme-dark {
@@ -41,14 +47,14 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: var(--layout-sidebar-width) 1fr;
   min-height: 100vh;
   background: var(--jira-canvas);
   color: var(--jira-text);
 }
 
 .workspace.sidebar-collapsed {
-  grid-template-columns: 76px 1fr;
+  grid-template-columns: var(--layout-sidebar-collapsed-width) 1fr;
 }
 
 .content {
@@ -57,7 +63,7 @@
 }
 
 .page {
-  padding: 16px;
+  padding: var(--layout-content-padding);
   background: var(--jira-canvas);
   animation: page-fade-in 250ms ease;
 }
@@ -172,17 +178,17 @@
 .page-dark {
   background: var(--jira-canvas);
   color: var(--jira-text);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 /* Tablet — narrow the sidebar + tighten gutters, reflow grids (JL-60) */
 @media (max-width: 1160px) {
-  .workspace {
-    grid-template-columns: 200px 1fr;
-  }
-
-  .workspace.sidebar-collapsed {
-    grid-template-columns: 64px 1fr;
+  /* JL-439: the breakpoints now retune the tokens rather than restating
+     grid-template-columns, so a width change lands in one place. */
+  :root {
+    --layout-sidebar-width: 260px;
+    --layout-sidebar-collapsed-width: 64px;
+    --layout-content-padding: 24px;
   }
 
   .stats-grid {
@@ -200,12 +206,9 @@
 }
 
 @media (max-width: 1024px) {
-  .workspace {
-    grid-template-columns: 180px 1fr;
-  }
-
-  .page {
-    padding: 12px;
+  :root {
+    --layout-sidebar-width: 232px;
+    --layout-content-padding: 16px;
   }
 }
 
@@ -273,7 +276,7 @@
   .login-visual {
     min-height: 220px;
     border-right: none;
-    border-bottom: 1px solid #dfe1e6;
+    border-bottom: 1px solid var(--jira-border);
   }
 
   .top-actions {
@@ -332,8 +335,8 @@
 }
 
 @media (max-width: 480px) {
-  .page {
-    padding: 10px;
+  :root {
+    --layout-content-padding: 12px;
   }
 
   .page h1 {

@@ -3,7 +3,7 @@
 .gadget {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   box-shadow: var(--jira-shadow-soft);
   display: flex;
   flex-direction: column;
@@ -23,7 +23,7 @@
 
 /* Drag states */
 .gadget--drag-over {
-  border-color: #4c9aff;
+  border-color: var(--jira-blue);
   box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.3);
 }
 
@@ -72,8 +72,8 @@
   height: 26px;
   border: none;
   background: transparent;
-  border-radius: 4px;
-  color: #6b778c;
+  border-radius: var(--radius-sm);
+  color: var(--jira-text-subtlest);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -83,13 +83,13 @@
 }
 
 .gadget-action-btn:hover {
-  background: #f4f5f7;
-  color: #172b4d;
+  background: var(--jira-surface-sunken);
+  color: var(--jira-text);
 }
 
 .gadget-action-btn--danger:hover {
-  background: #ffebe6;
-  color: #de350b;
+  background: var(--jira-danger-bg);
+  color: var(--jira-danger);
 }
 
 .gadget-body {
@@ -114,7 +114,7 @@
   margin-top: 4px;
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   z-index: 60;
   min-width: 100px;
@@ -135,12 +135,12 @@
 }
 
 .gadget-size-option:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .gadget-size-option.active {
-  background: #deebff;
-  color: #0052cc;
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -160,7 +160,7 @@
   max-height: 90vh;
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 8px 32px rgba(9, 30, 66, 0.25);
   display: flex;
   flex-direction: column;

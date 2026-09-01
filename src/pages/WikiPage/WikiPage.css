@@ -161,7 +161,7 @@
   cursor: pointer;
   color: var(--primary);
   font-size: var(--font-size-base);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .wiki-child-link:hover {
@@ -184,7 +184,7 @@
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-md);
@@ -197,7 +197,7 @@
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-md);
@@ -227,7 +227,7 @@
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-base);
@@ -259,7 +259,7 @@
 .wiki-diff-panel {
   background: var(--hover);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 12px 16px;
   margin-bottom: 16px;
 }
@@ -283,7 +283,7 @@
   cursor: pointer;
   font-size: var(--font-size-base);
   color: var(--text-secondary);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .wiki-version-item:hover {
@@ -293,7 +293,7 @@
 .wiki-diff-content {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 12px;
   max-height: 300px;
   overflow-y: auto;
@@ -323,7 +323,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--hover);
   font-size: var(--font-size-base);
 }
