@@ -13,6 +13,7 @@ import {
   addTeamLink, removeTeamLink,
 } from '../api/teamApi'
 import { fetchMembers } from '../api/memberApi'
+import { fetchActivity } from '../api/dashboardApi'
 
 vi.mock('../api/teamApi', () => ({
   fetchTeam: vi.fn(),
@@ -26,6 +27,11 @@ vi.mock('../api/teamApi', () => ({
 }))
 
 vi.mock('../api/memberApi', () => ({ fetchMembers: vi.fn() }))
+
+// JL-423 added the "Worked on" feed to this page. It is exercised in
+// TeamWorkedOn.JL423.test.jsx; here it is stubbed to an empty feed so these
+// tests do not depend on it.
+vi.mock('../api/dashboardApi', () => ({ fetchActivity: vi.fn() }))
 
 // The page reads only `currentMember` off the member context; a mutable holder
 // keeps each test's identity local instead of threading a provider through.
@@ -66,6 +72,7 @@ function renderProfile() {
 beforeEach(() => {
   vi.clearAllMocks()
   currentMember = { memberId: 2, workspaceRole: 'Member', isOwner: false }
+  fetchActivity.mockResolvedValue({ activities: [], total: 0, hasMore: false, nextCursor: null })
   fetchMembers.mockResolvedValue([
     { id: 1, name: 'Ada Lead', email: 'ada@test.com' },
     { id: 2, name: 'Bo Member', email: 'bo@test.com' },

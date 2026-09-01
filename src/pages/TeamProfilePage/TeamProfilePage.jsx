@@ -9,6 +9,10 @@ import {
   addTeamLink, removeTeamLink, uploadTeamAvatar,
 } from '../../api/teamApi'
 import { fetchMembers } from '../../api/memberApi'
+// JL-423: the "Worked on" feed is the existing activity endpoint with one new
+// filter dimension (?teamId=), not a new subsystem.
+import { fetchActivity } from '../../api/dashboardApi'
+import { RelativeTime } from '../../components/common/RelativeTime'
 import { useMembers } from '../../context/MemberContext'
 import { EmptyState } from '../../components/common/EmptyState'
 import { avatarStyle } from '../../utils/avatarColour'
@@ -26,6 +30,11 @@ export const MAX_TEAM_LINKS = 10
 
 const TEAM_ROLES = ['Lead', 'Member']
 
+// Atlassian's team profile shows the 100 most recent actions by team members.
+// The server applies the same cap (server/services/teamActivity.js); asking for
+// exactly 100 means one request and no pagination on this surface.
+export const WORKED_ON_LIMIT = 100
+
 export function TeamProfilePage() {
   const { teamId } = useParams()
   usePageTitle('Team')
@@ -39,6 +48,8 @@ export function TeamProfilePage() {
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', description: '', membership: 'OPEN' })
   const [avatarBlobSrc, setAvatarBlobSrc] = useState(null)
+  const [workedOn, setWorkedOn] = useState([])
+  const [workedOnLoaded, setWorkedOnLoaded] = useState(false)
   const fileInputRef = useRef(null)
 
   // No synchronous setState here: the status only moves once the fetch settles.
@@ -64,6 +75,24 @@ export function TeamProfilePage() {
       .then((data) => setWorkspaceMembers(Array.isArray(data) ? data : data?.items || []))
       .catch(() => setWorkspaceMembers([]))
   }, [])
+
+  // Membership changes are reflected because the set of actors is resolved
+  // server-side on every request, never cached; reloading after any mutation
+  // (see act()) is what makes a join or a leave show up immediately.
+  const loadWorkedOn = useCallback(() => (
+    fetchActivity({ teamId, limit: WORKED_ON_LIMIT })
+      .then((data) => {
+        setWorkedOn(Array.isArray(data?.activities) ? data.activities : [])
+        setWorkedOnLoaded(true)
+      })
+      .catch(() => {
+        setWorkedOn([])
+        setWorkedOnLoaded(true)
+      })
+  ), [teamId])
+
+  useEffect(() => { loadWorkedOn() }, [loadWorkedOn])
+
 
   // The photo lives behind an authenticated endpoint (a plain <img src> cannot
   // send a Bearer header), so it is fetched as a blob exactly as attachment
@@ -116,6 +145,8 @@ export function TeamProfilePage() {
     try {
       await fn()
       await load()
+      // A membership change changes who contributes to the feed.
+      await loadWorkedOn()
     } catch (err) {
       // Server rejections (the link cap, the last-Lead guard, an invalid URL)
       // are shown, never swallowed — a silent failure looks like success.
@@ -374,10 +405,40 @@ export function TeamProfilePage() {
         )}
       </section>
 
-      {/* Reserved for the "Worked on" feed (JL-423). */}
+
+      {/* JL-423 — "Worked on": the most recent actions by this team's members. */}
       <section className="team-section" aria-labelledby="team-worked-on-heading">
         <h2 id="team-worked-on-heading">Worked on</h2>
-        <p className="team-profile-status">Recent activity by this team will appear here.</p>
+        {!workedOnLoaded && <p className="team-profile-status">Loading recent activity\u2026</p>}
+        {workedOnLoaded && workedOn.length === 0 && (
+          <EmptyState
+            title="Nothing yet"
+            description="When people on this team create, move or comment on work, it shows up here."
+          />
+        )}
+        {workedOnLoaded && workedOn.length > 0 && (
+          <ul className="team-activity-list">
+            {workedOn.map((event) => (
+              <li key={event.id} className="team-activity-row">
+                <span className="team-activity-avatar" style={avatarStyle(event.actor)} aria-hidden="true">
+                  {teamInitials(event.actor)}
+                </span>
+                <span className="team-activity-text">
+                  <span className="team-activity-actor">{event.actor}</span>
+                  {' '}
+                  {event.action}
+                </span>
+                <span className="team-activity-when">
+                  {/* created_at is NULL on rows written before JL-44 added the
+                      column; happened_at is the free-text fallback those rows have. */}
+                  {event.created_at
+                    ? <RelativeTime value={event.created_at} />
+                    : event.happened_at}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <Dialog open={showEdit} onClose={() => setShowEdit(false)} fullWidth maxWidth="sm">

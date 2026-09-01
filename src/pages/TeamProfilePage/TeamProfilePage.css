@@ -155,3 +155,56 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
+
+/* JL-423 — "Worked on" feed. */
+.team-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #dfe1e6);
+}
+
+.team-activity-row:last-child {
+  border-bottom: none;
+}
+
+.team-activity-avatar {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.team-activity-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.team-activity-actor {
+  font-weight: var(--font-weight-medium);
+}
+
+.team-activity-when {
+  flex: 0 0 auto;
+  color: var(--text-subtle, #6b778c);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+

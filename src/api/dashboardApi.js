@@ -88,6 +88,8 @@ export const fetchActivity = (params = {}) => {
   if (params.type) query.set('type', params.type)
   if (params.projectId) query.set('projectId', params.projectId)
   if (params.actor) query.set('actor', params.actor)
+  // JL-423: the team dimension for a team profile’s "Worked on" feed.
+  if (params.teamId) query.set('teamId', params.teamId)
   if (params.limit) query.set('limit', params.limit)
   if (params.offset) query.set('offset', params.offset)
   if (params.cursor) query.set('cursor', params.cursor)
