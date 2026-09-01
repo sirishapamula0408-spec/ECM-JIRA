@@ -314,6 +314,22 @@ export function validateConfig(env = process.env) {
     if (!env.DATABASE_URL || String(env.DATABASE_URL).trim().length === 0) {
       errors.push('DATABASE_URL is required in production but is not set.')
     }
+
+    // --- CORS allow-list (JL-435) ---
+    // corsAllowList treats an EMPTY allow-list as PERMISSIVE: it reflects
+    // whatever Origin is presented. That is deliberate for dev (it keeps the
+    // Vite proxy and the suites working) and dangerous in production, where
+    // index.js also sets credentials: true — origin reflection on an
+    // authenticated API lets any site make credentialed cross-origin calls.
+    //
+    // Until now nothing checked it, so an unset allow-list was the one
+    // insecure production state that started silently. Failing to boot is
+    // strictly better, and matches how JWT_SECRET and DATABASE_URL behave.
+    if (!env.CORS_ALLOWED_ORIGINS || String(env.CORS_ALLOWED_ORIGINS).trim().length === 0) {
+      errors.push(
+        'CORS_ALLOWED_ORIGINS is required in production but is not set. An empty allow-list puts corsAllowList into permissive mode, which reflects any Origin and — with credentials enabled — allows authenticated cross-origin requests from any site. Set a comma-separated list, e.g. https://app.example.com',
+      )
+    }
   } else {
     // Dev/test: advise but never fail.
     if (!jwtSecret || isInsecureSecret(jwtSecret)) {
