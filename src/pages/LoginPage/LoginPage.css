@@ -3,24 +3,24 @@
    ============================================================ */
 
 /* ---------- Page shell ---------- */
+/* JL-442: the local type scale that used to live here is GONE.
+   This block redeclared --font-size-sm/base/md/lg/xl/xxl (and their leadings)
+   at 10/11/13/16/19/23 for the login page alone, so the app's first screen
+   rendered on a different — and much smaller — ladder than every screen
+   behind it. That is the one thing §29 rules out: one typography system, no
+   page noticeably larger or smaller than another.
+
+   It also meant the login page silently ignored JL-396, JL-414, JL-438 and
+   JL-441. A token override scoped to a page is indistinguishable from a
+   token change at a glance, which is exactly why none of those tickets
+   noticed the page had opted out.
+
+   The page now inherits :root like everything else. Anything here that
+   genuinely needs a different size states that size for that element. */
 .login-page {
   min-height: 100vh;
   display: flex;
   font-family: var(--font-family-sans);
-
-  --font-size-sm: 10px;
-  --font-size-base: 11px;
-  --font-size-md: 13px;
-  --font-size-lg: 16px;
-  --font-size-xl: 19px;
-  --font-size-xxl: 23px;
-
-  --line-height-sm: 13px;
-  --line-height-base: 16px;
-  --line-height-md: 16px;
-  --line-height-lg: 19px;
-  --line-height-xl: 22px;
-  --line-height-xxl: 26px;
 }
 
 /* ============================================================

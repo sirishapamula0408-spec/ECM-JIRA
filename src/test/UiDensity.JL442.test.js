@@ -123,6 +123,42 @@ describe('JL-442 — one control scale', () => {
   })
 })
 
+describe('JL-442 — one typography system: no page redeclares the scale', () => {
+  // LoginPage.css scoped its OWN --font-size-*/--line-height-* ladder to
+  // `.login-page` at 10/11/13/16/19/23, so the app's first screen rendered on
+  // a different and much smaller scale than every screen behind it — the one
+  // thing §29 rules out. It also meant that page silently ignored JL-396,
+  // JL-414, JL-438 and JL-441: a token override scoped to a page looks
+  // identical to a token change at a glance, which is why four tickets in a
+  // row missed it.
+  //
+  // variables.css declares the scale. layout.css may retune the LAYOUT tokens
+  // at a breakpoint — that is what a breakpoint is for — but nothing may
+  // redeclare a type, control, avatar or icon token anywhere else.
+  const SCALE = /^\s*--(font-size|line-height|font-weight|control-height|avatar-size|icon)-[a-z-]*:/
+
+  function walk(dir, out = []) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(full, out)
+      else if (entry.name.endsWith('.css')) out.push(full)
+    }
+    return out
+  }
+
+  it('declares the type and control scale in variables.css and nowhere else', () => {
+    const findings = []
+    for (const file of walk(srcRoot)) {
+      const rel = path.relative(srcRoot, file)
+      if (rel === path.join('styles', 'variables.css')) continue
+      fs.readFileSync(file, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (SCALE.test(line)) findings.push(`${rel}:${i + 1}  ${line.trim()}`)
+      })
+    }
+    expect(findings, findings.join('\n')).toEqual([])
+  })
+})
+
 describe('JL-442 — the issue title outranks the generic page-title rule', () => {
   // The markup is `<section class="page issue-detail-page"> … <h1 class="id-title">`,
   // so `.page h1` (0,1,1) and a bare `.id-title` (0,1,0) BOTH match and the
