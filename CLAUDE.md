@@ -129,12 +129,12 @@ Both gates are scoped by a **frozen baseline**, `src/test/typography-baseline.js
 
 Re-baseline with `npm run typography:baseline` (it refuses to raise the total).
 
-**JL-415 emptied that baseline: 257 literal declarations across 46 files → 1**, so stylelint now hard-gates essentially every stylesheet under `src/`. The one entry left is `ProjectSettingsPage.css`'s `32px` avatar initial, deliberately deferred to JL-414, which is adding a 32px step to the scale. Rules applied in the sweep, so new CSS follows the same ones:
+**JL-415 emptied that baseline: 257 literal declarations across 46 files → 0**, so stylelint now hard-gates *every* stylesheet under `src/` — no file is exempt. The last entry (`ProjectSettingsPage.css`'s `32px` avatar initial) was cleared once JL-414 added the 32px `xxxl` step. Rules applied in the sweep, so new CSS follows the same ones:
 - **`13px` (38 sites) → `--font-size-base` (14px), uniformly.** 13px was never a step — it was "one notch above the pre-JL-396 12px base", i.e. body copy, and since JL-396 the body token *is* 14px. Snapping down to 12px would have re-imposed the very shrink JL-396 removed.
 - `7px`/`9px`/`10px`/`11px` → `--font-size-sm` (12px). 9px and 7px went on accessibility grounds; 11px maps to `sm` rather than `xs` because JL-414 retires the 11px step. **Do not add new `--font-size-xs` references.**
 - `15px`→base, `18px`→lg, `22px`→xl, `30px`→xxl.
 - `em`/`rem` font sizes are gone from CSS *and* JSX — they are the JL-408 re-scaling bug, and the root is 14px. Editor heading levels map to xl/lg/md (Atlassian h800/h700/h600) rather than to their nearest computed value, which would have collapsed h1 and h2 onto one step.
-- Three literals survive with a `stylelint-disable-next-line` and a reason: `.empty-state__icon` and `.gadget-stat` (40px) and `.not-found-page h1` (72px). All three size *artwork*, and the text scale has no display step above h900. `.mention-chip` keeps `font-size: inherit` because it is `display: inline` inside arbitrary copy.
+- Two literals survive with a `stylelint-disable-next-line` and a reason: `.empty-state__icon` (40px) and `.not-found-page h1` (72px). Both size *artwork*, and the text scale has no display step above heading.xxlarge. `.gadget-stat` was a third until JL-414 added the **metric tier** (`--font-size-metric-lg/md/sm`, 28/24/16 — Atlassian's `font.metric.*`); a KPI numeral takes that tier, not a heading token. `.mention-chip` keeps `font-size: inherit` because it is `display: inline` inside arbitrary copy.
 - The print stylesheet in `src/utils/printDocument.js` is a separate document with none of the app's CSS loaded, so it **declares** the tokens in its own `:root` from `FONT_FAMILY`/`SIZE`/`WEIGHT` in `src/theme/muiTheme.js` and then references them. Do not restate a font stack there.
 
 ## Environment

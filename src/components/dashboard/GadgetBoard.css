@@ -78,7 +78,7 @@
 
 .gadget-card-title {
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md); /* JL-414: heading.small is 16px, not 14px */
 }
 
 .gadget-card-controls {
@@ -111,13 +111,11 @@
 }
 
 .gadget-stat {
-  /* stylelint-disable-next-line declaration-property-value-allowed-list --
-     JL-415: a hero numeral, one per gadget. Same reasoning as
-     .empty-state__icon: the text scale ends at h900 and has no display step,
-     so this stays a literal until JL-414 decides whether the scale grows
-     one. */
-  font-size: 40px;
-  font-weight: var(--font-weight-bold);
+  /* JL-414: was a literal 40px. The metric tier now exists, so this is
+     font.metric.large — Atlassian's size for exactly this element. */
+  font-size: var(--font-size-metric-lg);
+  line-height: var(--line-height-metric-lg);
+  font-weight: var(--font-weight-heading); /* JL-414: metrics take 653, same as headings */
   color: var(--jira-primary, #0052cc);
   text-align: center;
 }

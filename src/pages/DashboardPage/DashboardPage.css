@@ -22,7 +22,11 @@
   margin: 0;
   font-size: var(--font-size-xl);
   line-height: var(--line-height-xl);
-  font-weight: var(--font-weight-semibold);
+  /* JL-414: no font-weight here on purpose. The page roots at
+     <section className="page dashboard-page">, so .page h1 (0,1,1) outranks
+     .dashboard-title (0,1,0) and owns the weight per the JL-409 convention.
+     A font-weight: 600 sat here and never applied — it read as if the title
+     were semibold while it has always rendered at the shared medium. */
   color: var(--jira-text);
   cursor: pointer;
   display: inline-flex;
@@ -43,7 +47,10 @@
 .dashboard-title-input {
   font-size: var(--font-size-xl);
   line-height: var(--line-height-xl);
-  font-weight: var(--font-weight-semibold);
+  /* JL-414: medium, matching what .page h1 renders for the display title.
+     This is an <input>, so .page h1 cannot reach it; at semibold the title
+     visibly thickened the moment you clicked to edit it. */
+  font-weight: var(--font-weight-medium);
   padding: 2px 8px;
   border: 2px solid #4c9aff;
   border-radius: 4px;
@@ -218,8 +225,11 @@
 }
 
 .donut-hole strong {
-  font-size: var(--font-size-lg);
-  line-height: 22px;
+  /* JL-414: the donut centre is a stat numeral, so it takes the metric tier
+     (font.metric.medium, 24px) rather than the heading tier it borrowed at
+     20px. Leading moves off its literal 22px onto the paired token. */
+  font-size: var(--font-size-metric-md);
+  line-height: var(--line-height-metric-md);
   color: var(--jira-text);
 }
 

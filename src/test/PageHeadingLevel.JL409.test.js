@@ -109,7 +109,7 @@ describe('JL-409 — the shared rule is the single source of the treatment', () 
     expect(block, '.page h1 rule not found').not.toBeNull()
     expect(block[2]).toMatch(/font-size:\s*var\(--font-size-xl\)/)
     expect(block[2]).toMatch(/line-height:\s*var\(--line-height-xl\)/)
-    expect(block[2]).toMatch(/font-weight:\s*var\(--font-weight-medium\)/)
+    expect(block[2]).toMatch(/font-weight:\s*var\(--font-weight-heading\)/)
   })
 
   it('the standalone rule carries the same token values', () => {
@@ -120,7 +120,7 @@ describe('JL-409 — the shared rule is the single source of the treatment', () 
     expect(block, '.page-title-standalone rule not found').not.toBeNull()
     expect(block[1]).toMatch(/font-size:\s*var\(--font-size-xl\)/)
     expect(block[1]).toMatch(/line-height:\s*var\(--line-height-xl\)/)
-    expect(block[1]).toMatch(/font-weight:\s*var\(--font-weight-medium\)/)
+    expect(block[1]).toMatch(/font-weight:\s*var\(--font-weight-heading\)/)
   })
 
   it('pages outside .page use the standalone class', () => {
@@ -143,7 +143,7 @@ describe('JL-409 — the shared rule is the single source of the treatment', () 
     const block = css.match(/\.wfe-header h1\s*\{([^}]*)\}/)
     expect(block, '.wfe-header h1 rule not found').not.toBeNull()
     expect(block[1]).toMatch(/font-size:\s*var\(--font-size-xl\)/)
-    expect(block[1]).toMatch(/font-weight:\s*var\(--font-weight-medium\)/)
+    expect(block[1]).toMatch(/font-weight:\s*var\(--font-weight-heading\)/)
     expect(css).not.toMatch(/\.wfe-header h2\s*\{/)
   })
 
@@ -166,14 +166,14 @@ describe('JL-409 — the shared rule is the single source of the treatment', () 
         const weight = m[1].match(/font-weight:\s*([^;]+);/)
         if (!weight) continue
         const value = weight[1].trim()
-        if (value !== 'var(--font-weight-medium)') {
+        if (value !== 'var(--font-weight-heading)') {
           offenders.push(`${page}.css: h1 { font-weight: ${value} }`)
         }
       }
     }
     expect(
       offenders,
-      'page-title weight overrides. The shared rule sets 500; these diverge:\n' +
+      'page-title weight overrides. The shared rule sets 653 (JL-414); these diverge:\n' +
         offenders.join('\n'),
     ).toEqual([])
   })

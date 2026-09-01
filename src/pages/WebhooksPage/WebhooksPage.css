@@ -12,7 +12,9 @@
 
 .wh-header h1 {
   font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-medium);
+  /* JL-414: weight intentionally omitted — the shared .page h1 rule in
+     layout.css owns it (653). Restating it here is how the six pages in
+     JL-416 drifted from the shared value in the first place. */
   margin: 0;
 }
 

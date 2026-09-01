@@ -35,7 +35,11 @@ const FONT_FAMILY = 'var(--font-family-sans, sans-serif)'
 // (29 was the legacy ADG3 value) and the missing 32px step added.
 const SIZE = { sm: 12, base: 14, md: 16, lg: 20, xl: 24, xxl: 28, xxxl: 32 }
 const LEADING = { sm: 16, base: 20, md: 20, lg: 24, xl: 28, xxl: 32, xxxl: 36 }
-const WEIGHT = { regular: 400, medium: 500, semibold: 600, bold: 700 }
+// JL-414 (option B): `heading` is Atlassian's optical 653. It is expressible
+// only because Inter is a VARIABLE font (wght axis 100-900) — under the old
+// static system stack it would have rounded to whatever the platform had.
+// Keep in sync with --font-weight-heading in variables.css.
+const WEIGHT = { regular: 400, medium: 500, semibold: 600, heading: 653, bold: 700 }
 
 const variant = (step, weight = WEIGHT.regular) => ({
   fontSize: `${SIZE[step]}px`,
@@ -83,10 +87,10 @@ export function buildMuiTheme(mode = 'light') {
       // Headings descend through the scale. Note h5 lands at 14px rather than
       // MUI's 21px — pages that used `variant="h5"` as a PAGE TITLE are being
       // moved to h1 in JL-409, which is where that treatment belongs.
-      h1: variant('xxl', WEIGHT.semibold),
-      h2: variant('xl', WEIGHT.semibold),
-      h3: variant('lg', WEIGHT.semibold),
-      h4: variant('md', WEIGHT.semibold),
+      h1: variant('xxl', WEIGHT.heading),
+      h2: variant('xl', WEIGHT.heading),
+      h3: variant('lg', WEIGHT.heading),
+      h4: variant('md', WEIGHT.heading),
       h5: variant('base', WEIGHT.semibold),
       h6: variant('sm', WEIGHT.semibold),
       subtitle1: variant('base', WEIGHT.medium),

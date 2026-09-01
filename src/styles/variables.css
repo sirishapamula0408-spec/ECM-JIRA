@@ -97,7 +97,11 @@
   --icon-lg: 24px;
 
   /* ── Atlassian typography scale ── */
-  --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  /* JL-414 option B: Inter, self-hosted (SIL OFL). The system stack stays
+     behind it as the fallback, so if the webfont fails or is still loading
+     the app renders in the same faces it used before rather than dropping to
+     a generic. font-display: swap comes from @fontsource's own @font-face. */
+  --font-family-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   /* JL-414: "SFMono-Medium" removed. It is not a real installed face on any
      platform — an Atlassian legacy string that always fell through to the
      next entry, so dropping it changes nothing at render time and stops the
@@ -148,20 +152,46 @@
   --line-height-xxl: 32px;
   --line-height-xxxl: 36px;
 
+  /* JL-414: the metric tier. Atlassian carries font.metric.large/medium/small
+     (28/24/16) as a tier distinct from headings — same sizes, but a different
+     semantic role: the single large numeral on a KPI card, not a section
+     title. Without these the dashboard and Portfolio cards improvised, which
+     is how .gadget-stat ended up at a literal 40px, ~43% larger than
+     Atlassian's largest metric. Reach for these for a stat numeral and for
+     --font-size-* for prose. */
+  --font-size-metric-lg: 28px;   /* font.metric.large  — hero KPI numeral */
+  --font-size-metric-md: 24px;   /* font.metric.medium — donut centre     */
+  --font-size-metric-sm: 16px;   /* font.metric.small  — inline stat      */
+
+  --line-height-metric-lg: 32px;
+  --line-height-metric-md: 28px;
+  --line-height-metric-sm: 20px;
+
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
+  /* JL-414 option B: Atlassian sets every heading and metric numeral to 653,
+     an optical weight on the variable-font wght axis. Under the old system
+     stack this was inexpressible and we documented 500/600 as a divergence.
+     Inter's axis runs 100-900, so 653 is now exact rather than approximated. */
+  --font-weight-heading: 653;
+
   /* JL-414 — deliberate divergences from Atlassian, recorded per AC#5.
 
-     1. TYPEFACE: option A. We keep the system stack above and load no
-        webfont. Atlassian Jira ships Atlassian Sans / Atlassian Mono, but
-        that is their proprietary brand typeface and this is a Jira clone, so
-        shipping it is a licensing question rather than an engineering one.
-        Inter (option B) was also declined. The cost is a visual gap we accept
-        knowingly; the benefit is no licensing exposure, no font payload and
-        no FOUT.
+     Note this block was rewritten when the typeface decision changed from
+     option A to option B. Two divergences it used to record are GONE, because
+     both existed only as consequences of shipping no webfont.
+
+     1. TYPEFACE: option B — Inter, self-hosted, SIL Open Font License.
+        Atlassian Jira ships Atlassian Sans, which is proprietary AND not
+        distributed, so option C is blocked on availability as well as
+        licensing. Inter is the closest open match to Atlassian's product UI
+        type and carries no brand-asset or trademark exposure. This is a close
+        match, not the same face: a trained eye comparing side by side will
+        still see letterform differences. The cost we accept is a webfont
+        payload and a possible swap flash on first load.
 
      2. ROOT SIZE: we keep 14px; Atlassian uses a never-reset 16px root.
         src/index.css sets :root { font-size: 14px }, and changing it would
@@ -170,22 +200,24 @@
         both the theme and this scale are expressed in px. A root change needs
         its own ticket and a human visual pass; no test can catch the drift.
         Note the body size itself does NOT diverge: --font-size-base is 14px,
-        which IS Atlassian's font.body. Only the root value differs.
+        which IS Atlassian's font.body. Only the root value differs. This
+        decision was made on re-scaling risk, not typeface, so option B does
+        not change it.
 
-     3. WEIGHTS: --font-weight-bold stays 700 and headings are not unified on
-        653. Atlassian's 653 is an optical weight on a VARIABLE FONT AXIS and
-        is only expressible with Atlassian Sans loaded. Against a static
-        system stack it would round to whatever the platform happens to have,
-        so it is meaningless here. Revisit only if option B/C is ever taken.
-
-     4. --font-size-md is heading.small (16/20), NOT body.large (16/24).
+     3. --font-size-md is heading.small (16/20), NOT body.large (16/24).
         Atlassian has both at 16px and they differ only in leading. This scale
         carries the heading pairing; a 16/24 body step would need its own
         token rather than a second meaning for this one.
 
-     The 11px xs step is NOT a divergence — it was retired here because
-        Atlassian raised 11px to 12px for accessibility and dropped the step.
-        Former xs consumers now use sm (12px). */
+     NO LONGER DIVERGENT:
+       - Heading weight. --font-weight-heading is now exactly 653, Atlassian's
+         optical heading/metric weight, because Inter's wght axis runs 100-900.
+         Under the static system stack this was inexpressible.
+       - The 11px xs step was retired, not diverged: Atlassian raised 11px to
+         12px for accessibility and dropped the step. Former xs consumers use
+         sm (12px).
+       - The metric tier (--font-size-metric-*) now mirrors font.metric.*,
+         so KPI numerals no longer improvise off the heading scale. */
 
   /* ══════════════════════════════════════════════════════════════════════
      Compatibility alias layer (JL-392)

@@ -149,7 +149,7 @@
   margin: 0 0 12px;
   font-size: var(--font-size-xl);
   line-height: var(--line-height-xl);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-heading); /* JL-414: Atlassian heading weight */
 }
 
 /* JL-416: page titles that the `.page h1` rule above cannot reach.
@@ -166,7 +166,7 @@
   margin: 0;
   font-size: var(--font-size-xl);
   line-height: var(--line-height-xl);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-heading); /* JL-414: Atlassian heading weight */
 }
 
 .page-dark {

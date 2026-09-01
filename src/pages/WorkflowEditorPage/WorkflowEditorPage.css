@@ -38,7 +38,7 @@
   margin: 0;
   font-size: var(--font-size-xl);
   line-height: var(--line-height-xl);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-heading); /* JL-414: mirrors the shared .page h1 */
   color: var(--jira-text);
 }
 

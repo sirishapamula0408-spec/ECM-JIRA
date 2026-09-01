@@ -45,23 +45,29 @@ describe('JL-408 — the theme mirrors the CSS token scale', () => {
 
   it('consumes the font-family token rather than restating the stack', () => {
     const theme = buildMuiTheme('light')
-    // JL-414 changed this contract. The stack used to be written out three
-    // times — index.css, variables.css and muiTheme.js — so a change to one
-    // silently left the others behind. The theme now references the token, and
-    // the assertion follows the value to its single definition instead of
-    // re-checking a copy.
-    expect(theme.typography.fontFamily).toContain('var(--font-family-sans')
+    // JL-414 changed this contract twice. Under option A the stack was written
+    // out three times and the assertion compared a COPY; that copy is gone and
+    // the theme now references the token. Under option B the first face is no
+    // longer -apple-system but Inter, a self-hosted webfont.
+    expect(theme.typography.fontFamily).toContain('var(--font-family-sans');
 
-    // The original intent still holds: whatever the token resolves to must not
-    // ask for Roboto first, because this app never loads it. Roboto may appear
-    // later in the stack as a fallback.
     const declared = variablesCss
       .split(/\r?\n/)
       .find((l) => l.trim().startsWith('--font-family-sans:'))
     expect(declared, '--font-family-sans must be declared').toBeTruthy()
+
     const firstFace = declared.split(':')[1].split(',')[0].trim()
-    expect(firstFace).toBe('-apple-system')
+    expect(firstFace, 'Inter must be asked for first').toBe("'Inter Variable'")
+
+    // The system stack must remain BEHIND Inter. If the webfont fails or is
+    // still swapping, the app should land on the faces it used before rather
+    // than on a generic — that is the metric-compatible fallback AC#4 wants.
+    expect(declared).toContain('-apple-system')
     expect(declared).toContain('sans-serif')
+
+    // Roboto may sit in the fallback chain, but must never be what is asked
+    // for first: this app has never loaded it.
+    expect(firstFace).not.toBe('Roboto')
   })
 })
 
