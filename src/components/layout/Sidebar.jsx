@@ -93,6 +93,11 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   ].filter(launchFilter)
 
   const productItems = [
+    // JL-419: the Atlassian-style team directory. Open to every workspace
+    // member — unlike 'Teams' below, which is the Admin-only member directory.
+    // The label says 'Team directory' only because 'Teams' is already taken;
+    // JL-425 settles the naming.
+    { label: 'Team directory', path: '/teams-directory', icon: 'teams' },
     // Teams / member management is Admin/Owner-only (JL-227)
     ...(canManageMembers ? [{ label: 'Teams', path: '/teams', icon: 'teams' }] : []),
     // User Management is Admin/Owner-only (JL-195)
@@ -307,7 +312,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
       <nav aria-label="Workspace tools">
         {productItems.map((item) => {
-          const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Users'
+          const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Users' || item.label === 'Team directory'
           return isAllowed ? (
             <NavLink
               key={`${item.label}-${item.path}`}

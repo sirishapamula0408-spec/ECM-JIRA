@@ -1,0 +1,112 @@
+/* JL-421 / JL-430 — team directory.
+   Every font-* value comes from a var(--font-*) token: the typography baseline
+   is 0 and stylelint hard-gates every stylesheet under src/ (JL-415/JL-416). */
+
+.team-directory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.team-directory-sub {
+  color: var(--text-subtle, #6b778c);
+  margin: 4px 0 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.team-directory-search {
+  margin: 20px 0 24px;
+  max-width: 360px;
+  width: 100%;
+}
+
+.team-directory-status {
+  color: var(--text-subtle, #6b778c);
+  font-size: var(--font-size-base);
+}
+
+.team-card-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.team-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid var(--border, #dfe1e6);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.team-card:hover {
+  border-color: var(--jira-blue, #0052cc);
+  box-shadow: 0 1px 3px rgb(9 30 66 / 25%);
+}
+
+.team-card:focus-visible {
+  outline: 2px solid var(--jira-blue, #0052cc);
+  outline-offset: 2px;
+}
+
+.team-card-avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.team-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.team-card-name {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Truncated to two lines so a long description cannot make one card tower
+   over its neighbours in the grid. */
+.team-card-description {
+  color: var(--text-subtle, #6b778c);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.team-card-meta {
+  color: var(--text-subtle, #6b778c);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.team-form-error {
+  color: #de350b;
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
