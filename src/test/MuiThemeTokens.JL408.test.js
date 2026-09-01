@@ -32,13 +32,13 @@ const token = (name) => {
 
 describe('JL-408 — the theme mirrors the CSS token scale', () => {
   it('uses every font-size token at the value variables.css declares', () => {
-    for (const step of ['sm', 'base', 'md', 'lg', 'xl', 'xxl', 'xxxl']) {
+    for (const step of ['xs', 'sm', 'base', 'md', 'lg', 'xl', 'xxl']) {
       expect(SIZE[step], `--font-size-${step}`).toBe(token(`font-size-${step}`))
     }
   })
 
   it('uses every line-height token at the declared value', () => {
-    for (const step of ['sm', 'base', 'md', 'lg', 'xl', 'xxl', 'xxxl']) {
+    for (const step of ['xs', 'sm', 'base', 'md', 'lg', 'xl', 'xxl']) {
       expect(LEADING[step], `--line-height-${step}`).toBe(token(`line-height-${step}`))
     }
   })

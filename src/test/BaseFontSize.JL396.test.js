@@ -15,7 +15,7 @@ const read = (rel) => fs.readFileSync(path.join(srcDir, rel), 'utf8');
 // JL-414: xs (11px) retired — Atlassian raised its smallest step to 12px for
 // accessibility and dropped 11px, so former xs consumers use sm. xxxl (32px,
 // heading.xxlarge) added; it was missing from this scale entirely.
-const STEPS = ['sm', 'base', 'md', 'lg', 'xl', 'xxl', 'xxxl'];
+const STEPS = ['xs', 'sm', 'base', 'md', 'lg', 'xl', 'xxl'];
 
 /** Pull a `--name: <n>px;` declaration out of a stylesheet as a number. */
 function pxToken(css, name) {
@@ -26,8 +26,14 @@ function pxToken(css, name) {
 describe('JL-396: the typography scale is Atlassian-sized', () => {
   const variables = read('styles/variables.css');
 
-  it('--font-size-base is 14px, Atlassian body size', () => {
-    expect(pxToken(variables, 'font-size-base')).toBe(14);
+  it('--font-size-base is 16px, the body size chosen in JL-438', () => {
+    // Was 14px (Atlassian's font.body) until JL-438. The hybrid decision on
+    // JL-437 took the brief's more generous 16px body for readability while
+    // capping headings at Atlassian's real 32px maximum. 14px did not vanish —
+    // it is now `sm`.
+    expect(pxToken(variables, 'font-size-base')).toBe(16);
+    expect(pxToken(variables, 'font-size-sm')).toBe(14);
+    expect(pxToken(variables, 'font-size-xs')).toBe(12);
   });
 
   it('every step of the scale is defined', () => {
@@ -61,13 +67,23 @@ describe('JL-396: the typography scale is Atlassian-sized', () => {
     }
   });
 
-  it('agrees with the :root font-size in index.css', () => {
-    // These two drifted apart before this ticket: :root was already 14px while
-    // the token said 12px, so opting into the token *shrank* text below the
-    // page default. If someone moves one of them, this fails.
+  it('deliberately does NOT match the :root font-size, and the gap is intentional', () => {
+    // This assertion used to require root === base. That was right when both
+    // were 14px: the token had been 12px while :root was 14px, so opting into
+    // the token SHRANK text below the page default, which is the bug JL-396
+    // fixed.
+    //
+    // JL-438 separates them on purpose. Body is 16px, but the root stays 14px
+    // because changing it re-scales every rem/em in the app — the JL-408 bug
+    // that muiTheme.js documents, and the reason JL-414 refused to touch it.
+    // Nothing should depend on the root: every size in this scale is px.
+    //
+    // So the check is inverted rather than deleted. It now pins BOTH values,
+    // so moving either one still fails here and forces a deliberate decision.
     const rootSize = read('index.css').match(/:root\s*\{[^}]*?font-size:\s*(\d+)px/s);
-    expect(rootSize).not.toBeNull();
-    expect(Number(rootSize[1])).toBe(pxToken(variables, 'font-size-base'));
+    expect(rootSize, ':root font-size not found in index.css').not.toBeNull();
+    expect(Number(rootSize[1]), 'root must stay 14px — see JL-414').toBe(14);
+    expect(pxToken(variables, 'font-size-base'), 'body is 16px — see JL-438').toBe(16);
   });
 });
 

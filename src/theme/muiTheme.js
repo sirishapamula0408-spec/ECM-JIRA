@@ -33,8 +33,8 @@ const FONT_FAMILY = 'var(--font-family-sans, sans-serif)'
 // JL-414: xs (11px) retired — Atlassian raised it to 12px for accessibility
 // and dropped the step, so former xs consumers use sm. xxl corrected 29->28
 // (29 was the legacy ADG3 value) and the missing 32px step added.
-const SIZE = { sm: 12, base: 14, md: 16, lg: 20, xl: 24, xxl: 28, xxxl: 32 }
-const LEADING = { sm: 16, base: 20, md: 20, lg: 24, xl: 28, xxl: 32, xxxl: 36 }
+const SIZE = { xs: 12, sm: 14, base: 16, md: 20, lg: 24, xl: 28, xxl: 32 }
+const LEADING = { xs: 16, sm: 20, base: 24, md: 28, lg: 32, xl: 32, xxl: 36 }
 // JL-414 (option B): `heading` is Atlassian's optical 653. It is expressible
 // only because Inter is a VARIABLE font (wght axis 100-900) — under the old
 // static system stack it would have rounded to whatever the platform had.
@@ -58,7 +58,7 @@ export function buildMuiTheme(mode = 'light') {
   return createTheme({
     palette: {
       mode,
-      primary: { main: '#0052cc' },      // --jira-blue
+      primary: { main: '#0c66e4' },      // --jira-blue (JL-438: refreshed)
       error: { main: '#de350b' },        // --jira-danger
       warning: { main: '#ff991f' },      // --jira-warning
       success: { main: '#00875a' },      // --jira-success

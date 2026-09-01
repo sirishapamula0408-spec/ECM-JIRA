@@ -19,9 +19,12 @@
   --jira-text-muted: #5e6c84;
   --jira-link: #0052cc;
   --jira-link-hover: #0747a6;
-  --jira-blue: #0052cc;
-  --jira-blue-hover: #0747a6;
-  --jira-blue-soft: #deebff;
+  /* JL-438: brand blue refreshed to Atlassian's current value. Was #0052cc /
+     #0747a6, which is the older palette. Every consumer already goes through
+     these two tokens, so this is the whole change. */
+  --jira-blue: #0c66e4;
+  --jira-blue-hover: #0055cc;
+  --jira-blue-soft: #e9f2ff;      /* selected background */
   --jira-success: #00875a;
   --jira-warning: #ff991f;
   --jira-danger: #de350b;
@@ -29,6 +32,19 @@
      grey so it darkens whatever surface sits beneath it and therefore needs no
      per-theme override. Added in JL-392. */
   --jira-hover-overlay: rgba(9, 30, 66, 0.06);
+
+  /* JL-438: background + state tokens from the design-system brief that had
+     no equivalent. Text, border and surface colours already matched the spec
+     exactly, so they are unchanged. */
+  --jira-text-subtlest: #6b778c;   /* muted — one step past text-muted */
+  --jira-surface-hover: #f1f2f4;
+  --jira-surface-selected: #e9f2ff;
+  --jira-success-text: #216e4e;
+  --jira-success-bg: #dcfff1;
+  --jira-warning-text: #974f0c;
+  --jira-warning-bg: #fff7d6;
+  --jira-danger-text: #ae2e24;
+  --jira-danger-bg: #ffeceb;
   --jira-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
   --jira-shadow-soft: 0 2px 10px rgba(9, 30, 66, 0.06);
   --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
@@ -119,7 +135,7 @@
             sm 12px  font.body.small         base 14px font.body
             md 16px  heading.small            lg 20px  heading.medium
             xl 24px  heading.large            xxl 28px heading.xlarge
-            xxxl 32px heading.xxlarge
+            (JL-438 shifted this ladder up one step — see below)
 
      JL-414 retired the h600/h700/h800/h900 names this block used to
      carry. Those are the legacy ADG3 labels; Atlassian's own token
@@ -136,21 +152,34 @@
      Line heights move with it, using Atlassian's own pairings. They are kept as
      px rather than unitless so a heading that wraps keeps the intended rhythm
      instead of compounding its own font-size. */
-  --font-size-sm: 12px;   /* labels, column headers, meta    */
-  --font-size-base: 14px; /* body, inputs, buttons           */
-  --font-size-md: 16px;   /* heading.small, panel headings   */
-  --font-size-lg: 20px;   /* heading.medium, section titles  */
-  --font-size-xl: 24px;   /* heading.large, page titles      */
-  --font-size-xxl: 28px;  /* heading.xlarge                  */
-  --font-size-xxxl: 32px; /* heading.xxlarge                 */
+  /* JL-438: the ladder shifts up one step. Body moves 14 -> 16px per the
+     hybrid decision recorded on JL-437: the brief's 16px body and 14px small
+     for readability, but headings capped at Atlassian's real maximum (32px
+     heading.xxlarge) rather than the brief's 36px, which is larger than
+     anything Atlassian ships.
 
-  --line-height-sm: 16px;
-  --line-height-base: 20px;
-  --line-height-md: 20px;
-  --line-height-lg: 24px;
-  --line-height-xl: 28px;
-  --line-height-xxl: 32px;
-  --line-height-xxxl: 36px;
+     xs returns at 12px — NOT the 11px JL-414 retired. That retirement was on
+     accessibility grounds and still stands; 12px is Atlassian's documented
+     floor.
+
+     Root stays 14px and every size stays in px. JL-414 kept the root on
+     re-scaling risk and that reasoning is untouched here — the root was never
+     the problem. muiTheme.js records why px rather than rem. */
+  --font-size-xs: 12px;   /* meta, captions, counts          */
+  --font-size-sm: 14px;   /* small                           */
+  --font-size-base: 16px; /* BODY                            */
+  --font-size-md: 20px;   /* h4                              */
+  --font-size-lg: 24px;   /* h3                              */
+  --font-size-xl: 28px;   /* h2                              */
+  --font-size-xxl: 32px;  /* h1 / display                    */
+
+  --line-height-xs: 16px;
+  --line-height-sm: 20px;
+  --line-height-base: 24px;
+  --line-height-md: 28px;
+  --line-height-lg: 32px;
+  --line-height-xl: 32px;
+  --line-height-xxl: 36px;
 
   /* JL-414: the metric tier. Atlassian carries font.metric.large/medium/small
      (28/24/16) as a tier distinct from headings — same sizes, but a different

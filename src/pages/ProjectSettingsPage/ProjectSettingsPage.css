@@ -177,8 +177,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* JL-414 added the 32px step (xxxl / heading.xxlarge) this was waiting on. */
-  font-size: var(--font-size-xxxl);
+  /* JL-438: the 32px step is xxl now that the ladder shifted up one. */
+  font-size: var(--font-size-xxl);
   font-weight: var(--font-weight-bold);
   color: #fff;
   margin-bottom: 20px;
