@@ -1024,3 +1024,135 @@ textarea:focus {
     line-height: var(--line-height-sm);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   The src/components/ui/ layer (JL-439)
+   ══════════════════════════════════════════════════════════════════════
+   These rules live here, not in a stylesheet next to the components, on
+   purpose. Input/Table/Tabs/Breadcrumb render NATIVE elements carrying the
+   shared classes above, so a page that hand-writes `<table className="table">`
+   and a page that renders <Table> get the same table. A separate ui.css would
+   have made the component layer a fourth place the visual language lives. */
+
+/* Only the delta from the global input/select/textarea contract. */
+.ds-input--error,
+.ds-input--error:focus {
+  border-color: var(--jira-danger-text);
+  box-shadow: none;
+}
+
+.ds-icon-button--bordered {
+  border: 1px solid var(--jira-border);
+}
+
+/* Table shell — the bordered container. Wide tables scroll inside it rather
+   than pushing the page sideways. */
+.table-shell {
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+  background: var(--jira-surface);
+  overflow-x: auto;
+}
+
+.table-shell > .table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-caption {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+.table-empty {
+  padding: var(--space-7) var(--space-4);
+  text-align: center;
+  color: var(--jira-text-subtlest);
+}
+
+/* A count beside a tab label. Reads as metadata, so it stays on the small
+   step rather than matching the tab text. */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--jira-surface-sunken);
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tab-active .tab-count {
+  background: var(--jira-blue-soft);
+  color: var(--jira-blue);
+}
+
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* ── PageHeader ── */
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.page-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.page-header-main {
+  min-width: 0;
+}
+
+.page-header-eyebrow {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--jira-text-muted);
+}
+
+.page-header-description {
+  margin: var(--space-1) 0 0;
+  max-width: 72ch;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ── SectionHeader with trailing actions ── */
+.section-header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
