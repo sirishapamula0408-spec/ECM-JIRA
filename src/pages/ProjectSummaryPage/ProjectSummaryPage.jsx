@@ -1,6 +1,10 @@
-import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { fetchProjectById } from '../../api/projectApi'
+// JL-424: the project side of the team association.
+import { fetchProjectTeams, fetchTeams, addProjectTeam, removeProjectTeam } from '../../api/teamApi'
+import { usePermissions } from '../../hooks/usePermissions'
+import { Button, MenuItem, Select } from '@mui/material'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import './ProjectSummaryPage.css'
@@ -30,6 +34,40 @@ const TYPE_ICONS = {
 export function ProjectSummaryPage() {
   usePageTitle('Project Summary')
   const { projectId } = useParams()
+
+  // JL-424 — teams associated with this project. VISIBILITY AND NAVIGATION
+  // ONLY: adding a team here grants nobody any access to the project. Changing
+  // the association needs project Admin/Lead (or workspace Admin/Owner), which
+  // is what canManageProjectSettings resolves to; the server enforces the same
+  // rule and this only decides whether the controls are offered.
+  const [projectTeams, setProjectTeams] = useState([])
+  const [allTeams, setAllTeams] = useState([])
+  const [teamToAdd, setTeamToAdd] = useState('')
+  const [teamError, setTeamError] = useState('')
+  const { canManageProjectSettings } = usePermissions(projectId)
+
+  const loadProjectTeams = useCallback(() => (
+    fetchProjectTeams(projectId)
+      .then((data) => setProjectTeams(Array.isArray(data) ? data : []))
+      .catch(() => setProjectTeams([]))
+  ), [projectId])
+
+  useEffect(() => { loadProjectTeams() }, [loadProjectTeams])
+
+  useEffect(() => {
+    if (!canManageProjectSettings) return
+    fetchTeams().then((data) => setAllTeams(Array.isArray(data) ? data : [])).catch(() => setAllTeams([]))
+  }, [canManageProjectSettings])
+
+  async function changeTeams(fn) {
+    setTeamError('')
+    try {
+      await fn()
+      await loadProjectTeams()
+    } catch (err) {
+      setTeamError(err?.message || 'Could not change the project teams')
+    }
+  }
   const navigate = useNavigate()
   const { issues } = useIssues()
   const { sprints } = useSprints()
@@ -286,6 +324,59 @@ export function ProjectSummaryPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* JL-424 — Teams. Association is for visibility and navigation;
+              team membership confers no project permission. */}
+          <div className="ps-card">
+            <h3 className="ps-card-title">Teams</h3>
+            {projectTeams.length === 0
+              ? <p className="ps-empty">No teams yet</p>
+              : (
+                <ul className="ps-team-list">
+                  {projectTeams.map((team) => (
+                    <li key={team.id} className="ps-team-row">
+                      <Link className="ps-team-link" to={`/teams/${team.id}`}>{team.name}</Link>
+                      {canManageProjectSettings && (
+                        <Button
+                          size="small"
+                          aria-label={`Remove ${team.name} from this project`}
+                          onClick={() => changeTeams(() => removeProjectTeam(projectId, team.id))}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            {canManageProjectSettings && (
+              <div className="ps-team-add">
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={teamToAdd}
+                  inputProps={{ 'aria-label': 'Add a team to this project' }}
+                  onChange={(e) => setTeamToAdd(e.target.value)}
+                >
+                  <MenuItem value="">Select a team…</MenuItem>
+                  {allTeams
+                    .filter((t) => !projectTeams.some((pt) => pt.id === t.id))
+                    .map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                </Select>
+                <Button
+                  variant="outlined"
+                  disabled={!teamToAdd}
+                  onClick={() => changeTeams(async () => {
+                    await addProjectTeam(projectId, Number(teamToAdd))
+                    setTeamToAdd('')
+                  })}
+                >
+                  Add team
+                </Button>
+              </div>
+            )}
+            {teamError && <p className="ps-team-error" role="alert">{teamError}</p>}
           </div>
 
           {/* Quick links */}

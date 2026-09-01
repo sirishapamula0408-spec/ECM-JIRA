@@ -141,4 +141,43 @@ describe('JL-426 — teams schema', () => {
     expect(sql).toContain('idx_teams_workspace_id ON teams(workspace_id)')
     expect(sql).toContain('idx_team_members_member_id ON team_members(member_id)')
   })
+
+  // JL-424 — the association table ships in the same statement list, so its
+  // cascades are verified here rather than in a second suite that would have to
+  // rebuild the whole schema again.
+  describe('JL-424 team_projects', () => {
+    async function seedAssociation() {
+      const { teamId } = await seed()
+      const project = await db.get(
+        "INSERT INTO projects (name, key, type, lead) VALUES ('Apollo', 'APO', 'Software', 'ada') RETURNING id",
+      )
+      await db.run('INSERT INTO team_projects (team_id, project_id) VALUES ($1, $2)', [teamId, project.id])
+      return { teamId, projectId: project.id }
+    }
+
+    it('deleting a PROJECT removes the association and leaves no orphans (AC#6)', async () => {
+      const { projectId } = await seedAssociation()
+      await db.run('DELETE FROM projects WHERE id = $1', [projectId])
+      expect(await db.all('SELECT * FROM team_projects WHERE project_id = $1', [projectId])).toHaveLength(0)
+    })
+
+    it('deleting a TEAM removes the association and leaves the project (AC#6)', async () => {
+      const { teamId, projectId } = await seedAssociation()
+      await db.run('DELETE FROM teams WHERE id = $1', [teamId])
+      expect(await db.all('SELECT * FROM team_projects WHERE team_id = $1', [teamId])).toHaveLength(0)
+      expect(await db.get('SELECT id FROM projects WHERE id = $1', [projectId])).not.toBeNull()
+    })
+
+    it('rejects a duplicate association via the composite PK, and absorbs it with ON CONFLICT', async () => {
+      const { teamId, projectId } = await seedAssociation()
+      await expect(
+        db.run('INSERT INTO team_projects (team_id, project_id) VALUES ($1, $2)', [teamId, projectId]),
+      ).rejects.toThrow()
+      await db.run(
+        'INSERT INTO team_projects (team_id, project_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [teamId, projectId],
+      )
+      expect(await db.all('SELECT * FROM team_projects WHERE team_id = $1', [teamId])).toHaveLength(1)
+    })
+  })
 })

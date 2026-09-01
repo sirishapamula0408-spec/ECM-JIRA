@@ -10,7 +10,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { TeamProfilePage } from '../pages/TeamProfilePage/TeamProfilePage'
 import {
   fetchTeam, updateTeam, addTeamMember, removeTeamMember, updateTeamMemberRole,
-  addTeamLink, removeTeamLink,
+  addTeamLink, removeTeamLink, fetchTeamProjects,
 } from '../api/teamApi'
 import { fetchMembers } from '../api/memberApi'
 import { fetchActivity } from '../api/dashboardApi'
@@ -24,6 +24,9 @@ vi.mock('../api/teamApi', () => ({
   addTeamLink: vi.fn(),
   removeTeamLink: vi.fn(),
   uploadTeamAvatar: vi.fn(),
+  // JL-424 added a "Works on" section to this page; without the stub the
+  // mocked module has no such export and the whole file fails at import.
+  fetchTeamProjects: vi.fn(),
 }))
 
 vi.mock('../api/memberApi', () => ({ fetchMembers: vi.fn() }))
@@ -73,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   currentMember = { memberId: 2, workspaceRole: 'Member', isOwner: false }
   fetchActivity.mockResolvedValue({ activities: [], total: 0, hasMore: false, nextCursor: null })
+  fetchTeamProjects.mockResolvedValue([])
   fetchMembers.mockResolvedValue([
     { id: 1, name: 'Ada Lead', email: 'ada@test.com' },
     { id: 2, name: 'Bo Member', email: 'bo@test.com' },

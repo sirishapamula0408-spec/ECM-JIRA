@@ -4,6 +4,9 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { sendError } from '../utils/httpError.js'
 import { getStorage } from '../services/storage.js'
+// JL-424: the association gate reuses the project-access resolution every other
+// project-scoped route is built on. No parallel scheme.
+import { loadProjectRole, requireProjectRole, resolveProjectAccess, ROLE_RANK } from '../middleware/authorize.js'
 // JL-429/JL-434: the ONE URL allow-list in this codebase. src/utils/sanitizeHtml.js
 // carries the JL-368 scheme allow-list and the JL-358 control-character
 // normalisation; importing it here rather than re-deriving a server-side copy is
@@ -572,4 +575,179 @@ router.delete('/:id/links/:linkId', asyncHandler(async (req, res) => {
   res.json({ success: true })
 }))
 
+// ---------------------------------------------------------------------------
+// JL-424 - team <-> project association
+//
+// THIS IS VISIBILITY AND NAVIGATION ONLY. Being on a team grants NO project
+// access whatsoever: nothing in server/middleware/authorize.js or
+// server/services/projectAccess.js reads `team_projects`, and a test asserts
+// they never start to. A workspace Viewer who joins a team associated with a
+// project is still a Viewer on that project. If that ever changed, team
+// membership would become a privilege-escalation path straight past
+// `project_members`, quietly undoing the restrictive project Viewer JL-289
+// worked to establish.
+// ---------------------------------------------------------------------------
+
+/** A project the caller's workspace owns, or null. */
+async function loadProjectInWorkspace(req, projectId) {
+  const workspaceId = workspaceIdOf(req)
+  if (!Number.isInteger(projectId) || projectId <= 0 || workspaceId === null) return null
+  // workspace_id is backfilled on boot but may be NULL on a legacy row; treat
+  // NULL as 'not yet attributed' rather than locking those projects out.
+  return get(
+    'SELECT id, name, key FROM projects WHERE id = ? AND (workspace_id = ? OR workspace_id IS NULL)',
+    [projectId, workspaceId],
+  )
+}
+
+/**
+ * May the caller change this project's team associations?
+ *
+ * Project Admin/Lead, or workspace Admin/Owner - the rule JL-424 specifies.
+ * `resolveProjectAccess` is the same helper the project-role middleware is
+ * built on; it is called directly here because `loadProjectRole` reads
+ * `req.params.id` FIRST, and on /api/teams/:id/... that param is the TEAM id.
+ * Letting it run would resolve a project role for a project id that is really a
+ * team id - a silent mis-authorisation. The project-side router below has a
+ * genuine :projectId param and uses the middleware pair as written.
+ */
+async function canManageAssociation(req, projectId) {
+  const access = await resolveProjectAccess(req.user, projectId)
+  if (access.admin) return true
+  return (ROLE_RANK[access.projectRole] || 0) >= ROLE_RANK.Admin
+}
+
+const projectsOfTeam = (teamId) => all(
+  `SELECT p.id, p.name, p.key
+     FROM team_projects tp
+     JOIN projects p ON p.id = tp.project_id
+    WHERE tp.team_id = ?
+    ORDER BY LOWER(p.name) ASC`,
+  [teamId],
+)
+
+const ASSOCIATION_DENIED = 'Only a project Admin/Lead or a workspace Admin can change a project\u2019s teams'
+
+// GET /api/teams/:id/projects - where this team works.
+router.get('/:id/projects', asyncHandler(async (req, res) => {
+  const teamId = Number(req.params.id)
+  const team = await loadTeam(req, teamId)
+  if (!team) return sendError(res, 404, 'Team not found')
+  res.json(await projectsOfTeam(teamId))
+}))
+
+// POST /api/teams/:id/projects - associate. Body: { projectId }
+router.post('/:id/projects', asyncHandler(async (req, res) => {
+  const teamId = Number(req.params.id)
+  const team = await loadTeam(req, teamId)
+  if (!team) return sendError(res, 404, 'Team not found')
+
+  const projectId = Number(req.body?.projectId)
+  const project = await loadProjectInWorkspace(req, projectId)
+  if (!project) return sendError(res, 404, 'Project not found')
+
+  if (!(await canManageAssociation(req, projectId))) {
+    return sendError(res, 403, ASSOCIATION_DENIED)
+  }
+
+  await run(
+    // Composite PK, no id column - explicit RETURNING keeps run() from
+    // appending RETURNING id. Idempotent, like watchers auto-watch.
+    'INSERT INTO team_projects (team_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING team_id',
+    [teamId, projectId],
+  )
+  res.status(201).json(await projectsOfTeam(teamId))
+}))
+
+// DELETE /api/teams/:id/projects/:projectId - dissociate.
+router.delete('/:id/projects/:projectId', asyncHandler(async (req, res) => {
+  const teamId = Number(req.params.id)
+  const team = await loadTeam(req, teamId)
+  if (!team) return sendError(res, 404, 'Team not found')
+
+  const projectId = Number(req.params.projectId)
+  const project = await loadProjectInWorkspace(req, projectId)
+  if (!project) return sendError(res, 404, 'Project not found')
+
+  if (!(await canManageAssociation(req, projectId))) {
+    return sendError(res, 403, ASSOCIATION_DENIED)
+  }
+
+  await run('DELETE FROM team_projects WHERE team_id = ? AND project_id = ?', [teamId, projectId])
+  res.json(await projectsOfTeam(teamId))
+}))
+
+/**
+ * The project side of the same relation, mounted at /api with absolute
+ * sub-paths (the Theme-1 convention). Here `:projectId` is a real project id,
+ * so `loadProjectRole` + `requireProjectRole('Admin')` are used exactly as the
+ * ticket asks - 'Admin' admits project Admin and Lead (Lead outranks Admin in
+ * ROLE_RANK), and workspace Admin/Owner bypass.
+ */
+export const projectTeamsRouter = Router()
+
+const teamsOfProject = (projectId, workspaceId) => all(
+  `SELECT t.id, t.name, t.description, t.membership,
+          COUNT(tm.member_id)::int AS "memberCount"
+     FROM team_projects tp
+     JOIN teams t ON t.id = tp.team_id
+     LEFT JOIN team_members tm ON tm.team_id = t.id
+    WHERE tp.project_id = ? AND t.workspace_id = ?
+    GROUP BY t.id
+    ORDER BY LOWER(t.name) ASC`,
+  [projectId, workspaceId],
+)
+
+// GET /api/projects/:projectId/teams - any workspace member may read.
+projectTeamsRouter.get('/projects/:projectId/teams', asyncHandler(async (req, res) => {
+  const workspaceId = workspaceIdOf(req)
+  if (workspaceId === null) return res.json([])
+  const projectId = Number(req.params.projectId)
+  const project = await loadProjectInWorkspace(req, projectId)
+  if (!project) return sendError(res, 404, 'Project not found')
+  res.json(await teamsOfProject(projectId, workspaceId))
+}))
+
+// POST /api/projects/:projectId/teams - associate from the project side.
+projectTeamsRouter.post(
+  '/projects/:projectId/teams',
+  loadProjectRole,
+  requireProjectRole('Admin'),
+  asyncHandler(async (req, res) => {
+    const workspaceId = workspaceIdOf(req)
+    const projectId = Number(req.params.projectId)
+    const project = await loadProjectInWorkspace(req, projectId)
+    if (!project) return sendError(res, 404, 'Project not found')
+
+    const teamId = Number(req.body?.teamId)
+    const team = await loadTeam(req, teamId)
+    if (!team) return sendError(res, 404, 'Team not found')
+
+    await run(
+      'INSERT INTO team_projects (team_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING team_id',
+      [teamId, projectId],
+    )
+    res.status(201).json(await teamsOfProject(projectId, workspaceId))
+  }),
+)
+
+// DELETE /api/projects/:projectId/teams/:teamId - dissociate from the project side.
+projectTeamsRouter.delete(
+  '/projects/:projectId/teams/:teamId',
+  loadProjectRole,
+  requireProjectRole('Admin'),
+  asyncHandler(async (req, res) => {
+    const workspaceId = workspaceIdOf(req)
+    const projectId = Number(req.params.projectId)
+    const project = await loadProjectInWorkspace(req, projectId)
+    if (!project) return sendError(res, 404, 'Project not found')
+
+    const teamId = Number(req.params.teamId)
+    const team = await loadTeam(req, teamId)
+    if (!team) return sendError(res, 404, 'Team not found')
+
+    await run('DELETE FROM team_projects WHERE team_id = ? AND project_id = ?', [teamId, projectId])
+    res.json(await teamsOfProject(projectId, workspaceId))
+  }),
+)
 export default router

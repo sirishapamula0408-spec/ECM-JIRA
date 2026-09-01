@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   Button, Dialog, DialogActions, DialogContent, DialogTitle,
   MenuItem, Select, Stack, TextField,
 } from '@mui/material'
 import {
   fetchTeam, updateTeam, addTeamMember, removeTeamMember, updateTeamMemberRole,
-  addTeamLink, removeTeamLink, uploadTeamAvatar,
+  addTeamLink, removeTeamLink, uploadTeamAvatar, fetchTeamProjects,
 } from '../../api/teamApi'
 import { fetchMembers } from '../../api/memberApi'
 // JL-423: the "Worked on" feed is the existing activity endpoint with one new
@@ -50,6 +50,7 @@ export function TeamProfilePage() {
   const [avatarBlobSrc, setAvatarBlobSrc] = useState(null)
   const [workedOn, setWorkedOn] = useState([])
   const [workedOnLoaded, setWorkedOnLoaded] = useState(false)
+  const [projects, setProjects] = useState([])
   const fileInputRef = useRef(null)
 
   // No synchronous setState here: the status only moves once the fetch settles.
@@ -93,6 +94,15 @@ export function TeamProfilePage() {
 
   useEffect(() => { loadWorkedOn() }, [loadWorkedOn])
 
+  // JL-424: where this team works. Association is for visibility and
+  // navigation only — being on this team grants no access to these projects.
+  const loadProjects = useCallback(() => (
+    fetchTeamProjects(teamId)
+      .then((data) => setProjects(Array.isArray(data) ? data : []))
+      .catch(() => setProjects([]))
+  ), [teamId])
+
+  useEffect(() => { loadProjects() }, [loadProjects])
 
   // The photo lives behind an authenticated endpoint (a plain <img src> cannot
   // send a Bearer header), so it is fetched as a blob exactly as attachment
@@ -405,6 +415,25 @@ export function TeamProfilePage() {
         )}
       </section>
 
+      <section className="team-section" aria-labelledby="team-projects-heading">
+        <h2 id="team-projects-heading">Works on</h2>
+        {projects.length === 0
+          ? <p className="team-profile-status">This team is not associated with a project yet.</p>
+          : (
+            <ul className="team-project-list">
+              {projects.map((project) => (
+                <li key={project.id}>
+                  <Link className="team-project-link" to={`/projects/${project.id}`}>
+                    <span className="team-project-key">{project.key}</span>
+                    <span className="team-project-name">{project.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        {/* Association is changed from the project side (JL-424), where the
+            project-role gate lives. */}
+      </section>
 
       {/* JL-423 — "Worked on": the most recent actions by this team's members. */}
       <section className="team-section" aria-labelledby="team-worked-on-heading">

@@ -236,6 +236,23 @@ export const TEAM_SCHEMA_STATEMENTS = [
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`,
   'CREATE INDEX IF NOT EXISTS idx_team_links_team_id ON team_links(team_id)',
+
+  // JL-424 — team <-> project association. VISIBILITY AND NAVIGATION ONLY.
+  // Being on a team grants NO project access: nothing in
+  // server/middleware/authorize.js or server/services/projectAccess.js reads
+  // this table, and a test asserts they never will. If team membership ever
+  // started implying project permission it would be a privilege-escalation path
+  // straight past `project_members`, quietly undoing JL-289's restrictive
+  // project Viewer.
+  // Composite PK, no `id` column — INSERTs need an explicit RETURNING team_id.
+  `CREATE TABLE IF NOT EXISTS team_projects (
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (team_id, project_id)
+    )`,
+  // "which teams work on this project" — the reverse of the PK's leading column.
+  'CREATE INDEX IF NOT EXISTS idx_team_projects_project_id ON team_projects(project_id)',
 ]
 
 /**

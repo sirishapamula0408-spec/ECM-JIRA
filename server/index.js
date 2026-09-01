@@ -23,7 +23,7 @@ import workflowRoutes from './routes/workflows.js'
 import profileRoutes from './routes/profile.js'
 import securityPolicyRoutes from './routes/securityPolicy.js'
 import memberRoutes from './routes/members.js'
-import teamRoutes from './routes/teams.js' // JL-419: Atlassian-style teams
+import teamRoutes, { projectTeamsRouter } from './routes/teams.js' // JL-419: Atlassian-style teams
 import invitationRoutes, { publicRouter as publicInvitationRoutes } from './routes/invitations.js'
 import emailLogRoutes from './routes/emailLog.js' // JL-323: outbound email delivery log
 import blockedSignupRoutes from './routes/blockedSignups.js' // JL-325: signup deny-list
@@ -204,6 +204,7 @@ app.use('/api/profile', ...protect, profileRoutes)
 app.use('/api', ...protect, securityPolicyRoutes) // JL-134: /api/security-policy
 app.use('/api/members', ...protect, memberRoutes)
 app.use('/api/teams', ...protect, teamRoutes) // JL-419: teams, team members, team links
+app.use('/api', ...protect, projectTeamsRouter) // JL-424: /api/projects/:id/teams
 app.use('/api/invitations', ...protect, invitationRoutes)
 app.use('/api', ...protect, emailLogRoutes) // JL-323: /api/email-log*
 app.use('/api', ...protect, blockedSignupRoutes) // JL-325: /api/blocked-signups*

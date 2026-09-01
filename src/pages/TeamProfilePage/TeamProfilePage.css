@@ -208,3 +208,45 @@
   line-height: var(--line-height-sm);
 }
 
+/* JL-424 — "Works on": the projects this team is associated with. */
+.team-project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.team-project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border, #dfe1e6);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: inherit;
+  text-decoration: none;
+}
+
+.team-project-link:hover {
+  border-color: var(--jira-blue, #0052cc);
+}
+
+.team-project-link:focus-visible {
+  outline: 2px solid var(--jira-blue, #0052cc);
+  outline-offset: 2px;
+}
+
+.team-project-key {
+  color: var(--text-subtle, #6b778c);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.team-project-name {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}

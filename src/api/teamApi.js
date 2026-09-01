@@ -75,3 +75,28 @@ export function uploadTeamAvatar(teamId, file) {
     reader.readAsDataURL(file)
   })
 }
+
+// JL-424 — team <-> project association. VISIBILITY AND NAVIGATION ONLY: being
+// on a team grants no project access, and the server does not treat it as if it
+// did. See the comment in server/routes/teams.js.
+export const fetchTeamProjects = (teamId) => api(`/api/teams/${teamId}/projects`)
+
+export const addTeamProject = (teamId, projectId) =>
+  api(`/api/teams/${teamId}/projects`, {
+    method: 'POST',
+    body: JSON.stringify({ projectId }),
+  })
+
+export const removeTeamProject = (teamId, projectId) =>
+  api(`/api/teams/${teamId}/projects/${projectId}`, { method: 'DELETE' })
+
+export const fetchProjectTeams = (projectId) => api(`/api/projects/${projectId}/teams`)
+
+export const addProjectTeam = (projectId, teamId) =>
+  api(`/api/projects/${projectId}/teams`, {
+    method: 'POST',
+    body: JSON.stringify({ teamId }),
+  })
+
+export const removeProjectTeam = (projectId, teamId) =>
+  api(`/api/projects/${projectId}/teams/${teamId}`, { method: 'DELETE' })

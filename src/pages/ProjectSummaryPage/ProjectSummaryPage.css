@@ -480,3 +480,46 @@
     grid-template-columns: 70px 1fr 28px;
   }
 }
+
+/* JL-424 — teams associated with this project (visibility/navigation only). */
+.ps-team-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ps-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ps-team-link {
+  color: var(--jira-blue, #0052cc);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.ps-team-link:hover {
+  text-decoration: underline;
+}
+
+.ps-team-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.ps-team-error {
+  color: #de350b;
+  margin: 8px 0 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
