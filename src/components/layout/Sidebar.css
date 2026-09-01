@@ -89,20 +89,21 @@
   padding: 4px;
 }
 
-/* Brief §6: 48px row, 16px horizontal padding, 20px label, 20px icon, 16px
-   gap between them. */
+/* JL-442 §4: 40px row, 12px horizontal padding, 16/400/24 label, 18px icon,
+   12px gap. Was 48px / 16px / 20px / 20px / 16px — the single biggest source
+   of the oversized sidebar. */
 .nav {
   text-decoration: none;
   color: var(--jira-text);
   min-height: var(--control-height-nav);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-regular);
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   position: relative;
   transition: background var(--transition-fast) var(--ease-standard),
     color var(--transition-fast) var(--ease-standard);
@@ -120,7 +121,7 @@
 .nav.active::before {
   content: '';
   position: absolute;
-  left: calc(var(--space-4) * -1);
+  left: calc(var(--space-3) * -1);
   top: 6px;
   bottom: 6px;
   width: 3px;
@@ -152,9 +153,9 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   color: var(--jira-text-muted);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
 
@@ -401,7 +402,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-regular);
 }
 
 .sidebar-project-key {

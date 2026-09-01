@@ -21,7 +21,7 @@
 
 .not-found-page p {
   margin: 12px 0 24px;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   line-height: var(--line-height-lg);
   color: var(--jira-text-muted);
 }

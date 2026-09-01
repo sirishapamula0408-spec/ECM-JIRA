@@ -62,7 +62,7 @@
 
 /* ---- Left: Main content ---- */
 .id-main {
-  padding: var(--layout-content-padding) var(--layout-content-padding) var(--space-40);
+  padding: var(--layout-content-padding) var(--layout-content-padding) var(--space-6);
   border-right: 1px solid var(--jira-border);
   overflow-y: auto;
   position: relative;
@@ -114,8 +114,8 @@
 
 /* JL-321: issue key is now a link (Atlassian-style) */
 .id-issue-key {
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
   color: var(--jira-blue);
   letter-spacing: 0.01em;
@@ -127,12 +127,13 @@
   text-decoration: underline;
 }
 
-/* Title. Brief §17 - the dominant element on the reference page: 36/700/44,
-   -0.2px tracking. This is the one place --font-size-display is used; a
-   generic page heading stays on `.page h1` (28px) because a page title and
-   an issue summary are different roles. */
-.id-title {
-  margin: var(--space-4) 0 18px;
+/* Title. JL-442 §8 - still the dominant element on the page, at 30/700/36
+   with -0.2px tracking (was 36/700/44, which §8 rules out). This is the one
+   place --font-size-display is used; a generic page heading stays on
+   `.page h1` (24px) because a page title and an issue summary are different
+   roles. Margins are §16's 8px above / 16px below. */
+.page h1.id-title {
+  margin: var(--space-2) 0 var(--space-4);
   font-size: var(--font-size-display);
   line-height: var(--line-height-display);
   font-weight: var(--font-weight-bold);
@@ -143,26 +144,26 @@
 /* Quick action buttons */
 .id-quick-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   margin-bottom: var(--space-6);
   flex-wrap: wrap;
 }
 
-/* Brief §18. Same contract as the shared .btn - 40px, white, bordered,
-   16/500 - restated here only because the markup names this class in ~14
-   places and renaming all of them is JL-440 work, not JL-439 work. */
+/* JL-442 §9. Same contract as the shared .btn - 40px, white, bordered,
+   14/500, 0 12px - restated here only because the markup names this class in
+   ~14 places and renaming all of them is not this ticket's work. */
 .id-quick-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   height: var(--control-height);
-  padding: 0 14px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--jira-border);
   border-radius: var(--radius-sm);
   background: var(--jira-surface);
   color: var(--jira-text);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   white-space: nowrap;
@@ -175,18 +176,19 @@
 }
 
 /* ---- Sections ----
-   Brief §20: 40px between the stacked sections (Description -> Child issues
-   -> Linked issues -> Affected assets). "Do not compress sections together." */
+   JL-442 §16: 32px between the stacked sections (Description -> Child issues
+   -> Linked issues -> Affected assets). Still clearly separated; 40px was
+   above the range §16 allows between normal UI elements. */
 .id-section {
-  margin-bottom: var(--space-40);
+  margin-bottom: var(--space-6);
 }
 
-/* Brief §19/§24: 18/600, muted, 0.3px tracking - the same treatment as the
+/* JL-442 §11: 16/600/24, muted, 0.3px tracking - the same treatment as the
    shared .section-label, which this matches deliberately. */
 .id-section-title {
   margin: 0 0 var(--space-3);
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -232,12 +234,12 @@
   background: var(--jira-surface-hover);
 }
 
-/* Brief §19: 20/400/28. Leading is stated in px, not 1.6, so it stays on
-   the same rhythm as --line-height-md everywhere else. */
+/* JL-442 §10: 16/400/24. Leading is stated in px, not 1.6, so it stays on
+   the same rhythm as --line-height-base everywhere else. */
 .id-description p {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   color: var(--jira-text);
 }
 
@@ -254,11 +256,11 @@
 
 .id-desc-textarea {
   width: 100%;
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--jira-blue);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   color: var(--jira-text);
   font-family: var(--font-family-sans);
   resize: vertical;
@@ -704,7 +706,7 @@
 /* Brief §21: the details panel is a white surface, 28px padding, separated
    from the content by the border on .id-main - not by a grey fill. */
 .id-sidebar {
-  padding: var(--space-28);
+  padding: var(--space-5);
   background: var(--jira-surface);
   overflow-y: auto;
 }
@@ -714,20 +716,20 @@
   margin-bottom: var(--space-20);
 }
 
-/* Brief §22: 44 x ~220, 18/600, radius 6. The background comes from the
-   status-category class the markup adds; --jira-border is the neutral
-   fallback the brief names for TO DO. */
+/* JL-442 §13: 40 x 220, 16/600, radius 6 - prominent but on the app's one
+   control height. The background comes from the status-category class the
+   markup adds; --jira-border is the neutral fallback for TO DO. */
 .id-status-select {
   width: var(--control-width-status);
   max-width: 100%;
   height: var(--control-height-status);
-  padding: 0 var(--space-28) 0 var(--space-3);
+  padding: 0 var(--space-5) 0 var(--space-3);
   border: none;
   border-radius: var(--radius-sm);
   background: var(--jira-border);
   color: var(--jira-text);
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -767,11 +769,11 @@
   margin-bottom: 12px;
 }
 
-/* Brief §24: the "DETAILS" heading - 18/600, muted, 0.3px, uppercase. */
+/* JL-442 §12: the "DETAILS" heading - 16/600/24, muted, 0.3px, uppercase. */
 .id-sidebar-section-header h4 {
   margin: 0;
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text-muted);
   text-transform: uppercase;
@@ -783,13 +785,13 @@
   margin: 0;
 }
 
-/* Brief §25: 24px between fields, flat - "Do not make fields look like
+/* JL-442 §16: 20px between fields, flat - "Do not make fields look like
    individual cards." */
 .id-detail-row {
   display: grid;
-  grid-template-columns: 120px 1fr;
+  grid-template-columns: 92px 1fr;
   gap: var(--space-3);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-20);
   align-items: center;
 }
 
@@ -798,29 +800,31 @@
 }
 
 .id-detail-row dt {
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-regular);
 }
 
 .id-detail-row dd {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   color: var(--jira-text);
   font-weight: var(--font-weight-regular);
 }
 
-/* User display (avatar + name) */
+/* User display (avatar + name). JL-442: 8px between the 32px avatar and the
+   name — 12px cost enough width in the narrowed panel to wrap a two-word
+   name onto a second line. */
 .id-detail-user {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 /* JL-162: one-click "Assign to me" shortcut under the Assignee field */
-/* Brief §26: the assignee action link is 18px in the brand blue. */
+/* JL-442 §12: the assignee action link is 14px in the brand blue. */
 .id-assign-to-me {
   display: inline-block;
   margin-top: var(--space-1);
@@ -828,8 +832,8 @@
   border: none;
   background: none;
   color: var(--jira-blue);
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   cursor: pointer;
 }
 
@@ -852,9 +856,9 @@
   flex-shrink: 0;
 }
 
-/* Priority badge — brief §27: 32px tall, 0 12px, radius 4 (the scale has 3),
-   16/600, and a SUBTLE fill. The three variants below are the only place
-   these colours are written; the JSX picks a modifier, not a hex. */
+/* Priority badge — JL-442 §12: 32px tall, 0 12px, radius 3, 14/600, and a
+   SUBTLE fill. The three variants below are the only place these colours are
+   written; the JSX picks a modifier, not a hex. */
 .id-priority-badge {
   display: inline-flex;
   align-items: center;
@@ -862,8 +866,8 @@
   height: var(--control-height-sm);
   padding: 0 var(--space-3);
   border-radius: var(--radius-xs);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1121,6 +1125,16 @@
 /* ============================================================
    Responsive
    ============================================================ */
+/* JL-442 §23: the issue title steps 30 -> 28 -> 24 across desktop, tablet and
+   mobile. Before this ticket it was 36px at EVERY width above 480, which is
+   the "oversized typography on smaller screens" the ticket rules out. */
+@media (max-width: 1024px) {
+  .page h1.id-title {
+    font-size: var(--font-size-xxl);
+    line-height: var(--line-height-xxl);
+  }
+}
+
 @media (max-width: 860px) {
   .id-layout {
     grid-template-columns: 1fr;
@@ -1151,7 +1165,8 @@
     padding: 16px 12px 24px;
   }
 
-  .id-title {
+  /* §23: mobile issue title 24px. */
+  .page h1.id-title {
     font-size: var(--font-size-xl);
     line-height: var(--line-height-xl);
   }

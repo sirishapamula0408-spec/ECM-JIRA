@@ -102,7 +102,7 @@ body.board-col-resizing {
   border-radius: var(--radius-sm);
   color: var(--jira-text-muted);
   cursor: pointer;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 

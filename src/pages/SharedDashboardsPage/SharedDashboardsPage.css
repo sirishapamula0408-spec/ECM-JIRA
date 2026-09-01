@@ -28,7 +28,7 @@
 
 .sd-form h3 {
   margin: 0 0 16px;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .sd-input {
@@ -63,7 +63,7 @@
   text-align: center;
   color: var(--text-secondary);
   padding: 24px;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .sd-grid {
@@ -87,7 +87,7 @@
 }
 
 .sd-card-header strong {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
 }
 
 .sd-visibility-badge {

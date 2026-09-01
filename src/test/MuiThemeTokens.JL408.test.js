@@ -56,8 +56,18 @@ describe('JL-408 — the theme mirrors the CSS token scale', () => {
       .find((l) => l.trim().startsWith('--font-family-sans:'))
     expect(declared, '--font-family-sans must be declared').toBeTruthy()
 
-    const firstFace = declared.split(':')[1].split(',')[0].trim()
-    expect(firstFace, 'Inter must be asked for first').toBe("'Inter Variable'")
+    const faces = declared.split(':').slice(1).join(':')
+      .replace(';', '').split(',').map((f) => f.trim())
+
+    // JL-442 put "Atlassian Sans" at the head of the stack. It is proprietary
+    // and this app does not ship it, so on almost every machine it does not
+    // resolve and the browser falls straight through to the next entry.
+    expect(faces[0], 'Atlassian Sans is asked for first').toBe('"Atlassian Sans"')
+
+    // Which is why Inter must STILL be second: it is the face actually loaded,
+    // and therefore the one that renders. If it ever slips behind the system
+    // stack the app silently stops using the webfont it ships.
+    expect(faces[1], "Inter is the face that actually renders").toBe("'Inter Variable'")
 
     // The system stack must remain BEHIND Inter. If the webfont fails or is
     // still swapping, the app should land on the faces it used before rather
@@ -67,7 +77,7 @@ describe('JL-408 — the theme mirrors the CSS token scale', () => {
 
     // Roboto may sit in the fallback chain, but must never be what is asked
     // for first: this app has never loaded it.
-    expect(firstFace).not.toBe('Roboto')
+    expect(faces[0]).not.toBe('Roboto')
   })
 })
 

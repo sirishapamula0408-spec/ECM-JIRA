@@ -17,13 +17,14 @@
   min-width: 0;
 }
 
-/* Brief §10: the global search is a prominent control, not a text field
-   that happens to sit in the header - 52px tall, 20px text, ~500-550 wide. */
+/* JL-442 §5: the global search is still the prominent control in the header,
+   but on the app's one input scale - 40px tall, 16px text - rather than a
+   52px/20px field of its own. */
 .search {
   width: 100%;
   height: var(--control-height-search);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   border-color: var(--jira-border);
   padding: 0 var(--space-4);
 }
@@ -137,7 +138,7 @@
 }
 
 .topbar-clock-time {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text);
   font-variant-numeric: tabular-nums;
@@ -177,22 +178,22 @@
 .topbar-user-avatar {
   width: 44px;
   height: 44px;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
 }
 
 .topbar-user-header strong {
   display: block;
   color: var(--jira-text);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
 .topbar-user-header small {
   display: block;
   margin-top: 2px;
   color: var(--jira-text-muted);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .topbar-user-item {
@@ -297,7 +298,7 @@
   cursor: pointer;
 }
 .topbar-workspace-icon {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -312,17 +313,17 @@
   border-radius: var(--radius-sm);
   background: var(--jira-surface);
   color: var(--jira-text);
-  font-size: var(--font-size-detail);
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
-/* Brief §13: the account avatar in the header is 48px with 18px initials.
+/* JL-442 §15: the account avatar is 40px with 14/600 initials (was 48/18).
    Sized here rather than in shared.css because .avatar is shared with list
    rows and board cards, which stay at their dense size. */
 .topbar .avatar-btn {
   width: var(--avatar-size-lg);
   height: var(--avatar-size-lg);
-  font-size: var(--font-size-detail);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 

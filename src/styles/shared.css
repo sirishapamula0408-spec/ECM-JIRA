@@ -22,13 +22,13 @@
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
   border-radius: var(--radius-md);
-  padding: var(--space-5);
+  padding: var(--space-20);
 }
 
 .panel h3 {
-  margin: 0 0 10px;
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -39,7 +39,7 @@
 
 .table th,
 .table td {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   text-align: left;
   border-bottom: 1px solid var(--jira-border);
 }
@@ -55,8 +55,8 @@
 }
 
 .table td {
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   color: var(--jira-text);
   font-variant-numeric: tabular-nums;
 }
@@ -152,13 +152,13 @@
   justify-content: center;
   gap: var(--space-2);
   height: var(--control-height);
-  padding: 0 14px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   border: 1px solid var(--jira-border);
   background: var(--jira-surface);
   color: var(--jira-text);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   white-space: nowrap;
@@ -230,11 +230,11 @@
 }
 
 .create-btn {
-  min-width: 98px;
+  min-width: 92px;
   height: var(--control-height-create);
-  padding: 0 var(--space-20);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -242,14 +242,14 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0;
 }
 
 .plus-create-symbol {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   line-height: 1;
   font-weight: var(--font-weight-regular);
 }
@@ -372,16 +372,16 @@
 
 .muted {
   color: var(--jira-text-muted);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 /* Brief §24: the "DETAILS" / "DESCRIPTION" heading above a section. */
 .section-label {
   margin-top: var(--space-5);
   margin-bottom: var(--space-2);
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   letter-spacing: 0.3px;
   text-transform: uppercase;
   color: var(--jira-text-muted);
@@ -425,8 +425,8 @@
 
 .modal h2 {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -555,8 +555,8 @@ textarea:focus {
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: var(--avatar-size-md);
+  height: var(--avatar-size-md);
   border-radius: var(--radius-pill);
   background: var(--jira-blue);
   color: #ffffff;
@@ -927,8 +927,8 @@ textarea:focus {
   border-radius: var(--radius-xs);
   background: var(--jira-surface-sunken);
   color: var(--jira-text);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -946,7 +946,7 @@ textarea:focus {
 .avatar-lg {
   width: var(--avatar-size-lg);
   height: var(--avatar-size-lg);
-  font-size: var(--font-size-detail);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -970,10 +970,10 @@ textarea:focus {
 .breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   min-width: 0;
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
 .breadcrumb-link {
@@ -981,8 +981,8 @@ textarea:focus {
   background: none;
   padding: 0;
   color: var(--jira-text-muted);
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-regular);
   cursor: pointer;
   text-decoration: none;
@@ -996,15 +996,15 @@ textarea:focus {
 
 .breadcrumb-sep {
   color: var(--jira-text-subtlest);
-  font-size: var(--font-size-detail);
+  font-size: var(--font-size-base);
   user-select: none;
 }
 
 .breadcrumb-current {
   color: var(--jira-text);
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-detail);
-  line-height: var(--line-height-detail);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

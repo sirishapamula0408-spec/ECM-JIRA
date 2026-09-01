@@ -53,7 +53,7 @@
 
 /* Main layout — JL-393: the white panel that used to be the page background. */
 .pd-main {
-  padding: 24px 32px 40px;
+  padding: var(--space-5) var(--layout-content-padding) var(--space-6);
   max-width: 900px;
   overflow-y: auto;
   background: var(--jira-surface);

@@ -107,9 +107,13 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* ── Icon sizes ── */
+  /* ── Icon sizes ──
+     JL-442: --icon-md 20 → 18. It is the sidebar/topbar/button default, and
+     the requested sizes are 18px for a nav icon, 18-20 for a header icon and
+     16-18 inside a button. 18 is the one value that satisfies all three, so
+     the default moves rather than each surface overriding it. */
   --icon-sm: 16px;
-  --icon-md: 20px;
+  --icon-md: 18px;
   --icon-lg: 24px;
 
   /* ── Atlassian typography scale ── */
@@ -117,7 +121,16 @@
      behind it as the fallback, so if the webfont fails or is still loading
      the app renders in the same faces it used before rather than dropping to
      a generic. font-display: swap comes from @fontsource's own @font-face. */
-  --font-family-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  /* JL-442 put "Atlassian Sans" at the head of the stack, as requested. It is
+     proprietary and this app does not ship it, so on almost every machine it
+     does not resolve and the browser falls through to the next entry — which
+     is why 'Inter Variable' STAYS in second place rather than being replaced.
+     Inter is the face actually loaded (self-hosted, SIL OFL) and is the one
+     that renders. Naming Atlassian Sans first costs nothing and is correct for
+     anyone who does have it installed; dropping Inter would have left the app
+     rendering in a system font it never chose. The remainder is the requested
+     stack verbatim. */
+  --font-family-sans: "Atlassian Sans", 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   /* JL-414: "SFMono-Medium" removed. It is not a real installed face on any
      platform — an Atlassian legacy string that always fell through to the
      next entry, so dropping it changes nothing at render time and stops the
@@ -165,21 +178,39 @@
      Root stays 14px and every size stays in px. JL-414 kept the root on
      re-scaling risk and that reasoning is untouched here — the root was never
      the problem. muiTheme.js records why px rather than rem. */
+  /* JL-442: the HEADING half of that shift is undone — md/lg/xl/xxl each move
+     back down one step (20→18, 24→20, 28→24, 32→28) and their leadings onto
+     Atlassian's real pairings (heading.medium 20/24, heading.large 24/28,
+     heading.xlarge 28/32).
+
+     JL-438 shifted the whole ladder up one step at once. That was right for
+     the BODY end — 16px body is the brief's number and stays — but it silently
+     re-sized every existing heading call site written when md meant 16px. 58
+     rules asked for --font-size-md and got 20px; the comment at
+     GadgetBoard.css still read "heading.small is 16px, not 14px" while
+     rendering 20. Applied across 44 pages that is the whole "everything is
+     oversized" complaint, and no test caught it because each site was still
+     spelling a token rather than a literal.
+
+     So the ladder is now exactly the requested 12 / 14 / 16 / 18 / 20 / 24 /
+     28 (+ 30 for --font-size-brand and --font-size-display), and the sites
+     that wanted 16 were repointed from md to base in the same sweep rather
+     than being left one step high. */
   --font-size-xs: 12px;   /* meta, captions, counts          */
   --font-size-sm: 14px;   /* small                           */
   --font-size-base: 16px; /* BODY                            */
-  --font-size-md: 20px;   /* h4                              */
-  --font-size-lg: 24px;   /* h3                              */
-  --font-size-xl: 28px;   /* h2                              */
-  --font-size-xxl: 32px;  /* h1 / display                    */
+  --font-size-md: 18px;   /* sub-heading / card title        */
+  --font-size-lg: 20px;   /* h4 / modal title                */
+  --font-size-xl: 24px;   /* h3 / page title                 */
+  --font-size-xxl: 28px;  /* h2 / large page title           */
 
   --line-height-xs: 16px;
   --line-height-sm: 20px;
   --line-height-base: 24px;
-  --line-height-md: 28px;
-  --line-height-lg: 32px;
-  --line-height-xl: 32px;
-  --line-height-xxl: 36px;
+  --line-height-md: 24px;
+  --line-height-lg: 24px;
+  --line-height-xl: 28px;
+  --line-height-xxl: 32px;
 
   /* JL-414: the metric tier. Atlassian carries font.metric.large/medium/small
      (28/24/16) as a tier distinct from headings — same sizes, but a different
@@ -348,10 +379,14 @@
      20/24/28 are md/lg/xl, so only 18 and 36 are new (32 = xxl stays for h1).
      Named by role, not ordinal: inserting 18 between base and md would
      renumber the ladder and silently move every existing call site. ── */
-  --font-size-detail: 18px;    /* DETAILS/DESCRIPTION labels, breadcrumb, field labels */
-  --line-height-detail: 24px;
-  --font-size-display: 36px;   /* issue title — the reference's dominant text */
-  --line-height-display: 44px;
+  /* JL-442 removed --font-size-detail (18px). It carried three unrelated roles
+     at one size — section headings, breadcrumbs and detail-panel field labels —
+     and the correction splits them: headings and breadcrumbs are 16 (= base),
+     labels are 14 (= sm). Both numbers already have a token, so the 13 call
+     sites were repointed and the role token deleted rather than re-valued. The
+     18px step itself survives as --font-size-md. */
+  --font-size-display: 30px;   /* issue title — the page's dominant text */
+  --line-height-display: 36px;
   --font-size-brand: 30px;     /* sidebar wordmark */
   --line-height-brand: 36px;
 
@@ -365,12 +400,15 @@
      "half the height" rather than a step on a scale. */
   --radius-pill: 999px;
 
-  /* ── The three spacing steps the ordinal scale is missing. The brief wants
-     4 8 12 16 20 24 28 32 40 48 64; --space-1..8 covers all but 20/28/40.
-     Named by value because renumbering --space-5..8 would move every existing
-     call site without any of them changing. ── */
+  /* ── The spacing steps the ordinal scale is missing. --space-1..8 covers
+     4 8 12 16 24 32 48 64, so 20 and 40 are named by value; renumbering
+     --space-5..8 would move every existing call site without any of them
+     changing.
+
+     JL-442 dropped --space-28. The requested scale is 4 8 12 16 20 24 32 40
+     and has no 28 step; its only two consumers were the details-panel padding
+     and the status select's right padding, both of which moved onto 24. ── */
   --space-20: 20px;
-  --space-28: 28px;
   --space-40: 40px;
 
   /* ── Overlay shadow (brief §34). Dropdowns, modals, floating menus and
@@ -384,27 +422,39 @@
 
   /* ── Layout dimensions. These were literals spread across layout.css,
      Topbar.css and Sidebar.css, which is exactly how the three drifted apart. ── */
-  --layout-sidebar-width: 326px;
-  --layout-sidebar-collapsed-width: 76px;
-  --layout-header-height: 86px;
-  --layout-breadcrumb-height: 76px;
-  --layout-details-panel-width: 332px;   /* brief §21 allows 320-340 */
-  --layout-content-padding: 32px;
+  /* JL-442 retuned the shell to the reduced type scale. The STRUCTURE is
+     untouched — same sidebar, header, breadcrumb bar, content column and
+     details panel — but each chrome dimension was sized against 20px nav text
+     and a 54px Create button, and left alone would have kept the oversized
+     read that the new type scale exists to remove. Widths come down ~11%,
+     matching the type reduction so the proportions hold. */
+  --layout-sidebar-width: 288px;         /* was 326 — 40px rows, 16px labels */
+  --layout-sidebar-collapsed-width: 72px;
+  --layout-header-height: 64px;          /* was 86 — 40px controls + 12 each side */
+  --layout-breadcrumb-height: 56px;      /* was 76 — 24px line + 16 each side */
+  --layout-details-panel-width: 304px;   /* was 332 */
+  --layout-content-padding: 24px;        /* was 32 */
 
   /* ── Control geometry. One height per role; a page that needs a control
-     taller or shorter than these is a bug in the page, not a new size. ── */
+     taller or shorter than these is a bug in the page, not a new size.
+
+     JL-442: the five oversized roles collapse onto the 40px default. They were
+     derived from one page's chrome and then applied app-wide, which is how a
+     54px Create button and a 52px search field ended up being the global
+     contract. 40px is the requested height for a button, input, select,
+     dropdown and sidebar row alike — one control scale, not six. ── */
   --control-height-sm: 32px;      /* badge, dense chip            */
   --control-height: 40px;         /* default button/input/select  */
-  --control-height-flag: 42px;    /* Add flag                     */
-  --control-height-status: 44px;  /* issue status dropdown        */
-  --control-height-nav: 48px;     /* sidebar nav row, tab strip   */
-  --control-height-search: 52px;  /* global search                */
-  --control-height-create: 54px;  /* Create button                */
+  --control-height-flag: 36px;    /* Add flag            (was 42) */
+  --control-height-status: 40px;  /* issue status dropdown (was 44) */
+  --control-height-nav: 40px;     /* sidebar nav row, tab strip (was 48) */
+  --control-height-search: 40px;  /* global search       (was 52) */
+  --control-height-create: 40px;  /* Create button       (was 54) */
   --control-width-status: 220px;
 
   --avatar-size-sm: 24px;
-  --avatar-size-md: 34px;         /* details-panel user rows      */
-  --avatar-size-lg: 48px;         /* topbar account avatar        */
+  --avatar-size-md: 32px;         /* details-panel user rows (was 34) */
+  --avatar-size-lg: 40px;         /* topbar account avatar   (was 48) */
 
   /* ── The --color-* names from the brief that the JL-392 alias layer above
      does not already carry. Same rule as that layer: every one points at the

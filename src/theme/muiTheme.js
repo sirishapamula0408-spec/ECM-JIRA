@@ -31,10 +31,14 @@ const FONT_FAMILY = 'var(--font-family-sans, sans-serif)'
 
 // --font-size-* / --line-height-* / --font-weight-*
 // JL-414: xs (11px) retired — Atlassian raised it to 12px for accessibility
-// and dropped the step, so former xs consumers use sm. xxl corrected 29->28
-// (29 was the legacy ADG3 value) and the missing 32px step added.
-const SIZE = { xs: 12, sm: 14, base: 16, md: 20, lg: 24, xl: 28, xxl: 32 }
-const LEADING = { xs: 16, sm: 20, base: 24, md: 28, lg: 32, xl: 32, xxl: 36 }
+// and dropped the step, so former xs consumers use sm.
+// JL-442: md/lg/xl/xxl each drop one step (20->18, 24->20, 28->24, 32->28),
+// undoing the heading half of the JL-438 up-shift, with the leadings on
+// Atlassian's own pairings. The body end (xs/sm/base) is unchanged.
+// variables.css carries the full reasoning; MuiThemeTokens.JL408 fails if
+// these two objects and that stylesheet disagree.
+const SIZE = { xs: 12, sm: 14, base: 16, md: 18, lg: 20, xl: 24, xxl: 28 }
+const LEADING = { xs: 16, sm: 20, base: 24, md: 24, lg: 24, xl: 28, xxl: 32 }
 // JL-414 (option B): `heading` is Atlassian's optical 653. It is expressible
 // only because Inter is a VARIABLE font (wght axis 100-900) — under the old
 // static system stack it would have rounded to whatever the platform had.
@@ -97,11 +101,13 @@ export function buildMuiTheme(mode = 'light') {
           root: {
             minHeight: CONTROL_HEIGHT,
             borderRadius: RADIUS.sm,
-            padding: '0 14px',
+            padding: '0 12px',
+            fontSize: SIZE.sm + 'px',
+            lineHeight: LEADING.sm + 'px',
             fontWeight: WEIGHT.medium,
           },
           sizeSmall: { fontSize: SIZE.sm + 'px', minHeight: CONTROL_HEIGHT_SM, padding: '0 10px' },
-          sizeLarge: { fontSize: SIZE.md + 'px', minHeight: 48 },
+          sizeLarge: { fontSize: SIZE.base + 'px', minHeight: CONTROL_HEIGHT },
           contained: { fontWeight: WEIGHT.semibold },
         },
       },
@@ -129,20 +135,20 @@ export function buildMuiTheme(mode = 'light') {
         styleOverrides: { select: { minHeight: 0 } },
       },
       MuiMenuItem: {
-        styleOverrides: { root: { fontSize: SIZE.base + 'px', minHeight: CONTROL_HEIGHT_SM } },
+        styleOverrides: { root: { fontSize: SIZE.sm + 'px', minHeight: CONTROL_HEIGHT_SM } },
       },
       // Brief §35: one table design app-wide. Sunken header, 14/600 header
-      // text, 12x16 cells.
+      // text, 14/400 body, 8x12 cells (JL-442 — was 16px body in 12x16 cells).
       MuiTableCell: {
         styleOverrides: {
-          root: { padding: '12px 16px', fontSize: SIZE.base + 'px' },
+          root: { padding: '8px 12px', fontSize: SIZE.sm + 'px' },
           head: {
             fontSize: SIZE.sm + 'px',
             fontWeight: WEIGHT.semibold,
             textTransform: 'uppercase',
             letterSpacing: '0.03em',
           },
-          sizeSmall: { fontSize: SIZE.sm + 'px', padding: '8px 12px' },
+          sizeSmall: { fontSize: SIZE.sm + 'px', padding: '6px 10px' },
         },
       },
       // Brief §37: radius 8, 24px padding, the overlay shadow — not MUI’s
@@ -156,13 +162,13 @@ export function buildMuiTheme(mode = 'light') {
         },
       },
       MuiDialogTitle: {
-        styleOverrides: { root: { fontSize: SIZE.md + 'px', fontWeight: WEIGHT.semibold, padding: '24px 24px 8px' } },
+        styleOverrides: { root: { fontSize: SIZE.lg + 'px', fontWeight: WEIGHT.semibold, padding: '20px 24px 8px' } },
       },
       MuiDialogContent: {
         styleOverrides: { root: { padding: '8px 24px' } },
       },
       MuiDialogActions: {
-        styleOverrides: { root: { padding: '16px 24px 24px' } },
+        styleOverrides: { root: { padding: '12px 24px 20px' } },
       },
       MuiMenu: {
         styleOverrides: {
@@ -172,11 +178,12 @@ export function buildMuiTheme(mode = 'light') {
       MuiTooltip: {
         styleOverrides: { tooltip: { fontSize: SIZE.xs + 'px', borderRadius: RADIUS.xs } },
       },
-      // Brief §38: 48px tall, 14/500, no shouting caps.
+      // Brief §38: 14/500, no shouting caps. JL-442 put the strip on the 40px
+      // control height with every other nav row, instead of its own 48.
       MuiTab: {
         styleOverrides: {
           root: {
-            minHeight: 48,
+            minHeight: CONTROL_HEIGHT,
             textTransform: 'none',
             fontSize: SIZE.sm + 'px',
             fontWeight: WEIGHT.medium,
@@ -184,13 +191,13 @@ export function buildMuiTheme(mode = 'light') {
         },
       },
       MuiTabs: {
-        styleOverrides: { root: { minHeight: 48 } },
+        styleOverrides: { root: { minHeight: CONTROL_HEIGHT } },
       },
       MuiChip: {
         styleOverrides: { root: { borderRadius: RADIUS.xs, fontSize: SIZE.sm + 'px' } },
       },
       MuiAlert: {
-        styleOverrides: { root: { borderRadius: RADIUS.sm, fontSize: SIZE.base + 'px' } },
+        styleOverrides: { root: { borderRadius: RADIUS.sm, fontSize: SIZE.sm + 'px' } },
       },
       MuiPaper: {
         styleOverrides: { rounded: { borderRadius: RADIUS.md } },
@@ -212,9 +219,10 @@ export function buildMuiTheme(mode = 'light') {
       subtitle2: variant('sm', WEIGHT.medium),
       body1: variant('base'),
       body2: variant('sm'),
-      // 14px matches this project's own `.btn` class, so MUI buttons and CSS
-      // buttons finally agree instead of differing by ~2px.
-      button: { ...variant('base', WEIGHT.medium), textTransform: 'none' },
+      // Matches this project's own `.btn` class, so MUI buttons and CSS
+      // buttons agree. JL-442 moved both onto 14/500 — a control label is not
+      // body copy, and 16px button text was a large part of the oversized read.
+      button: { ...variant('sm', WEIGHT.medium), textTransform: 'none' },
       // JL-414: were variant('xs') at 11px; xs is retired, so both move to the
       // 12px step. This is the same accessibility raise, applied to MUI.
       caption: variant('sm'),

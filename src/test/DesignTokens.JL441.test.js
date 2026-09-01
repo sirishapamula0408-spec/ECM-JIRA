@@ -146,35 +146,41 @@ describe('JL-441 — the layout and control tokens hold the briefed values', () 
     return line.split(':').slice(1).join(':').replace(/\/\*.*$/, '').replace(';', '').trim()
   }
 
-  // Every number the brief states for the application shell. If one of these
-  // has to change, change it here too — that is the point.
+  // Every number stated for the application shell. If one of these has to
+  // change, change it here too — that is the point.
+  //
+  // JL-442 rewrote most of this table. The shell had been sized against one
+  // page's chrome — a 54px Create button, a 52px search field, a 48px sidebar
+  // row, a 36px display title — and those numbers then WERE the global
+  // contract, which is what made the whole app read oversized. The five
+  // outsized control roles now collapse onto the 40px default, the widths come
+  // down ~11% to match the reduced type scale, and --font-size-detail /
+  // --space-28 are gone entirely (see variables.css for why).
   const EXPECTED = {
-    'layout-sidebar-width': '326px',
-    'layout-header-height': '86px',
-    'layout-breadcrumb-height': '76px',
-    'layout-details-panel-width': '332px',
-    'layout-content-padding': '32px',
+    'layout-sidebar-width': '288px',
+    'layout-header-height': '64px',
+    'layout-breadcrumb-height': '56px',
+    'layout-details-panel-width': '304px',
+    'layout-content-padding': '24px',
     'control-height': '40px',
     'control-height-sm': '32px',
-    'control-height-flag': '42px',
-    'control-height-status': '44px',
-    'control-height-nav': '48px',
-    'control-height-search': '52px',
-    'control-height-create': '54px',
+    'control-height-flag': '36px',
+    'control-height-status': '40px',
+    'control-height-nav': '40px',
+    'control-height-search': '40px',
+    'control-height-create': '40px',
     'control-width-status': '220px',
-    'avatar-size-md': '34px',
-    'avatar-size-lg': '48px',
+    'avatar-size-md': '32px',
+    'avatar-size-lg': '40px',
     'radius-xs': '3px',
     'radius-sm': '6px',
     'radius-md': '8px',
     'radius-lg': '12px',
     'radius-pill': '999px',
-    'font-size-detail': '18px',
-    'font-size-display': '36px',
-    'line-height-display': '44px',
+    'font-size-display': '30px',
+    'line-height-display': '36px',
     'font-size-brand': '30px',
     'space-20': '20px',
-    'space-28': '28px',
     'space-40': '40px',
   }
 

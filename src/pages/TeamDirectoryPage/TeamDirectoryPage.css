@@ -81,8 +81,8 @@
 }
 
 .team-card-name {
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-semibold);
 }
 

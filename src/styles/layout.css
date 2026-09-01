@@ -185,10 +185,12 @@
 @media (max-width: 1160px) {
   /* JL-439: the breakpoints now retune the tokens rather than restating
      grid-template-columns, so a width change lands in one place. */
+  /* JL-442: the desktop content padding is now 24px, so this breakpoint drops
+     to 20 to stay a step tighter rather than matching it. */
   :root {
-    --layout-sidebar-width: 260px;
+    --layout-sidebar-width: 256px;
     --layout-sidebar-collapsed-width: 64px;
-    --layout-content-padding: 24px;
+    --layout-content-padding: 20px;
   }
 
   .stats-grid {
@@ -339,6 +341,7 @@
     --layout-content-padding: 12px;
   }
 
+  /* §23: 20px page title on mobile. */
   .page h1 {
     font-size: var(--font-size-lg);
   }

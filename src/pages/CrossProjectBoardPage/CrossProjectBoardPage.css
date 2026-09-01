@@ -153,7 +153,7 @@
 }
 
 .cpb-card-title {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   margin-bottom: 8px;
   color: var(--color-text, #172b4d);
 }
@@ -174,7 +174,7 @@
 
 .cpb-swimlane-header {
   font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-base);
   padding: 6px 0;
   margin-bottom: 6px;
   border-bottom: 2px solid var(--color-border, #dfe1e6);
