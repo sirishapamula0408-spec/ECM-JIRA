@@ -60,6 +60,7 @@ import { TeamsPage } from './pages/TeamsPage/TeamsPage'
 // JL-419: Atlassian-style teams. NOT TeamsPage above, which is the workspace
 // member directory (the naming collision is JL-425's to resolve).
 import { TeamDirectoryPage } from './pages/TeamDirectoryPage/TeamDirectoryPage'
+import { TeamProfilePage } from './pages/TeamProfilePage/TeamProfilePage'
 import { FiltersPage } from './pages/FiltersPage/FiltersPage'
 import { ProjectSummaryPage } from './pages/ProjectSummaryPage/ProjectSummaryPage'
 import { ActivityFeedPage } from './pages/ActivityFeedPage/ActivityFeedPage'
@@ -239,6 +240,7 @@ function AppContent() {
                   route: /teams is taken by the member directory and renaming it
                   is JL-425, which is blocked on a product decision. */}
               <Route path="/teams-directory" element={<TeamDirectoryPage />} />
+              <Route path="/teams/:teamId" element={<TeamProfilePage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />

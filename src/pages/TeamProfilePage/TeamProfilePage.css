@@ -1,0 +1,157 @@
+/* JL-422 — team profile. Font values are tokens only (baseline 0, JL-415/416). */
+
+.team-profile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.team-profile-avatar {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.team-profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.team-profile-identity {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.team-profile-description {
+  margin: 4px 0 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.team-profile-meta,
+.team-profile-status {
+  color: var(--text-subtle, #6b778c);
+  margin: 4px 0 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.team-profile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.team-profile-error {
+  color: #de350b;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.team-section {
+  margin-top: 32px;
+}
+
+.team-section h2 {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 12px;
+}
+
+.team-member-list,
+.team-link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-member-row,
+.team-link-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #dfe1e6);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  flex-wrap: wrap;
+}
+
+.team-member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.team-member-identity {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.team-member-name {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.team-member-email,
+.team-member-role,
+.team-link-url {
+  color: var(--text-subtle, #6b778c);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  overflow-wrap: anywhere;
+}
+
+.team-link-anchor {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--jira-blue, #0052cc);
+}
+
+/* A URL the shared allow-list rejects renders as inert text, not an anchor. */
+.team-link-blocked {
+  color: #de350b;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.team-add-member,
+.team-add-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.team-link-cap-note {
+  color: var(--text-subtle, #6b778c);
+  margin: 0;
+  flex: 1 1 100%;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
