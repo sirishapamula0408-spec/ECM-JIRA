@@ -185,6 +185,60 @@ export async function setSetting(key, value) {
 }
 
 /**
+ * JL-419 / JL-426 — Atlassian-style TEAMS: first-class team entities.
+ *
+ * NOT `team_capacity`. That table (created further down in initializeDatabase)
+ * is SPRINT CAPACITY PLANNING keyed by a free-text `team_name`; despite the
+ * name it has nothing to do with these tables and nothing here reads, extends
+ * or repurposes it. The two are deliberately kept apart.
+ *
+ * Teams are workspace-scoped — JL-419 put cross-site / multi-org teams out of
+ * scope — so `teams.workspace_id` is the tenant key that every read in
+ * server/routes/teams.js filters on.
+ *
+ * The DDL lives here as an exported array rather than inline in
+ * initializeDatabase() so the integration suite can create exactly these tables
+ * in its isolated test schema (server/test/setup.js writes its own schema by
+ * hand) instead of restating the DDL and drifting from it.
+ */
+export const TEAM_SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS teams (
+      id SERIAL PRIMARY KEY,
+      workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      avatar_url TEXT,
+      membership TEXT NOT NULL DEFAULT 'OPEN',
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`,
+  // Every team list is filtered by workspace, so this index is on the hot path.
+  'CREATE INDEX IF NOT EXISTS idx_teams_workspace_id ON teams(workspace_id)',
+
+  // Composite PK (team_id, member_id) — there is no `id` column here, so any
+  // INSERT through run() needs an explicit `RETURNING team_id` (CLAUDE.md; the
+  // same trap issue_labels hit).
+  `CREATE TABLE IF NOT EXISTS team_members (
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'Member',
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (team_id, member_id)
+    )`,
+  // "which teams is this person on" — the reverse of the PK's leading column.
+  'CREATE INDEX IF NOT EXISTS idx_team_members_member_id ON team_members(member_id)',
+
+  `CREATE TABLE IF NOT EXISTS team_links (
+      id SERIAL PRIMARY KEY,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      url TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`,
+  'CREATE INDEX IF NOT EXISTS idx_team_links_team_id ON team_links(team_id)',
+]
+
+/**
  * Initialize all database tables with PostgreSQL-native types.
  */
 export async function initializeDatabase() {
@@ -2245,6 +2299,14 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_email_log_recipient ON email_log(LOWER(recipient))')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_email_log_status ON email_log(status)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_email_log_created ON email_log(created_at DESC)')
+
+  // --- JL-419 / JL-426: Atlassian-style teams (teams, team_members, team_links) ---
+  // Created last because `teams.workspace_id` references `workspaces`, which is
+  // created ~800 lines above. See TEAM_SCHEMA_STATEMENTS at the top of this file
+  // for the DDL and for why it is NOT `team_capacity`.
+  for (const statement of TEAM_SCHEMA_STATEMENTS) {
+    await pool.query(statement)
+  }
 
   // --- JL-95: Demo/seed data is gated behind SEED_DEMO_DATA (default off). ---
   // seedDemoData() is a no-op unless the flag is explicitly enabled, so

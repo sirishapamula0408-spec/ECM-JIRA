@@ -150,12 +150,17 @@ const PROTOCOL_RELATIVE_RE = /^[/\\]{2}/
 /**
  * True when `value` is a URL we are willing to emit in an href/src.
  *
+ * JL-429/JL-434: exported so the ONE allow-list also gates team-link URLs at
+ * the API (server/routes/teams.js) and at render time on the team profile.
+ * Exporting the existing check is deliberate — a second copy on the server is
+ * exactly the drift JL-359 deleted a sanitiser to stop.
+ *
  * ALLOW-LIST (JL-368): https:, http:, mailto:, plus scheme-less relative URLs
  * (root-relative `/…`, in-page `#…`, query `?…` and path-relative `doc.html`).
  * Everything else — blob:, file:, about:, javascript:, data:, vbscript:, tel:,
  * ftp: and any scheme not yet invented — is rejected.
  */
-function isSafeUrl(value) {
+export function isSafeUrl(value) {
   // JL-358: normalization MUST run before the scheme test. Browsers strip
   // TAB/LF/CR from URLs and ignore leading C0 controls before resolving, so
   // `java<TAB>script:` executes; comparing the raw string would both miss that
