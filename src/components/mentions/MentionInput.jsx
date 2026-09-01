@@ -22,7 +22,7 @@ export function MentionText({ text }) {
               key={i}
               type="button"
               className="mention-chip"
-              onClick={() => navigate('/teams')}
+              onClick={() => navigate('/members')}
               title={email}
             >
               @{email.split('@')[0]}

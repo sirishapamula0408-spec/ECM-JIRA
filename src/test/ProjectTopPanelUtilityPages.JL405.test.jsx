@@ -60,7 +60,7 @@ describe('ProjectTopPanel — hidden on the utility pages (JL-405)', () => {
   })
 
   it('leaves the previously hidden pages hidden (regression control)', () => {
-    for (const route of ['/dashboard', '/profile', '/activity', '/audit-log', '/teams', '/users']) {
+    for (const route of ['/dashboard', '/profile', '/activity', '/audit-log', '/members', '/users']) {
       const { unmount } = renderAt(route)
       expect(strip(), `${route} should stay hidden`).not.toBeInTheDocument()
       unmount()

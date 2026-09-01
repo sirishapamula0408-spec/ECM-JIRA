@@ -219,9 +219,13 @@ function AppContent() {
               <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
               <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/advanced-roadmap" element={hasProjects ? <AdvancedRoadmapPage /> : <Navigate to="/projects" replace />} />
-              {/* Teams / member management is Admin/Owner-only (JL-227) */}
+              {/* JL-425: the member directory lives at /members. It used to be
+                  /teams, which meant "user list" while /teams/:teamId meant "a
+                  team" — two unrelated things behind one name. That collision
+                  hid the whole team directory for a day (JL-436), so the page is
+                  named for what it is. Still Admin/Owner-only (JL-227). */}
               <Route
-                path="/teams"
+                path="/members"
                 element={(
                   <RequireRole permission="canManageMembers" fallback={<Navigate to="/" replace />}>
                     <TeamsPage />
@@ -236,11 +240,13 @@ function AppContent() {
                   </RequireRole>
                 )}
               />
-              {/* JL-419 Atlassian teams. /teams-directory is JL-421's interim
-                  route: /teams is taken by the member directory and renaming it
-                  is JL-425, which is blocked on a product decision. */}
-              <Route path="/teams-directory" element={<TeamDirectoryPage />} />
+              {/* JL-419/JL-425: /teams is now the Atlassian-style team directory,
+                  consistent with /teams/:teamId below. Open to every workspace
+                  member — teams are not an admin feature. */}
+              <Route path="/teams" element={<TeamDirectoryPage />} />
               <Route path="/teams/:teamId" element={<TeamProfilePage />} />
+              {/* JL-425: keep old links working rather than 404ing them. */}
+              <Route path="/teams-directory" element={<Navigate to="/teams" replace />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />

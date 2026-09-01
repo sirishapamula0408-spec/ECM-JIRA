@@ -18,7 +18,7 @@ function renderAt(path) {
 
 describe('ProjectTopPanel — hidden on Teams page (JL-373)', () => {
   it('does not render the project navigation strip at /teams', () => {
-    renderAt('/teams')
+    renderAt('/members')
     expect(screen.queryByRole('navigation', { name: /project views/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /backlog/i })).not.toBeInTheDocument()
   })

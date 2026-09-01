@@ -22,7 +22,7 @@ const TEAMS = [
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/teams-directory']}>
+    <MemoryRouter initialEntries={['/teams']}>
       <TeamDirectoryPage />
     </MemoryRouter>,
   )
@@ -184,7 +184,7 @@ describe('JL-421 — workspace isolation', () => {
 
     fetchTeams.mockResolvedValue([])
     rerender(
-      <MemoryRouter initialEntries={['/teams-directory?w=2']}>
+      <MemoryRouter initialEntries={['/teams?w=2']}>
         <TeamDirectoryPage key="other-workspace" />
       </MemoryRouter>,
     )

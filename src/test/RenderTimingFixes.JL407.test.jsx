@@ -114,12 +114,12 @@ describe('JL-407 — Sidebar auto-expand keeps effect parity', () => {
   })
 
   it('does not expand on mount outside a project route', () => {
-    renderAt('/teams')
+    renderAt('/members')
     expect(isOpen()).toBe(false)
   })
 
   it('expands when navigating into a project', () => {
-    renderAt('/teams', <Nav to="/projects/7/board" />)
+    renderAt('/members', <Nav to="/projects/7/board" />)
     expect(isOpen()).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'go /projects/7/board' }))
     expect(isOpen()).toBe(true)
@@ -129,11 +129,11 @@ describe('JL-407 — Sidebar auto-expand keeps effect parity', () => {
     // The effect this replaced only ran on an activeProjectId change, so
     // navigating away never re-expanded. Same here — and this is the case a
     // naive `expanded || Boolean(activeProjectId)` derivation would break.
-    renderAt('/projects/7/board', <Nav to="/teams" />)
+    renderAt('/projects/7/board', <Nav to="/members" />)
     expect(isOpen()).toBe(true)
     fireEvent.click(disclosure())
     expect(isOpen()).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: 'go /teams' }))
+    fireEvent.click(screen.getByRole('button', { name: 'go /members' }))
     expect(isOpen()).toBe(false)
   })
 })

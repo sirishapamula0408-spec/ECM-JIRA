@@ -89,8 +89,12 @@ describe('JL-436 — every sidebar nav item is a deliberate choice', () => {
     ).toEqual([])
   })
 
-  it('keeps the Team directory reachable — the JL-436 regression itself', () => {
-    expect(launchNav()).toContain('Team directory')
+  it('keeps the team directory reachable — the JL-436 regression itself', () => {
+    // JL-425 renamed this item from 'Team directory' to plain 'Teams' (and the
+    // old 'Teams' member directory to 'Members'). The label moved; the thing
+    // being guarded did not — the team directory must stay navigable.
+    expect(launchNav()).toContain('Teams')
+    expect(launchNav()).toContain('Members')
   })
 
   it('does not list a label in both places, which would be contradictory', () => {

@@ -10,15 +10,10 @@ import './Sidebar.css'
 // JL-277: launch sidebar shows only these sections; flip LAUNCH_SIDEBAR to false to restore the full nav.
 // JL-282: Projects kept so the launch sidebar retains an entry point to boards/backlogs.
 const LAUNCH_SIDEBAR = true
-// JL-403: Advanced Roadmap, Shared Dashboards and Cross-Project Boards dropped
-// from this allow-list. Their entries stay in utilityItems below and their
-// routes stay in App.jsx — the pages are HIDDEN from the nav, not removed, so a
-// bookmark or a pasted link still resolves and restoring one is a one-word edit.
-// JL-436: 'Team directory' belongs here. JL-421 added the nav item but not this
-// entry, so launchFilter silently dropped it and the whole JL-419 Teams feature
-// was reachable only by typing the URL. SidebarNavCoverage.JL436 now fails if a
-// nav item is neither listed here nor declared deliberately hidden.
-const LAUNCH_NAV = ['Projects', 'Team directory', 'Filters', 'Teams', 'Users', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
+// JL-436: keep this in step with the nav items below — SidebarNavCoverage.JL436
+// fails if an item is neither listed here nor declared deliberately hidden.
+// JL-425 renamed 'Team directory' to 'Teams' and the old 'Teams' to 'Members'.
+const LAUNCH_NAV = ['Projects', 'Teams', 'Members', 'Users', 'Filters', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
 export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
@@ -97,13 +92,14 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
   ].filter(launchFilter)
 
   const productItems = [
-    // JL-419: the Atlassian-style team directory. Open to every workspace
-    // member — unlike 'Teams' below, which is the Admin-only member directory.
-    // The label says 'Team directory' only because 'Teams' is already taken;
-    // JL-425 settles the naming.
-    { label: 'Team directory', path: '/teams-directory', icon: 'teams' },
-    // Teams / member management is Admin/Owner-only (JL-227)
-    ...(canManageMembers ? [{ label: 'Teams', path: '/teams', icon: 'teams' }] : []),
+    // JL-419/JL-425: the Atlassian-style team directory. Open to every
+    // workspace member — teams are not an admin feature. JL-425 gave this the
+    // plain 'Teams' name and moved the member directory to 'Members', so the
+    // label and the route finally describe the same thing.
+    { label: 'Teams', path: '/teams', icon: 'teams' },
+    // JL-425: the workspace member directory, renamed from 'Teams' because
+    // that is not what it is. Admin/Owner-only (JL-227).
+    ...(canManageMembers ? [{ label: 'Members', path: '/members', icon: 'teams' }] : []),
     // User Management is Admin/Owner-only (JL-195)
     ...(canManageUsers ? [{ label: 'Users', path: '/users', icon: 'teams' }] : []),
     { label: 'Workflows', path: '/workflow-editor', icon: 'workflow' },
@@ -316,7 +312,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
       <nav aria-label="Workspace tools">
         {productItems.map((item) => {
-          const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Users' || item.label === 'Team directory'
+          const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Members' || item.label === 'Users'
           return isAllowed ? (
             <NavLink
               key={`${item.label}-${item.path}`}

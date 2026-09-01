@@ -83,7 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('Sidebar "Teams" nav link gating (JL-227)', () => {
+describe('Sidebar "Members" nav link gating (JL-227)', () => {
   function renderSidebar() {
     return render(
       <MemoryRouter>
@@ -98,31 +98,35 @@ describe('Sidebar "Teams" nav link gating (JL-227)', () => {
     )
   }
 
-  it('shows the Teams link for an Admin', () => {
+  it('shows the Members link for an Admin', () => {
     setupMember(ADMIN)
     renderSidebar()
-    const link = screen.getByRole('link', { name: 'Teams' })
+    const link = screen.getByRole('link', { name: 'Members' })
     expect(link).toBeInTheDocument()
-    expect(link).toHaveAttribute('href', '/teams')
+    expect(link).toHaveAttribute('href', '/members')
   })
 
-  it('shows the Teams link for the Owner', () => {
+  it('shows the Members link for the Owner', () => {
     setupMember(OWNER)
     renderSidebar()
-    expect(screen.getByRole('link', { name: 'Teams' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Members' })).toBeInTheDocument()
   })
 
-  it('hides the Teams link for a Member', () => {
+  it('hides the Members link for a Member', () => {
     setupMember(MEMBER)
     renderSidebar()
-    expect(screen.queryByRole('link', { name: 'Teams' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Teams')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Members' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Members')).not.toBeInTheDocument()
+    // JL-425: a Member SHOULD still see Teams — that is the team directory,
+    // which is open to every workspace member. Only the member directory is
+    // gated. Asserting its presence proves the two are now distinct.
+    expect(screen.getByRole('link', { name: 'Teams' })).toHaveAttribute('href', '/teams')
   })
 
-  it('hides the Teams link for a Viewer', () => {
+  it('hides the Members link for a Viewer', () => {
     setupMember(VIEWER)
     renderSidebar()
-    expect(screen.queryByRole('link', { name: 'Teams' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Members' })).not.toBeInTheDocument()
   })
 })
 
@@ -134,11 +138,11 @@ describe('/teams route gating (JL-227)', () => {
 
   function renderTeamsRoute() {
     return render(
-      <MemoryRouter initialEntries={['/teams']}>
+      <MemoryRouter initialEntries={['/members']}>
         <Routes>
           <Route path="/" element={<h1>Dashboard Home</h1>} />
           <Route
-            path="/teams"
+            path="/members"
             element={(
               <RequireRole permission="canManageMembers" fallback={<Navigate to="/" replace />}>
                 <StubTeamsPage />
