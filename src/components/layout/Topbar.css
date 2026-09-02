@@ -137,12 +137,15 @@
   user-select: none;
 }
 
-/* JL-443: 16px, not 24px. At 24 the clock was the loudest element in the
-   header - the same size as an issue title - for a readout nobody navigates
-   by. Atlassian ships no clock at all; this is a utility, so it takes a
-   utility size. */
+/* JL-443: 12px. This started at 24px, which made a live clock the loudest
+   element in the header - the same size as an issue title - for a readout
+   nobody navigates by. It is ambient information, so it takes the smallest
+   step on the scale. 12px is the FLOOR: Atlassian retired its 11px step on
+   accessibility grounds and JL-414 holds that line, so this does not go
+   lower. Weight carries what little hierarchy it needs against the date. */
 .topbar-clock-time {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text);
   font-variant-numeric: tabular-nums;
