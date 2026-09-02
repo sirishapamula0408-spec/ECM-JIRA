@@ -428,11 +428,39 @@
      and a 54px Create button, and left alone would have kept the oversized
      read that the new type scale exists to remove. Widths come down ~11%,
      matching the type reduction so the proportions hold. */
-  --layout-sidebar-width: 288px;         /* was 326 — 40px rows, 16px labels */
+  /* ── JL-443: the two chrome widths are FLUID, not fixed. ──
+     They were single pixel values tuned against a 1920px viewport, and they
+     did not shrink when the viewport did. Because Windows display scaling
+     divides the CSS viewport (a 1920x1200 panel at 150% reports 1280px), a
+     normal laptop lands at 1280 and the fixed chrome then eats 46% of the
+     screen — sidebar 288 + panel 304 out of 1280 — leaving a 640px content
+     column, half what the same layout gets at 1920.
+
+     Measured chrome share, sidebar+panel as a fraction of viewport:
+
+       vw     fixed   fluid
+       2560    23%     24%
+       1920    31%     32%
+       1680    35%     34%
+       1366     —      34%
+       1280    46%     36%
+       1200    49%     38%
+
+     Fixed swings 31->49% across 1200-1920; fluid holds 32-38%. The vw term is
+     a RATIO, so this is correct at every width and every scaling factor
+     without enumerating resolutions — which is the whole point. Adding another
+     breakpoint would only move the cliff.
+
+     The bounds matter as much as the ratio: the max stops the chrome
+     ballooning on a 2560 monitor, the min stops the sidebar shrinking past its
+     own content. Below ~1100px the floors bottom out and the ratio climbs
+     again; no fluid formula fixes that, and that band is handled by collapsing
+     the sidebar to the icon rail (the rest of JL-443). */
+  --layout-sidebar-width: clamp(208px, 16vw, 288px);
   --layout-sidebar-collapsed-width: 72px;
   --layout-header-height: 64px;          /* was 86 — 40px controls + 12 each side */
   --layout-breadcrumb-height: 56px;      /* was 76 — 24px line + 16 each side */
-  --layout-details-panel-width: 304px;   /* was 332 */
+  --layout-details-panel-width: clamp(248px, 18vw, 320px);
   --layout-content-padding: 24px;        /* was 32 */
 
   /* ── Control geometry. One height per role; a page that needs a control

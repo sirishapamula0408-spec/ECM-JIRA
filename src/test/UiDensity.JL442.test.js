@@ -113,7 +113,70 @@ describe('JL-442 — one control scale', () => {
     expect(px('layout-header-height')).toBeLessThanOrEqual(72)
     expect(px('layout-breadcrumb-height')).toBeLessThanOrEqual(64)
     expect(px('layout-content-padding')).toBeLessThanOrEqual(24)
-    expect(px('layout-sidebar-width')).toBeLessThanOrEqual(300)
+  })
+
+  // ── JL-443 ────────────────────────────────────────────────────────────
+  // The sidebar and details panel must stay FLUID. A fixed pixel width is a
+  // width tuned for one viewport, and it silently becomes wrong on every
+  // other one: 288px + 304px is 31% of a 1920px screen but 46% of a 1280px
+  // screen, and 1280px is what a 1920x1200 laptop reports at 150% Windows
+  // scaling. Re-pinning either to a single px value reintroduces that, so
+  // these assertions describe the SHAPE of the value, not a number.
+  describe('the chrome widths are fluid, not fixed', () => {
+    // A LITERAL regex, deliberately. MuiThemeTokens.JL408 carries the same
+    // warning: built from a template string, the \s and \d escapes collapse to
+    // bare "s" and "d" and the pattern silently matches nothing.
+    const FLUID = /^clamp\(\s*(\d+)px\s*,\s*([\d.]+)vw\s*,\s*(\d+)px\s*\)$/
+
+    it.each([
+      ['layout-sidebar-width', 288],
+      ['layout-details-panel-width', 320],
+    ])('--%s is a bounded clamp() on vw', (name, maxAllowed) => {
+      const decl = declared(name)
+      const m = decl && decl.match(FLUID)
+      expect(m, `--${name} must be clamp(<min>px, <n>vw, <max>px); got: ${decl}`).toBeTruthy()
+      const [, min, vw, max] = m
+      // A floor, or the sidebar shrinks past its own 16px labels and 18px icons.
+      expect(Number(min), 'floor is too small to hold the nav row').toBeGreaterThanOrEqual(200)
+      // A ceiling, or the chrome balloons on a 2560px monitor.
+      expect(Number(max), 'ceiling too high').toBeLessThanOrEqual(maxAllowed)
+      expect(Number(min)).toBeLessThan(Number(max))
+      // The ratio has to actually do something between the bounds.
+      expect(Number(vw)).toBeGreaterThan(0)
+      expect(Number(vw)).toBeLessThanOrEqual(25)
+    })
+
+    it('holds chrome under 40% of the viewport from 1200px up', () => {
+      // The arithmetic the clamps exist to satisfy. Evaluated here rather than
+      // in a browser so it runs in the node project with the other guards.
+      const evalClamp = (name, vw) => {
+        const [, min, ratio, max] = declared(name).match(FLUID).map(Number)
+        return Math.min(Math.max(min, (ratio / 100) * vw), max)
+      }
+      const failures = []
+      for (const vw of [1200, 1280, 1366, 1440, 1536, 1680, 1920, 2560]) {
+        const chrome = evalClamp('layout-sidebar-width', vw) +
+                       evalClamp('layout-details-panel-width', vw)
+        const pct = (chrome / vw) * 100
+        if (pct >= 40) failures.push(`${vw}px -> ${pct.toFixed(1)}% chrome`)
+      }
+      expect(failures, failures.join('\n')).toEqual([])
+    })
+
+    it('is not overridden back to a fixed width at any breakpoint', () => {
+      // layout.css used to re-pin the sidebar to 256px and 232px at its
+      // breakpoints. Those overrides FOUGHT the clamp — at 1160px the fluid
+      // value is 208px, so 256px made the sidebar wider exactly where room was
+      // scarcest. A breakpoint may still retune padding; it may not restate a
+      // chrome width.
+      const layoutCss = fs.readFileSync(path.join(srcRoot, 'styles', 'layout.css'), 'utf8')
+      const offenders = layoutCss
+        .split(/\r?\n/)
+        .map((l, i) => [l.trim(), i + 1])
+        .filter(([l]) => /^--layout-(sidebar-width|details-panel-width):/.test(l))
+        .map(([l, n]) => `layout.css:${n}  ${l}`)
+      expect(offenders, offenders.join('\n')).toEqual([])
+    })
   })
 
   it('keeps the default icon at 18px', () => {

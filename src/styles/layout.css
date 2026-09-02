@@ -187,8 +187,14 @@
      grid-template-columns, so a width change lands in one place. */
   /* JL-442: the desktop content padding is now 24px, so this breakpoint drops
      to 20 to stay a step tighter rather than matching it. */
+  /* JL-443 removed the --layout-sidebar-width override that used to sit here
+     (256px). It now FIGHTS the fluid clamp in variables.css rather than
+     helping it: at 1160px the fluid value is 208px, so a 256px override made
+     the sidebar 48px WIDER than intended at exactly the width where content
+     room is scarcest. The clamp is a continuous function of the viewport and
+     needs no per-breakpoint assistance — that assistance is what this ticket
+     exists to remove. Padding is a separate concern and still steps here. */
   :root {
-    --layout-sidebar-width: 256px;
     --layout-sidebar-collapsed-width: 64px;
     --layout-content-padding: 20px;
   }
@@ -208,8 +214,11 @@
 }
 
 @media (max-width: 1024px) {
+  /* JL-443: same as above — the 232px sidebar override is gone. The clamp
+     floor (208px) is already the narrowest the sidebar can usefully be with
+     16px labels and 18px icons; below this width the answer is the collapsed
+     icon rail, not a fourth hand-picked pixel value. */
   :root {
-    --layout-sidebar-width: 232px;
     --layout-content-padding: 16px;
   }
 }

@@ -156,11 +156,14 @@ describe('JL-441 — the layout and control tokens hold the briefed values', () 
   // outsized control roles now collapse onto the 40px default, the widths come
   // down ~11% to match the reduced type scale, and --font-size-detail /
   // --space-28 are gone entirely (see variables.css for why).
+  // JL-443: the two chrome WIDTHS left this table. They are no longer single
+  // pixel values — they are clamp() expressions, because a fixed width tuned
+  // at 1920px ate 46% of a 1280px viewport. Their contract is now a ratio with
+  // bounds, which UiDensity.JL442 asserts instead. Heights and padding stay
+  // here: those are genuinely fixed.
   const EXPECTED = {
-    'layout-sidebar-width': '288px',
     'layout-header-height': '64px',
     'layout-breadcrumb-height': '56px',
-    'layout-details-panel-width': '304px',
     'layout-content-padding': '24px',
     'control-height': '40px',
     'control-height-sm': '32px',
