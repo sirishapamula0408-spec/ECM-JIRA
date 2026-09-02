@@ -33,7 +33,7 @@
 .ps-header-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-075);
   min-width: 0;
 }
 
@@ -78,7 +78,7 @@
 .ps-lead {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   font-size: var(--font-size-sm);
   color: var(--jira-text);
 }

@@ -44,7 +44,7 @@
 .backlog-bulk {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   margin-right: 4px;
 }
 
@@ -73,13 +73,13 @@
 .backlog-avatars {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-025);
 }
 
 .backlog-filter-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   font-weight: var(--font-weight-medium);
   background: #ffffff;
 }
@@ -198,7 +198,7 @@
 .jira-sprint-title {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-075);
   min-width: 0;
 }
 
@@ -303,7 +303,7 @@
 .backlog-issue-main {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   min-width: 0;
   flex: 1;
 }
@@ -485,7 +485,7 @@
 .section-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .count-dot {
@@ -616,7 +616,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-075);
 }
 
 .issue-row-dark {

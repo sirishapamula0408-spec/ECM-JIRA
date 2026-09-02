@@ -175,7 +175,7 @@ describe('JL-441 — the layout and control tokens hold the briefed values', () 
     'control-width-status': '220px',
     'avatar-size-md': '24px',
     'avatar-size-lg': '32px',
-    'radius-xs': '3px',
+    'radius-xs': '2px',
     'radius-sm': '6px',
     'radius-md': '8px',
     'radius-lg': '12px',

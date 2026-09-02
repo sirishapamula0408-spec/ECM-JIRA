@@ -22,7 +22,7 @@
 .backlog-top-panel {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   padding: 6px 0 10px;
   border-bottom: 1px solid var(--jira-border);
   margin-bottom: 4px;
@@ -40,7 +40,7 @@
   border-radius: var(--radius-xs);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
@@ -79,7 +79,7 @@
   color: #344563;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .board-view-item.active {

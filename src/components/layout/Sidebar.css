@@ -160,7 +160,7 @@
 }
 
 .nav-trailing-actions {
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .inline-action-btn {
@@ -319,7 +319,7 @@
   display: flex;
   flex-direction: column;
   padding-left: 20px;
-  margin-top: 2px;
+  margin-top: var(--space-025);
   gap: 1px;
   animation: sidebar-expand 200ms ease;
   transform-origin: top;
@@ -412,8 +412,8 @@
 }
 
 .sidebar-nav-compact .nav {
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: var(--space-075);
+  padding-bottom: var(--space-075);
   font-size: var(--font-size-base);
 }
 
@@ -425,7 +425,7 @@
 }
 
 .nav-more {
-  margin-top: 2px;
+  margin-top: var(--space-025);
 }
 
 .nav-plain {
@@ -458,7 +458,7 @@
 }
 
 .sidebar-footer-compact {
-  margin-top: 6px;
+  margin-top: var(--space-075);
 }
 
 .create-side {

@@ -20,7 +20,7 @@
 .pd-breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
@@ -211,7 +211,7 @@
 .pd-lead-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .pd-lead-avatar {

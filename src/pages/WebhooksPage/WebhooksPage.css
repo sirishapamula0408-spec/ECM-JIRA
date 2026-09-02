@@ -52,13 +52,13 @@
   display: block;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-075);
 }
 
 .wh-event-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .wh-event-chip {
@@ -162,7 +162,7 @@
 
 .wh-card-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .wh-delete-btn {

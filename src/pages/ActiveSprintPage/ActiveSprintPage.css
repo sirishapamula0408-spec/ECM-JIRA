@@ -229,7 +229,7 @@
 .active-sprint-card__top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .active-sprint-card__type {
@@ -355,7 +355,7 @@
 .active-sprint-retro__add {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-075);
   margin-top: auto;
 }
 .active-sprint-retro__input {

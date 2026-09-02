@@ -121,7 +121,7 @@
 
 .sd-card-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .sd-delete-btn {

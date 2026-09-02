@@ -65,7 +65,7 @@
 .create-issue-type-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   padding: 6px 14px;
   border: 2px solid var(--jira-border);
   border-radius: var(--radius-sm);
@@ -124,7 +124,7 @@
 .create-issue-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .create-issue-field > label {
@@ -139,7 +139,7 @@
 
 .create-issue-required {
   color: var(--jira-danger);
-  margin-left: 2px;
+  margin-left: var(--space-025);
 }
 
 /* Two-column row for paired fields */
@@ -190,7 +190,7 @@
   width: 10px;
   height: 10px;
   border-radius: var(--radius-pill);
-  margin-right: 6px;
+  margin-right: var(--space-075);
   vertical-align: middle;
 }
 
@@ -218,7 +218,7 @@
 .create-issue-footer-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   color: var(--jira-text-muted);
@@ -252,7 +252,7 @@
   font-weight: var(--font-weight-medium);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   animation: create-issue-fade-in 200ms ease;
 }
 

@@ -357,7 +357,7 @@
 .tl-create-child {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   padding: 0 12px 0 40px;
   height: 36px;
   border-bottom: 1px solid #f0f1f3;

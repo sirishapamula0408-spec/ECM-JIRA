@@ -14,13 +14,13 @@
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .ps-back-link {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   padding: 6px 10px;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
@@ -224,7 +224,7 @@
   color: var(--jira-blue, #0052cc);
   padding: 1px 8px;
   border-radius: var(--radius-xs);
-  margin-left: 6px;
+  margin-left: var(--space-075);
   vertical-align: middle;
 }
 

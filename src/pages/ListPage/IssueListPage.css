@@ -64,7 +64,7 @@
 
 .jira-list-presence {
   display: inline-flex;
-  margin-left: 2px;
+  margin-left: var(--space-025);
 }
 
 .jira-list-presence span {
@@ -377,7 +377,7 @@ body.col-resizing * {
 .jira-list-work-actions {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-025);
   flex: 0 0 auto;
   opacity: 0;
   transition: opacity var(--transition-fast, 120ms) ease;
@@ -667,7 +667,7 @@ body.col-resizing * {
 .jira-list-comment-cell {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   color: var(--list-subtle);
 }
 
@@ -675,7 +675,7 @@ body.col-resizing * {
   color: var(--list-text);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .jira-list-comment-count i {

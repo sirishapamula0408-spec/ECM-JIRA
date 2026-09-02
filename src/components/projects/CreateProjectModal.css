@@ -58,7 +58,7 @@
 .create-project-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .create-project-field > label {
@@ -73,7 +73,7 @@
 
 .create-project-required {
   color: var(--jira-danger);
-  margin-left: 2px;
+  margin-left: var(--space-025);
 }
 
 .create-project-hint {

@@ -28,7 +28,7 @@
 .gadget-picker-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-025);
   text-align: left;
   padding: 10px;
   background: var(--jira-surface, #fff);

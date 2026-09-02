@@ -94,7 +94,7 @@
 .wfe-toolbar-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 /* JL-324: this badge previously had NO rule of its own and fell through to the
@@ -104,8 +104,8 @@
 .wfe-default-workflow-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 6px;
+  gap: var(--space-075);
+  margin-left: var(--space-075);
   padding: 3px 10px;
   border: 1px solid #b3d4ff;
   border-radius: var(--radius-lg);
@@ -130,7 +130,7 @@
 .wfe-no-default-workflow-badge {
   display: inline-flex;
   align-items: center;
-  margin-left: 6px;
+  margin-left: var(--space-075);
   padding: 3px 10px;
   border: 1px dashed var(--jira-border);
   border-radius: var(--radius-lg);
@@ -625,7 +625,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-075);
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ffbdad;
@@ -732,7 +732,7 @@
 }
 
 .wfe-rules-table .btn + .btn {
-  margin-left: 6px;
+  margin-left: var(--space-075);
 }
 
 .wfe-rules-fromto .chip {

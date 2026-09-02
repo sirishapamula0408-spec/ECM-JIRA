@@ -54,7 +54,7 @@
 .projects-archived-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   font-weight: var(--font-weight-regular);
@@ -180,7 +180,7 @@
 .projects-lead-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .projects-lead-avatar {

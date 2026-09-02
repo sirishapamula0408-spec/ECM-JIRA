@@ -11,7 +11,7 @@
 .lvc-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   white-space: nowrap;
 }
 
@@ -81,7 +81,7 @@
   color: var(--color-text, #172b4d);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .lvc-default-badge {
@@ -135,12 +135,12 @@
 
 .lvc-col-reorder {
   display: flex;
-  gap: 2px;
+  gap: var(--space-025);
 }
 
 .lvc-save-form {
   display: flex;
-  gap: 6px;
+  gap: var(--space-075);
   border-top: 1px solid var(--color-border, #dfe1e6);
   padding-top: 8px;
 }

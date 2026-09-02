@@ -98,6 +98,14 @@
 
   /* ── Numeric spacing scale (--space-1 .. --space-8) ──
      4px base step. Complements the named --spacing-* tokens above. */
+  /* JL-443: space.025 and space.075. Atlassian leans on 2px and 6px for the
+     tight gaps inside chips, badges, icon+label pairs and dense rows; without
+     them every small gap in this app snapped to 4px or 8px, which is a large
+     part of why the spacing did not match Jira. 292 declarations were writing
+     these as literals. Named by VALUE, like --space-20/40, because the ordinal
+     names are already taken and renumbering moves every existing call site. */
+  --space-025: 2px;
+  --space-075: 6px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -219,6 +227,11 @@
      is how .gadget-stat ended up at a literal 40px, ~43% larger than
      Atlassian's largest metric. Reach for these for a stat numeral and for
      --font-size-* for prose. */
+  /* JL-443: font.code (12/20). Inline code and pre blocks had no size token and
+     inherited whatever surrounded them. 15 rules consume --font-family-mono. */
+  --font-size-code: 12px;
+  --line-height-code: 20px;
+
   --font-size-metric-lg: 28px;   /* font.metric.large  — hero KPI numeral */
   --font-size-metric-md: 24px;   /* font.metric.medium — donut centre     */
   --font-size-metric-sm: 16px;   /* font.metric.small  — inline stat      */
@@ -236,7 +249,11 @@
      an optical weight on the variable-font wght axis. Under the old system
      stack this was inexpressible and we documented 500/600 as a divergence.
      Inter's axis runs 100-900, so 653 is now exact rather than approximated. */
-  --font-weight-heading: 653;
+  /* JL-443: 700. JL-414 set this to 653 believing it was Atlassian's optical
+     heading weight; the published typography tokens say every heading token is
+     BOLD, so 653 rendered every h1-h6 and page title in this app visibly
+     lighter than Jira. Verified against atlassian.design/foundations/typography. */
+  --font-weight-heading: 700;
 
   /* JL-414 — deliberate divergences from Atlassian, recorded per AC#5.
 
@@ -391,7 +408,11 @@
   --line-height-brand: 24px;
 
   /* ── Border radius (brief §33): 3 / 6 / 8 / 12. Controls 6, cards 8. ── */
-  --radius-xs: 3px;
+  /* JL-443: 2px, matching radius.xsmall. Was 3px, which was not on Atlassian's
+     scale at all. The rest of this ladder is already exact: sm 6 = radius.medium
+     (their documented default for buttons/inputs/selects/nav), md 8 =
+     radius.large (cards), lg 12 = radius.xlarge, pill 999 = radius.full. */
+  --radius-xs: 2px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;

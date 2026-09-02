@@ -43,7 +43,7 @@ const LEADING = { xs: 16, sm: 20, base: 20, md: 20, lg: 24, xl: 28, xxl: 32 }
 // only because Inter is a VARIABLE font (wght axis 100-900) — under the old
 // static system stack it would have rounded to whatever the platform had.
 // Keep in sync with --font-weight-heading in variables.css.
-const WEIGHT = { regular: 400, medium: 500, semibold: 600, heading: 653, bold: 700 }
+const WEIGHT = { regular: 400, medium: 500, semibold: 600, heading: 700, bold: 700 }
 
 // JL-439 — control geometry, mirroring the --control-height-* / --radius-*
 // tokens in variables.css. MUI cannot read a CSS custom property for a value
@@ -53,7 +53,7 @@ const WEIGHT = { regular: 400, medium: 500, semibold: 600, heading: 653, bold: 7
 // they drift from the stylesheet.
 const CONTROL_HEIGHT = 32
 const CONTROL_HEIGHT_SM = 24
-const RADIUS = { xs: 3, sm: 6, md: 8, lg: 12 }
+const RADIUS = { xs: 2, sm: 6, md: 8, lg: 12 }
 
 const variant = (step, weight = WEIGHT.regular) => ({
   fontSize: `${SIZE[step]}px`,

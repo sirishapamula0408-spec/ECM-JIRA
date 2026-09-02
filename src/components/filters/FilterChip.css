@@ -50,7 +50,7 @@
   width: 18px;
   height: 18px;
   border-radius: var(--radius-xs);
-  margin-left: 2px;
+  margin-left: var(--space-025);
   color: var(--jira-blue);
   cursor: pointer;
   flex-shrink: 0;
@@ -64,7 +64,7 @@
 .filter-chip__chevron {
   display: inline-flex;
   align-items: center;
-  margin-left: 2px;
+  margin-left: var(--space-025);
   opacity: 0.6;
   flex-shrink: 0;
 }

@@ -94,7 +94,7 @@
 
 .stat strong {
   display: block;
-  margin-top: 6px;
+  margin-top: var(--space-075);
   font-size: var(--font-size-xxl);
   line-height: var(--line-height-xxl);
   font-weight: var(--font-weight-bold);
@@ -454,7 +454,7 @@
 
 label {
   display: grid;
-  gap: 6px;
+  gap: var(--space-075);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   color: var(--jira-text-muted);
@@ -474,7 +474,7 @@ label {
 
 .field-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-075);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-medium);
@@ -635,7 +635,7 @@ textarea:focus {
 .issue-watcher-count {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-025);
   color: var(--jira-text-subtlest);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
@@ -755,7 +755,7 @@ textarea:focus {
 
 .activity-list small {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-025);
   color: var(--jira-text-muted);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);

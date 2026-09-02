@@ -81,7 +81,7 @@
   display: block;
   font-size: var(--font-size-base);
   color: var(--color-text-subtle, #6b778c);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-075);
 }
 
 /* Kanban layout */
@@ -142,8 +142,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: var(--space-075);
+  margin-bottom: var(--space-075);
 }
 
 .cpb-card-issuekey {
@@ -176,7 +176,7 @@
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-base);
   padding: 6px 0;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-075);
   border-bottom: 2px solid var(--color-border, #dfe1e6);
   color: var(--color-text, #172b4d);
 }

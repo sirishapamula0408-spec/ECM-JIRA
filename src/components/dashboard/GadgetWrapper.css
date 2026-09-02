@@ -30,7 +30,7 @@
 .gadget-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   padding: 8px 10px;
   border-bottom: 1px solid var(--jira-border);
   cursor: grab;
@@ -63,7 +63,7 @@
 .gadget-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-025);
   flex-shrink: 0;
 }
 

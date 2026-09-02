@@ -22,7 +22,7 @@
 
 .filters-header-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 /* Criteria bar */
@@ -110,7 +110,7 @@
 
 .filters-save-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-075);
   padding-bottom: 1px;
 }
 
@@ -210,7 +210,7 @@
 .filters-assignee-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
 }
 
 .filters-assignee-avatar {
@@ -257,7 +257,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  padding: 2px;
+  padding: var(--space-025);
   display: inline-flex;
 }
 
@@ -598,7 +598,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-075);
   padding: 10px 14px;
   background: #f5f3ff;
   border: 1px solid #e9d8fd;
@@ -610,7 +610,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: #6d28d9;
-  margin-right: 2px;
+  margin-right: var(--space-025);
 }
 
 .ai-interpreted-chip {

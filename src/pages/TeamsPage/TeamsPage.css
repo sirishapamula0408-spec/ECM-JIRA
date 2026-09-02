@@ -86,7 +86,7 @@
 
 .teams-invite-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-075);
   align-items: end;
   padding-bottom: 1px;
 }
@@ -132,7 +132,7 @@
 .teams-table-filter {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-075);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--jira-text-muted);
@@ -158,7 +158,7 @@
 .teams-sort-btn {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-025);
   background: none;
   border: none;
   padding: 0;

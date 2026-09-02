@@ -39,7 +39,7 @@
     overflow-x: auto;
     /* Room for the scrollbar in the band where one appears, so it does not sit
        on top of the card borders. */
-    padding-bottom: 2px;
+    padding-bottom: var(--space-025);
   }
 }
 
