@@ -132,7 +132,17 @@ export function Topbar({ onCreate, hasProjects }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
-        {workspaces.length > 0 && (
+        {/* JL-445: only render the switcher when there is something to switch
+            TO. With a single workspace this was a label plus a dropdown holding
+            one option - about 200px of header offering no choice - and it
+            squeezed the search field, which is the control people actually use.
+
+            Gated rather than deleted, deliberately. JL-73 built multi-tenant
+            support and this is the ONLY place in the app that calls
+            setActiveWorkspaceId, so removing the markup would strand a second
+            workspace with no way to reach it. "> 1" hides it today and brings
+            it back by itself the moment one is created. */}
+        {workspaces.length > 1 && (
           <label className="topbar-workspace" title="Switch workspace">
             <span className="topbar-workspace-icon" aria-hidden="true">Workspace</span>
             <select

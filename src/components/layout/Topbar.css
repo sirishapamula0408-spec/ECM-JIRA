@@ -28,9 +28,15 @@
   font-family: var(--font-family-mono);
 }
 
+/* JL-445: search takes the width the workspace selector used to occupy. It is
+   the most-used control in the bar and JQL queries are long. Fluid rather than
+   a fixed cap: it grows with the header, and stops at 780px so it does not run
+   into the actions on a very wide monitor. */
 .topbar-search-wrap {
   position: relative;
-  width: min(740px, 100%);
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 780px;
 }
 
 .topbar-search-spinner {
@@ -112,14 +118,18 @@
   font-size: var(--font-size-sm);
 }
 
+/* JL-445: 4px. The bell, help and theme controls are one related group of
+   icon buttons; spaced further apart they read as three unrelated controls.
+   Their own padding supplies the visual breathing room, so the gap only has to
+   keep the hit targets distinct. */
 .top-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-1);
   align-items: center;
 }
 
 .top-actions-jira {
-  gap: 10px;
+  gap: var(--space-1);
 }
 
 .topbar-live-clock {
