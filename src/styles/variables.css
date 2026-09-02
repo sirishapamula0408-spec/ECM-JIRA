@@ -106,7 +106,11 @@
      platform — an Atlassian legacy string that always fell through to the
      next entry, so dropping it changes nothing at render time and stops the
      stack advertising a font that cannot resolve. */
-  --font-family-mono: "SF Mono", "Segoe UI Mono", "Roboto Mono", "Ubuntu Mono", Menlo, Consolas, Courier, monospace;
+  /* JL-447: ui-monospace leads - it resolves to whatever the platform calls
+     its UI monospace (SF Mono on macOS, Cascadia on Windows 11) without naming
+     each one. Courier dropped: nobody wants it, and the generic monospace
+     keyword already covers that case. */
+  --font-family-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
 
   /* JL-396: the scale was raised so --font-size-base is 14px, Atlassian's body
      size. The whole scale moved, not just the base, for two reasons:
@@ -166,6 +170,14 @@
   --line-height-metric-lg: 32px;
   --line-height-metric-md: 28px;
   --line-height-metric-sm: 20px;
+
+  /* ── Letter spacing (JL-447) ──
+     Capitals set at body size need tracking or they read as a solid block.
+     The audit found the problem was NOT missing tracking - 43 of 51 uppercase
+     rules already had some - but NINE different values: 0.02em, 0.03em,
+     0.04em, 0.06em, 0.08em, a bare .04em with no leading zero, and three in PX
+     (0.3px, 0.4px) which do not scale with the text they track. One token. */
+  --letter-spacing-caps: 0.05em;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;

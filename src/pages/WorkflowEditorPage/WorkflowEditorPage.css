@@ -375,7 +375,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-muted);
 }
 
@@ -446,7 +446,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   line-height: 1.2;
   text-align: center;
   max-width: 116px;
@@ -574,7 +574,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-muted);
 }
 
@@ -589,7 +589,7 @@
   color: var(--jira-text-muted);
   margin-bottom: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .wfe-prop-value {

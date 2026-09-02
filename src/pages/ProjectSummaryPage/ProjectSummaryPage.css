@@ -156,7 +156,7 @@
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-muted);
 }
 

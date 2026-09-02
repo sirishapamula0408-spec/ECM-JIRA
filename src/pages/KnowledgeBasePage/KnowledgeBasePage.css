@@ -112,7 +112,7 @@
 .kb-badge {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   padding: 2px 8px;
   border-radius: 10px;
   align-self: start;

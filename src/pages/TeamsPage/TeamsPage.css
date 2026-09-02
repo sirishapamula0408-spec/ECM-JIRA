@@ -182,7 +182,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-muted);
   background: var(--jira-surface-subtle);
 }

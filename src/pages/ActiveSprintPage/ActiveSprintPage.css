@@ -179,7 +179,7 @@
   line-height: var(--line-height-sm);
   text-transform: uppercase;
   color: var(--jira-text-muted);
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -282,7 +282,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--color-text-subtle, #6b778c);
 }
 .active-sprint-goal__text {

@@ -112,7 +112,7 @@
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: #6b778c;
 }
 
@@ -324,6 +324,7 @@
   border-radius: 3px;
   flex-shrink: 0;
   text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .pd-issue-status--to-do { background: #dfe1e6; color: #42526e; }

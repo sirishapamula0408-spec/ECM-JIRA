@@ -126,6 +126,7 @@
 
 .ie-log-action {
   text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   border-radius: 3px;

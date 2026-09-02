@@ -131,7 +131,7 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 0.08em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
 }
 
@@ -308,7 +308,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: #5e6c84;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
 }
 
@@ -397,7 +397,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: #5e6c84;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
 }
 
@@ -654,7 +654,7 @@
   color: var(--text-muted, #6b778c);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 .login-sso-separator::before,
 .login-sso-separator::after {

@@ -597,7 +597,7 @@
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--letter-spacing-caps);
   margin-bottom: 4px;
 }
 

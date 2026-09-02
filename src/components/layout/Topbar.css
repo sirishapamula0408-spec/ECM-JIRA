@@ -21,6 +21,13 @@
   width: 100%;
 }
 
+/* JL-447: the placeholder shows a JQL expression, so it is set in mono. Only
+   the PLACEHOLDER - the input stays on the sans stack, because most searches
+   typed here are free text rather than JQL. */
+.search::placeholder {
+  font-family: var(--font-family-mono);
+}
+
 .topbar-search-wrap {
   position: relative;
   width: min(740px, 100%);
@@ -95,7 +102,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-subtle, #6b778c);
 }
 
@@ -288,7 +295,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--text-subtle, #626f86);
 }
 .topbar-workspace-select {

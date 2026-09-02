@@ -21,6 +21,14 @@
 }
 
 .table th,
+/* ── Numerals (JL-447) ──
+   Tabular figures for anything whose digits change in place: a live clock, an
+   incrementing count, a column of numbers compared down the page. Proportional
+   figures are right for prose and wrong for all three. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 .table td {
   padding: 8px 10px;
   text-align: left;
@@ -31,7 +39,7 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
   background: var(--jira-surface-subtle);
@@ -69,7 +77,7 @@
   margin: 0;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
@@ -331,7 +339,7 @@
   margin-bottom: 8px;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
@@ -409,7 +417,7 @@ label {
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 input,

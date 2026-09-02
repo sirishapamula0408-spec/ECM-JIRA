@@ -110,7 +110,7 @@
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   color: var(--color-text-subtle, #6b778c);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .cpb-column-count {

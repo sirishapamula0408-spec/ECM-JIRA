@@ -7,6 +7,10 @@
   font-size: 14px;
   line-height: 1.4286;
   font-weight: 400;
+  /* JL-447: let the variable font pick the optical size for the size actually
+     being rendered. Inter Variable ships an opsz axis; without this, small UI
+     text uses display-optimised letterforms. */
+  font-optical-sizing: auto;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

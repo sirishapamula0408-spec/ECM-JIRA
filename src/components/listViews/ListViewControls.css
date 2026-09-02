@@ -37,7 +37,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--color-text-subtle, #6b778c);
   margin-bottom: 8px;
 }
@@ -91,6 +91,7 @@
   padding: 1px 6px;
   border-radius: 10px;
   text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .lvc-view-actions {
@@ -126,7 +127,7 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .lvc-col-label:has(input:disabled) {

@@ -44,6 +44,7 @@
 .gadget-picker-cat {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--jira-text-muted, #6b778c);
 }
 

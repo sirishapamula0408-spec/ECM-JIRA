@@ -102,7 +102,7 @@
   font-weight: var(--font-weight-bold);
   color: var(--jira-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   flex-shrink: 0;
 }
 
@@ -195,7 +195,7 @@
   border-radius: 3px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   flex-shrink: 0;
   white-space: nowrap;

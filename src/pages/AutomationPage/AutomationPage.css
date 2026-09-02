@@ -18,7 +18,7 @@
 .au-rule-actions { display: flex; gap: 6px; }
 .au-logs { display: flex; flex-direction: column; gap: 4px; }
 .au-log { display: flex; gap: 10px; align-items: center; font-size: var(--font-size-base); padding: 4px 0; border-bottom: 1px solid #f4f5f7; }
-.au-log-status { font-size: var(--font-size-sm); text-transform: uppercase; padding: 2px 8px; border-radius: 3px; font-weight: var(--font-weight-semibold); }
+.au-log-status { font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: var(--letter-spacing-caps); padding: 2px 8px; border-radius: 3px; font-weight: var(--font-weight-semibold); }
 .au-log-status--success { background: #e3fcef; color: #006644; }
 .au-log-status--failure { background: #ffebe6; color: #bf2600; }
 .au-log-rule { font-weight: var(--font-weight-semibold); }

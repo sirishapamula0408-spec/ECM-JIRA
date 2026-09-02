@@ -114,7 +114,7 @@
 .tte-slash-title {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--text-secondary, #5e6c84);
   padding: 6px 8px 2px;
 }

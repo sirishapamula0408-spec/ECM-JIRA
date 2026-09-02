@@ -137,6 +137,7 @@
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
   color: #0052cc;
   background: #deebff;
   border-radius: 4px;

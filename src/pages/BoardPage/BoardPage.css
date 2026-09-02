@@ -567,7 +567,7 @@ body.board-col-resizing {
   line-height: var(--line-height-sm);
   text-transform: uppercase;
   color: var(--jira-text-muted);
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .kanban-col header span {

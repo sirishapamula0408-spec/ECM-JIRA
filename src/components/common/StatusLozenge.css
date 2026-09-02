@@ -22,7 +22,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   line-height: 16px;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;

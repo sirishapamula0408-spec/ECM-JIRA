@@ -150,7 +150,10 @@
 }
 
 /* JL-321: issue key is now a link (Atlassian-style) */
+/* JL-447: an issue key is an identifier. Mono makes ECM-7 scannable and stops
+   the digits shifting against the letters. */
 .id-issue-key {
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: #0052cc;
@@ -212,7 +215,7 @@
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
   color: #6b778c;
 }
 
@@ -604,7 +607,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .id-history-text {
@@ -626,7 +629,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .id-worklog-detail {
@@ -730,7 +733,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--letter-spacing-caps);
   cursor: pointer;
   appearance: auto;
   outline: none;
@@ -773,7 +776,7 @@
   font-weight: var(--font-weight-semibold);
   color: #6b778c;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 /* Detail list (key-value pairs) */
@@ -1256,11 +1259,11 @@
 /* Theme-1 #4: issue links */
 .id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: #f4f5f7; border-radius: 4px; }
 .id-link-dialog-actions { display: flex; gap: 6px; }
-.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: var(--font-weight-semibold); }
+.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: var(--letter-spacing-caps); color: #5e6c84; min-width: 92px; font-weight: var(--font-weight-semibold); }
 
 /* JL-55: Git integration (Development panel) */
 .id-git-group { margin-bottom: 10px; }
-.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
+.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: var(--letter-spacing-caps); color: #5e6c84; font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
 .id-git-icon { min-width: 16px; text-align: center; color: #5e6c84; }
 .id-git-author { font-size: var(--font-size-sm); color: #5e6c84; margin-left: auto; }
 
@@ -1308,7 +1311,8 @@
 /* JL-56: CI/CD pipeline status */
 .id-ci-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: 4px; font-size: var(--font-size-base); }
-.id-ci-status { text-transform: uppercase; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: .04em; padding: 2px 8px; border-radius: 10px; color: #fff; }
+.id-ci-status { text-transform: uppercase; letter-spacing: var(--letter-spacing-caps); font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: var(--letter-spacing-caps); padding: 2px 8px; border-radius: 10px; color: #fff; }
+letter-spacing: var(--letter-spacing-caps);
 .id-ci-status--success { background: #36b37e; }
 .id-ci-status--failed { background: #de350b; }
 .id-ci-status--running { background: #0065ff; }
