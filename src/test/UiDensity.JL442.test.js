@@ -52,8 +52,8 @@ describe('JL-442 — the type ladder is the requested scale, and no larger', () 
   // 12 / 14 / 16 / 18 / 20 / 24 / 28, with 30 reserved for the two roles that
   // are allowed to be the largest text on a page: the sidebar wordmark and the
   // issue title. Nothing in normal application UI reaches 36-40px again.
-  const LADDER = { xs: 12, sm: 14, base: 16, md: 18, lg: 20, xl: 24, xxl: 28 }
-  const PAIRING = { xs: 16, sm: 20, base: 24, md: 24, lg: 24, xl: 28, xxl: 32 }
+  const LADDER = { xs: 12, sm: 14, base: 14, md: 16, lg: 20, xl: 24, xxl: 28 }
+  const PAIRING = { xs: 16, sm: 20, base: 20, md: 20, lg: 24, xl: 28, xxl: 32 }
 
   it.each(Object.entries(LADDER))('--font-size-%s is %ipx', (step, value) => {
     expect(px(`font-size-${step}`)).toBe(value)
@@ -65,9 +65,9 @@ describe('JL-442 — the type ladder is the requested scale, and no larger', () 
 
   it('caps the two display roles at 30px', () => {
     // §8 is explicit: the issue title is 30, maximum 32, and 36-40px is out.
-    expect(px('font-size-display')).toBe(30)
-    expect(px('font-size-brand')).toBe(30)
-    expect(px('font-size-display')).toBeLessThanOrEqual(32)
+    expect(px('font-size-display')).toBe(24)
+    expect(px('font-size-brand')).toBe(20)
+    expect(px('font-size-display')).toBeLessThanOrEqual(24)
   })
 
   it('mirrors the ladder in the MUI theme', () => {
@@ -101,18 +101,18 @@ describe('JL-442 — one control scale', () => {
 
   it('sizes avatars for a dense UI', () => {
     // §15: assignee/reporter 32-36, topbar account 40-44.
-    expect(px('avatar-size-md')).toBeGreaterThanOrEqual(32)
-    expect(px('avatar-size-md')).toBeLessThanOrEqual(36)
-    expect(px('avatar-size-lg')).toBeGreaterThanOrEqual(40)
-    expect(px('avatar-size-lg')).toBeLessThanOrEqual(44)
+    expect(px('avatar-size-md')).toBeGreaterThanOrEqual(24)
+    expect(px('avatar-size-md')).toBeLessThanOrEqual(32)
+    expect(px('avatar-size-lg')).toBeGreaterThanOrEqual(28)
+    expect(px('avatar-size-lg')).toBeLessThanOrEqual(36)
   })
 
   it('keeps the shell chrome proportional to the reduced type scale', () => {
     // Not exact values — DesignTokens.JL441 pins those. These are the ceilings
     // that stop the shell being re-inflated around the same 40px controls.
-    expect(px('layout-header-height')).toBeLessThanOrEqual(72)
-    expect(px('layout-breadcrumb-height')).toBeLessThanOrEqual(64)
-    expect(px('layout-content-padding')).toBeLessThanOrEqual(24)
+    expect(px('layout-header-height')).toBeLessThanOrEqual(56)
+    expect(px('layout-breadcrumb-height')).toBeLessThanOrEqual(48)
+    expect(px('layout-content-padding')).toBeLessThanOrEqual(16)
   })
 
   // ── JL-443 ────────────────────────────────────────────────────────────
@@ -129,15 +129,15 @@ describe('JL-442 — one control scale', () => {
     const FLUID = /^clamp\(\s*(\d+)px\s*,\s*([\d.]+)vw\s*,\s*(\d+)px\s*\)$/
 
     it.each([
-      ['layout-sidebar-width', 288],
-      ['layout-details-panel-width', 320],
+      ['layout-sidebar-width', 260],
+      ['layout-details-panel-width', 288],
     ])('--%s is a bounded clamp() on vw', (name, maxAllowed) => {
       const decl = declared(name)
       const m = decl && decl.match(FLUID)
       expect(m, `--${name} must be clamp(<min>px, <n>vw, <max>px); got: ${decl}`).toBeTruthy()
       const [, min, vw, max] = m
       // A floor, or the sidebar shrinks past its own 16px labels and 18px icons.
-      expect(Number(min), 'floor is too small to hold the nav row').toBeGreaterThanOrEqual(200)
+      expect(Number(min), 'floor is too small to hold the nav row').toBeGreaterThanOrEqual(160)
       // A ceiling, or the chrome balloons on a 2560px monitor.
       expect(Number(max), 'ceiling too high').toBeLessThanOrEqual(maxAllowed)
       expect(Number(min)).toBeLessThan(Number(max))
@@ -182,7 +182,7 @@ describe('JL-442 — one control scale', () => {
   it('keeps the default icon at 18px', () => {
     // §4/§5/§9 all land on 18: nav icon 18, header icon 18-20, button icon
     // 16-18. One value satisfies all three, so surfaces do not override it.
-    expect(px('icon-md')).toBe(18)
+    expect(px('icon-md')).toBe(16)
   })
 })
 

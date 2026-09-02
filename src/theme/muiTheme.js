@@ -37,8 +37,8 @@ const FONT_FAMILY = 'var(--font-family-sans, sans-serif)'
 // Atlassian's own pairings. The body end (xs/sm/base) is unchanged.
 // variables.css carries the full reasoning; MuiThemeTokens.JL408 fails if
 // these two objects and that stylesheet disagree.
-const SIZE = { xs: 12, sm: 14, base: 16, md: 18, lg: 20, xl: 24, xxl: 28 }
-const LEADING = { xs: 16, sm: 20, base: 24, md: 24, lg: 24, xl: 28, xxl: 32 }
+const SIZE = { xs: 12, sm: 14, base: 14, md: 16, lg: 20, xl: 24, xxl: 28 }
+const LEADING = { xs: 16, sm: 20, base: 20, md: 20, lg: 24, xl: 28, xxl: 32 }
 // JL-414 (option B): `heading` is Atlassian's optical 653. It is expressible
 // only because Inter is a VARIABLE font (wght axis 100-900) — under the old
 // static system stack it would have rounded to whatever the platform had.
@@ -51,8 +51,8 @@ const WEIGHT = { regular: 400, medium: 500, semibold: 600, heading: 653, bold: 7
 // the numbers are wanted here for the shape/spacing maths anyway), so these
 // are the one place the numbers are repeated. MuiThemeTokens.JL408 fails if
 // they drift from the stylesheet.
-const CONTROL_HEIGHT = 40
-const CONTROL_HEIGHT_SM = 32
+const CONTROL_HEIGHT = 32
+const CONTROL_HEIGHT_SM = 24
 const RADIUS = { xs: 3, sm: 6, md: 8, lg: 12 }
 
 const variant = (step, weight = WEIGHT.regular) => ({

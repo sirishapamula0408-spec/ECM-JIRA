@@ -706,7 +706,7 @@
 /* Brief §21: the details panel is a white surface, 28px padding, separated
    from the content by the border on .id-main - not by a grey fill. */
 .id-sidebar {
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--jira-surface);
   overflow-y: auto;
 }
@@ -789,7 +789,7 @@
    individual cards." */
 .id-detail-row {
   display: grid;
-  grid-template-columns: 92px 1fr;
+  grid-template-columns: 72px 1fr;
   gap: var(--space-3);
   margin-bottom: var(--space-20);
   align-items: center;

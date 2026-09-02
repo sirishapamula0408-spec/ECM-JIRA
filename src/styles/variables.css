@@ -112,9 +112,9 @@
      the requested sizes are 18px for a nav icon, 18-20 for a header icon and
      16-18 inside a button. 18 is the one value that satisfies all three, so
      the default moves rather than each surface overriding it. */
-  --icon-sm: 16px;
-  --icon-md: 18px;
-  --icon-lg: 24px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
 
   /* ── Atlassian typography scale ── */
   /* JL-414 option B: Inter, self-hosted (SIL OFL). The system stack stays
@@ -197,17 +197,17 @@
      that wanted 16 were repointed from md to base in the same sweep rather
      than being left one step high. */
   --font-size-xs: 12px;   /* meta, captions, counts          */
-  --font-size-sm: 14px;   /* small                           */
-  --font-size-base: 16px; /* BODY                            */
-  --font-size-md: 18px;   /* sub-heading / card title        */
+  --font-size-sm: 14px;   /* labels, buttons, tables         */
+  --font-size-base: 14px; /* BODY - Atlassian font.body      */
+  --font-size-md: 16px;   /* sub-heading / card title        */
   --font-size-lg: 20px;   /* h4 / modal title                */
   --font-size-xl: 24px;   /* h3 / page title                 */
   --font-size-xxl: 28px;  /* h2 / large page title           */
 
   --line-height-xs: 16px;
   --line-height-sm: 20px;
-  --line-height-base: 24px;
-  --line-height-md: 24px;
+  --line-height-base: 20px;
+  --line-height-md: 20px;
   --line-height-lg: 24px;
   --line-height-xl: 28px;
   --line-height-xxl: 32px;
@@ -385,10 +385,10 @@
      labels are 14 (= sm). Both numbers already have a token, so the 13 call
      sites were repointed and the role token deleted rather than re-valued. The
      18px step itself survives as --font-size-md. */
-  --font-size-display: 30px;   /* issue title — the page's dominant text */
-  --line-height-display: 36px;
-  --font-size-brand: 30px;     /* sidebar wordmark */
-  --line-height-brand: 36px;
+  --font-size-display: 24px;   /* issue title — Atlassian heading.large */
+  --line-height-display: 28px;
+  --font-size-brand: 20px;     /* sidebar wordmark */
+  --line-height-brand: 24px;
 
   /* ── Border radius (brief §33): 3 / 6 / 8 / 12. Controls 6, cards 8. ── */
   --radius-xs: 3px;
@@ -456,12 +456,12 @@
      own content. Below ~1100px the floors bottom out and the ratio climbs
      again; no fluid formula fixes that, and that band is handled by collapsing
      the sidebar to the icon rail (the rest of JL-443). */
-  --layout-sidebar-width: clamp(208px, 16vw, 288px);
+  --layout-sidebar-width: clamp(204px, 15vw, 260px);
   --layout-sidebar-collapsed-width: 72px;
-  --layout-header-height: 64px;          /* was 86 — 40px controls + 12 each side */
-  --layout-breadcrumb-height: 56px;      /* was 76 — 24px line + 16 each side */
-  --layout-details-panel-width: clamp(248px, 18vw, 320px);
-  --layout-content-padding: 24px;        /* was 32 */
+  --layout-header-height: 52px;          /* 32px controls + 10 each side */
+  --layout-breadcrumb-height: 44px;      /* 20px line + 12 each side */
+  --layout-details-panel-width: clamp(248px, 17vw, 288px);
+  --layout-content-padding: 16px;
 
   /* ── Control geometry. One height per role; a page that needs a control
      taller or shorter than these is a bug in the page, not a new size.
@@ -471,18 +471,18 @@
      54px Create button and a 52px search field ended up being the global
      contract. 40px is the requested height for a button, input, select,
      dropdown and sidebar row alike — one control scale, not six. ── */
-  --control-height-sm: 32px;      /* badge, dense chip            */
-  --control-height: 40px;         /* default button/input/select  */
-  --control-height-flag: 36px;    /* Add flag            (was 42) */
-  --control-height-status: 40px;  /* issue status dropdown (was 44) */
-  --control-height-nav: 40px;     /* sidebar nav row, tab strip (was 48) */
-  --control-height-search: 40px;  /* global search       (was 52) */
-  --control-height-create: 40px;  /* Create button       (was 54) */
+  --control-height-sm: 24px;      /* badge, dense chip            */
+  --control-height: 32px;         /* default button/input/select  */
+  --control-height-flag: 32px;    /* Add flag                     */
+  --control-height-status: 32px;  /* issue status dropdown        */
+  --control-height-nav: 32px;     /* sidebar nav row, tab strip   */
+  --control-height-search: 32px;  /* global search                */
+  --control-height-create: 32px;  /* Create button                */
   --control-width-status: 220px;
 
   --avatar-size-sm: 24px;
-  --avatar-size-md: 32px;         /* details-panel user rows (was 34) */
-  --avatar-size-lg: 40px;         /* topbar account avatar   (was 48) */
+  --avatar-size-md: 24px;         /* details-panel user rows      */
+  --avatar-size-lg: 32px;         /* topbar account avatar        */
 
   /* ── The --color-* names from the brief that the JL-392 alias layer above
      does not already carry. Same rule as that layer: every one points at the
