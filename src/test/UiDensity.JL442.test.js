@@ -63,10 +63,13 @@ describe('JL-442 — the type ladder is the requested scale, and no larger', () 
     expect(px(`line-height-${step}`)).toBe(value)
   })
 
-  it('caps the two display roles at 30px', () => {
-    // §8 is explicit: the issue title is 30, maximum 32, and 36-40px is out.
+  it('keeps the two display roles on the heading scale', () => {
+    // The issue title is Atlassian heading.large (24/28) and the sidebar
+    // wordmark is heading.small (16/20). Neither is a display element: 30px
+    // and 36px both shipped here at different points and both read as
+    // oversized on a scaled display.
     expect(px('font-size-display')).toBe(24)
-    expect(px('font-size-brand')).toBe(20)
+    expect(px('font-size-brand')).toBe(16)
     expect(px('font-size-display')).toBeLessThanOrEqual(24)
   })
 

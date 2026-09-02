@@ -182,7 +182,7 @@ describe('JL-441 — the layout and control tokens hold the briefed values', () 
     'radius-pill': '999px',
     'font-size-display': '24px',
     'line-height-display': '28px',
-    'font-size-brand': '20px',
+    'font-size-brand': '16px',
     'space-20': '20px',
     'space-40': '40px',
   }
