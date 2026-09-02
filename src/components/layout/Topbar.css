@@ -137,15 +137,19 @@
   user-select: none;
 }
 
+/* JL-443: 16px, not 24px. At 24 the clock was the loudest element in the
+   header - the same size as an issue title - for a readout nobody navigates
+   by. Atlassian ships no clock at all; this is a utility, so it takes a
+   utility size. */
 .topbar-clock-time {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text);
   font-variant-numeric: tabular-nums;
 }
 
 .topbar-clock-date {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-medium);
 }

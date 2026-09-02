@@ -404,8 +404,11 @@
      18px step itself survives as --font-size-md. */
   --font-size-display: 24px;   /* issue title — Atlassian heading.large */
   --line-height-display: 28px;
-  --font-size-brand: 20px;     /* sidebar wordmark */
-  --line-height-brand: 24px;
+  /* JL-443: 16px. A nav wordmark is not a display element - at 20px it plus
+     the collapse button no longer fit the 204px sidebar floor and pushed a
+     horizontal scrollbar into the rail. heading.small is the right role. */
+  --font-size-brand: 16px;     /* sidebar wordmark */
+  --line-height-brand: 20px;
 
   /* ── Border radius (brief §33): 3 / 6 / 8 / 12. Controls 6, cards 8. ── */
   /* JL-443: 2px, matching radius.xsmall. Was 3px, which was not on Atlassian's
@@ -477,7 +480,7 @@
      own content. Below ~1100px the floors bottom out and the ratio climbs
      again; no fluid formula fixes that, and that band is handled by collapsing
      the sidebar to the icon rail (the rest of JL-443). */
-  --layout-sidebar-width: clamp(204px, 15vw, 260px);
+  --layout-sidebar-width: clamp(216px, 15vw, 260px);
   --layout-sidebar-collapsed-width: 72px;
   --layout-header-height: 52px;          /* 32px controls + 10 each side */
   --layout-breadcrumb-height: 44px;      /* 20px line + 12 each side */

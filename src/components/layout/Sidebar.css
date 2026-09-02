@@ -7,19 +7,32 @@
   gap: var(--space-4);
   transition: width 120ms ease;
   overflow-y: auto;
+  /* JL-443: never scroll the rail sideways. A nav column has no horizontal
+     axis to explore, so a horizontal scrollbar here is always a bug - and a
+     sub-pixel from the fluid clamp is enough to summon one. The real fixes
+     are above (minmax(0,1fr) on .sidebar-top and ellipsis on .brand h2);
+     this stops any future 1px from putting a bar back. The active-nav rail
+     sits at -12px inside the 16px padding, so nothing visible is clipped. */
+  overflow-x: hidden;
 }
 
+/* JL-443: min-width:0 on the 1fr track. Grid and flex children default to
+   min-width:auto and REFUSE to shrink below their content, so the nowrap
+   wordmark plus the collapse button forced the sidebar 12px wider than its
+   own box and produced a horizontal scrollbar in the rail. The same hazard is
+   documented on the shell in styles/layout.css. */
 .sidebar-top {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .jira-brand h2 {
@@ -49,12 +62,18 @@
 }
 
 /* Brief §6: the wordmark is deliberately prominent - 30px, 700, brand blue. */
+/* Truncate rather than overflow: the wordmark is data, and a longer one must
+   not be able to reintroduce the scrollbar. */
 .brand h2 {
   margin: 0;
   font-size: var(--font-size-brand);
   line-height: var(--line-height-brand);
   font-weight: var(--font-weight-bold);
   color: var(--jira-blue);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand p {
