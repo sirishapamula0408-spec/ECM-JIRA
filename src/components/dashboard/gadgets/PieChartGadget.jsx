@@ -17,10 +17,10 @@ export function PieChartGadget({ issues, config, projectId = null }) {
   const allSegments = resolveSegmentColors(groupIssuesBy(issues, field), groupBy)
   const segments = allSegments.filter((s) => !hiddenLabels.has(s.label))
   const total = segments.reduce((sum, s) => sum + s.count, 0)
-  // Legend percentages are always "share of everything", hidden slices included,
-  // so they don't jump around as slices are toggled off (JL-336: this used to be
-  // an inline expression that reconstructed the same grand total the long way).
-  const grandTotal = allSegments.reduce((sum, s) => sum + s.count, 0)
+  // JL-444 removed `grandTotal` here. Its only consumer was the legend
+  // percentage, which is gone; the on-slice labels use `total` (visible slices
+  // only) by design. DonutChartGadget still computes its own — the hole
+  // displays it, so it is not dead there.
 
   // JL-345: with no issues at all this used to render a blank grey disc above an
   // empty legend, with nothing to say why. Every sibling gadget states it
@@ -108,7 +108,6 @@ export function PieChartGadget({ issues, config, projectId = null }) {
           groupBy={groupBy}
           projectId={projectId}
           showCounts={config.showLabels !== false}
-          grandTotal={grandTotal}
         />
       )}
     </div>

@@ -133,7 +133,6 @@ export function DonutChartGadget({ issues, config, projectId = null }) {
           groupBy={groupBy}
           projectId={projectId}
           showCounts={config.showLabels !== false}
-          grandTotal={grandTotal}
         />
       )}
     </div>
