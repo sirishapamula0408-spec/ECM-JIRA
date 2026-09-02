@@ -9,7 +9,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
      2. Profile / "Account settings" de-duplicated
      3. Theme popup actually shows when triggered
      4. "Switch account" no longer silently logs out (removed)
-     5. "Open Quickstart" routes to a guide, not the dashboard
+     5. "Open Quickstart" is GONE (JL-443 removed the item entirely)
      6. Sun icon toggles theme; question-mark icon opens the help dialog
    ================================================================ */
 
@@ -130,13 +130,16 @@ describe('JL-298 Topbar actions', () => {
     expect(mockHandleLogout).toHaveBeenCalledTimes(1)
   })
 
-  it('(5) "Open Quickstart" navigates to a guide, not the dashboard', () => {
+  // JL-443 removed the item. JL-298 had already had to redirect it once - it
+  // opened /dashboard, which is not a quickstart - and repointing it at
+  // /knowledge-base only made it a second, less obvious route to a page the
+  // sidebar already links. The assertion inverts: it must not come back.
+  it('(5) "Open Quickstart" is not in the user menu', () => {
     renderTopbar()
     openUserMenu()
-    fireEvent.click(screen.getByText('Open Quickstart'))
-    const path = screen.getByTestId('location').textContent
-    expect(path).not.toBe('/dashboard')
-    expect(path).toBe('/knowledge-base')
+    expect(screen.queryByText(/quickstart/i)).toBeNull()
+    // The menu still has its real entries.
+    expect(screen.getByText('Log out')).toBeInTheDocument()
   })
 
   it('(6a) the sun icon toggles the theme (light -> dark)', async () => {

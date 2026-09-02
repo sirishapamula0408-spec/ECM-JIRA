@@ -144,15 +144,16 @@
    accessibility grounds and JL-414 holds that line, so this does not go
    lower. Weight carries what little hierarchy it needs against the date. */
 .topbar-clock-time {
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-clock);
+  line-height: var(--line-height-clock);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text);
   font-variant-numeric: tabular-nums;
 }
 
 .topbar-clock-date {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-clock);
+  line-height: var(--line-height-clock);
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-medium);
 }

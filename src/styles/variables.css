@@ -232,6 +232,23 @@
   --font-size-code: 12px;
   --line-height-code: 20px;
 
+  /* JL-443 - DELIBERATE EXCEPTION, requested explicitly.
+     8px is BELOW the 12px floor every other surface in this app holds.
+     Atlassian retired its 11px step on accessibility grounds and JL-414
+     adopted that line; this token does not change it. It exists so the
+     exception is one named, greppable value with a reason attached rather
+     than a literal smuggled into Topbar.css past the stylelint rule.
+
+     Scope: the header clock ONLY. Do not reuse it. Any other surface that
+     wants sub-12px text is a bug, and the same argument does not transfer -
+     the clock is ambient, glanceable, and duplicated by the OS clock two
+     centimetres away, so it is the one place where unreadable is survivable.
+
+     Note it is not 8 device pixels for everyone: on a 150%-scaled display it
+     paints at 12. On a 100% display it really is 8. */
+  --font-size-clock: 8px;
+  --line-height-clock: 12px;
+
   --font-size-metric-lg: 28px;   /* font.metric.large  — hero KPI numeral */
   --font-size-metric-md: 24px;   /* font.metric.medium — donut centre     */
   --font-size-metric-sm: 16px;   /* font.metric.small  — inline stat      */
