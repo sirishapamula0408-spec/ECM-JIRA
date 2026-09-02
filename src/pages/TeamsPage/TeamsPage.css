@@ -46,7 +46,7 @@
   height: 32px;
   border: 1px solid var(--jira-border);
   background: var(--jira-surface);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 0 10px 0 30px;
   font-size: var(--font-size-base);
   color: var(--jira-text);
@@ -56,8 +56,8 @@
   outline: none;
   /* #4c9aff is the theme-neutral focus accent — theme.css uses the same value
      for dark-mode focus/accent states, so no dark override is needed. */
-  border-color: var(--jira-blue);
-  box-shadow: 0 0 0 1px var(--jira-blue);
+  border-color: #4c9aff;
+  box-shadow: 0 0 0 1px #4c9aff;
 }
 
 .teams-invite-panel {
@@ -86,7 +86,7 @@
 
 .teams-invite-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
   align-items: end;
   padding-bottom: 1px;
 }
@@ -113,7 +113,7 @@
 
 .teams-table-shell {
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--jira-surface);
   overflow: hidden;
 }
@@ -132,7 +132,7 @@
 .teams-table-filter {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--jira-text-muted);
@@ -142,7 +142,7 @@
   height: 30px;
   border: 1px solid var(--jira-border);
   background: var(--jira-surface);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 0 8px;
   font-size: var(--font-size-base);
   color: var(--jira-text);
@@ -158,7 +158,7 @@
 .teams-sort-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-025);
+  gap: 2px;
   background: none;
   border: none;
   padding: 0;
@@ -184,7 +184,7 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--jira-text-muted);
-  background: var(--jira-surface-sunken);
+  background: var(--jira-surface-subtle);
 }
 
 .teams-member-cell {
@@ -215,7 +215,7 @@
 .teams-member-avatar {
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   background: var(--jira-blue-soft);
   color: var(--jira-blue);
   display: inline-flex;
@@ -237,7 +237,7 @@
 .teams-role-select {
   font-size: var(--font-size-sm);
   min-width: 96px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 1px 4px;
 }
 
@@ -261,7 +261,7 @@
 .app-theme-dark .teams-search input {
   background: #22272b;
   border-color: #2c333a;
-  color: var(--jira-border);
+  color: #dfe1e6;
 }
 
 .app-theme-dark .teams-table-shell {
@@ -276,7 +276,7 @@
 
 .app-theme-dark .teams-member-avatar {
   background: #1c2b41;
-  color: var(--jira-blue);
+  color: #4c9aff;
 }
 
 .app-theme-dark .teams-table-toolbar {
@@ -287,7 +287,7 @@
 .app-theme-dark .teams-table-filter select {
   background: #22272b;
   border-color: #2c333a;
-  color: var(--jira-border);
+  color: #dfe1e6;
 }
 
 /* JL-252: bulk-select toolbar + row actions for member delete */
@@ -299,7 +299,7 @@
   margin-bottom: 12px;
   background: #e9f2ff;
   border: 1px solid #cce0ff;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
 }
 
 .teams-bulkbar-count {
@@ -325,5 +325,5 @@
 }
 
 .app-theme-dark .teams-bulkbar-count {
-  color: var(--jira-blue);
+  color: #4c9aff;
 }

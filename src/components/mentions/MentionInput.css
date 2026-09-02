@@ -17,7 +17,7 @@
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   z-index: 100;
   padding: 4px 0;
@@ -78,7 +78,7 @@
 .mention-chip {
   display: inline;
   padding: 1px 6px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: color-mix(in srgb, var(--primary, #0052cc) 14%, transparent);
   color: var(--primary, #0052cc);
   /* stylelint-disable-next-line declaration-property-value-allowed-list --

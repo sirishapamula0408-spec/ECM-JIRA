@@ -21,14 +21,14 @@
 .wh-create-form {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
 }
 
 .wh-create-form h3 {
   margin: 0 0 16px;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .wh-input {
@@ -36,7 +36,7 @@
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-base);
@@ -52,19 +52,19 @@
   display: block;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
-  margin-bottom: var(--space-075);
+  margin-bottom: 6px;
 }
 
 .wh-event-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .wh-event-chip {
   padding: 4px 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 14px;
   background: none;
   color: var(--text-secondary);
   font-size: var(--font-size-base);
@@ -85,7 +85,7 @@
 
 .wh-test-result {
   padding: 10px 16px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   margin-bottom: 16px;
   font-size: var(--font-size-base);
   display: flex;
@@ -94,13 +94,13 @@
 }
 
 .wh-test-success {
-  background: var(--jira-success-bg);
-  color: var(--jira-success-text);
+  background: #e3fcef;
+  color: #006644;
 }
 
 .wh-test-fail {
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
+  background: #ffebe6;
+  color: #bf2600;
 }
 
 .wh-test-close {
@@ -121,13 +121,13 @@
   text-align: center;
   color: var(--text-secondary);
   padding: 32px;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .wh-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 16px;
 }
 
@@ -146,14 +146,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .wh-status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--jira-border);
+  background: #dfe1e6;
 }
 
 .wh-status-dot--active {
@@ -162,7 +162,7 @@
 
 .wh-card-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .wh-delete-btn {
@@ -184,7 +184,7 @@
 
 .wh-event-tag {
   padding: 2px 8px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--primary);
   font-size: var(--font-size-sm);
@@ -194,7 +194,7 @@
   margin-top: 20px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 16px;
 }
 
@@ -207,7 +207,7 @@
 
 .wh-logs-header h3 {
   margin: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .wh-logs-list {
@@ -221,13 +221,13 @@
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--hover);
   font-size: var(--font-size-base);
 }
 
 .wh-log-item--fail {
-  background: var(--jira-danger-bg);
+  background: #ffebe6;
 }
 
 .wh-log-event {
@@ -257,28 +257,19 @@
   border-bottom: 1px solid var(--border-color, #e0e0e0);
   margin-bottom: 16px;
 }
-/* Brief §38 — matches the shared .tab and .id-activity-tab. Was 20px text
-   with no height, which made this the only tab strip in the app at that
-   size. */
 .wh-tab {
   background: none;
   border: none;
-  height: var(--control-height-nav);
-  padding: 0 var(--space-3);
+  padding: 8px 14px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--jira-text-muted);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
   border-bottom: 2px solid transparent;
 }
-.wh-tab:hover:not(.wh-tab--active) {
-  background: var(--jira-surface-hover);
-  color: var(--jira-text);
-}
 .wh-tab--active {
-  color: var(--jira-blue);
-  border-bottom-color: var(--jira-blue);
+  color: var(--text-primary);
+  border-bottom-color: var(--primary, #0052cc);
+  font-weight: var(--font-weight-semibold);
 }
 .wh-delivery-filters {
   display: flex;
@@ -303,13 +294,13 @@
   margin-top: 16px;
   padding: 16px;
   border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--surface, #fafafa);
 }
 .wh-detail-json {
   background: var(--code-bg, #f4f5f7);
   padding: 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   overflow-x: auto;
   font-size: var(--font-size-base);
   white-space: pre-wrap;
@@ -319,7 +310,7 @@
 .wh-catalog-item {
   padding: 12px;
   border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
 }
 .wh-catalog-head { display: flex; align-items: center; gap: 10px; }
 .wh-catalog-category {

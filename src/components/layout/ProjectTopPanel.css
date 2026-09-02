@@ -3,18 +3,48 @@
   background: #ffffff;
 }
 
-/* Breadcrumbs row.
-   JL-439: the .project-breadcrumb-* rules that used to live here are gone.
-   The markup renders the shared .breadcrumbs / .breadcrumb-link /
-   .breadcrumb-sep / .breadcrumb-current classes from styles/shared.css,
-   which IssueDetailPage also renders - one definition, not two that drift.
-   Only the padding, which is specific to this panel, stays here. */
-.project-top-panel-wrapper .breadcrumbs {
-  padding: var(--space-3) var(--layout-content-padding) 0;
+/* Breadcrumbs row */
+.project-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.project-breadcrumb-link {
+  background: none;
+  border: none;
+  color: #6b778c;
+  /* Was `inherit`. The only parent is .project-breadcrumbs above, which is
+     already --font-size-sm, so this states the same value through the token
+     instead of through the cascade (JL-415). */
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.project-breadcrumb-link:hover {
+  color: #0052cc;
+  text-decoration: underline;
+}
+
+.project-breadcrumb-sep {
+  color: #97a0af;
+  font-size: var(--font-size-sm);
+  user-select: none;
+}
+
+.project-breadcrumb-current {
+  color: #172b4d;
+  font-weight: var(--font-weight-semibold);
 }
 
 .app-project-top-panel {
-  padding: var(--space-2) var(--layout-content-padding) 10px;
+  padding: 8px 16px 10px;
   margin-bottom: 0;
   background: #ffffff;
 }
@@ -22,9 +52,9 @@
 .backlog-top-panel {
   display: flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   padding: 6px 0 10px;
-  border-bottom: 1px solid var(--jira-border);
+  border-bottom: 1px solid #dfe1e6;
   margin-bottom: 4px;
   overflow-x: auto;
 }
@@ -32,28 +62,28 @@
 .backlog-top-item {
   border: none;
   background: transparent;
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
   padding: 4px 8px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
 }
 
 .backlog-top-item:hover {
-  background: var(--jira-surface-sunken);
-  color: var(--jira-text);
+  background: #f4f5f7;
+  color: #172b4d;
 }
 
 .backlog-top-item.active {
-  color: var(--jira-blue);
-  box-shadow: inset 0 -2px 0 var(--jira-blue);
+  color: #0052cc;
+  box-shadow: inset 0 -2px 0 #0052cc;
 }
 
 .backlog-top-icon {
@@ -70,7 +100,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 0 8px;
-  border-bottom: 1px solid var(--jira-border);
+  border-bottom: 1px solid #dfe1e6;
 }
 
 .board-view-item {
@@ -79,12 +109,12 @@
   color: #344563;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .board-view-item.active {
-  color: var(--jira-blue);
-  box-shadow: inset 0 -2px 0 var(--jira-blue);
+  color: #0052cc;
+  box-shadow: inset 0 -2px 0 #0052cc;
 }
 
 .board-view-icon {
@@ -111,8 +141,8 @@
     padding: 6px 10px 8px;
   }
 
-  .project-top-panel-wrapper .breadcrumbs {
-    padding: var(--space-2) var(--space-3) 0;
+  .project-breadcrumbs {
+    padding: 8px 10px 0;
   }
 }
 

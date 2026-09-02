@@ -9,7 +9,7 @@
      a transparent background. Point at the real tokens with opaque fallbacks. */
   background: var(--jira-menu-bg, #ffffff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   display: flex;
@@ -45,7 +45,7 @@
   font-size: var(--font-size-sm);
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
 }
 
 .notif-mark-all:hover,
@@ -99,7 +99,7 @@
   font-size: var(--font-size-md);
   line-height: 1;
   padding: 10px 12px 10px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
 }
 
 .notif-dismiss:hover {
@@ -127,7 +127,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-025);
+  gap: 2px;
 }
 
 .notif-title {
@@ -155,5 +155,5 @@
   height: 8px;
   border-radius: 50%;
   background: var(--jira-blue, #0052cc);
-  margin-top: var(--space-075);
+  margin-top: 6px;
 }

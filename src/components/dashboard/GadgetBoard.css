@@ -22,18 +22,18 @@
   margin-bottom: 12px;
   background: var(--jira-surface-sunken, #f4f5f7);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
 }
 
 .gadget-picker-item {
   display: flex;
   flex-direction: column;
-  gap: var(--space-025);
+  gap: 2px;
   text-align: left;
   padding: 10px;
   background: var(--jira-surface, #fff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -63,7 +63,7 @@
   flex-direction: column;
   background: var(--jira-surface, #fff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -78,7 +78,7 @@
 
 .gadget-card-title {
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base); /* JL-414: heading.small is 16px, not 14px */
+  font-size: var(--font-size-md); /* JL-414: heading.small is 16px, not 14px */
 }
 
 .gadget-card-controls {
@@ -93,7 +93,7 @@
   font-size: var(--font-size-base);
   line-height: 1;
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   color: var(--jira-text-muted, #6b778c);
 }
 
@@ -102,7 +102,7 @@
 }
 
 .gadget-btn-danger:hover {
-  color: var(--jira-danger);
+  color: #de350b;
 }
 
 .gadget-card-body {

@@ -25,7 +25,7 @@
 
 .wiki-sidebar-header h3 {
   margin: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -124,7 +124,7 @@
 }
 
 .wiki-body {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   line-height: 1.7;
 }
 
@@ -132,7 +132,7 @@
   white-space: pre-wrap;
   font-family: var(--font-family-sans);
   margin: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   line-height: 1.7;
 }
 
@@ -148,7 +148,7 @@
 }
 
 .wiki-children h3 {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   margin-bottom: 8px;
 }
 
@@ -161,7 +161,7 @@
   cursor: pointer;
   color: var(--primary);
   font-size: var(--font-size-base);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
 }
 
 .wiki-child-link:hover {
@@ -184,10 +184,10 @@
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   margin-bottom: 12px;
   box-sizing: border-box;
 }
@@ -197,10 +197,10 @@
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   font-family: var(--font-family-mono);
   resize: vertical;
   margin-bottom: 12px;
@@ -227,7 +227,7 @@
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-base);
@@ -259,7 +259,7 @@
 .wiki-diff-panel {
   background: var(--hover);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 16px;
 }
@@ -283,7 +283,7 @@
   cursor: pointer;
   font-size: var(--font-size-base);
   color: var(--text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
 }
 
 .wiki-version-item:hover {
@@ -293,7 +293,7 @@
 .wiki-diff-content {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 12px;
   max-height: 300px;
   overflow-y: auto;
@@ -307,7 +307,7 @@
 }
 
 .wiki-linked-section h3 {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   margin-bottom: 8px;
 }
 
@@ -323,7 +323,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: var(--hover);
   font-size: var(--font-size-base);
 }

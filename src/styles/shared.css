@@ -1,34 +1,17 @@
 /* Shared UI components: buttons, pills, badges, panels, tables, forms, modals, banners */
 
-/* JL-439 retuned every control below to the design brief taken from the
-   issue-detail visual reference. This file, styles/variables.css and
-   theme/muiTheme.js are the three places the visual language of the app is
-   allowed to live: variables.css holds the values, muiTheme.js applies them
-   to MUI components, and this file applies them to the hand-rolled ones.
-   Page CSS should compose these classes, not restate them. */
-
 .panel {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   box-shadow: var(--jira-shadow-soft);
-  padding: var(--space-4);
-}
-
-/* JL-439: the "card" of the brief - a bordered white surface, radius 8, no
-   shadow. .panel is the same thing with the legacy soft shadow; both are
-   kept because ~40 pages already name .panel. */
-.card {
-  background: var(--jira-surface);
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-20);
+  padding: 12px;
 }
 
 .panel h3 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  margin: 0 0 10px;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -39,7 +22,7 @@
 
 .table th,
 .table td {
-  padding: var(--space-2) var(--space-3);
+  padding: 8px 10px;
   text-align: left;
   border-bottom: 1px solid var(--jira-border);
 }
@@ -51,12 +34,12 @@
   letter-spacing: 0.03em;
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
-  background: var(--jira-surface-sunken);
+  background: var(--jira-surface-subtle);
 }
 
 .table td {
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   color: var(--jira-text);
   font-variant-numeric: tabular-nums;
 }
@@ -66,7 +49,7 @@
 }
 
 .table tbody tr:hover {
-  background: var(--jira-row-hover);
+  background: #f2f7ff;
 }
 
 .stats-grid {
@@ -78,7 +61,7 @@
 .stat {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 12px;
 }
 
@@ -94,7 +77,7 @@
 
 .stat strong {
   display: block;
-  margin-top: var(--space-075);
+  margin-top: 6px;
   font-size: var(--font-size-xxl);
   line-height: var(--line-height-xxl);
   font-weight: var(--font-weight-bold);
@@ -126,7 +109,7 @@
   background: var(--jira-blue-soft);
   border: 1px solid #b3d4ff;
   color: var(--jira-link-hover);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 8px 10px;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
@@ -137,46 +120,20 @@
 }
 
 .banner.error {
-  background: var(--jira-danger-bg);
+  background: #ffebe6;
   border-color: #ffbdad;
-  color: var(--jira-danger-text);
+  color: #bf2600;
 }
 
-/* JL-439: a bare .btn is now the DEFAULT (secondary) button of the brief -
-   40px tall, white, bordered, #172b4d text. It used to be an unstyled shell
-   that only looked like a button once .btn-primary or .btn-ghost was added,
-   which is part of why a dozen pages hand-rolled their own "*-btn". */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  height: var(--control-height);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--jira-border);
-  background: var(--jira-surface);
-  color: var(--jira-text);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  border-radius: 4px;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--transition-fast) var(--ease-standard),
-    border-color var(--transition-fast) var(--ease-standard),
-    color var(--transition-fast) var(--ease-standard);
-}
-
-.btn:hover:not(:disabled) {
-  background: var(--jira-surface-hover);
-}
-
-/* Compact variant for dense rows and inline forms. */
-.btn-sm {
-  height: var(--control-height-sm);
-  padding: 0 10px;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
 .btn:disabled {
@@ -186,42 +143,38 @@
   box-shadow: none;
 }
 
-/* JL-439: the lift-and-glow hover was dropped from every variant. The brief
-   is explicit that the reference is flat and leans on borders (§34, §46). */
 .btn-primary {
   background: var(--jira-blue);
-  border-color: var(--jira-blue);
   color: #fff;
-  font-weight: var(--font-weight-semibold);
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: var(--jira-blue-hover);
-  border-color: var(--jira-blue-hover);
+.btn-primary:hover {
+  background: #0065ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 82, 204, 0.2);
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--jira-text);
-  border-color: transparent;
-}
-
-.btn-ghost:hover:not(:disabled) {
-  background: var(--jira-surface-hover);
-  border-color: transparent;
-}
-
-/* Brief §18: a destructive action is signalled by its TEXT colour, not by a
-   red fill - "Do not make Delete completely red". */
-.btn-danger {
-  background: var(--jira-surface);
-  color: var(--jira-danger-text);
+  background: #f4f5f7;
+  color: #42526e;
   border-color: var(--jira-border);
 }
 
-.btn-danger:hover:not(:disabled) {
-  background: var(--jira-danger-bg);
-  border-color: var(--jira-danger-text);
+.btn-ghost:hover {
+  background: #eaf2ff;
+  border-color: #b3d4ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(9, 30, 66, 0.08);
+}
+
+.btn-ghost:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn.sprint-action-btn {
@@ -230,18 +183,14 @@
 }
 
 .create-btn {
-  min-width: 92px;
-  height: var(--control-height-create);
-  padding: 0 var(--space-4);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  min-width: 98px;
   font-weight: var(--font-weight-semibold);
 }
 
 .plus-create-content {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   font-weight: var(--font-weight-medium);
@@ -249,25 +198,25 @@
 }
 
 .plus-create-symbol {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   line-height: 1;
   font-weight: var(--font-weight-regular);
 }
 
 .icon-btn {
-  height: var(--control-height);
-  min-width: var(--control-height);
-  border-radius: var(--radius-sm);
+  height: 36px;
+  min-width: 36px;
+  border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--jira-text);
+  color: #44546f;
   cursor: pointer;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--space-2);
+  padding: 0 8px;
 }
 
 .collapse-icon {
@@ -277,12 +226,13 @@
 }
 
 .icon-btn:hover {
-  background: var(--jira-surface-hover);
+  background: #eaf2ff;
+  border-color: #b3d4ff;
 }
 
 .icon-btn svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .collapse-btn {
@@ -290,7 +240,7 @@
   min-width: 28px;
   padding: 0;
   border-radius: 50%;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
@@ -300,8 +250,8 @@
 }
 
 .collapse-btn:hover {
-  background: var(--jira-border-subtle);
-  color: var(--jira-text);
+  background: #ebecf0;
+  color: #172b4d;
 }
 
 .icon-badge {
@@ -314,30 +264,30 @@
   top: 6px;
   width: 7px;
   height: 7px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-danger);
+  border-radius: 999px;
+  background: #de350b;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   padding: 2px 8px;
-  background: var(--jira-border-subtle);
-  color: var(--jira-text-muted);
+  background: #ebecf0;
+  color: #42526e;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .pill-green {
-  background: var(--jira-success-bg);
-  color: var(--jira-success-text);
+  background: #e3fcef;
+  color: #006644;
 }
 
 .pill-gray {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
   color: #505f79;
 }
 
@@ -345,13 +295,13 @@
    so a suspended member looked identical to one who simply had not accepted
    their invite. Both new pairs clear 4.5:1 on their own background. */
 .pill-yellow {
-  background: var(--jira-warning-bg);
-  color: var(--jira-warning-text);
+  background: #fffae6;
+  color: #974f0c;
 }
 
 .pill-red {
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
+  background: #ffebe6;
+  color: #bf2600;
 }
 
 .link-btn {
@@ -372,17 +322,16 @@
 
 .muted {
   color: var(--jira-text-muted);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-}
-
-/* Brief §24: the "DETAILS" / "DESCRIPTION" heading above a section. */
-.section-label {
-  margin-top: var(--space-5);
-  margin-bottom: var(--space-2);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  letter-spacing: 0.3px;
+}
+
+.section-label {
+  margin-top: 18px;
+  margin-bottom: 8px;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--jira-text-muted);
   font-weight: var(--font-weight-semibold);
@@ -410,11 +359,11 @@
   width: min(760px, 100%);
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
+  border-radius: 8px;
+  padding: 16px;
   display: grid;
-  gap: var(--space-4);
-  box-shadow: var(--shadow-overlay);
+  gap: 10px;
+  box-shadow: var(--jira-shadow-modal);
   animation: modal-slide-in 200ms ease;
 }
 
@@ -433,10 +382,10 @@
 .modal-error {
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid var(--jira-danger-text);
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
-  border-radius: var(--radius-sm);
+  border: 1px solid #ffbdad;
+  background: #ffebe6;
+  color: #bf2600;
+  border-radius: 4px;
   font-size: var(--font-size-base);
 }
 
@@ -454,111 +403,43 @@
 
 label {
   display: grid;
-  gap: var(--space-075);
+  gap: 4px;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   color: var(--jira-text-muted);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
-/* JL-439: label + control + help/error, the form unit of brief §36. A page
-   that needs a labelled field should compose these rather than invent
-   another "*-form-row". */
-.field {
-  display: grid;
-  gap: 0;
-  margin-bottom: var(--space-4);
-}
-
-.field-label {
-  display: block;
-  margin-bottom: var(--space-075);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--jira-text-muted);
-}
-
-.field-help {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
-  color: var(--jira-text-subtlest);
-}
-
-.field-error {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
-  color: var(--jira-danger-text);
-}
-
-/* Brief §36: one input contract for the whole app. Height 40, border
-   --jira-border-strong (#c1c7d0 - the brief asks for the stronger hairline
-   on controls specifically, so a field reads as interactive against a
-   bordered card), radius 6, focus ring in the brand blue. */
 input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--jira-border-strong);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  padding: 7px 10px;
   font: inherit;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   color: var(--jira-text);
   background: var(--jira-surface);
-  transition: border-color var(--transition-fast) var(--ease-standard),
-    box-shadow var(--transition-fast) var(--ease-standard);
-}
-
-input,
-select {
-  height: var(--control-height);
-  padding: 0 var(--space-3);
-}
-
-/* Checkboxes and radios are glyphs, not fields - the 40px box and full
-   width above would stretch them across their row. */
-input[type="checkbox"],
-input[type="radio"] {
-  width: auto;
-  height: auto;
-  padding: 0;
-}
-
-input[type="file"],
-input[type="range"],
-input[type="color"] {
-  height: auto;
-  padding: var(--space-1);
-}
-
-textarea {
-  min-height: 80px;
-  padding: var(--space-2) var(--space-3);
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: var(--jira-text-subtlest);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--jira-blue);
+  border-color: #4c9aff;
   outline: none;
-  box-shadow: 0 0 0 1px var(--jira-blue);
+  box-shadow: 0 0 0 1px #4c9aff;
 }
 
 .avatar {
-  width: var(--avatar-size-md);
-  height: var(--avatar-size-md);
-  border-radius: var(--radius-pill);
-  background: var(--jira-blue);
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #0052cc;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -575,8 +456,8 @@ textarea:focus {
 .member-avatar {
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-border);
+  border-radius: 999px;
+  background: #dfe1e6;
   color: #344563;
   display: inline-flex;
   align-items: center;
@@ -608,7 +489,7 @@ textarea:focus {
 .priority-mark {
   width: 10px;
   height: 10px;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
 }
 
 .priority-high {
@@ -624,9 +505,9 @@ textarea:focus {
 }
 
 .issue-type-badge {
-  background: var(--jira-border-subtle);
-  color: var(--jira-text-muted);
-  border-radius: var(--radius-xs);
+  background: #ebecf0;
+  color: #42526e;
+  border-radius: 3px;
   padding: 2px 6px;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
@@ -635,8 +516,8 @@ textarea:focus {
 .issue-watcher-count {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-025);
-  color: var(--jira-text-subtlest);
+  gap: 2px;
+  color: #6b778c;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
@@ -644,7 +525,7 @@ textarea:focus {
 .due-badge {
   display: inline-flex;
   align-items: center;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 2px 6px;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
@@ -653,8 +534,8 @@ textarea:focus {
 }
 
 .due-badge-overdue {
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
+  background: #ffebe6;
+  color: #bf2600;
 }
 
 .due-badge-soon {
@@ -663,8 +544,8 @@ textarea:focus {
 }
 
 .due-badge-later {
-  background: var(--jira-border-subtle);
-  color: var(--jira-text-muted);
+  background: #ebecf0;
+  color: #42526e;
 }
 
 .quick-create-row {
@@ -672,7 +553,7 @@ textarea:focus {
   align-items: center;
   gap: 8px;
   padding: 8px 12px 4px;
-  border-top: 1px solid var(--jira-border-subtle);
+  border-top: 1px solid #ebecf0;
   flex-wrap: wrap;
 }
 
@@ -689,7 +570,7 @@ textarea:focus {
 .quick-create-error {
   width: 100%;
   margin: 2px 0 0;
-  color: var(--jira-danger);
+  color: #de350b;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
@@ -705,7 +586,7 @@ textarea:focus {
 .activity-list li {
   background: var(--jira-surface-subtle);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 8px 10px;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
@@ -724,7 +605,7 @@ textarea:focus {
 .activity-icon {
   width: 18px;
   height: 18px;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -738,12 +619,12 @@ textarea:focus {
   margin-top: 1px;
 }
 
-.activity-icon-moved { background: var(--jira-blue-soft); color: var(--jira-blue); }
+.activity-icon-moved { background: #deebff; color: #0052cc; }
 .activity-icon-comment { background: #eae6ff; color: #5243aa; }
-.activity-icon-created { background: var(--jira-success-bg); color: var(--jira-success-text); }
-.activity-icon-closed { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
+.activity-icon-created { background: #e3fcef; color: #006644; }
+.activity-icon-closed { background: #ffebe6; color: #bf2600; }
 .activity-icon-attached { background: #fff0b3; color: #ff8b00; }
-.activity-icon-default { background: var(--jira-border-subtle); color: var(--jira-text-muted); }
+.activity-icon-default { background: #ebecf0; color: #42526e; }
 
 .activity-copy {
   min-width: 0;
@@ -755,7 +636,7 @@ textarea:focus {
 
 .activity-list small {
   display: block;
-  margin-top: var(--space-025);
+  margin-top: 2px;
   color: var(--jira-text-muted);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
@@ -792,10 +673,10 @@ textarea:focus {
 .error-boundary-detail {
   margin: 0 0 16px;
   padding: 10px;
-  background: var(--jira-danger-bg);
+  background: #ffebe6;
   border: 1px solid #ffbdad;
-  border-radius: var(--radius-sm);
-  color: var(--jira-danger-text);
+  border-radius: 4px;
+  color: #bf2600;
   font-size: var(--font-size-sm);
   line-height: 18px;
   font-family: var(--font-family-mono);
@@ -821,7 +702,7 @@ textarea:focus {
 .skeleton-card {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 12px;
 }
 
@@ -834,7 +715,7 @@ textarea:focus {
 .skeleton-panel {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 16px;
   display: grid;
   gap: 10px;
@@ -842,7 +723,7 @@ textarea:focus {
 
 .skeleton-line {
   height: 14px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: linear-gradient(90deg, var(--jira-border) 25%, #e8eaef 50%, var(--jira-border) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
@@ -875,284 +756,4 @@ textarea:focus {
   .btn-ghost:hover {
     transform: none;
   }
-}
-
-/* ── Tab strip (brief §38) ──
-   Seven pages hand-rolled this (ActiveSprint, CrossProjectBoard, IssueDetail,
-   Login, Webhooks, Filters, and the view toggle on Roadmap), each with its
-   own height, weight and active treatment. This is the one contract. */
-.tabs {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-5);
-  border-bottom: 1px solid var(--jira-border);
-}
-
-.tab {
-  height: var(--control-height-nav);
-  padding: 0 var(--space-1);
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--jira-text-muted);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.tab:hover:not(.tab-active) {
-  background: var(--jira-surface-hover);
-  color: var(--jira-text);
-}
-
-.tab-active {
-  color: var(--jira-blue);
-  border-bottom-color: var(--jira-blue);
-}
-
-/* ── Badge (brief §27) ──
-   A status/priority chip. Deliberately separate from .pill, which is the
-   dense ~20px-tall variant used inside table rows and board cards.
-   src/components/common/StatusLozenge.jsx remains the component for a
-   workflow STATUS specifically; this is for everything else. */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-height-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-xs);
-  background: var(--jira-surface-sunken);
-  color: var(--jira-text);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.badge-success { background: var(--jira-success-bg); color: var(--jira-success-text); }
-.badge-warning { background: var(--jira-warning-bg); color: var(--jira-warning-text); }
-.badge-danger { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
-.badge-info { background: var(--jira-blue-soft); color: var(--jira-blue); }
-
-/* ── Avatar sizes (brief §13, §26) ── */
-.avatar-md { width: var(--avatar-size-md); height: var(--avatar-size-md); }
-
-.avatar-lg {
-  width: var(--avatar-size-lg);
-  height: var(--avatar-size-lg);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-/* ── Breadcrumbs (brief §14) ──
-   JL-439 consolidation. There were two implementations of this: the
-   .project-breadcrumb-* family in layout/ProjectTopPanel.css and the
-   .id-breadcrumb-* family in IssueDetailPage.css. They had drifted apart on
-   separator colour, current-item weight and hover treatment. Both now render
-   these classes and neither restates them. */
-.breadcrumb-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  height: var(--layout-breadcrumb-height);
-  padding: 0 var(--layout-content-padding);
-  background: var(--jira-canvas);
-  border-bottom: 1px solid var(--jira-border);
-}
-
-.breadcrumbs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-}
-
-.breadcrumb-link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--jira-text-muted);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  font-weight: var(--font-weight-regular);
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.breadcrumb-link:hover {
-  color: var(--jira-blue);
-  text-decoration: underline;
-}
-
-.breadcrumb-sep {
-  color: var(--jira-text-subtlest);
-  font-size: var(--font-size-base);
-  user-select: none;
-}
-
-.breadcrumb-current {
-  color: var(--jira-text);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (max-width: 860px) {
-  .breadcrumb-bar {
-    height: auto;
-    padding: var(--space-3) var(--space-4);
-  }
-
-  .breadcrumbs,
-  .breadcrumb-link,
-  .breadcrumb-sep,
-  .breadcrumb-current {
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-sm);
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   The src/components/ui/ layer (JL-439)
-   ══════════════════════════════════════════════════════════════════════
-   These rules live here, not in a stylesheet next to the components, on
-   purpose. Input/Table/Tabs/Breadcrumb render NATIVE elements carrying the
-   shared classes above, so a page that hand-writes `<table className="table">`
-   and a page that renders <Table> get the same table. A separate ui.css would
-   have made the component layer a fourth place the visual language lives. */
-
-/* Only the delta from the global input/select/textarea contract. */
-.ds-input--error,
-.ds-input--error:focus {
-  border-color: var(--jira-danger-text);
-  box-shadow: none;
-}
-
-.ds-icon-button--bordered {
-  border: 1px solid var(--jira-border);
-}
-
-/* Table shell — the bordered container. Wide tables scroll inside it rather
-   than pushing the page sideways. */
-.table-shell {
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
-  background: var(--jira-surface);
-  overflow-x: auto;
-}
-
-.table-shell > .table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.table-caption {
-  padding: var(--space-3) var(--space-4);
-  text-align: left;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  color: var(--jira-text-muted);
-}
-
-.table-empty {
-  padding: var(--space-7) var(--space-4);
-  text-align: center;
-  color: var(--jira-text-subtlest);
-}
-
-/* A count beside a tab label. Reads as metadata, so it stays on the small
-   step rather than matching the tab text. */
-.tab-count {
-  display: inline-flex;
-  align-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-surface-sunken);
-  color: var(--jira-text-muted);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.tab-active .tab-count {
-  background: var(--jira-blue-soft);
-  color: var(--jira-blue);
-}
-
-.breadcrumb-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-/* ── PageHeader ── */
-.page-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-}
-
-.page-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.page-header-main {
-  min-width: 0;
-}
-
-.page-header-eyebrow {
-  margin-bottom: var(--space-1);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--jira-text-muted);
-}
-
-.page-header-description {
-  margin: var(--space-1) 0 0;
-  max-width: 72ch;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: var(--jira-text-muted);
-}
-
-.page-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-/* ── SectionHeader with trailing actions ── */
-.section-header-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.section-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }

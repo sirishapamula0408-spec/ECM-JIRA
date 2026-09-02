@@ -39,7 +39,7 @@
     overflow-x: auto;
     /* Room for the scrollbar in the band where one appears, so it does not sit
        on top of the card borders. */
-    padding-bottom: var(--space-025);
+    padding-bottom: 2px;
   }
 }
 
@@ -67,7 +67,7 @@
 .portfolio-page .stat {
   background: var(--jira-surface, #fff);
   border: 1px solid var(--jira-border, #dfe1e6);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 12px 16px;
   /* Grid items refuse to shrink below their content without this, which would
      force an overflow instead of a narrower card. */

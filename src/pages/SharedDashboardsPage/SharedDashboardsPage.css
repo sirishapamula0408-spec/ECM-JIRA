@@ -21,14 +21,14 @@
 .sd-form {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 20px;
   margin-bottom: 24px;
 }
 
 .sd-form h3 {
   margin: 0 0 16px;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .sd-input {
@@ -36,7 +36,7 @@
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
   font-size: var(--font-size-base);
@@ -63,7 +63,7 @@
   text-align: center;
   color: var(--text-secondary);
   padding: 24px;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .sd-grid {
@@ -75,7 +75,7 @@
 .sd-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 16px;
 }
 
@@ -87,24 +87,24 @@
 }
 
 .sd-card-header strong {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .sd-visibility-badge {
   padding: 2px 8px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
 .sd-visibility-badge--private {
-  background: var(--jira-border);
-  color: var(--jira-text-muted);
+  background: #dfe1e6;
+  color: #42526e;
 }
 
 .sd-visibility-badge--public {
-  background: var(--jira-success-bg);
-  color: var(--jira-success-text);
+  background: #e3fcef;
+  color: #006644;
 }
 
 .sd-card-desc {
@@ -121,7 +121,7 @@
 
 .sd-card-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .sd-delete-btn {

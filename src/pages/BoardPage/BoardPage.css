@@ -10,7 +10,7 @@
   gap: 12px;
   overflow-x: auto;
   overflow-y: visible;
-  padding-bottom: var(--space-075);
+  padding-bottom: 6px;
 }
 
 /* JL-310: each column is a resizable flex item.
@@ -55,7 +55,7 @@
   left: 50%;
   width: 2px;
   transform: translateX(-50%);
-  border-radius: var(--radius-xs);
+  border-radius: 2px;
   background: transparent;
   transition: background 0.12s ease;
 }
@@ -72,7 +72,7 @@ body.board-col-resizing {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  margin-bottom: var(--space-075);
+  margin-bottom: 6px;
 }
 
 .page .board-jira-title {
@@ -81,7 +81,7 @@ body.board-col-resizing {
   font-size: var(--font-size-xl) !important;
   line-height: var(--line-height-xl) !important;
   font-weight: var(--font-weight-semibold) !important;
-  color: var(--jira-text) !important;
+  color: #172B4D !important;
   letter-spacing: 0;
   text-decoration: none;
   opacity: 1;
@@ -91,7 +91,7 @@ body.board-col-resizing {
 .board-jira-actions {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .board-jira-action-btn {
@@ -99,20 +99,20 @@ body.board-col-resizing {
   height: 34px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--jira-text-muted);
+  border-radius: 4px;
+  color: #5e6c84;
   cursor: pointer;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   line-height: 1;
 }
 
 .board-jira-action-btn:hover {
-  background: var(--jira-surface-sunken);
-  color: var(--jira-text);
+  background: #f4f5f7;
+  color: #172b4d;
 }
 
 .board-jira-action-btn-boxed {
-  border: 1px solid var(--jira-border);
+  border: 1px solid #dfe1e6;
   background: #ffffff;
 }
 
@@ -144,8 +144,8 @@ body.board-col-resizing {
   z-index: 40;
   min-width: 190px;
   background: #ffffff;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid #dfe1e6;
+  border-radius: 6px;
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   padding: 6px 0;
 }
@@ -154,7 +154,7 @@ body.board-col-resizing {
   width: 100%;
   border: none;
   background: transparent;
-  color: var(--jira-text);
+  color: #172b4d;
   text-align: left;
   padding: 10px 12px;
   font-size: var(--font-size-base);
@@ -165,11 +165,11 @@ body.board-col-resizing {
 }
 
 .board-menu-item:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .board-menu-item-danger {
-  color: var(--jira-danger);
+  color: #de350b;
 }
 
 .board-menu-item-star::before,
@@ -201,15 +201,15 @@ body.board-col-resizing {
 .board-quick-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-075);
+  gap: 6px;
   align-items: center;
 }
 
 .board-filter-chip {
-  border: 1px solid var(--jira-border);
+  border: 1px solid #dfe1e6;
   background: #ffffff;
-  color: var(--jira-text-muted);
-  border-radius: var(--radius-pill);
+  color: #42526e;
+  border-radius: 999px;
   padding: 4px 12px;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
@@ -217,19 +217,19 @@ body.board-col-resizing {
 }
 
 .board-filter-chip:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .board-filter-chip-active {
-  background: var(--jira-blue);
-  border-color: var(--jira-blue);
+  background: #0052cc;
+  border-color: #0052cc;
   color: #ffffff;
 }
 
 .board-filter-clear {
   border: none;
   background: transparent;
-  color: var(--jira-blue);
+  color: #0052cc;
   cursor: pointer;
   font-size: var(--font-size-sm);
 }
@@ -241,8 +241,8 @@ body.board-col-resizing {
 }
 
 .board-text-filter-input {
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
   padding: 5px 10px;
   font-size: var(--font-size-sm);
   min-width: 200px;
@@ -252,7 +252,7 @@ body.board-col-resizing {
 .board-label-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-075);
+  gap: 6px;
   align-items: center;
   margin: 0 0 12px;
 }
@@ -260,7 +260,7 @@ body.board-col-resizing {
 .board-label-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .board-label-chip-dot {
@@ -286,16 +286,16 @@ body.board-col-resizing {
 .board-swimlane-control {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   font-size: var(--font-size-sm);
-  color: var(--jira-text-muted);
+  color: #5e6c84;
 }
 
 .board-swimlane-control select,
 .board-settings-row select,
 .board-settings-row input {
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
   padding: 4px 8px;
   font-size: var(--font-size-sm);
 }
@@ -304,25 +304,25 @@ body.board-col-resizing {
 .board-estimation-total {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   margin-left: 12px;
   padding: 3px 10px;
-  border-radius: var(--radius-lg);
-  background: var(--jira-surface-sunken);
+  border-radius: 12px;
+  background: #f4f5f7;
   font-size: var(--font-size-sm);
 }
 .board-estimation-total-label {
-  color: var(--jira-text-muted);
+  color: #5e6c84;
 }
 .board-estimation-total-value {
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text);
+  color: #172b4d;
 }
 
 /* Board settings panel */
 .board-settings-panel {
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid #dfe1e6;
+  border-radius: 6px;
   background: #ffffff;
   padding: 14px 16px;
   margin-bottom: 12px;
@@ -345,14 +345,14 @@ body.board-col-resizing {
 
 .board-settings-wip {
   margin-top: 10px;
-  border-top: 1px solid var(--jira-surface-hover);
+  border-top: 1px solid #f1f2f4;
   padding-top: 8px;
 }
 
 .board-settings-wip-title {
   display: block;
   font-size: var(--font-size-sm);
-  color: var(--jira-text-muted);
+  color: #5e6c84;
   margin-bottom: 4px;
 }
 
@@ -369,24 +369,24 @@ body.board-col-resizing {
 
 .board-settings-save {
   border: none;
-  background: var(--jira-blue);
+  background: #0052cc;
   color: #ffffff;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 6px 14px;
   cursor: pointer;
 }
 
 .board-settings-cancel {
-  border: 1px solid var(--jira-border);
+  border: 1px solid #dfe1e6;
   background: #ffffff;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 6px 14px;
   cursor: pointer;
 }
 
 .board-settings-readonly {
   font-size: var(--font-size-sm);
-  color: var(--jira-danger);
+  color: #de350b;
 }
 
 /* Swimlanes */
@@ -461,38 +461,38 @@ body.board-col-resizing {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  margin-bottom: var(--space-075);
-  background: var(--jira-surface-sunken);
-  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  background: #f4f5f7;
+  border-radius: 4px;
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text);
+  color: #172b4d;
 }
 
 .board-swimlane-count {
   min-width: 20px;
   height: 20px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-border);
-  color: var(--jira-text-muted);
+  border-radius: 999px;
+  background: #dfe1e6;
+  color: #5e6c84;
   display: grid;
   place-items: center;
   font-size: var(--font-size-sm);
 }
 
 .kanban-count-over {
-  background: var(--jira-danger) !important;
+  background: #de350b !important;
   color: #ffffff !important;
 }
 
 .kanban-col-over-wip {
-  border-color: var(--jira-danger);
-  box-shadow: inset 0 0 0 1px var(--jira-danger);
+  border-color: #de350b;
+  box-shadow: inset 0 0 0 1px #de350b;
 }
 
 .kanban-col {
-  background: var(--jira-surface-hover);
+  background: #f1f2f4;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 10px;
 }
 
@@ -573,8 +573,8 @@ body.board-col-resizing {
 .kanban-col header span {
   min-width: 20px;
   height: 20px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-border);
+  border-radius: 999px;
+  background: #dfe1e6;
   color: var(--jira-text-muted);
   display: grid;
   place-items: center;
@@ -647,7 +647,7 @@ body.board-col-resizing {
   background: var(--board-scroll-thumb);
   background-clip: padding-box;
   border: 2px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
 }
 
 .kanban-col-cards::-webkit-scrollbar-thumb:hover {
@@ -679,7 +679,7 @@ body.board-col-resizing {
 .card {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 10px;
   margin-bottom: 8px;
   box-shadow: var(--jira-shadow);
@@ -745,7 +745,7 @@ body.board-col-resizing {
 }
 
 .kanban-card-flag {
-  margin-left: var(--space-075);
+  margin-left: 6px;
 }
 
 /* ── JL-387: board card layout ─────────────────────────────────────────────
@@ -777,7 +777,7 @@ body.board-col-resizing {
 .kanban-card-top {
   display: flex;
   align-items: center;
-  gap: var(--space-025);
+  gap: 2px;
   min-width: 0;
 }
 
@@ -789,13 +789,13 @@ body.board-col-resizing {
 .kanban-card-draggable .kanban-card-title {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-075);
+  gap: 6px;
   margin: 4px 0 0;
 }
 
 /* Nudge the glyph onto the title's optical baseline (14px icon, 18px line). */
 .kanban-card-draggable .kanban-card-title svg {
-  margin-top: var(--space-025);
+  margin-top: 2px;
 }
 
 .kanban-card-title-text {
@@ -806,8 +806,8 @@ body.board-col-resizing {
 .kanban-card-meta {
   display: flex;
   align-items: center;
-  gap: var(--space-075);
-  margin-top: var(--space-075);
+  gap: 6px;
+  margin-top: 6px;
   min-height: 20px;
 }
 
@@ -831,7 +831,7 @@ body.board-col-resizing {
   min-width: 18px;
   height: 16px;
   padding: 0 5px;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--jira-menu-hover, #f4f5f7);
   color: var(--jira-text-muted, #5e6c84);
   font-size: var(--font-size-sm);
@@ -888,7 +888,7 @@ body.board-col-resizing {
 .board-col-add {
   border: 1px solid var(--color-border, #DFE1E6);
   background: var(--color-surface, #fff);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 4px 10px;
   cursor: pointer;
   font-size: var(--font-size-base);
@@ -900,7 +900,7 @@ body.board-col-resizing {
 }
 .board-col-editor {
   border: 1px solid var(--color-border, #DFE1E6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 8px 10px;
   background: var(--color-surface-sunken, #FAFBFC);
 }
@@ -913,7 +913,7 @@ body.board-col-resizing {
 .board-col-name-input {
   flex: 1;
   border: 1px solid var(--color-border, #DFE1E6);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 4px 8px;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
@@ -925,7 +925,7 @@ body.board-col-resizing {
 .board-col-editor-actions button {
   border: 1px solid var(--color-border, #DFE1E6);
   background: var(--color-surface, #fff);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   width: 26px;
   height: 26px;
   cursor: pointer;
@@ -941,7 +941,7 @@ body.board-col-resizing {
 .board-col-statuses {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-075);
+  gap: 6px;
   margin-top: 8px;
   align-items: center;
 }
@@ -951,7 +951,7 @@ body.board-col-resizing {
   gap: 4px;
   background: var(--color-primary-subtle, #DEEBFF);
   color: var(--color-primary, #0052CC);
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   padding: 2px 8px;
   font-size: var(--font-size-sm);
 }
@@ -970,7 +970,7 @@ body.board-col-resizing {
 }
 .board-col-status-add {
   border: 1px dashed var(--color-border, #C1C7D0);
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   padding: 2px 6px;
   font-size: var(--font-size-sm);
   background: transparent;
@@ -979,7 +979,7 @@ body.board-col-resizing {
 .board-col-unmapped {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-075);
+  gap: 6px;
   align-items: center;
   margin-top: 10px;
 }

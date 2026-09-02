@@ -44,7 +44,7 @@
   height: 100%;
   padding: 16px;
   border: 1px solid var(--border, #dfe1e6);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--surface, #fff);
   color: inherit;
   text-decoration: none;
@@ -81,8 +81,8 @@
 }
 
 .team-card-name {
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -105,7 +105,7 @@
 }
 
 .team-form-error {
-  color: var(--jira-danger);
+  color: #de350b;
   margin: 0;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);

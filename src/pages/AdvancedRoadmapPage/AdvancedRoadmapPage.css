@@ -29,8 +29,8 @@
 
 .advanced-roadmap-page .arm-bar {
   position: absolute;
-  border-radius: var(--radius-sm);
-  background: var(--jira-blue);
+  border-radius: 6px;
+  background: #4c9aff;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -38,7 +38,7 @@
 }
 
 .advanced-roadmap-page .arm-bar-violated {
-  outline: 2px solid var(--jira-danger);
+  outline: 2px solid #de350b;
   outline-offset: 1px;
 }
 

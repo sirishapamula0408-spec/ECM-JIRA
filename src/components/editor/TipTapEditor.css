@@ -1,7 +1,7 @@
 /* JL-135 — TipTap ADF-style editor */
 .tte-container {
   border: 1px solid var(--border-color, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--bg-input, #fff);
   overflow: hidden;
 }
@@ -10,7 +10,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-025);
+  gap: 2px;
   padding: 4px 6px;
   border-bottom: 1px solid var(--border-color, #dfe1e6);
   background: var(--bg-subtle, #f4f5f7);
@@ -21,7 +21,7 @@
   height: 28px;
   padding: 0 6px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: transparent;
   color: var(--text-primary, #172b4d);
   font-size: var(--font-size-base);
@@ -29,7 +29,7 @@
   transition: background var(--transition-fast, 120ms) ease;
 }
 .tte-btn:hover:not(:disabled) { background: rgba(9, 30, 66, 0.08); }
-.tte-btn--active { background: rgba(38, 132, 255, 0.16); color: var(--jira-blue); }
+.tte-btn--active { background: rgba(38, 132, 255, 0.16); color: #0052cc; }
 .tte-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .tte-sep {
@@ -70,7 +70,7 @@
 }
 .tte-content pre {
   background: #091e420f;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 10px 12px;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
@@ -79,19 +79,19 @@
 .tte-content code { font-family: var(--font-family-mono); }
 .tte-content :not(pre) > code {
   background: #091e420f;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 0.1em 0.3em;
   font-size: var(--font-size-sm);
 }
 .tte-content hr { border: none; border-top: 2px solid var(--border-color, #dfe1e6); margin: 0.8em 0; }
-.tte-content a { color: var(--jira-blue); text-decoration: underline; }
+.tte-content a { color: #0052cc; text-decoration: underline; }
 
 .tte-fallback {
   width: 100%;
   min-height: 120px;
   padding: 10px 12px;
   border: 1px solid var(--border-color, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font-size: var(--font-size-base);
   resize: vertical;
 }
@@ -107,7 +107,7 @@
   overflow-y: auto;
   background: var(--bg-elevated, #fff);
   border: 1px solid var(--border-color, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.2);
   padding: 4px;
 }
@@ -126,7 +126,7 @@
   padding: 6px 8px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   cursor: pointer;
   text-align: left;
 }

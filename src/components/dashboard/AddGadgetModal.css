@@ -24,7 +24,7 @@
   gap: 10px;
   padding: 14px 10px;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--jira-surface);
   cursor: pointer;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
@@ -32,7 +32,7 @@
 }
 
 .add-gadget-card:hover {
-  border-color: var(--jira-blue);
+  border-color: #4c9aff;
   box-shadow: 0 2px 8px rgba(0, 82, 204, 0.12);
 }
 
@@ -64,14 +64,14 @@
 .mini-donut {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   position: relative;
 }
 
 .mini-donut-hole {
   position: absolute;
   inset: 10px;
-  border-radius: var(--radius-pill);
+  border-radius: 999px;
   background: var(--jira-surface);
 }
 
@@ -84,7 +84,7 @@
 
 .mini-bar {
   height: 8px;
-  border-radius: var(--radius-xs);
+  border-radius: 2px;
   min-width: 10px;
 }
 
@@ -97,8 +97,8 @@
 
 .mini-table-row {
   height: 6px;
-  background: var(--jira-border);
-  border-radius: var(--radius-xs);
+  background: #dfe1e6;
+  border-radius: 2px;
 }
 
 .mini-table-head {
@@ -123,16 +123,16 @@
 .mini-dot {
   width: 8px;
   height: 8px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-blue-soft);
+  border-radius: 999px;
+  background: #deebff;
   flex-shrink: 0;
 }
 
 .mini-line {
   height: 5px;
   flex: 1;
-  background: var(--jira-border);
-  border-radius: var(--radius-xs);
+  background: #dfe1e6;
+  border-radius: 2px;
 }
 
 .mini-burndown-svg {

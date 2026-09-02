@@ -89,7 +89,7 @@ describe('JL-393 page canvas', () => {
   })
 
   describe('the canvas token', () => {
-    it('is defined once, at the page tint the reference uses', () => {
+    it('is defined once as the white baseline surface', () => {
       const defs = [
         ...stripComments(layoutCss).matchAll(
           new RegExp(`${CANVAS_TOKEN}\\s*:\\s*([^;]+);`, 'g'),
@@ -98,19 +98,11 @@ describe('JL-393 page canvas', () => {
       // One light definition + one dark counterpart.
       expect(defs.length).toBe(2)
 
-      // JL-439 moved this from #ffffff to #f7f8fa.
-      //
-      // The three-tier reading above still stands and is still what the next
-      // assertion guards. What changed is which tier the PAGE sits on: the
-      // issue-detail reference the global redesign is built from paints the
-      // application background at #f7f8fa with white content surfaces on top,
-      // and states that as a requirement rather than an inference.
-      //
-      // This is not a return to the value JL-393 was corrected for. #f4f5f7
-      // landed ~2% from the board columns and flattened them; #f7f8fa sits
-      // ~6 luminance points above them, which the next assertion checks.
+      // Atlassian's elevation.surface — "the starting point for body content and
+      // page backgrounds". This assertion was inverted until the JL-393 follow-up:
+      // it required a grey canvas, which is what flattened the board (see below).
       const light = defs[0].toLowerCase()
-      expect(light).toBe('#f7f8fa')
+      expect(light).toMatch(/^#(ffffff|fff)$/)
     })
 
     it('is lighter than the wells that sit on it, so wells read as sunken', () => {
@@ -126,28 +118,11 @@ describe('JL-393 page canvas', () => {
       // BoardPage.css declares .kanban-col twice (layout first, then painting),
       // so take whichever block actually carries the background rather than the
       // first one ruleBlock() would find.
-      //
-      // JL-440 replaced the literal here with var(--jira-surface-hover), so the
-      // value has to be resolved through variables.css. Reading the literal
-      // directly would have made this assertion pass vacuously the moment the
-      // well stopped being a hex — which is the failure mode the assertion is
-      // for, so the lookup is deliberately strict about finding a value.
       const boardCss = stripComments(read('pages/BoardPage/BoardPage.css'))
-      const variablesCss = stripComments(read('styles/variables.css'))
-      const resolveToken = (name) =>
-        variablesCss
-          .match(new RegExp(`--${name}\\s*:\\s*(#[0-9a-f]{6})\\s*;`, 'i'))?.[1]
-          ?.toLowerCase() ?? null
       const well = [...boardCss.matchAll(/^\.kanban-col\s*\{([^}]*)\}/gm)]
-        .map((m) => {
-          const decl = m[1].match(/background:\s*([^;]+);/i)?.[1]?.trim()
-          if (!decl) return null
-          const hex = decl.match(/^#[0-9a-f]{6}$/i)
-          if (hex) return decl.toLowerCase()
-          const token = decl.match(/^var\(\s*--([\w-]+)/)
-          return token ? resolveToken(token[1]) : null
-        })
+        .map((m) => m[1].match(/background:\s*(#[0-9a-f]{6})/i)?.[1])
         .find(Boolean)
+        ?.toLowerCase()
       expect(well, '.kanban-col should paint its own sunken background').toBeTruthy()
 
       const luminance = (hex) =>

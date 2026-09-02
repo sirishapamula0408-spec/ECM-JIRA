@@ -92,16 +92,10 @@ export function IssueTypeIcon({ type, size = 16 }) {
   )
 }
 
-/* JL-439: the colours moved out of here and into IssueDetailPage.css as
-   .id-priority-badge--high|medium|low, which read the shared status tokens.
-   They used to be inline styles carrying #ff5630 / #ff991f / #36b37e — the
-   saturated palette the brief rules out (§27, "Do not use highly saturated
-   colors"), and unreachable from a stylesheet, so no theme or token change
-   could ever touch them. Only the glyph and the modifier stay in JS. */
 const PRIORITY_ICON = {
-  High:   { icon: '\u2191', modifier: 'high' },
-  Medium: { icon: '\u2194', modifier: 'medium' },
-  Low:    { icon: '\u2193', modifier: 'low' },
+  High:   { icon: '\u2191', color: '#ff5630', bg: '#ffebe6' },
+  Medium: { icon: '\u2194', color: '#ff991f', bg: '#fff7e6' },
+  Low:    { icon: '\u2193', color: '#36b37e', bg: '#e3fcef' },
 }
 
 /* ---- Copy issue link button (JL-161; shared CopyButton since JL-238) ---- */
@@ -1414,27 +1408,27 @@ export function IssueDetailPage() {
       {/* JL-284: hide the click-to-edit pencil affordance on read-only sidebar fields */}
       <style>{`.id-inline-display--readonly{cursor:default}.id-inline-display--readonly .id-edit-pencil{display:none}`}</style>
       {/* ---- Breadcrumb bar ---- */}
-      <div className="breadcrumb-bar id-breadcrumb-bar">
-        <nav className="breadcrumbs">
-          <button type="button" className="breadcrumb-link" onClick={() => navigate('/projects')}>Projects</button>
-          <span className="breadcrumb-sep">/</span>
-          <button type="button" className="breadcrumb-link" onClick={() => navigate(issue.projectId ? `/projects/${issue.projectId}` : '/projects')}>{projectName || 'Project'}</button>
-          <span className="breadcrumb-sep">/</span>
+      <div className="id-breadcrumb-bar">
+        <nav className="id-breadcrumbs">
+          <button type="button" className="id-breadcrumb-link" onClick={() => navigate('/projects')}>Projects</button>
+          <span className="id-breadcrumb-sep">/</span>
+          <button type="button" className="id-breadcrumb-link" onClick={() => navigate(issue.projectId ? `/projects/${issue.projectId}` : '/projects')}>{projectName || 'Project'}</button>
+          <span className="id-breadcrumb-sep">/</span>
           {/* JL-321: a sub-task shows its parent as a link, like Atlassian
               (Project / PARENT-KEY / SUBTASK-KEY). */}
           {issue.parentId && (
             <>
               <button
                 type="button"
-                className="breadcrumb-link"
+                className="id-breadcrumb-link"
                 onClick={() => navigate(`/issues/${issue.parentId}`)}
               >
                 {issue.parentKey || `#${issue.parentId}`}
               </button>
-              <span className="breadcrumb-sep">/</span>
+              <span className="id-breadcrumb-sep">/</span>
             </>
           )}
-          <span className="breadcrumb-current">{issue.key || `IT-${issue.id}`}</span>
+          <span className="id-breadcrumb-current">{issue.key || `IT-${issue.id}`}</span>
         </nav>
         <div className="id-top-actions">
           <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintIssue}>
@@ -2145,7 +2139,7 @@ export function IssueDetailPage() {
                     onClose={closeField}
                     onCancel={closeField}
                     display={
-                      <span className={`id-priority-badge id-priority-badge--${priorityMeta.modifier}`}>
+                      <span className="id-priority-badge" style={{ background: priorityMeta.bg, color: priorityMeta.color }}>
                         <span className="id-priority-arrow">{priorityMeta.icon}</span>
                         {issue.priority}
                         <span className="id-edit-pencil">

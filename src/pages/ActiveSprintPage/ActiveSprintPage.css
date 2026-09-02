@@ -28,7 +28,7 @@
   background: transparent;
   color: var(--jira-text);
   padding: 6px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
@@ -128,14 +128,14 @@
 .active-sprint-header__progress-bar {
   width: 120px;
   height: 6px;
-  border-radius: var(--radius-xs);
-  background: var(--jira-border);
+  border-radius: 3px;
+  background: #dfe1e6;
   overflow: hidden;
 }
 
 .active-sprint-header__progress-fill {
   height: 100%;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   background: var(--jira-success);
   transition: width 300ms ease;
 }
@@ -148,9 +148,9 @@
 }
 
 .active-sprint-col {
-  background: var(--jira-surface-hover);
+  background: #f1f2f4;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 10px;
   min-height: 120px;
   transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
@@ -186,8 +186,8 @@
 .active-sprint-col header span {
   min-width: 20px;
   height: 20px;
-  border-radius: var(--radius-pill);
-  background: var(--jira-border);
+  border-radius: 999px;
+  background: #dfe1e6;
   color: var(--jira-text-muted);
   display: grid;
   place-items: center;
@@ -200,7 +200,7 @@
 .active-sprint-card {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 10px;
   margin-bottom: 8px;
   box-shadow: var(--jira-shadow);
@@ -229,7 +229,7 @@
 .active-sprint-card__top {
   display: flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .active-sprint-card__type {
@@ -272,7 +272,7 @@
   margin: 12px 0 20px;
   padding: 12px 16px;
   background: var(--color-surface-sunken, #f4f5f7);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
 }
 .active-sprint-goal--edit {
   flex-direction: column;
@@ -296,7 +296,7 @@
   width: 100%;
   padding: 8px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font: inherit;
   resize: vertical;
 }
@@ -319,7 +319,7 @@
 }
 .active-sprint-retro__col {
   background: var(--color-surface-sunken, #f4f5f7);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -336,7 +336,7 @@
   gap: 8px;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 8px 10px;
 }
 .active-sprint-retro__note-text {
@@ -355,14 +355,14 @@
 .active-sprint-retro__add {
   display: flex;
   flex-direction: column;
-  gap: var(--space-075);
+  gap: 6px;
   margin-top: auto;
 }
 .active-sprint-retro__input {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font: inherit;
   resize: vertical;
 }

@@ -44,7 +44,7 @@
 .tl-view-toggle {
   display: inline-flex;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -52,7 +52,7 @@
   padding: 4px 12px;
   border: none;
   background: #ffffff;
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -60,12 +60,12 @@
 }
 
 .tl-view-btn:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .tl-view-btn.active {
-  background: var(--jira-blue-soft);
-  color: var(--jira-blue);
+  background: #deebff;
+  color: #0052cc;
   font-weight: var(--font-weight-semibold);
 }
 
@@ -97,7 +97,7 @@
   padding: 0 12px;
   height: 40px;
   border-bottom: 1px solid var(--jira-border);
-  background: var(--jira-surface-subtle);
+  background: #fafbfc;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   color: var(--jira-text-muted);
@@ -123,12 +123,12 @@
 }
 
 .tl-row-left:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .tl-row-left--epic {
   font-weight: var(--font-weight-semibold);
-  background: var(--jira-surface-subtle);
+  background: #fafbfc;
 }
 
 .tl-row-left--child {
@@ -140,19 +140,19 @@
   height: 20px;
   border: none;
   background: transparent;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-sm);
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   flex-shrink: 0;
   transition: background 0.1s ease, transform 0.15s ease;
 }
 
 .tl-expand-btn:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
 }
 
 .tl-expand-btn--open {
@@ -162,14 +162,14 @@
 .tl-type-mark {
   width: 12px;
   height: 12px;
-  border-radius: var(--radius-xs);
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
 .tl-type-epic { background: #5243aa; }
 .tl-type-story { border: 2px solid #5e9e31; background: transparent; }
-.tl-type-bug { background: var(--jira-danger); }
-.tl-type-task { border: 2px solid var(--jira-blue-hover); background: transparent; }
+.tl-type-bug { background: #de350b; }
+.tl-type-task { border: 2px solid #0065ff; background: transparent; }
 
 .tl-row-key {
   font-size: var(--font-size-sm);
@@ -192,7 +192,7 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
@@ -201,13 +201,13 @@
   white-space: nowrap;
 }
 
-.tl-status-planned    { background: var(--jira-blue-soft); color: var(--jira-blue); }
+.tl-status-planned    { background: #deebff; color: #0052cc; }
 .tl-status-inprogress { background: #fff0b3; color: #ff8b00; }
-.tl-status-done       { background: var(--jira-success-bg); color: var(--jira-success-text); }
-.tl-status-atrisk     { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
-.tl-status-todo       { background: var(--jira-border); color: var(--jira-text-muted); }
+.tl-status-done       { background: #e3fcef; color: #006644; }
+.tl-status-atrisk     { background: #ffebe6; color: #bf2600; }
+.tl-status-todo       { background: #dfe1e6; color: #42526e; }
 .tl-status-review     { background: #eae6ff; color: #5243aa; }
-.tl-status-backlog    { background: var(--jira-surface-sunken); color: var(--jira-text-subtlest); }
+.tl-status-backlog    { background: #f4f5f7; color: #6b778c; }
 
 /* ---- Right panel (Gantt chart) ---- */
 .tl-right {
@@ -228,7 +228,7 @@
   z-index: 5;
   display: flex;
   height: 40px;
-  background: var(--jira-surface-subtle);
+  background: #fafbfc;
   border-bottom: 1px solid var(--jira-border);
 }
 
@@ -287,7 +287,7 @@
 }
 
 .tl-grid-col {
-  border-right: 1px solid var(--jira-surface-sunken);
+  border-right: 1px solid #f4f5f7;
   box-sizing: border-box;
 }
 
@@ -300,7 +300,7 @@
   position: absolute;
   top: 10px;
   height: 24px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   display: flex;
   align-items: center;
   padding: 0 8px;
@@ -320,13 +320,13 @@
 }
 
 .tl-bar--epic      { background: #c0b6f2; color: #403294; }
-.tl-bar--planned    { background: #b3d4ff; color: var(--jira-blue-hover); }
+.tl-bar--planned    { background: #b3d4ff; color: #0747a6; }
 .tl-bar--inprogress { background: #ffe380; color: #974f0c; }
-.tl-bar--done       { background: #79f2c0; color: var(--jira-success-text); }
-.tl-bar--atrisk     { background: #ffbdad; color: var(--jira-danger-text); }
-.tl-bar--todo       { background: var(--jira-border); color: var(--jira-text-muted); }
+.tl-bar--done       { background: #79f2c0; color: #006644; }
+.tl-bar--atrisk     { background: #ffbdad; color: #bf2600; }
+.tl-bar--todo       { background: #dfe1e6; color: #42526e; }
 .tl-bar--review     { background: #c0b6f2; color: #403294; }
-.tl-bar--backlog    { background: var(--jira-border-subtle); color: var(--jira-text-subtlest); }
+.tl-bar--backlog    { background: #ebecf0; color: #6b778c; }
 
 /* Today marker */
 .tl-today-line {
@@ -334,7 +334,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--jira-danger);
+  background: #de350b;
   z-index: 3;
   pointer-events: none;
 }
@@ -346,22 +346,22 @@
   transform: translateX(-50%);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  color: var(--jira-danger);
+  color: #de350b;
   white-space: nowrap;
   background: #ffffff;
   padding: 1px 4px;
-  border-radius: var(--radius-xs);
+  border-radius: 2px;
 }
 
 /* ---- Create child row ---- */
 .tl-create-child {
   display: flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   padding: 0 12px 0 40px;
   height: 36px;
   border-bottom: 1px solid #f0f1f3;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   font-size: var(--font-size-sm);
   cursor: pointer;
   transition: background 0.1s ease, color 0.1s ease;
@@ -372,8 +372,8 @@
 }
 
 .tl-create-child:hover {
-  background: var(--jira-surface-sunken);
-  color: var(--jira-blue);
+  background: #f4f5f7;
+  color: #0052cc;
 }
 
 /* ---- Empty state ---- */

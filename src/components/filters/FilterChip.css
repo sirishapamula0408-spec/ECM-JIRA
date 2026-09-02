@@ -11,10 +11,10 @@
   gap: 4px;
   height: 32px;
   padding: 0 8px;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-xs);
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
   background: #fff;
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-base);
@@ -24,14 +24,14 @@
 }
 
 .filter-chip:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 /* Active state (non-"All" value selected) */
 .filter-chip--active {
-  background: var(--jira-blue-soft);
-  border-color: var(--jira-blue);
-  color: var(--jira-blue);
+  background: #deebff;
+  border-color: #4c9aff;
+  color: #0052cc;
 }
 
 .filter-chip--active:hover {
@@ -49,9 +49,9 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: var(--radius-xs);
-  margin-left: var(--space-025);
-  color: var(--jira-blue);
+  border-radius: 2px;
+  margin-left: 2px;
+  color: #0052cc;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -64,7 +64,7 @@
 .filter-chip__chevron {
   display: inline-flex;
   align-items: center;
-  margin-left: var(--space-025);
+  margin-left: 2px;
   opacity: 0.6;
   flex-shrink: 0;
 }
@@ -77,8 +77,8 @@
   min-width: 200px;
   max-width: 280px;
   background: #fff;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-xs);
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
   box-shadow: 0 4px 8px -2px rgba(9, 30, 66, 0.25), 0 0 1px rgba(9, 30, 66, 0.31);
   z-index: 100;
 }
@@ -93,11 +93,11 @@
 .filter-chip-dropdown__search input {
   width: 100%;
   height: 32px;
-  border: 2px solid var(--jira-blue);
-  border-radius: var(--radius-xs);
+  border: 2px solid #4c9aff;
+  border-radius: 3px;
   padding: 0 8px 0 30px;
   font-size: var(--font-size-base);
-  color: var(--jira-text);
+  color: #172b4d;
   outline: none;
 }
 
@@ -110,7 +110,7 @@
   left: 17px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   pointer-events: none;
 }
 
@@ -129,12 +129,12 @@
   gap: 8px;
   padding: 6px 12px;
   font-size: var(--font-size-base);
-  color: var(--jira-text);
+  color: #172b4d;
   cursor: pointer;
 }
 
 .filter-chip-dropdown__item:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .filter-chip-dropdown__item--selected {
@@ -142,7 +142,7 @@
 }
 
 .filter-chip-dropdown__item--selected:hover {
-  background: var(--jira-blue-soft);
+  background: #deebff;
 }
 
 .filter-chip-dropdown__check {
@@ -152,12 +152,12 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--jira-blue);
+  color: #0052cc;
 }
 
 .filter-chip-dropdown__empty {
   padding: 12px;
   font-size: var(--font-size-base);
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   text-align: center;
 }

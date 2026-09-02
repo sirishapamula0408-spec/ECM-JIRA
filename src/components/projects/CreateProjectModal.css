@@ -6,7 +6,7 @@
   overflow-y: auto;
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
 }
@@ -32,7 +32,7 @@
   height: 32px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -44,7 +44,7 @@
 }
 
 .create-project-close:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
   color: var(--jira-text);
 }
 
@@ -58,7 +58,7 @@
 .create-project-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .create-project-field > label {
@@ -72,8 +72,8 @@
 }
 
 .create-project-required {
-  color: var(--jira-danger);
-  margin-left: var(--space-025);
+  color: #de350b;
+  margin-left: 2px;
 }
 
 .create-project-hint {
@@ -118,9 +118,9 @@
   margin: 0;
   padding: 8px 12px;
   border: 1px solid #ffbdad;
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
-  border-radius: var(--radius-sm);
+  background: #ffebe6;
+  color: #bf2600;
+  border-radius: 4px;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
 }

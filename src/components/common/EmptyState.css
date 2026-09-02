@@ -32,7 +32,7 @@
 
 .empty-state__title {
   margin: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--jira-text);
 }
@@ -50,7 +50,7 @@
 }
 
 .app-theme-dark .empty-state__title {
-  color: var(--jira-border);
+  color: #dfe1e6;
 }
 
 .app-theme-dark .empty-state__description,

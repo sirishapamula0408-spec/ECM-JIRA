@@ -30,6 +30,6 @@
 
 .portal-admin {
   background: var(--color-surface-sunken, rgba(0, 0, 0, 0.02));
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: var(--space-4, 24px);
 }

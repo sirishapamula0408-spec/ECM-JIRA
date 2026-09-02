@@ -12,25 +12,62 @@
   min-height: 100%;
 }
 
-/* ---- Breadcrumb bar ----
-   JL-439: the geometry and typography now come from the shared
-   .breadcrumb-bar / .breadcrumb-* classes in styles/shared.css, which
-   ProjectTopPanel renders too. The whole .id-breadcrumb-* family that used
-   to live here is gone; the element keeps .id-breadcrumb-bar only so the
-   480px override below can still reach it. */
+/* ---- Breadcrumb bar ---- */
+.id-breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 24px;
+  border-bottom: 1px solid var(--jira-border);
+  background: #fafbfc;
+}
+
+.id-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.id-breadcrumb-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #6b778c;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.id-breadcrumb-link:hover {
+  color: #0052cc;
+  text-decoration: underline;
+}
+
+.id-breadcrumb-sep {
+  color: #c1c7d0;
+  font-size: var(--font-size-sm);
+}
+
+.id-breadcrumb-current {
+  color: #172b4d;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
 
 .id-top-actions {
   display: flex;
-  gap: var(--space-2);
+  gap: 4px;
 }
 
 .id-action-btn {
-  width: var(--control-height);
-  height: var(--control-height);
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: transparent;
-  color: var(--jira-text);
+  color: #6b778c;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -39,8 +76,8 @@
 }
 
 .id-action-btn:hover {
-  background: var(--jira-surface-hover);
-  color: var(--jira-text);
+  background: #ebecf0;
+  color: #172b4d;
 }
 
 /* ---- Main grid layout ---- */
@@ -48,7 +85,7 @@
    background of its own, so this is the panel that used to be the page. */
 .id-layout {
   display: grid;
-  grid-template-columns: 1fr var(--layout-details-panel-width);
+  grid-template-columns: 1fr 340px;
   min-height: calc(100vh - 120px);
   background: var(--jira-surface);
 }
@@ -62,7 +99,7 @@
 
 /* ---- Left: Main content ---- */
 .id-main {
-  padding: var(--layout-content-padding) var(--layout-content-padding) var(--space-6);
+  padding: 24px 32px 40px;
   border-right: 1px solid var(--jira-border);
   overflow-y: auto;
   position: relative;
@@ -90,7 +127,7 @@
   align-items: center;
   gap: 8px;
   padding: 20px 28px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: var(--jira-surface, #fff);
   border: 2px dashed var(--jira-primary, #0052cc);
   color: var(--jira-primary, #0052cc);
@@ -102,8 +139,8 @@
 .id-type-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .id-type-icon {
@@ -114,10 +151,9 @@
 
 /* JL-321: issue key is now a link (Atlassian-style) */
 .id-issue-key {
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--jira-blue);
+  color: #0052cc;
   letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
@@ -127,89 +163,74 @@
   text-decoration: underline;
 }
 
-/* Title. JL-442 §8 - still the dominant element on the page, at 30/700/36
-   with -0.2px tracking (was 36/700/44, which §8 rules out). This is the one
-   place --font-size-display is used; a generic page heading stays on
-   `.page h1` (24px) because a page title and an issue summary are different
-   roles. Margins are §16's 8px above / 16px below. */
-.page h1.id-title {
-  margin: var(--space-2) 0 var(--space-4);
-  font-size: var(--font-size-display);
-  line-height: var(--line-height-display);
-  font-weight: var(--font-weight-bold);
-  color: var(--jira-text);
-  letter-spacing: -0.2px;
+/* Title */
+.id-title {
+  margin: 0 0 12px;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: #172b4d;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 /* Quick action buttons */
 .id-quick-actions {
   display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
+  gap: 8px;
+  margin-bottom: 24px;
   flex-wrap: wrap;
 }
 
-/* JL-442 §9. Same contract as the shared .btn - 40px, white, bordered,
-   14/500, 0 12px - restated here only because the markup names this class in
-   ~14 places and renaming all of them is not this ticket's work. */
 .id-quick-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  height: var(--control-height);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
-  background: var(--jira-surface);
-  color: var(--jira-text);
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
+  background: #fafbfc;
+  color: #42526e;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--transition-fast) var(--ease-standard),
-    border-color var(--transition-fast) var(--ease-standard);
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .id-quick-btn:hover {
-  background: var(--jira-surface-hover);
+  background: #ebecf0;
+  border-color: #c1c7d0;
 }
 
-/* ---- Sections ----
-   JL-442 §16: 32px between the stacked sections (Description -> Child issues
-   -> Linked issues -> Affected assets). Still clearly separated; 40px was
-   above the range §16 allows between normal UI elements. */
+/* ---- Sections ---- */
 .id-section {
-  margin-bottom: var(--space-6);
+  margin-bottom: 28px;
 }
 
-/* JL-442 §11: 16/600/24, muted, 0.3px tracking - the same treatment as the
-   shared .section-label, which this matches deliberately. */
 .id-section-title {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  margin: 0 0 10px;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: var(--jira-text-muted);
+  letter-spacing: 0.04em;
+  color: #6b778c;
 }
 
 /* Collapsible section title */
 .id-section-title--collapsible {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   border: none;
   background: none;
   padding: 4px 8px 4px 0;
   cursor: pointer;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   transition: color 0.12s ease;
 }
 
 .id-section-title--collapsible:hover {
-  color: var(--jira-text);
+  color: #172b4d;
 }
 
 .id-collapse-chevron {
@@ -224,27 +245,25 @@
 /* Description */
 .id-description {
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   cursor: text;
-  transition: background var(--transition-fast) var(--ease-standard);
+  transition: background 0.12s ease;
   min-height: 44px;
 }
 
 .id-description:hover {
-  background: var(--jira-surface-hover);
+  background: #f4f5f7;
 }
 
-/* JL-442 §10: 16/400/24. Leading is stated in px, not 1.6, so it stays on
-   the same rhythm as --line-height-base everywhere else. */
 .id-description p {
   margin: 0;
   font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: var(--jira-text);
+  line-height: 1.6;
+  color: #172b4d;
 }
 
 .id-placeholder {
-  color: var(--jira-text-subtlest);
+  color: #97a0af;
   font-style: italic;
 }
 
@@ -256,12 +275,12 @@
 
 .id-desc-textarea {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--jira-blue);
-  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border: 2px solid #4c9aff;
+  border-radius: 4px;
   font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: var(--jira-text);
+  line-height: 1.6;
+  color: #172b4d;
   font-family: var(--font-family-sans);
   resize: vertical;
   outline: none;
@@ -269,16 +288,14 @@
 
 .id-desc-edit-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
-/* Brief §39: empty states stay plain - 16px, muted, no illustration. */
 .id-empty-text {
   margin: 0;
-  padding: var(--space-2) 0;
+  padding: 8px 0;
   font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: var(--jira-text-subtlest);
+  color: #97a0af;
 }
 
 /* ---- Activity tabs ---- */
@@ -286,30 +303,19 @@
   display: inline-flex;
   gap: 0;
   margin-bottom: 16px;
-  border-bottom: 2px solid var(--jira-border);
+  border-bottom: 2px solid #dfe1e6;
 }
 
-/* Brief §38: 48px tall, 14/500, muted until active. Same contract as the
-   shared .tab in styles/shared.css and as .wh-tab on Webhooks. */
 .id-activity-tab {
   border: none;
   background: transparent;
-  height: var(--control-height-nav);
-  padding: 0 var(--space-3);
+  padding: 8px 14px;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--jira-text-muted);
+  color: #6b778c;
   cursor: pointer;
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  transition: color var(--transition-fast) var(--ease-standard);
-}
-
-.id-activity-tab:hover:not(.active) {
-  background: var(--jira-surface-hover);
+  transition: color 0.12s ease;
 }
 
 .id-activity-tab::after {
@@ -324,15 +330,15 @@
 }
 
 .id-activity-tab:hover {
-  color: var(--jira-text);
+  color: #172b4d;
 }
 
 .id-activity-tab.active {
-  color: var(--jira-blue);
+  color: #0052cc;
 }
 
 .id-activity-tab.active::after {
-  background: var(--jira-blue);
+  background: #0052cc;
 }
 
 /* ---- Comment input ---- */
@@ -347,8 +353,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--jira-border);
-  color: var(--jira-text-muted);
+  background: #dfe1e6;
+  color: #42526e;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -366,36 +372,36 @@
   display: block;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text);
+  color: #172b4d;
   margin-bottom: 4px;
 }
 
 .id-comment-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
   font-size: var(--font-size-base);
   font-family: var(--font-family-sans);
   line-height: 1.5;
-  color: var(--jira-text);
+  color: #172b4d;
   resize: vertical;
   outline: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .id-comment-textarea::placeholder {
-  color: var(--jira-text-subtlest);
+  color: #97a0af;
 }
 
 .id-comment-textarea:focus {
-  border-color: var(--jira-blue);
+  border-color: #4c9aff;
   box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
 }
 
 .id-comment-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
   margin-top: 8px;
 }
 
@@ -434,25 +440,25 @@
 .id-comment-meta strong {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text);
+  color: #172b4d;
 }
 
 .id-comment-time {
   font-size: var(--font-size-sm);
-  color: var(--jira-text-subtlest);
+  color: #97a0af;
 }
 
 .id-comment-text {
   margin: 0;
   font-size: var(--font-size-base);
   line-height: 1.5;
-  color: var(--jira-text);
+  color: #172b4d;
 }
 
 /* JL-160: comment edit/delete controls */
 .id-comment-edited {
   font-size: var(--font-size-sm);
-  color: var(--jira-text-subtlest);
+  color: #97a0af;
   font-style: italic;
 }
 
@@ -468,12 +474,12 @@
   padding: 0;
   cursor: pointer;
   font-size: var(--font-size-sm);
-  color: var(--jira-text-muted);
+  color: #5e6c84;
   font-weight: var(--font-weight-semibold);
 }
 
 .id-comment-action-link:hover {
-  color: var(--jira-blue);
+  color: #0052cc;
   text-decoration: underline;
 }
 
@@ -483,7 +489,7 @@
 
 /* Logged-in user avatar highlight */
 .id-comment-avatar--me {
-  background: var(--jira-blue);
+  background: #0052cc;
   color: #fff;
 }
 
@@ -492,29 +498,29 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-075);
-  margin-top: var(--space-075);
+  gap: 6px;
+  margin-top: 6px;
 }
 .id-reaction-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-lg);
-  background: var(--jira-surface-sunken);
+  border: 1px solid #dfe1e6;
+  border-radius: 12px;
+  background: #f4f5f7;
   cursor: pointer;
   font-size: var(--font-size-sm, 13px);
   line-height: 1.4;
   transition: background var(--transition-fast, 120ms), border-color var(--transition-fast, 120ms);
 }
 .id-reaction-chip:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
 }
 .id-reaction-chip--mine {
-  background: var(--jira-blue-soft);
-  border-color: var(--jira-blue);
-  color: var(--jira-blue);
+  background: #deebff;
+  border-color: #4c9aff;
+  color: #0052cc;
 }
 .id-reaction-count {
   font-weight: var(--font-weight-semibold);
@@ -526,27 +532,27 @@
 .id-reaction-add {
   width: 26px;
   height: 26px;
-  border: 1px solid var(--jira-border);
+  border: 1px solid #dfe1e6;
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
-  color: var(--jira-text-muted);
+  color: #5e6c84;
   font-size: var(--font-size-base);
   line-height: 1;
 }
 .id-reaction-add:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 .id-reaction-menu {
   position: absolute;
   bottom: calc(100% + 4px);
   left: 0;
   display: none;
-  gap: var(--space-025);
+  gap: 2px;
   padding: 4px;
   background: #fff;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
+  border: 1px solid #dfe1e6;
+  border-radius: 8px;
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
   z-index: var(--z-dropdown, 100);
 }
@@ -560,10 +566,10 @@
   cursor: pointer;
   font-size: var(--font-size-lg);
   padding: 2px 4px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
 }
 .id-reaction-option:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
 }
 
 /* Tab count badge */
@@ -575,16 +581,16 @@
   height: 18px;
   padding: 0 5px;
   margin-left: 4px;
-  border-radius: var(--radius-md);
-  background: var(--jira-border);
-  color: var(--jira-text-muted);
+  border-radius: 9px;
+  background: #dfe1e6;
+  color: #42526e;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
 .id-activity-tab.active .id-tab-count {
-  background: var(--jira-blue-soft);
-  color: var(--jira-blue);
+  background: #deebff;
+  color: #0052cc;
 }
 
 /* History entry */
@@ -592,7 +598,7 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   background: #eae6ff;
   color: #5243aa;
   font-size: var(--font-size-sm);
@@ -605,7 +611,7 @@
   margin: 0;
   font-size: var(--font-size-base);
   line-height: 1.5;
-  color: var(--jira-text-muted);
+  color: #5e6c84;
   font-style: italic;
 }
 
@@ -614,9 +620,9 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: var(--radius-xs);
-  background: var(--jira-success-bg);
-  color: var(--jira-success-text);
+  border-radius: 3px;
+  background: #e3fcef;
+  color: #006644;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -634,16 +640,16 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: var(--radius-xs);
-  background: var(--jira-blue-soft);
-  color: var(--jira-blue);
+  border-radius: 3px;
+  background: #deebff;
+  color: #0052cc;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .id-worklog-desc {
   font-size: var(--font-size-base);
-  color: var(--jira-text-muted);
+  color: #5e6c84;
 }
 
 /* Work log add button */
@@ -656,10 +662,10 @@
   align-items: center;
   gap: 5px;
   padding: 6px 12px;
-  border: 1px dashed var(--jira-border-strong);
-  border-radius: var(--radius-sm);
+  border: 1px dashed #c1c7d0;
+  border-radius: 4px;
   background: transparent;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -667,9 +673,9 @@
 }
 
 .id-worklog-add-btn:hover {
-  background: var(--jira-surface-sunken);
-  border-color: var(--jira-text-subtlest);
-  color: var(--jira-text);
+  background: #f4f5f7;
+  border-color: #97a0af;
+  color: #172b4d;
 }
 
 /* Work log form */
@@ -678,9 +684,9 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
-  background: var(--jira-surface-subtle);
+  border: 1px solid #dfe1e6;
+  border-radius: 4px;
+  background: #fafbfc;
 }
 
 .id-worklog-form-row {
@@ -692,45 +698,37 @@
 .id-worklog-form-row label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
 }
 
 .id-worklog-form-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 /* ============================================================
    RIGHT SIDEBAR
    ============================================================ */
-/* Brief §21: the details panel is a white surface, 28px padding, separated
-   from the content by the border on .id-main - not by a grey fill. */
 .id-sidebar {
-  padding: var(--space-4);
-  background: var(--jira-surface);
+  padding: 20px;
+  background: #fafbfc;
   overflow-y: auto;
 }
 
 /* Status select */
 .id-sidebar-status {
-  margin-bottom: var(--space-20);
+  margin-bottom: 20px;
 }
 
-/* JL-442 §13: 40 x 220, 16/600, radius 6 - prominent but on the app's one
-   control height. The background comes from the status-category class the
-   markup adds; --jira-border is the neutral fallback for TO DO. */
 .id-status-select {
-  width: var(--control-width-status);
-  max-width: 100%;
-  height: var(--control-height-status);
-  padding: 0 var(--space-5) 0 var(--space-3);
+  width: auto;
+  min-width: 140px;
+  height: 32px;
+  padding: 0 28px 0 10px;
   border: none;
-  border-radius: var(--radius-sm);
-  background: var(--jira-border);
-  color: var(--jira-text);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  font-weight: var(--font-weight-semibold);
+  border-radius: 4px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -747,7 +745,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
@@ -755,9 +753,9 @@
 
 /* Sidebar sections */
 .id-sidebar-section {
-  margin-bottom: var(--space-5);
-  border-top: 1px solid var(--jira-border-subtle);
-  padding-top: var(--space-4);
+  margin-bottom: 20px;
+  border-top: 1px solid #ebecf0;
+  padding-top: 16px;
 }
 
 .id-sidebar-section:first-of-type {
@@ -769,15 +767,13 @@
   margin-bottom: 12px;
 }
 
-/* JL-442 §12: the "DETAILS" heading - 16/600/24, muted, 0.3px, uppercase. */
 .id-sidebar-section-header h4 {
   margin: 0;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text-muted);
+  color: #6b778c;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.04em;
 }
 
 /* Detail list (key-value pairs) */
@@ -785,13 +781,11 @@
   margin: 0;
 }
 
-/* JL-442 §16: 20px between fields, flat - "Do not make fields look like
-   individual cards." */
 .id-detail-row {
   display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: var(--space-3);
-  margin-bottom: var(--space-20);
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
   align-items: center;
 }
 
@@ -801,53 +795,46 @@
 
 .id-detail-row dt {
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  color: var(--jira-text-muted);
-  font-weight: var(--font-weight-regular);
+  color: #6b778c;
+  font-weight: var(--font-weight-medium);
 }
 
 .id-detail-row dd {
   margin: 0;
   font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: var(--jira-text);
-  font-weight: var(--font-weight-regular);
+  color: #172b4d;
 }
 
-/* User display (avatar + name). JL-442: 8px between the 32px avatar and the
-   name — 12px cost enough width in the narrowed panel to wrap a two-word
-   name onto a second line. */
+/* User display (avatar + name) */
 .id-detail-user {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 /* JL-162: one-click "Assign to me" shortcut under the Assignee field */
-/* JL-442 §12: the assignee action link is 14px in the brand blue. */
 .id-assign-to-me {
   display: inline-block;
-  margin-top: var(--space-1);
+  margin-top: 4px;
   padding: 0;
   border: none;
   background: none;
-  color: var(--jira-blue);
+  color: #0052cc;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
   cursor: pointer;
 }
 
 .id-assign-to-me:hover {
-  color: var(--jira-blue-hover);
+  color: #0747a6;
   text-decoration: underline;
 }
 
 .id-detail-avatar {
-  width: var(--avatar-size-md);
-  height: var(--avatar-size-md);
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: var(--jira-border);
-  color: var(--jira-text-muted);
+  background: #dfe1e6;
+  color: #42526e;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -856,34 +843,15 @@
   flex-shrink: 0;
 }
 
-/* Priority badge — JL-442 §12: 32px tall, 0 12px, radius 3, 14/600, and a
-   SUBTLE fill. The three variants below are the only place these colours are
-   written; the JSX picks a modifier, not a hex. */
+/* Priority badge */
 .id-priority-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  height: var(--control-height-sm);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-xs);
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 3px;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
-}
-
-.id-priority-badge--high {
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
-}
-
-.id-priority-badge--medium {
-  background: var(--jira-warning-bg);
-  color: var(--jira-warning-text);
-}
-
-.id-priority-badge--low {
-  background: var(--jira-success-bg);
-  color: var(--jira-success-text);
 }
 
 .id-priority-arrow {
@@ -908,7 +876,7 @@
 
 /* Empty value */
 .id-empty-value {
-  color: var(--jira-text-subtlest);
+  color: #97a0af;
   font-size: var(--font-size-base);
 }
 
@@ -918,10 +886,10 @@
   align-items: center;
   gap: 5px;
   padding: 4px 8px;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-xs);
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
   background: #fff;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -929,7 +897,7 @@
 }
 
 .id-watch-btn:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 /* Small button variant */
@@ -948,20 +916,20 @@
   cursor: pointer;
   padding: 2px 4px;
   margin: -2px -4px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   transition: background 0.1s ease;
   position: relative;
 }
 
 .id-inline-display:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
 }
 
 .id-edit-pencil {
   display: inline-flex;
   align-items: center;
-  margin-left: var(--space-075);
-  color: var(--jira-text-subtlest);
+  margin-left: 6px;
+  color: #97a0af;
   opacity: 0;
   transition: opacity 0.12s ease;
 }
@@ -982,10 +950,10 @@
   min-width: 0;
   height: 32px;
   padding: 0 8px;
-  border: 2px solid var(--jira-blue);
-  border-radius: var(--radius-xs);
+  border: 2px solid #4c9aff;
+  border-radius: 3px;
   font-size: var(--font-size-base);
-  color: var(--jira-text);
+  color: #172b4d;
   background: #fff;
   outline: none;
   cursor: pointer;
@@ -996,17 +964,17 @@
   min-width: 0;
   height: 32px;
   padding: 0 8px;
-  border: 2px solid var(--jira-blue);
-  border-radius: var(--radius-xs);
+  border: 2px solid #4c9aff;
+  border-radius: 3px;
   font-size: var(--font-size-base);
-  color: var(--jira-text);
+  color: #172b4d;
   background: #fff;
   outline: none;
 }
 
 .id-inline-actions {
   display: flex;
-  gap: var(--space-025);
+  gap: 2px;
   flex-shrink: 0;
 }
 
@@ -1015,7 +983,7 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1024,36 +992,36 @@
 }
 
 .id-inline-save {
-  background: var(--jira-blue);
+  background: #0052cc;
   color: #fff;
 }
 
 .id-inline-save:hover {
-  background: var(--jira-blue-hover);
+  background: #0747a6;
 }
 
 .id-inline-cancel {
-  background: var(--jira-surface-sunken);
-  color: var(--jira-text-subtlest);
+  background: #f4f5f7;
+  color: #6b778c;
 }
 
 .id-inline-cancel:hover {
-  background: var(--jira-border-subtle);
-  color: var(--jira-text);
+  background: #ebecf0;
+  color: #172b4d;
 }
 
 /* Sprint display */
 .id-sprint-display {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-025);
+  gap: 2px;
 }
 
 /* Labels editor */
 .id-labels-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-075);
+  gap: 6px;
   width: 100%;
 }
 
@@ -1061,7 +1029,7 @@
 .id-version-option {
   display: flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
   font-size: var(--font-size-base);
   cursor: pointer;
 }
@@ -1077,17 +1045,17 @@
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  background: var(--jira-border-subtle);
-  border-radius: var(--radius-xs);
+  background: #ebecf0;
+  border-radius: 3px;
   font-size: var(--font-size-sm);
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-weight: var(--font-weight-medium);
 }
 
 .id-label-remove {
   border: none;
   background: transparent;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   cursor: pointer;
   padding: 0;
   font-size: var(--font-size-base);
@@ -1097,7 +1065,7 @@
 }
 
 .id-label-remove:hover {
-  color: var(--jira-danger);
+  color: #de350b;
 }
 
 .id-label-add-row {
@@ -1108,10 +1076,10 @@
 .id-label-add-btn {
   height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-xs);
+  border: 1px solid #dfe1e6;
+  border-radius: 3px;
   background: #fff;
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -1119,22 +1087,12 @@
 }
 
 .id-label-add-btn:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 /* ============================================================
    Responsive
    ============================================================ */
-/* JL-442 §23: the issue title steps 30 -> 28 -> 24 across desktop, tablet and
-   mobile. Before this ticket it was 36px at EVERY width above 480, which is
-   the "oversized typography on smaller screens" the ticket rules out. */
-@media (max-width: 1024px) {
-  .page h1.id-title {
-    font-size: var(--font-size-xxl);
-    line-height: var(--line-height-xxl);
-  }
-}
-
 @media (max-width: 860px) {
   .id-layout {
     grid-template-columns: 1fr;
@@ -1147,8 +1105,7 @@
   }
 
   .id-sidebar {
-    padding: var(--space-4);
-    border-top: 1px solid var(--jira-border);
+    padding: 16px;
   }
 
   .id-detail-row {
@@ -1158,21 +1115,19 @@
 
 @media (max-width: 480px) {
   .id-breadcrumb-bar {
-    padding: var(--space-3);
+    padding: 10px 12px;
   }
 
   .id-main {
     padding: 16px 12px 24px;
   }
 
-  /* §23: mobile issue title 24px. */
-  .page h1.id-title {
-    font-size: var(--font-size-xl);
-    line-height: var(--line-height-xl);
+  .id-title {
+    font-size: var(--font-size-lg);
   }
 
   .id-quick-actions {
-    gap: var(--space-075);
+    gap: 6px;
   }
 }
 
@@ -1197,7 +1152,7 @@
 .id-approval-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .id-approval-item {
@@ -1214,11 +1169,11 @@
 }
 
 .id-approval-badge--approved {
-  color: var(--jira-success-text);
+  color: #006644;
 }
 
 .id-approval-badge--rejected {
-  color: var(--jira-danger-text);
+  color: #bf2600;
 }
 
 .id-approval-badge--pending {
@@ -1234,14 +1189,14 @@
 
 .id-approval-actions {
   display: flex;
-  gap: var(--space-075);
+  gap: 6px;
   margin-top: 8px;
 }
 
 /* Theme-1 #2: label picker suggestions */
 .id-label-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .id-label-suggestion {
-  border: 1px dashed currentColor; background: transparent; border-radius: var(--radius-lg);
+  border: 1px dashed currentColor; background: transparent; border-radius: 12px;
   padding: 2px 8px; font-size: var(--font-size-sm); cursor: pointer; opacity: 0.85;
 }
 .id-label-suggestion:hover { opacity: 1; background: rgba(0,0,0,0.03); }
@@ -1252,78 +1207,78 @@
 .id-label-edit-btn {
   display: inline-flex; align-items: center; justify-content: center;
   border: none; background: transparent; color: inherit; cursor: pointer;
-  padding: var(--space-025);
+  padding: 2px; border-radius: 4px; opacity: 0.6;
 }
 .id-label-edit-btn:hover { opacity: 1; background: rgba(0,0,0,0.06); }
 .id-label-edit-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .id-label-color-input {
-  width: 26px; height: 26px; padding: 0; border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm); background: none; cursor: pointer;
+  width: 26px; height: 26px; padding: 0; border: 1px solid #dfe1e6;
+  border-radius: 4px; background: none; cursor: pointer;
 }
-.id-label-edit-error { color: var(--jira-danger); font-size: var(--font-size-sm); }
+.id-label-edit-error { color: #de350b; font-size: var(--font-size-sm); }
 
 /* Theme-1 #1: sub-tasks */
 .id-subtask-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .id-subtask-progress { display: flex; align-items: center; gap: 8px; }
-.id-subtask-bar { width: 120px; height: 8px; background: var(--jira-border); border-radius: var(--radius-sm); overflow: hidden; }
+.id-subtask-bar { width: 120px; height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
 .id-subtask-bar-fill { height: 100%; background: #36b37e; transition: width 0.2s; }
-.id-subtask-progress-label { font-size: var(--font-size-sm); color: var(--jira-text-muted); white-space: nowrap; }
+.id-subtask-progress-label { font-size: var(--font-size-sm); color: #5e6c84; white-space: nowrap; }
 .id-subtask-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.id-subtask-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--jira-border); border-radius: var(--radius-sm); cursor: pointer; }
-.id-subtask-row:hover { background: var(--jira-surface-sunken); }
-.id-subtask-key { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--jira-blue); }
+.id-subtask-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid #dfe1e6; border-radius: 4px; cursor: pointer; }
+.id-subtask-row:hover { background: #f4f5f7; }
+.id-subtask-key { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: #0052cc; }
 .id-subtask-title { flex: 1; font-size: var(--font-size-base); }
-.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: var(--radius-xs); background: var(--jira-border); color: var(--jira-text-muted); }
-.id-subtask-status--done { background: var(--jira-success-bg); color: var(--jira-success-text); }
-.id-subtask-status--in-progress { background: var(--jira-blue-soft); color: var(--jira-blue); }
+.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: 3px; background: #dfe1e6; color: #42526e; }
+.id-subtask-status--done { background: #e3fcef; color: #006644; }
+.id-subtask-status--in-progress { background: #deebff; color: #0052cc; }
 .id-subtask-status--code-review { background: #eae6ff; color: #5243aa; }
 .id-subtask-form { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
 /* JL-300: brief highlight of a newly added sub-task / linked-issue row */
 .id-subtask-row.id-row-flash { animation: id-row-flash 2.5s ease-out; }
 @keyframes id-row-flash {
-  0% { background: var(--jira-blue-soft); border-color: var(--jira-blue); }
-  70% { background: var(--jira-blue-soft); border-color: var(--jira-blue); }
-  100% { background: transparent; border-color: var(--jira-border); }
+  0% { background: #deebff; border-color: #0052cc; }
+  70% { background: #deebff; border-color: #0052cc; }
+  100% { background: transparent; border-color: #dfe1e6; }
 }
-.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: var(--jira-blue); cursor: pointer; font-size: var(--font-size-base); padding: 4px 0; }
+.id-subtask-add-btn { margin-top: 8px; background: none; border: none; color: #0052cc; cursor: pointer; font-size: var(--font-size-base); padding: 4px 0; }
 
 /* Theme-1 #3: attachments */
 .id-attach-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.id-attach-card { display: flex; align-items: center; border: 1px solid var(--jira-border); border-radius: var(--radius-sm); overflow: hidden; }
+.id-attach-card { display: flex; align-items: center; border: 1px solid #dfe1e6; border-radius: 4px; overflow: hidden; }
 .id-attach-open { display: flex; align-items: center; gap: 8px; background: #fff; border: none; padding: 8px 10px; cursor: pointer; max-width: 240px; }
-.id-attach-open:hover { background: var(--jira-surface-sunken); }
+.id-attach-open:hover { background: #f4f5f7; }
 .id-attach-icon { font-size: var(--font-size-md); }
 .id-attach-name { font-size: var(--font-size-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-.id-attach-size { font-size: var(--font-size-sm); color: var(--jira-text-muted); }
-.id-attach-delete { border: none; background: var(--jira-surface-subtle); color: var(--jira-text-muted); cursor: pointer; font-size: var(--font-size-md); padding: 0 8px; align-self: stretch; }
-.id-attach-delete:hover { background: var(--jira-danger-bg); color: var(--jira-danger-text); }
+.id-attach-size { font-size: var(--font-size-sm); color: #5e6c84; }
+.id-attach-delete { border: none; background: #fafbfc; color: #5e6c84; cursor: pointer; font-size: var(--font-size-md); padding: 0 8px; align-self: stretch; }
+.id-attach-delete:hover { background: #ffebe6; color: #bf2600; }
 
 /* Theme-1 #4: issue links */
-.id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: var(--jira-surface-sunken); border-radius: var(--radius-sm); }
+.id-link-dialog { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; padding: 8px; background: #f4f5f7; border-radius: 4px; }
 .id-link-dialog-actions { display: flex; gap: 6px; }
-.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; color: var(--jira-text-muted); min-width: 92px; font-weight: var(--font-weight-semibold); }
+.id-link-type { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; min-width: 92px; font-weight: var(--font-weight-semibold); }
 
 /* JL-55: Git integration (Development panel) */
 .id-git-group { margin-bottom: 10px; }
-.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; color: var(--jira-text-muted); font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
-.id-git-icon { min-width: 16px; text-align: center; color: var(--jira-text-muted); }
-.id-git-author { font-size: var(--font-size-sm); color: var(--jira-text-muted); margin-left: auto; }
+.id-git-group-label { font-size: var(--font-size-sm); text-transform: uppercase; color: #5e6c84; font-weight: var(--font-weight-semibold); margin: 6px 0 2px; }
+.id-git-icon { min-width: 16px; text-align: center; color: #5e6c84; }
+.id-git-author { font-size: var(--font-size-sm); color: #5e6c84; margin-left: auto; }
 
 /* JL-147: pull-request state chips */
-.id-pr-state { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); padding: 1px 8px; border-radius: var(--radius-md); color: #fff; text-transform: capitalize; }
-.id-pr-state--open { background: var(--jira-blue); }
+.id-pr-state { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); padding: 1px 8px; border-radius: 10px; color: #fff; text-transform: capitalize; }
+.id-pr-state--open { background: #0052cc; }
 .id-pr-state--merged { background: #6554c0; }
-.id-pr-state--closed { background: var(--jira-text-subtlest); }
+.id-pr-state--closed { background: #97a0af; }
 
 /* Theme-1 #5: time tracking */
 .id-time-summary { margin-bottom: 10px; }
-.id-time-bar { height: 8px; background: var(--jira-border); border-radius: var(--radius-sm); overflow: hidden; }
-.id-time-bar-fill { height: 100%; background: var(--jira-blue); transition: width 0.2s; }
-.id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: var(--font-size-sm); color: var(--jira-text-muted); margin-top: 4px; }
+.id-time-bar { height: 8px; background: #dfe1e6; border-radius: 4px; overflow: hidden; }
+.id-time-bar-fill { height: 100%; background: #0052cc; transition: width 0.2s; }
+.id-time-stats { display: flex; justify-content: space-between; gap: 8px; font-size: var(--font-size-sm); color: #5e6c84; margin-top: 4px; }
 
 /* Theme-1 #7: custom fields */
-.id-cf-delete { border: none; background: none; color: var(--jira-text-subtlest); cursor: pointer; font-size: var(--font-size-base); margin-left: 4px; padding: 0 2px; }
-.id-cf-delete:hover { color: var(--jira-danger-text); }
+.id-cf-delete { border: none; background: none; color: #97a0af; cursor: pointer; font-size: var(--font-size-base); margin-left: 4px; padding: 0 2px; }
+.id-cf-delete:hover { color: #bf2600; }
 .id-cf-add { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 
 /* JL-131: issue security-level chip */
@@ -1331,38 +1286,38 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
+  background: #ffebe6;
+  color: #bf2600;
   border: 1px solid #ffbdad;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 2px 8px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 /* JL-113: extended custom-field types */
-.id-cf-calculated { font-weight: var(--font-weight-semibold); color: var(--jira-text); }
+.id-cf-calculated { font-weight: var(--font-weight-semibold); color: #172b4d; }
 .id-cf-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--radius-lg); background: var(--jira-border); color: var(--jira-text); font-size: var(--font-size-sm); }
-.id-cf-chip button { border: none; background: none; color: var(--jira-text-muted); cursor: pointer; font-size: var(--font-size-base); line-height: 1; padding: 0; }
+.id-cf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 12px; background: #dfe1e6; color: #172b4d; font-size: var(--font-size-sm); }
+.id-cf-chip button { border: none; background: none; color: #5e6c84; cursor: pointer; font-size: var(--font-size-base); line-height: 1; padding: 0; }
 .id-cf-chip-toggle { cursor: pointer; user-select: none; }
 .id-cf-chip-toggle input { margin: 0; }
-.id-cf-chip-toggle.selected { background: var(--jira-blue); color: #fff; }
+.id-cf-chip-toggle.selected { background: #4c9aff; color: #fff; }
 .id-cf-cascade { display: flex; flex-direction: column; gap: 4px; }
 
 /* JL-56: CI/CD pipeline status */
 .id-ci-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: var(--radius-sm); font-size: var(--font-size-base); }
-.id-ci-status { text-transform: uppercase; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: .04em; padding: 2px 8px; border-radius: var(--radius-md); color: #fff; }
+.id-ci-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color, #dfe1e6); border-radius: 4px; font-size: var(--font-size-base); }
+.id-ci-status { text-transform: uppercase; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); letter-spacing: .04em; padding: 2px 8px; border-radius: 10px; color: #fff; }
 .id-ci-status--success { background: #36b37e; }
-.id-ci-status--failed { background: var(--jira-danger); }
-.id-ci-status--running { background: var(--jira-blue-hover); }
-.id-ci-status--pending { background: var(--jira-text-subtlest); }
-.id-ci-status--canceled { background: var(--jira-text-subtlest); }
+.id-ci-status--failed { background: #de350b; }
+.id-ci-status--running { background: #0065ff; }
+.id-ci-status--pending { background: #97a0af; }
+.id-ci-status--canceled { background: #6b778c; }
 .id-ci-pipeline { font-weight: var(--font-weight-semibold); }
-.id-ci-branch { color: var(--jira-text-muted); font-family: var(--font-family-mono); font-size: var(--font-size-sm); }
-.id-ci-duration { color: var(--jira-text-subtlest); font-size: var(--font-size-sm); }
-.id-ci-link { margin-left: auto; color: var(--jira-blue-hover); text-decoration: none; font-weight: var(--font-weight-semibold); }
+.id-ci-branch { color: #5e6c84; font-family: var(--font-family-mono); font-size: var(--font-size-sm); }
+.id-ci-duration { color: #97a0af; font-size: var(--font-size-sm); }
+.id-ci-link { margin-left: auto; color: #0065ff; text-decoration: none; font-weight: var(--font-weight-semibold); }
 .id-ci-link:hover { text-decoration: underline; }
 
 /* JL-136: real-time presence ("who's viewing this issue") */
@@ -1376,7 +1331,7 @@
   box-shadow: 0 0 0 1px rgba(0,0,0,0.04);
 }
 .id-presence-avatar:first-child { margin-left: 0; }
-.id-presence-label { font-size: var(--font-size-sm); color: var(--jira-text-muted); white-space: nowrap; }
+.id-presence-label { font-size: var(--font-size-sm); color: #5e6c84; white-space: nowrap; }
 
 /* JL-215: impediment flag toggle below the status select */
 .id-sidebar-flag {

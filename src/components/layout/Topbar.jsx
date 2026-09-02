@@ -314,12 +314,12 @@ export function Topbar({ onCreate, hasProjects }) {
                 )}
               </div>
 
-              {/* JL-443 removed the "Open Quickstart" item. JL-298 had already
-                  had to redirect it once — it opened /dashboard, which is not a
-                  quickstart — and repointing it at /knowledge-base only made it
-                  a second, less obvious route to a page the sidebar already
-                  links. The knowledge base is still reachable; this entry was
-                  duplicate navigation wearing a different name. */}
+              {/* JL-298: quickstart previously opened /dashboard; route it to the
+                  knowledge base (help/guide surface) instead. */}
+              <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/knowledge-base') }}>
+                <span className="topbar-user-item-icon"><HeaderPanelIcon name="quickstart" /></span>
+                Open Quickstart
+              </button>
 
               <div className="topbar-user-divider" />
 

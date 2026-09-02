@@ -61,9 +61,6 @@
   --text-tertiary: var(--jira-dark-text-muted);
   --text-subtle: var(--jira-dark-text-muted);
   --primary: var(--jira-dark-blue);
-
-  /* JL-439 */
-  --jira-row-hover: var(--jira-dark-hover);
 }
 
 .app-theme-dark .notif-dropdown {

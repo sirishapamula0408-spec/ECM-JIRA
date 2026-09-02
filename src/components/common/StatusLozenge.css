@@ -17,7 +17,7 @@
   box-sizing: border-box;
   padding: 2px 6px;
   border: 1px solid transparent;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   font-family: var(--font-family-sans);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);

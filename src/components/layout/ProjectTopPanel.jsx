@@ -108,14 +108,14 @@ export function ProjectTopPanel({ hasProjects }) {
     <div className="project-top-panel-wrapper">
       {/* Breadcrumbs — shown when inside a project */}
       {projectId && projectName && (
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <button type="button" className="breadcrumb-link" onClick={() => navigate('/projects')}>Projects</button>
-          <span className="breadcrumb-sep">/</span>
-          <button type="button" className="breadcrumb-link" onClick={() => navigate(`/projects/${projectId}`)}>{projectName}</button>
+        <nav className="project-breadcrumbs" aria-label="Breadcrumb">
+          <button type="button" className="project-breadcrumb-link" onClick={() => navigate('/projects')}>Projects</button>
+          <span className="project-breadcrumb-sep">/</span>
+          <button type="button" className="project-breadcrumb-link" onClick={() => navigate(`/projects/${projectId}`)}>{projectName}</button>
           {currentViewLabel && (
             <>
-              <span className="breadcrumb-sep">/</span>
-              <span className="breadcrumb-current">{currentViewLabel}</span>
+              <span className="project-breadcrumb-sep">/</span>
+              <span className="project-breadcrumb-current">{currentViewLabel}</span>
             </>
           )}
         </nav>

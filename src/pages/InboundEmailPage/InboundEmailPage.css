@@ -19,7 +19,7 @@
   align-items: center;
   background: var(--color-surface-sunken, #f4f5f7);
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 16px;
   margin-bottom: var(--space-4, 16px);
 }
@@ -32,14 +32,14 @@
 .ie-input {
   padding: 8px 10px;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   font-size: var(--font-size-base);
   min-width: 180px;
 }
 
 .ie-error {
   flex-basis: 100%;
-  color: var(--jira-danger);
+  color: #de350b;
   font-size: var(--font-size-base);
 }
 
@@ -50,7 +50,7 @@
 }
 
 .ie-test-result--ok {
-  color: var(--jira-success-text);
+  color: #006644;
 }
 
 .ie-test-result--warn {
@@ -69,7 +69,7 @@
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--color-border, #dfe1e6);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   padding: 12px 16px;
   background: var(--color-surface, #fff);
 }
@@ -95,14 +95,14 @@
 
 .ie-type-tag {
   background: var(--color-surface-sunken, #f4f5f7);
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 2px 8px;
   font-size: var(--font-size-sm);
   color: var(--color-text-subtle, #6b778c);
 }
 
 .ie-delete-btn {
-  color: var(--jira-danger);
+  color: #de350b;
 }
 
 .ie-log-panel {
@@ -128,24 +128,24 @@
   text-transform: uppercase;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 2px 6px;
 }
 
 .ie-log-action--created {
-  background: var(--jira-success-bg);
-  color: var(--jira-success-text);
+  background: #e3fcef;
+  color: #006644;
 }
 
 .ie-log-action--commented {
-  background: var(--jira-blue-soft);
-  color: var(--jira-blue-hover);
+  background: #deebff;
+  color: #0747a6;
 }
 
 .ie-log-action--ignored,
 .ie-log-action--nomatch {
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
+  background: #ffebe6;
+  color: #bf2600;
 }
 
 .ie-log-from {
@@ -163,7 +163,7 @@
 
 .ie-log-key {
   font-family: var(--font-family-mono);
-  color: var(--jira-blue-hover);
+  color: #0747a6;
 }
 
 .ie-log-time {

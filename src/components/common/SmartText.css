@@ -3,7 +3,7 @@
   color: var(--color-primary, #0052cc);
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   padding: 0 2px;
   white-space: nowrap;
   transition: background var(--transition-fast, 120ms) var(--ease-standard, ease);

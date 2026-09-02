@@ -3,7 +3,7 @@
   display: inline-flex;
   align-items: center;
   color: #b65c02; /* warning / "flagged" amber, readable on the warm tint */
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   line-height: 1;
   vertical-align: middle;
   cursor: help;
@@ -11,24 +11,4 @@
 
 .impediment-flag-toggle {
   align-self: flex-start;
-}
-
-/* JL-442 §14: the Add-flag button is an amber-outlined white button, 36px,
-   14/500, 0 12px, with warning-coloured text - not a filled amber block. */
-.impediment-flag-toggle.impediment-flag-toggle {
-  height: var(--control-height-flag);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid #ffab00;
-  background: var(--jira-surface);
-  color: var(--jira-warning-text);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-  font-weight: var(--font-weight-medium);
-  text-transform: none;
-}
-
-.impediment-flag-toggle.impediment-flag-toggle:hover {
-  background: var(--jira-warning-bg);
-  border-color: #ffab00;
 }

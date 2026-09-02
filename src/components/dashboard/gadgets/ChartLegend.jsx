@@ -48,6 +48,7 @@ export function ChartLegend({
   groupBy,
   projectId = null,
   showCounts = true,
+  grandTotal = 0,
 }) {
   // The dashboard's project filter can be 'All', in which case DashboardPage
   // passes no projectId and we link to the unscoped list — which spans every
@@ -82,15 +83,9 @@ export function ChartLegend({
             ) : (
               <span className="legend-label">{s.label}</span>
             )}
-            {/* JL-444: the count only. This used to read `3 (13%)`.
-                The percentage was redundant - both gadgets already paint a
-                share-of-total label onto the slice itself a couple of
-                centimetres away - and it buried the number that actually
-                matters: "3 bugs" is actionable, "13%" is not. It also doubled
-                the width of every row in a column narrow enough to wrap at
-                1280px. The on-slice labels are unchanged; a share-of-total
-                belongs on the chart, which is what the chart is for. */}
-            {showCounts && <strong>{s.count}</strong>}
+            {showCounts && (
+              <strong>{s.count} ({grandTotal > 0 ? Math.round((s.count / grandTotal) * 100) : 0}%)</strong>
+            )}
           </li>
         )
       })}

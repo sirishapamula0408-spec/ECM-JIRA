@@ -20,7 +20,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 20px;
-  background: var(--jira-surface-subtle);
+  background: #fafbfc;
   border-bottom: 1px solid var(--jira-border);
   flex-shrink: 0;
 }
@@ -47,7 +47,7 @@
   color: var(--jira-text-muted);
   background: #ffffff;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 4px 12px;
 }
 
@@ -62,7 +62,7 @@
   color: var(--jira-text);
   background: #ffffff;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 5px 10px;
   min-width: 180px;
 }
@@ -94,7 +94,7 @@
 .wfe-toolbar-right {
   display: flex;
   align-items: center;
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 /* JL-324: this badge previously had NO rule of its own and fell through to the
@@ -104,13 +104,13 @@
 .wfe-default-workflow-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-075);
-  margin-left: var(--space-075);
+  gap: 6px;
+  margin-left: 6px;
   padding: 3px 10px;
   border: 1px solid #b3d4ff;
-  border-radius: var(--radius-lg);
-  background: var(--jira-blue-soft);
-  color: var(--jira-blue-hover);
+  border-radius: 12px;
+  background: #deebff;
+  color: #0747a6;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
@@ -122,7 +122,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--jira-blue);
+  background: #0052cc;
   flex-shrink: 0;
 }
 
@@ -130,12 +130,12 @@
 .wfe-no-default-workflow-badge {
   display: inline-flex;
   align-items: center;
-  margin-left: var(--space-075);
+  margin-left: 6px;
   padding: 3px 10px;
   border: 1px dashed var(--jira-border);
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   background: transparent;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   font-size: var(--font-size-sm);
   white-space: nowrap;
   cursor: default;
@@ -147,9 +147,9 @@
   gap: 5px;
   padding: 5px 10px;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: #ffffff;
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -157,8 +157,8 @@
 }
 
 .wfe-toolbar-btn:hover {
-  background: var(--jira-surface-sunken);
-  border-color: var(--jira-border-strong);
+  background: #f4f5f7;
+  border-color: #c1c7d0;
 }
 
 .wfe-toolbar-btn:disabled {
@@ -168,14 +168,14 @@
 
 /* JL-306: Publish is the primary workflow action */
 .wfe-toolbar-btn--primary {
-  background: var(--jira-blue);
-  border-color: var(--jira-blue);
+  background: #0052cc;
+  border-color: #0052cc;
   color: #ffffff;
 }
 
 .wfe-toolbar-btn--primary:hover {
-  background: var(--jira-blue-hover);
-  border-color: var(--jira-blue-hover);
+  background: #0747a6;
+  border-color: #0747a6;
 }
 
 /* JL-306: inline hint next to the project selector when projects can't load / are empty */
@@ -185,7 +185,7 @@
 }
 
 .wfe-project-hint--error {
-  color: var(--jira-danger-text);
+  color: #bf2600;
 }
 
 .wfe-zoom-btn {
@@ -193,9 +193,9 @@
   height: 28px;
   padding: 0;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: #ffffff;
-  color: var(--jira-text-muted);
+  color: #42526e;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -205,7 +205,7 @@
 }
 
 .wfe-zoom-btn:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .wfe-zoom-label {
@@ -237,8 +237,8 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background-color: var(--jira-surface-subtle);
-  background-image: radial-gradient(circle, var(--jira-border) 1px, transparent 1px);
+  background-color: #fafbfc;
+  background-image: radial-gradient(circle, #dfe1e6 1px, transparent 1px);
   background-size: 20px 20px;
   position: relative;
 }
@@ -393,7 +393,7 @@
   position: absolute;
   box-sizing: border-box;
   padding: 4px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   border: 1px solid;
   box-shadow: 0 1px 2px rgba(9, 30, 66, 0.14), 0 0 1px rgba(9, 30, 66, 0.16);
   display: flex;
@@ -423,7 +423,7 @@
 
 /* JL-273: visible keyboard focus ring on nodes */
 .wfe-node:focus-visible {
-  outline: 3px solid var(--jira-blue);
+  outline: 3px solid #0052cc;
   outline-offset: 2px;
 }
 
@@ -439,7 +439,7 @@
 }
 
 .wfe-canvas-error {
-  color: var(--jira-danger-text);
+  color: #bf2600;
 }
 
 .wfe-node-name {
@@ -470,7 +470,7 @@
   height: 14px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2px solid var(--jira-blue);
+  border: 2px solid #0052cc;
   cursor: crosshair;
   opacity: 0;
   touch-action: none; /* JL-330: same reason as .wfe-node */
@@ -504,7 +504,7 @@
 
 /* Preview line drawn from the source node to the pointer while link-dragging. */
 .wfe-link-preview line {
-  stroke: var(--jira-blue);
+  stroke: #0052cc;
   stroke-width: 2;
   stroke-dasharray: 5 4;
   pointer-events: none;
@@ -529,12 +529,12 @@
    defaulted to strokeWidth — so hovering tripled the head to 30x21px. Atlassian
    connectors stay thin and the head never changes size. */
 .wfe-arrow:hover .wfe-arrow-line {
-  stroke: var(--jira-blue);
+  stroke: #0052cc;
   stroke-width: 2;
 }
 
 .wfe-arrow--selected .wfe-arrow-line {
-  stroke: var(--jira-blue);
+  stroke: #0052cc;
   stroke-width: 2;
 }
 
@@ -543,9 +543,9 @@
 .wfe-arrow-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  fill: var(--jira-text-muted);
+  fill: #5e6c84;
   paint-order: stroke;
-  stroke: var(--jira-surface-subtle);
+  stroke: #fafbfc;
   stroke-width: 3px;
   stroke-linejoin: round;
   pointer-events: none;
@@ -553,7 +553,7 @@
 
 .wfe-arrow:hover .wfe-arrow-label,
 .wfe-arrow--selected .wfe-arrow-label {
-  fill: var(--jira-blue);
+  fill: #0052cc;
 }
 
 .wfe-arrow-hitarea {
@@ -602,14 +602,14 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .wfe-transition-item {
   font-size: var(--font-size-base);
-  color: var(--jira-text-muted);
+  color: #42526e;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -625,13 +625,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-075);
+  gap: 6px;
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ffbdad;
-  border-radius: var(--radius-sm);
-  background: var(--jira-danger-bg);
-  color: var(--jira-danger-text);
+  border-radius: 4px;
+  background: #ffebe6;
+  color: #bf2600;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -649,7 +649,7 @@
 
 .wfe-empty-props p:first-child {
   font-weight: var(--font-weight-medium);
-  color: var(--jira-text-muted);
+  color: #42526e;
   margin: 0 0 6px;
 }
 
@@ -674,7 +674,7 @@
   text-transform: none;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text-muted);
+  color: #42526e;
   letter-spacing: 0;
 }
 
@@ -683,7 +683,7 @@
   display: block;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--jira-text-muted);
+  color: #42526e;
   margin-bottom: 12px;
 }
 
@@ -708,19 +708,19 @@
   text-align: left;
   padding: 6px 8px;
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: #ffffff;
-  color: var(--jira-text-muted);
+  color: #42526e;
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .wfe-trans-select-btn:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .wfe-trans-select-btn:focus-visible {
-  outline: 2px solid var(--jira-blue);
+  outline: 2px solid #0052cc;
   outline-offset: 1px;
 }
 
@@ -732,7 +732,7 @@
 }
 
 .wfe-rules-table .btn + .btn {
-  margin-left: var(--space-075);
+  margin-left: 6px;
 }
 
 .wfe-rules-fromto .chip {

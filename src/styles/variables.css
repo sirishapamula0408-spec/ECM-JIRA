@@ -19,12 +19,9 @@
   --jira-text-muted: #5e6c84;
   --jira-link: #0052cc;
   --jira-link-hover: #0747a6;
-  /* JL-438: brand blue refreshed to Atlassian's current value. Was #0052cc /
-     #0747a6, which is the older palette. Every consumer already goes through
-     these two tokens, so this is the whole change. */
-  --jira-blue: #0c66e4;
-  --jira-blue-hover: #0055cc;
-  --jira-blue-soft: #e9f2ff;      /* selected background */
+  --jira-blue: #0052cc;
+  --jira-blue-hover: #0747a6;
+  --jira-blue-soft: #deebff;
   --jira-success: #00875a;
   --jira-warning: #ff991f;
   --jira-danger: #de350b;
@@ -32,19 +29,6 @@
      grey so it darkens whatever surface sits beneath it and therefore needs no
      per-theme override. Added in JL-392. */
   --jira-hover-overlay: rgba(9, 30, 66, 0.06);
-
-  /* JL-438: background + state tokens from the design-system brief that had
-     no equivalent. Text, border and surface colours already matched the spec
-     exactly, so they are unchanged. */
-  --jira-text-subtlest: #6b778c;   /* muted — one step past text-muted */
-  --jira-surface-hover: #f1f2f4;
-  --jira-surface-selected: #e9f2ff;
-  --jira-success-text: #216e4e;
-  --jira-success-bg: #dcfff1;
-  --jira-warning-text: #974f0c;
-  --jira-warning-bg: #fff7d6;
-  --jira-danger-text: #ae2e24;
-  --jira-danger-bg: #ffeceb;
   --jira-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
   --jira-shadow-soft: 0 2px 10px rgba(9, 30, 66, 0.06);
   --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
@@ -98,14 +82,6 @@
 
   /* ── Numeric spacing scale (--space-1 .. --space-8) ──
      4px base step. Complements the named --spacing-* tokens above. */
-  /* JL-443: space.025 and space.075. Atlassian leans on 2px and 6px for the
-     tight gaps inside chips, badges, icon+label pairs and dense rows; without
-     them every small gap in this app snapped to 4px or 8px, which is a large
-     part of why the spacing did not match Jira. 292 declarations were writing
-     these as literals. Named by VALUE, like --space-20/40, because the ordinal
-     names are already taken and renumbering moves every existing call site. */
-  --space-025: 2px;
-  --space-075: 6px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -115,30 +91,17 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* ── Icon sizes ──
-     JL-442: --icon-md 20 → 18. It is the sidebar/topbar/button default, and
-     the requested sizes are 18px for a nav icon, 18-20 for a header icon and
-     16-18 inside a button. 18 is the one value that satisfies all three, so
-     the default moves rather than each surface overriding it. */
-  --icon-sm: 14px;
-  --icon-md: 16px;
-  --icon-lg: 20px;
+  /* ── Icon sizes ── */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
 
   /* ── Atlassian typography scale ── */
   /* JL-414 option B: Inter, self-hosted (SIL OFL). The system stack stays
      behind it as the fallback, so if the webfont fails or is still loading
      the app renders in the same faces it used before rather than dropping to
      a generic. font-display: swap comes from @fontsource's own @font-face. */
-  /* JL-442 put "Atlassian Sans" at the head of the stack, as requested. It is
-     proprietary and this app does not ship it, so on almost every machine it
-     does not resolve and the browser falls through to the next entry — which
-     is why 'Inter Variable' STAYS in second place rather than being replaced.
-     Inter is the face actually loaded (self-hosted, SIL OFL) and is the one
-     that renders. Naming Atlassian Sans first costs nothing and is correct for
-     anyone who does have it installed; dropping Inter would have left the app
-     rendering in a system font it never chose. The remainder is the requested
-     stack verbatim. */
-  --font-family-sans: "Atlassian Sans", 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-family-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   /* JL-414: "SFMono-Medium" removed. It is not a real installed face on any
      platform — an Atlassian legacy string that always fell through to the
      next entry, so dropping it changes nothing at render time and stops the
@@ -156,7 +119,7 @@
             sm 12px  font.body.small         base 14px font.body
             md 16px  heading.small            lg 20px  heading.medium
             xl 24px  heading.large            xxl 28px heading.xlarge
-            (JL-438 shifted this ladder up one step — see below)
+            xxxl 32px heading.xxlarge
 
      JL-414 retired the h600/h700/h800/h900 names this block used to
      carry. Those are the legacy ADG3 labels; Atlassian's own token
@@ -173,52 +136,21 @@
      Line heights move with it, using Atlassian's own pairings. They are kept as
      px rather than unitless so a heading that wraps keeps the intended rhythm
      instead of compounding its own font-size. */
-  /* JL-438: the ladder shifts up one step. Body moves 14 -> 16px per the
-     hybrid decision recorded on JL-437: the brief's 16px body and 14px small
-     for readability, but headings capped at Atlassian's real maximum (32px
-     heading.xxlarge) rather than the brief's 36px, which is larger than
-     anything Atlassian ships.
+  --font-size-sm: 12px;   /* labels, column headers, meta    */
+  --font-size-base: 14px; /* body, inputs, buttons           */
+  --font-size-md: 16px;   /* heading.small, panel headings   */
+  --font-size-lg: 20px;   /* heading.medium, section titles  */
+  --font-size-xl: 24px;   /* heading.large, page titles      */
+  --font-size-xxl: 28px;  /* heading.xlarge                  */
+  --font-size-xxxl: 32px; /* heading.xxlarge                 */
 
-     xs returns at 12px — NOT the 11px JL-414 retired. That retirement was on
-     accessibility grounds and still stands; 12px is Atlassian's documented
-     floor.
-
-     Root stays 14px and every size stays in px. JL-414 kept the root on
-     re-scaling risk and that reasoning is untouched here — the root was never
-     the problem. muiTheme.js records why px rather than rem. */
-  /* JL-442: the HEADING half of that shift is undone — md/lg/xl/xxl each move
-     back down one step (20→18, 24→20, 28→24, 32→28) and their leadings onto
-     Atlassian's real pairings (heading.medium 20/24, heading.large 24/28,
-     heading.xlarge 28/32).
-
-     JL-438 shifted the whole ladder up one step at once. That was right for
-     the BODY end — 16px body is the brief's number and stays — but it silently
-     re-sized every existing heading call site written when md meant 16px. 58
-     rules asked for --font-size-md and got 20px; the comment at
-     GadgetBoard.css still read "heading.small is 16px, not 14px" while
-     rendering 20. Applied across 44 pages that is the whole "everything is
-     oversized" complaint, and no test caught it because each site was still
-     spelling a token rather than a literal.
-
-     So the ladder is now exactly the requested 12 / 14 / 16 / 18 / 20 / 24 /
-     28 (+ 30 for --font-size-brand and --font-size-display), and the sites
-     that wanted 16 were repointed from md to base in the same sweep rather
-     than being left one step high. */
-  --font-size-xs: 12px;   /* meta, captions, counts          */
-  --font-size-sm: 14px;   /* labels, buttons, tables         */
-  --font-size-base: 14px; /* BODY - Atlassian font.body      */
-  --font-size-md: 16px;   /* sub-heading / card title        */
-  --font-size-lg: 20px;   /* h4 / modal title                */
-  --font-size-xl: 24px;   /* h3 / page title                 */
-  --font-size-xxl: 28px;  /* h2 / large page title           */
-
-  --line-height-xs: 16px;
-  --line-height-sm: 20px;
+  --line-height-sm: 16px;
   --line-height-base: 20px;
   --line-height-md: 20px;
   --line-height-lg: 24px;
   --line-height-xl: 28px;
   --line-height-xxl: 32px;
+  --line-height-xxxl: 36px;
 
   /* JL-414: the metric tier. Atlassian carries font.metric.large/medium/small
      (28/24/16) as a tier distinct from headings — same sizes, but a different
@@ -227,28 +159,6 @@
      is how .gadget-stat ended up at a literal 40px, ~43% larger than
      Atlassian's largest metric. Reach for these for a stat numeral and for
      --font-size-* for prose. */
-  /* JL-443: font.code (12/20). Inline code and pre blocks had no size token and
-     inherited whatever surrounded them. 15 rules consume --font-family-mono. */
-  --font-size-code: 12px;
-  --line-height-code: 20px;
-
-  /* JL-443 - DELIBERATE EXCEPTION, requested explicitly.
-     8px is BELOW the 12px floor every other surface in this app holds.
-     Atlassian retired its 11px step on accessibility grounds and JL-414
-     adopted that line; this token does not change it. It exists so the
-     exception is one named, greppable value with a reason attached rather
-     than a literal smuggled into Topbar.css past the stylelint rule.
-
-     Scope: the header clock ONLY. Do not reuse it. Any other surface that
-     wants sub-12px text is a bug, and the same argument does not transfer -
-     the clock is ambient, glanceable, and duplicated by the OS clock two
-     centimetres away, so it is the one place where unreadable is survivable.
-
-     Note it is not 8 device pixels for everyone: on a 150%-scaled display it
-     paints at 12. On a 100% display it really is 8. */
-  --font-size-clock: 8px;
-  --line-height-clock: 12px;
-
   --font-size-metric-lg: 28px;   /* font.metric.large  — hero KPI numeral */
   --font-size-metric-md: 24px;   /* font.metric.medium — donut centre     */
   --font-size-metric-sm: 16px;   /* font.metric.small  — inline stat      */
@@ -266,11 +176,7 @@
      an optical weight on the variable-font wght axis. Under the old system
      stack this was inexpressible and we documented 500/600 as a divergence.
      Inter's axis runs 100-900, so 653 is now exact rather than approximated. */
-  /* JL-443: 700. JL-414 set this to 653 believing it was Atlassian's optical
-     heading weight; the published typography tokens say every heading token is
-     BOLD, so 653 rendered every h1-h6 and page title in this app visibly
-     lighter than Jira. Verified against atlassian.design/foundations/typography. */
-  --font-weight-heading: 700;
+  --font-weight-heading: 653;
 
   /* JL-414 — deliberate divergences from Atlassian, recorded per AC#5.
 
@@ -379,11 +285,7 @@
   --jira-selected-bg: var(--jira-blue-soft);   /* was rgba(0, 82, 204, 0.06) — now a stronger tint */
 
   /* Danger */
-  /* JL-439: retargeted from --jira-danger (#de350b) to #ae2e24, which the
-     brief pins for this name and which §27 asks for (unsaturated status
-     colour). --jira-danger is unchanged for consumers that want the
-     saturated red. */
-  --color-danger: var(--jira-danger-text);
+  --color-danger: var(--jira-danger);
   --jira-red: var(--jira-danger);
 
   /* Hover wash */
@@ -393,153 +295,4 @@
 
   /* Typography */
   --font-mono: var(--font-family-mono);
-
-  /* ══════════════════════════════════════════════════════════════════════
-     JL-439 — design-system layer
-     ══════════════════════════════════════════════════════════════════════
-     Derived from the issue-detail page named as the visual reference for the
-     global redesign. Everything the reference states as a literal number lives
-     here as a token, so the sidebar width, header height and control heights
-     have one definition instead of one per stylesheet.
-
-     Where the brief states a size for a GENERIC component (tables 14px, forms
-     14-16px, modals 14-16px, tabs 14px, empty states 16px) those land on the
-     existing xs/sm/base ladder unchanged — the brief and JL-438 agree there.
-     Only the issue-page chrome is larger, and those sizes are the role tokens
-     below rather than a shift of the ladder. */
-
-  /* ── Two type steps the reference needs that the ladder has no name for.
-     The brief's scale is 12 14 16 18 20 24 28 36; 12/14/16 are xs/sm/base and
-     20/24/28 are md/lg/xl, so only 18 and 36 are new (32 = xxl stays for h1).
-     Named by role, not ordinal: inserting 18 between base and md would
-     renumber the ladder and silently move every existing call site. ── */
-  /* JL-442 removed --font-size-detail (18px). It carried three unrelated roles
-     at one size — section headings, breadcrumbs and detail-panel field labels —
-     and the correction splits them: headings and breadcrumbs are 16 (= base),
-     labels are 14 (= sm). Both numbers already have a token, so the 13 call
-     sites were repointed and the role token deleted rather than re-valued. The
-     18px step itself survives as --font-size-md. */
-  --font-size-display: 24px;   /* issue title — Atlassian heading.large */
-  --line-height-display: 28px;
-  /* JL-443: 16px. A nav wordmark is not a display element - at 20px it plus
-     the collapse button no longer fit the 204px sidebar floor and pushed a
-     horizontal scrollbar into the rail. heading.small is the right role. */
-  --font-size-brand: 16px;     /* sidebar wordmark */
-  --line-height-brand: 20px;
-
-  /* ── Border radius (brief §33): 3 / 6 / 8 / 12. Controls 6, cards 8. ── */
-  /* JL-443: 2px, matching radius.xsmall. Was 3px, which was not on Atlassian's
-     scale at all. The rest of this ladder is already exact: sm 6 = radius.medium
-     (their documented default for buttons/inputs/selects/nav), md 8 =
-     radius.large (cards), lg 12 = radius.xlarge, pill 999 = radius.full. */
-  --radius-xs: 2px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  /* Fully rounded. Not part of the brief's 3/6/8/12 scale - it is the pill
-     shape used by counters, chips and progress tracks, where the radius is
-     "half the height" rather than a step on a scale. */
-  --radius-pill: 999px;
-
-  /* ── The spacing steps the ordinal scale is missing. --space-1..8 covers
-     4 8 12 16 24 32 48 64, so 20 and 40 are named by value; renumbering
-     --space-5..8 would move every existing call site without any of them
-     changing.
-
-     JL-442 dropped --space-28. The requested scale is 4 8 12 16 20 24 32 40
-     and has no 28 step; its only two consumers were the details-panel padding
-     and the status select's right padding, both of which moved onto 24. ── */
-  --space-20: 20px;
-  --space-40: 40px;
-
-  /* ── Overlay shadow (brief §34). Dropdowns, modals, floating menus and
-     tooltips only — the reference is otherwise flat and leans on borders. ── */
-  --shadow-overlay: 0 4px 8px rgba(9, 30, 66, 0.15);
-
-  /* Table row hover (brief §35). Its own token rather than a reuse of
-     --jira-surface-hover: the brief distinguishes the two (#f7f8fa on a row,
-     #f1f2f4 on a control), and dark theme has to override this one alone. */
-  --jira-row-hover: #f7f8fa;
-
-  /* ── Layout dimensions. These were literals spread across layout.css,
-     Topbar.css and Sidebar.css, which is exactly how the three drifted apart. ── */
-  /* JL-442 retuned the shell to the reduced type scale. The STRUCTURE is
-     untouched — same sidebar, header, breadcrumb bar, content column and
-     details panel — but each chrome dimension was sized against 20px nav text
-     and a 54px Create button, and left alone would have kept the oversized
-     read that the new type scale exists to remove. Widths come down ~11%,
-     matching the type reduction so the proportions hold. */
-  /* ── JL-443: the two chrome widths are FLUID, not fixed. ──
-     They were single pixel values tuned against a 1920px viewport, and they
-     did not shrink when the viewport did. Because Windows display scaling
-     divides the CSS viewport (a 1920x1200 panel at 150% reports 1280px), a
-     normal laptop lands at 1280 and the fixed chrome then eats 46% of the
-     screen — sidebar 288 + panel 304 out of 1280 — leaving a 640px content
-     column, half what the same layout gets at 1920.
-
-     Measured chrome share, sidebar+panel as a fraction of viewport:
-
-       vw     fixed   fluid
-       2560    23%     24%
-       1920    31%     32%
-       1680    35%     34%
-       1366     —      34%
-       1280    46%     36%
-       1200    49%     38%
-
-     Fixed swings 31->49% across 1200-1920; fluid holds 32-38%. The vw term is
-     a RATIO, so this is correct at every width and every scaling factor
-     without enumerating resolutions — which is the whole point. Adding another
-     breakpoint would only move the cliff.
-
-     The bounds matter as much as the ratio: the max stops the chrome
-     ballooning on a 2560 monitor, the min stops the sidebar shrinking past its
-     own content. Below ~1100px the floors bottom out and the ratio climbs
-     again; no fluid formula fixes that, and that band is handled by collapsing
-     the sidebar to the icon rail (the rest of JL-443). */
-  --layout-sidebar-width: clamp(216px, 15vw, 260px);
-  --layout-sidebar-collapsed-width: 72px;
-  --layout-header-height: 52px;          /* 32px controls + 10 each side */
-  --layout-breadcrumb-height: 44px;      /* 20px line + 12 each side */
-  --layout-details-panel-width: clamp(248px, 17vw, 288px);
-  --layout-content-padding: 16px;
-
-  /* ── Control geometry. One height per role; a page that needs a control
-     taller or shorter than these is a bug in the page, not a new size.
-
-     JL-442: the five oversized roles collapse onto the 40px default. They were
-     derived from one page's chrome and then applied app-wide, which is how a
-     54px Create button and a 52px search field ended up being the global
-     contract. 40px is the requested height for a button, input, select,
-     dropdown and sidebar row alike — one control scale, not six. ── */
-  --control-height-sm: 24px;      /* badge, dense chip            */
-  --control-height: 32px;         /* default button/input/select  */
-  --control-height-flag: 32px;    /* Add flag                     */
-  --control-height-status: 32px;  /* issue status dropdown        */
-  --control-height-nav: 32px;     /* sidebar nav row, tab strip   */
-  --control-height-search: 32px;  /* global search                */
-  --control-height-create: 32px;  /* Create button                */
-  --control-width-status: 220px;
-
-  --avatar-size-sm: 24px;
-  --avatar-size-md: 24px;         /* details-panel user rows      */
-  --avatar-size-lg: 32px;         /* topbar account avatar        */
-
-  /* ── The --color-* names from the brief that the JL-392 alias layer above
-     does not already carry. Same rule as that layer: every one points at the
-     canonical token, so there is still one source of truth per colour. ── */
-  --color-primary-hover: var(--jira-blue-hover);
-  --color-text-primary: var(--jira-text);
-  --color-text-secondary: var(--jira-text-muted);
-  --color-text-muted: var(--jira-text-subtlest);
-  --color-background: var(--jira-surface);
-  --color-background-page: var(--jira-canvas);
-  --color-background-hover: var(--jira-surface-hover);
-  --color-background-selected: var(--jira-surface-selected);
-  --color-border-strong: var(--jira-border-strong);
-  --color-success: var(--jira-success-text);
-  --color-success-bg: var(--jira-success-bg);
-  --color-warning: var(--jira-warning-text);
-  --color-warning-bg: var(--jira-warning-bg);
-  --color-danger-bg: var(--jira-danger-bg);
 }

@@ -1,45 +1,32 @@
 .sidebar {
   background: var(--jira-surface);
   border-right: 1px solid var(--jira-border);
-  padding: var(--space-4);
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 14px;
   transition: width 120ms ease;
   overflow-y: auto;
-  /* JL-443: never scroll the rail sideways. A nav column has no horizontal
-     axis to explore, so a horizontal scrollbar here is always a bug - and a
-     sub-pixel from the fluid clamp is enough to summon one. The real fixes
-     are above (minmax(0,1fr) on .sidebar-top and ellipsis on .brand h2);
-     this stops any future 1px from putting a bar back. The active-nav rail
-     sits at -12px inside the 16px padding, so nothing visible is clipped. */
-  overflow-x: hidden;
 }
 
-/* JL-443: min-width:0 on the 1fr track. Grid and flex children default to
-   min-width:auto and REFUSE to shrink below their content, so the nowrap
-   wordmark plus the collapse button forced the sidebar 12px wider than its
-   own box and produced a horizontal scrollbar in the rail. The same hazard is
-   documented on the shell in styles/layout.css. */
 .sidebar-top {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
+  gap: 8px;
 }
 
 .jira-brand h2 {
-  font-size: var(--font-size-brand);
-  line-height: var(--line-height-brand);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   white-space: nowrap;
-  color: var(--jira-blue);
+  color: var(--jira-link);
 }
 
 .brand-logo {
@@ -51,29 +38,21 @@
 .brand-badge {
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--jira-blue);
+  background: #0052cc;
   color: #ffffff;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
 
-/* Brief §6: the wordmark is deliberately prominent - 30px, 700, brand blue. */
-/* Truncate rather than overflow: the wordmark is data, and a longer one must
-   not be able to reintroduce the scrollbar. */
 .brand h2 {
   margin: 0;
-  font-size: var(--font-size-brand);
-  line-height: var(--line-height-brand);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
   font-weight: var(--font-weight-bold);
-  color: var(--jira-blue);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .brand p {
@@ -93,12 +72,12 @@
 .sidebar-divider {
   height: 1px;
   background: var(--jira-border);
-  margin: var(--space-4) 0;
+  margin: 2px 0;
 }
 
 .sidebar-box {
   border: 1px solid var(--jira-border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: var(--jira-surface);
   overflow: hidden;
 }
@@ -108,94 +87,82 @@
   padding: 4px;
 }
 
-/* JL-442 §4: 40px row, 12px horizontal padding, 16/400/24 label, 18px icon,
-   12px gap. Was 48px / 16px / 20px / 20px / 16px — the single biggest source
-   of the oversized sidebar. */
 .nav {
   text-decoration: none;
   color: var(--jira-text);
-  min-height: var(--control-height-nav);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  border-radius: 4px;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-medium);
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 8px;
   position: relative;
-  transition: background var(--transition-fast) var(--ease-standard),
-    color var(--transition-fast) var(--ease-standard);
+  transition: background 140ms ease, color 140ms ease;
 }
 
 .nav:hover {
-  background: var(--jira-surface-hover);
+  background: #ebecf0;
 }
 
 .nav.active {
-  color: var(--jira-blue);
-  background: var(--jira-surface-selected);
+  color: var(--jira-link);
+  background: var(--jira-blue-soft);
 }
 
 .nav.active::before {
   content: '';
   position: absolute;
-  left: calc(var(--space-3) * -1);
+  left: -12px;
   top: 6px;
   bottom: 6px;
   width: 3px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   background: var(--jira-blue);
 }
 
 .nav-icon {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  flex: 0 0 auto;
+  width: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--jira-text-muted);
-  font-size: var(--font-size-base);
-}
-
-.nav-icon svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
+  color: #42526e;
+  font-size: var(--font-size-sm);
 }
 
 .nav.active .nav-icon {
-  color: var(--jira-blue);
+  color: var(--jira-link);
 }
 
 .nav-trailing {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
   color: var(--jira-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   line-height: var(--line-height-sm);
 }
 
 .nav-trailing-actions {
-  gap: var(--space-075);
+  gap: 6px;
 }
 
 .inline-action-btn {
   border: none;
   background: transparent;
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   font-size: var(--font-size-base);
   line-height: 1;
   padding: 2px 4px;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
   cursor: pointer;
 }
 
 .inline-action-btn:hover {
-  background: var(--jira-border-subtle);
-  color: var(--jira-text);
+  background: #ebecf0;
+  color: #172b4d;
 }
 
 .spaces-menu-wrap {
@@ -208,8 +175,8 @@
   right: 0;
   min-width: 220px;
   background: #ffffff;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
+  border: 1px solid #dfe1e6;
+  border-radius: 8px;
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   padding: 6px 0;
   z-index: var(--z-dropdown);
@@ -219,7 +186,7 @@
   width: 100%;
   border: none;
   background: transparent;
-  color: var(--jira-text);
+  color: #172b4d;
   text-align: left;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
@@ -231,7 +198,7 @@
 }
 
 .spaces-menu-item:hover {
-  background: var(--jira-surface-sunken);
+  background: #f4f5f7;
 }
 
 .spaces-menu-submenu-wrap {
@@ -241,7 +208,7 @@
 }
 
 .spaces-menu-arrow {
-  color: var(--jira-text-subtlest);
+  color: #6b778c;
   font-size: var(--font-size-sm);
   margin-left: 10px;
 }
@@ -252,8 +219,8 @@
   left: calc(100% - 2px);
   min-width: 140px;
   background: #ffffff;
-  border: 1px solid var(--jira-border);
-  border-radius: var(--radius-md);
+  border: 1px solid #dfe1e6;
+  border-radius: 8px;
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   padding: 6px 0;
   z-index: calc(var(--z-dropdown) + 5);
@@ -304,11 +271,11 @@
   height: 20px;
   flex-shrink: 0;
   cursor: pointer;
-  border-radius: var(--radius-xs);
+  border-radius: 3px;
 }
 
 .sidebar-caret-btn:hover {
-  background: var(--jira-border);
+  background: #dfe1e6;
 }
 
 .sidebar-caret {
@@ -324,7 +291,7 @@
   display: block;
   width: 0;
   height: 0;
-  border-left: 5px solid var(--jira-text-subtlest);
+  border-left: 5px solid #6b778c;
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   margin: 4px auto;
@@ -338,7 +305,7 @@
   display: flex;
   flex-direction: column;
   padding-left: 20px;
-  margin-top: var(--space-025);
+  margin-top: 2px;
   gap: 1px;
   animation: sidebar-expand 200ms ease;
   transform-origin: top;
@@ -355,12 +322,12 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   padding: 5px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   transition: background 140ms ease;
 }
 
 .sidebar-project-list-all:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
   color: var(--jira-link);
 }
 
@@ -370,13 +337,13 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   padding: 5px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   font-weight: var(--font-weight-medium);
   transition: background 140ms ease;
 }
 
 .sidebar-project-list-more:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
   text-decoration: underline;
 }
 
@@ -387,14 +354,14 @@
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   transition: background 140ms ease;
 }
 
 .sidebar-project-item:hover {
-  background: var(--jira-border-subtle);
+  background: #ebecf0;
 }
 
 .sidebar-project-item--active {
@@ -405,7 +372,7 @@
 .sidebar-project-avatar {
   width: 20px;
   height: 20px;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -421,7 +388,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-medium);
 }
 
 .sidebar-project-key {
@@ -431,8 +398,8 @@
 }
 
 .sidebar-nav-compact .nav {
-  padding-top: var(--space-075);
-  padding-bottom: var(--space-075);
+  padding-top: 6px;
+  padding-bottom: 6px;
   font-size: var(--font-size-base);
 }
 
@@ -444,7 +411,7 @@
 }
 
 .nav-more {
-  margin-top: var(--space-025);
+  margin-top: 2px;
 }
 
 .nav-plain {
@@ -477,7 +444,7 @@
 }
 
 .sidebar-footer-compact {
-  margin-top: var(--space-075);
+  margin-top: 6px;
 }
 
 .create-side {

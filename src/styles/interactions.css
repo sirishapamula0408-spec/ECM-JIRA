@@ -21,13 +21,14 @@
     transform var(--transition-fast) var(--ease-standard);
 }
 
-/* JL-439 removed the hover elevation. The brief reserves shadow for
-   dropdowns, modals, floating menus and tooltips (§34) and lists
-   "excessive shadows" among the things not to introduce (§46); a button
-   that lifts off the page on hover is the opposite of the flat,
-   border-led surface the reference uses. The colour change on hover lives
-   in shared.css with the rest of each variant. The pressed state and the
-   focus ring below are kept - both are feedback, not decoration. */
+/* Subtle hover elevation for interactive buttons (skips disabled). */
+.btn:hover:not(:disabled):not([aria-disabled='true']),
+.btn-primary:hover:not(:disabled):not([aria-disabled='true']),
+.btn-ghost:hover:not(:disabled):not([aria-disabled='true']),
+.btn-secondary:hover:not(:disabled):not([aria-disabled='true']),
+.btn-danger:hover:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: var(--jira-shadow-hover);
+}
 
 /* Pressed state — small tactile push-down. */
 .btn:active:not(:disabled):not([aria-disabled='true']),
@@ -65,7 +66,7 @@ a:focus-visible {
   padding: 10px 16px;
   background: var(--jira-blue);
   color: #ffffff;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
   box-shadow: var(--jira-shadow-hover);
