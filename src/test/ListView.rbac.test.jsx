@@ -101,7 +101,7 @@ describe('JL-294 — List view (IssueListPage) RBAC gating', () => {
       expect(screen.getByLabelText('Select TP-2')).toBeInTheDocument()
     })
 
-    it('shows the bulk-action bar with Status/Priority/Delete once a row is selected', () => {
+    it('shows the bulk-action bar with Status/Priority once a row is selected', () => {
       renderPage()
       fireEvent.click(screen.getByLabelText('Select TP-1'))
       expect(screen.getByRole('region', { name: 'Bulk actions' })).toBeInTheDocument()
@@ -109,7 +109,11 @@ describe('JL-294 — List view (IssueListPage) RBAC gating', () => {
       const options = Array.from(picker.querySelectorAll('option')).map((o) => o.value)
       expect(options).toContain('status')
       expect(options).toContain('priority')
-      expect(options).toContain('delete')
+      // JL-455: delete is no longer an option inside this picker — it is its own
+      // button, so that the page's one destructive action is visible without
+      // opening a dropdown that defaults to Status.
+      expect(options).not.toContain('delete')
+      expect(screen.getByRole('button', { name: 'Delete 1 issue' })).toBeInTheDocument()
     })
 
     it('shows the inline "+ Create" row and opens the quick-create form', () => {

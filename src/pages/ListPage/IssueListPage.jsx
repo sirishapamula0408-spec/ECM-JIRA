@@ -141,6 +141,9 @@ export function IssueListPage() {
   const [statusFilter, setStatusFilter] = useState(() => urlStatus || 'All')
   const [groupBy, setGroupBy] = useState('none')
   const [selectedIds, setSelectedIds] = useState([])
+  // JL-455: which row's action menu is open. One id at a time — opening a
+  // second closes the first, so two menus can never overlap.
+  const [openRowMenuId, setOpenRowMenuId] = useState(null)
   const [bulkAction, setBulkAction] = useState('status')
   const [bulkValue, setBulkValue] = useState('To Do')
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -380,42 +383,62 @@ export function IssueListPage() {
   )
   const bulkCount = activeSelectedIds.length
 
-  // JL-294: if the current bulk action becomes unavailable for this user's
-  // permissions (e.g. only canDeleteIssue, no canEditIssue), snap to a valid one.
-  useEffect(() => {
-    if (bulkAction === 'delete' && !canDeleteIssue) { setBulkAction('status'); setBulkValue('To Do') }
-    else if (bulkAction !== 'delete' && !canEditIssue && canDeleteIssue) { setBulkAction('delete'); setBulkValue('') }
-  }, [canEditIssue, canDeleteIssue, bulkAction])
-
+  // JL-455: the bulk picker no longer carries 'delete', so it only ever holds
+  // field-edit actions and needs no permission snapping — it renders only when
+  // canEditIssue. The JL-294 effect that snapped between edit and delete went
+  // with it. Delete is its own control now; see the bulk bar below.
   function changeBulkAction(action) {
     setBulkAction(action)
     if (action === 'status') setBulkValue('To Do')
-    else if (action === 'priority') setBulkValue('Medium')
-    else setBulkValue('')
+    else setBulkValue('Medium')
   }
 
   function clearSelection() { setSelectedIds([]) }
 
+  /*
+   * JL-455 — the single delete path, shared by the row menu and the bulk bar.
+   *
+   * Both entry points confirm, then delete, then clear any selection that
+   * referenced the deleted rows. Keeping one function means the confirmation
+   * copy, the danger styling and the post-delete cleanup cannot drift apart —
+   * which is how the page ended up with a delete that only the bulk path could
+   * reach in the first place.
+   */
+  async function deleteIssues(ids, label) {
+    if (ids.length === 0 || bulkBusy) return false
+    if (!(await confirm({
+      title: ids.length === 1 ? 'Delete issue?' : 'Delete issues?',
+      message: `Delete ${label}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    }))) return false
+    setBulkBusy(true)
+    try {
+      await Promise.all(ids.map((id) => handleDelete(id)))
+    } finally {
+      // Drop the deleted ids from the selection rather than clearing it wholesale:
+      // deleting one row from its menu must not discard an unrelated selection.
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+      setBulkBusy(false)
+    }
+    return true
+  }
+
+  // Row menu → delete exactly this issue, named so the confirm says which.
+  async function deleteOneIssue(issue) {
+    setOpenRowMenuId(null)
+    await deleteIssues([issue.id], issue.key || issue.title || 'this issue')
+  }
+
+  // Bulk bar → delete everything selected and visible under the active filter.
+  async function deleteSelectedIssues() {
+    const ids = [...activeSelectedIds]
+    await deleteIssues(ids, `${ids.length} issue${ids.length === 1 ? '' : 's'}`)
+  }
+
   async function applyBulkAction() {
     const ids = [...activeSelectedIds]
     if (ids.length === 0 || bulkBusy) return
-
-    if (bulkAction === 'delete') {
-      if (!(await confirm({
-        title: 'Delete issues?',
-        message: `Delete ${ids.length} issue(s)? This cannot be undone.`,
-        confirmLabel: 'Delete',
-        danger: true,
-      }))) return
-      setBulkBusy(true)
-      try {
-        await Promise.all(ids.map((id) => handleDelete(id)))
-      } finally {
-        setSelectedIds([])
-        setBulkBusy(false)
-      }
-      return
-    }
 
     setBulkBusy(true)
     try {
@@ -759,24 +782,36 @@ export function IssueListPage() {
       {canBulkSelect && bulkCount > 0 && (
         <div className="jira-list-bulk-bar" role="region" aria-label="Bulk actions">
           <span className="jira-list-bulk-count">{bulkCount} selected</span>
-          <select className="jira-list-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={bulkBusy} aria-label="Bulk action">
-            {canEditIssue && <option value="status">Status</option>}
-            {canEditIssue && <option value="priority">Priority</option>}
-            {canDeleteIssue && <option value="delete">Delete</option>}
-          </select>
-          {bulkAction === 'status' && (
-            <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Status value">
-              {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{statusChip(status)}</option>))}
-            </select>
+          {/* JL-455: the picker holds FIELD EDITS only. Delete used to be an
+              option inside it, which meant the one destructive action on the
+              page was invisible until you opened a dropdown that defaulted to
+              Status — reported as "there is no delete option". It is now its
+              own labelled control, matching UserManagementPage and TeamsPage,
+              which already surface "Delete selected" as a button. */}
+          {canEditIssue && (
+            <>
+              <select className="jira-list-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={bulkBusy} aria-label="Bulk action">
+                <option value="status">Status</option>
+                <option value="priority">Priority</option>
+              </select>
+              {bulkAction === 'status' && (
+                <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Status value">
+                  {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{statusChip(status)}</option>))}
+                </select>
+              )}
+              {bulkAction === 'priority' && (
+                <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Priority value">
+                  {PRIORITIES.map((priority) => (<option key={priority} value={priority}>{priority}</option>))}
+                </select>
+              )}
+              <button className="btn btn-primary" type="button" onClick={applyBulkAction} disabled={bulkBusy}>Apply</button>
+            </>
           )}
-          {bulkAction === 'priority' && (
-            <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Priority value">
-              {PRIORITIES.map((priority) => (<option key={priority} value={priority}>{priority}</option>))}
-            </select>
+          {canDeleteIssue && (
+            <button className="btn btn-danger" type="button" onClick={deleteSelectedIssues} disabled={bulkBusy}>
+              Delete {bulkCount} issue{bulkCount === 1 ? '' : 's'}
+            </button>
           )}
-          <button className="btn btn-primary" type="button" onClick={applyBulkAction} disabled={bulkBusy}>
-            {bulkAction === 'delete' ? 'Delete' : 'Apply'}
-          </button>
           <button className="btn btn-ghost" type="button" onClick={clearSelection} disabled={bulkBusy}>Clear</button>
         </div>
       )}
@@ -972,7 +1007,39 @@ export function IssueListPage() {
                             </td>
                           )
                         })}
-                        <td />
+                        {/* JL-455: row actions. This cell was an empty <td>
+                            holding the "+ add column" column open; it is the
+                            conventional place for per-row actions and costs no
+                            new column. Rendered only when the user can actually
+                            do something here. */}
+                        <td className="jira-list-row-actions-cell">
+                          {canDeleteIssue && (
+                            <span
+                              className="jira-list-row-menu-wrap"
+                              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpenRowMenuId(null) }}
+                            >
+                              <button
+                                className="jira-list-row-menu-trigger"
+                                type="button"
+                                aria-label={`Actions for ${issue.key || issue.title || 'issue'}`}
+                                aria-haspopup="menu"
+                                aria-expanded={openRowMenuId === issue.id}
+                                onClick={() => setOpenRowMenuId((cur) => (cur === issue.id ? null : issue.id))}
+                              >&hellip;</button>
+                              {openRowMenuId === issue.id && (
+                                <span className="jira-list-row-menu" role="menu">
+                                  <button
+                                    className="jira-list-row-menu-item jira-list-row-menu-danger"
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => deleteOneIssue(issue)}
+                                    disabled={bulkBusy}
+                                  >Delete</button>
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </td>
                       </tr>
                       {/* JL-398: inline child-item form, opened by the Work
                           cell's "+". Sits directly under its parent row. */}

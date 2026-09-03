@@ -726,3 +726,80 @@ body.col-resizing * {
   color: var(--list-subtle);
   white-space: nowrap;
 }
+
+/* ── JL-455: per-row actions ──────────────────────────────────────────────
+   The list had no way to delete a single issue: handleDelete was reachable
+   only through the bulk toolbar, which itself only appeared after ticking a
+   checkbox. This menu lives in the trailing cell that already holds the
+   "+ add column" column open, so it costs no extra column width.
+
+   Styling deliberately mirrors .jira-list-col-menu-* rather than introducing
+   a second popover look — same surface, border, radius and shadow. */
+.jira-list-row-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.jira-list-row-menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.jira-list-row-menu-trigger {
+  border: none;
+  background: transparent;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--list-subtle);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.jira-list-row-menu-trigger:hover,
+.jira-list-row-menu-trigger[aria-expanded='true'] {
+  background: var(--list-row-hover);
+  color: var(--list-text);
+}
+
+.jira-list-row-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  background: var(--list-surface);
+  border: 1px solid var(--list-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
+  min-width: 140px;
+  padding: 6px 0;
+  display: block;
+}
+
+.jira-list-row-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 7px 14px;
+  font-size: var(--font-size-base);
+  color: var(--list-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.jira-list-row-menu-item:hover:not(:disabled) {
+  background: var(--list-row-hover);
+}
+
+.jira-list-row-menu-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.jira-list-row-menu-danger {
+  color: var(--jira-danger);
+}
