@@ -21,7 +21,7 @@ import {
   createWorkflowDefinition,
 } from '../../api/workflowDefinitionApi'
 import { fetchWorkflowLayout, saveWorkflowLayout } from '../../api/workflowLayoutApi'
-import { readableTextColor, borderFor } from '../../utils/color'
+import { resolveStatusCategory } from '../../utils/statusCategory'
 import { snapToGrid } from '../../utils/layoutGrid' // JL-330: snap dropped nodes to the grid
 import { usePermissions } from '../../hooks/usePermissions'
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning'
@@ -51,13 +51,13 @@ const MIN_LABEL_SEGMENT = 40
 // allows 'todo' | 'inprogress' | 'done', so names like "In Code Review" are STATUS
 // NAMES mapped onto one of those three categories — never new categories.
 const STATUS_PRESETS = [
-  { label: 'To Do', category: 'todo', color: '#dfe1e6' },
-  { label: 'In Progress', category: 'inprogress', color: '#deebff' },
-  { label: 'In Code Review', category: 'inprogress', color: '#eae6ff' },
-  { label: 'In Testing / QA', category: 'inprogress', color: '#fffae6' },
-  { label: 'Blocked', category: 'inprogress', color: '#ffebe6' },
-  { label: 'Ready for Release', category: 'inprogress', color: '#e3fcef' },
-  { label: 'Done', category: 'done', color: '#e3fcef' },
+  { label: 'To Do', category: 'todo' },
+  { label: 'In Progress', category: 'inprogress' },
+  { label: 'In Code Review', category: 'inprogress' },
+  { label: 'In Testing / QA', category: 'inprogress' },
+  { label: 'Blocked', category: 'inprogress' },
+  { label: 'Ready for Release', category: 'inprogress' },
+  { label: 'Done', category: 'done' },
 ]
 
 // Backend status categories are 'todo' | 'inprogress' | 'done'. Older demo data
@@ -76,13 +76,31 @@ function normalizeCategory(cat) {
 //   in progress → blue subtle
 //   done        → green subtle
 const CATEGORY_STYLES = {
-  'todo':       { bg: '#F4F5F7', color: '#42526E', border: '#DFE1E6', label: 'To Do' },
-  'inprogress': { bg: '#DEEBFF', color: '#0052CC', border: '#B3D4FF', label: 'In Progress' },
-  'done':       { bg: '#E3FCEF', color: '#006644', border: '#ABF5D1', label: 'Done' },
+  'todo': { bg: 'var(--status-todo-bg)', color: 'var(--status-todo-text)', border: 'var(--status-todo-border)', label: 'To Do' },
+  'inprogress': { bg: 'var(--status-inprogress-bg)', color: 'var(--status-inprogress-text)', border: 'var(--status-inprogress-border)', label: 'In Progress' },
+  'done': { bg: 'var(--status-done-bg)', color: 'var(--status-done-text)', border: 'var(--status-done-border)', label: 'Done' },
+  'cancelled': { bg: 'var(--status-cancelled-bg)', color: 'var(--status-cancelled-text)', border: 'var(--status-cancelled-border)', label: 'Cancelled' },
+  'blocked': { bg: 'var(--status-blocked-bg)', color: 'var(--status-blocked-text)', border: 'var(--status-blocked-border)', label: 'Blocked' },
 }
 
-function categoryStyle(cat) {
-  return CATEGORY_STYLES[normalizeCategory(cat)] || CATEGORY_STYLES.todo
+/*
+ * JL-457: resolve a node's visual style.
+ *
+ * The stored category can only be todo/inprogress/done — the backend CHECK
+ * allows nothing else — so "Blocked" arrives tagged `inprogress` and
+ * "Cancelled" arrives tagged `done`. Both are true and both are the wrong
+ * thing to paint: a cancelled status read as a success, and a blocked one was
+ * indistinguishable from ordinary work in flight.
+ *
+ * Passing the NAME lets the shared resolver detect those two by name, exactly
+ * as the board and the lozenge do, without a schema change. With no name we
+ * fall back to the stored category alone.
+ */
+function categoryStyle(cat, name) {
+  const key = name
+    ? resolveStatusCategory(name, { [name]: normalizeCategory(cat) })
+    : normalizeCategory(cat)
+  return CATEGORY_STYLES[key] || CATEGORY_STYLES.todo
 }
 
 // Auto-layout position for a status that has no saved coordinate yet.
@@ -224,7 +242,10 @@ export function WorkflowEditorPage() {
   const [showAddStatus, setShowAddStatus] = useState(false)
   const [newStatusName, setNewStatusName] = useState('')
   const [newStatusCategory, setNewStatusCategory] = useState('todo')
-  const [newStatusColor, setNewStatusColor] = useState('#F4F5F7')
+  // JL-457: statuses no longer carry a display colour — the node paints from
+  // its category. The DB column is NOT NULL, so a neutral placeholder is still
+  // written; nothing reads it back for rendering.
+  const STATUS_COLOR_PLACEHOLDER = '#F4F5F7'
   const [newStatusPreset, setNewStatusPreset] = useState('')
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState('')
@@ -597,7 +618,6 @@ export function WorkflowEditorPage() {
   const openAddStatus = () => {
     setNewStatusName('')
     setNewStatusCategory('todo')
-    setNewStatusColor('#F4F5F7')
     setNewStatusPreset('')
     setModalError('')
     setShowAddStatus(true)
@@ -610,7 +630,6 @@ export function WorkflowEditorPage() {
     if (!preset) return
     setNewStatusName(preset.label)
     setNewStatusCategory(preset.category)
-    setNewStatusColor(preset.color)
   }
 
   const handleAddStatus = async () => {
@@ -621,7 +640,7 @@ export function WorkflowEditorPage() {
     try {
       await createStatus(projectId, {
         name,
-        color: newStatusColor,
+        color: STATUS_COLOR_PLACEHOLDER,
         category: newStatusCategory,
         position: statuses.length,
       })
@@ -1076,9 +1095,20 @@ export function WorkflowEditorPage() {
 
               {/* Nodes */}
               {nodes.map((node) => {
-                const style = categoryStyle(node.category)
+                // JL-457: the node's fill comes from its CATEGORY, resolved from
+                // the status NAME as well as the stored category — so "Blocked"
+                // and "Cancelled" paint distinctly even though the backend only
+                // stores todo/inprogress/done and folds both into those.
+                const style = categoryStyle(node.category, node.name)
                 const selected = selectedNodeName === node.name
-                const fill = node.color || style.bg
+                // `node.color` is deliberately NOT consulted any more. It is a
+                // per-status hex, and per-status hues are exactly what let four
+                // palettes drift apart across the app: the same status was blue
+                // here and green in a dashboard gadget. The column is still
+                // written and read (the DB has it NOT NULL, and JL-324's
+                // legibility fix depended on it), it simply no longer decides
+                // what anything looks like.
+                const fill = style.bg
                 const isLinkSource = linkDrag?.from === node.name
                 const isLinkTarget = linkDrag?.hoverTarget === node.name
                 return (
@@ -1095,14 +1125,17 @@ export function WorkflowEditorPage() {
                       top: node.y,
                       width: NODE_WIDTH,
                       height: NODE_HEIGHT,
-                      // JL-324: `node.color` is NOT NULL in the DB, so it used to
-                      // shadow style.bg entirely and `color: undefined` let dark
-                      // body text land on a dark fill (~1.5:1). Derive the label
-                      // and border from whatever fill wins, so legacy and custom
-                      // colours stay legible too.
+                      // JL-324 derived the label and border from the fill with
+                      // readableTextColor()/borderFor(), because an arbitrary
+                      // per-status hex could put dark text on a dark fill
+                      // (~1.5:1). JL-457 removes the arbitrary hex: the fill is
+                      // now one of five known category tokens, each of which
+                      // ships a matching text and border token already checked
+                      // for contrast. Deriving from a `var()` string would not
+                      // work anyway — those helpers parse hex.
                       backgroundColor: fill,
-                      borderColor: selected ? undefined : borderFor(fill),
-                      color: readableTextColor(fill),
+                      borderColor: selected ? undefined : style.border,
+                      color: style.color,
                     }}
                     role="button"
                     tabIndex={0}
@@ -1288,15 +1321,6 @@ export function WorkflowEditorPage() {
                 <option value="inprogress">In Progress</option>
                 <option value="done">Done</option>
               </select>
-            </div>
-            <div className="wfe-modal-row">
-              <label htmlFor="wfe-new-status-color">Color</label>
-              <input
-                id="wfe-new-status-color"
-                type="color"
-                value={newStatusColor}
-                onChange={(e) => setNewStatusColor(e.target.value)}
-              />
             </div>
           </div>
         </DialogContent>

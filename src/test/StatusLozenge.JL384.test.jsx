@@ -198,12 +198,17 @@ describe('StatusLozenge (JL-384)', () => {
       expect(categoryOf({ status: 'Done' })).toBe('done')
       expect(categoryOf({ status: 'In Progress' })).toBe('inprogress')
       expect(categoryOf({ status: 'Code Review' })).toBe('inprogress')
-      expect(categoryOf({ status: 'To Do' })).toBe('neutral')
-      expect(categoryOf({ status: 'Backlog' })).toBe('neutral')
+      // JL-457: the class is named after the CATEGORY (todo) rather than after
+      // the visual it happened to produce (neutral). Same grey, honest name.
+      expect(categoryOf({ status: 'To Do' })).toBe('todo')
+      expect(categoryOf({ status: 'Backlog' })).toBe('todo')
     })
 
-    it('keeps cancellation statuses neutral, like the board columns', () => {
-      expect(categoryOf({ status: 'Cancelled', categoryMap: { Cancelled: 'done' } })).toBe('neutral')
+    it('keeps cancellation statuses out of the done green, like the board columns', () => {
+      // JL-312 kept Cancelled out of the green by painting it neutral, which
+      // left it indistinguishable from unstarted work. JL-457 gives it its own
+      // category: still not green, and no longer confusable with To Do.
+      expect(categoryOf({ status: 'Cancelled', categoryMap: { Cancelled: 'done' } })).toBe('cancelled')
     })
 
     it('honours the per-project name→category map the board loads', () => {
@@ -225,11 +230,11 @@ describe('StatusLozenge (JL-384)', () => {
       expect(screen.getByRole('button', { name: 'Status: No status' })).toBeInTheDocument()
     })
 
-    it('renders an unknown status neutrally without throwing', () => {
+    it('renders an unknown status in the todo category without throwing', () => {
       const { container } = renderLozenge({ status: 'Totally Unknown State' })
 
       expect(screen.getByText('Totally Unknown State')).toBeInTheDocument()
-      expect(container.querySelector('.status-lozenge')).toHaveClass('status-lozenge-cat-neutral')
+      expect(container.querySelector('.status-lozenge')).toHaveClass('status-lozenge-cat-todo')
     })
 
     it('survives a null status and a missing transitions list', async () => {

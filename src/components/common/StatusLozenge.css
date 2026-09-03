@@ -68,43 +68,55 @@
   cursor: default;
 }
 
-/* ── Category colours (mirrors BoardPage.css `.kanban-col-cat-*`) ── */
+/* ── Category colours (JL-457) ──
+   Every value comes from the --status-* tokens in variables.css, which the
+   board columns and the workflow editor now read too. Dark-theme values are
+   overridden on the tokens themselves in theme.css, so there are no
+   .app-theme-dark rules here any more — that block used to restate the
+   brightened green/blue by hand, which is how the lozenge and the column
+   heading could drift apart. */
 
-/* Neutral: To Do / Backlog / Cancelled / unknown. Grey, like Jira's default. */
-.status-lozenge-cat-neutral {
-  background: var(--jira-menu-hover, #f4f5f7);
-  border-color: var(--jira-border, #dfe1e6);
-  color: var(--jira-text-muted, #5e6c84);
+/* `neutral` is kept as an alias of the todo category: JL-384 named the class
+   after the visual, not the category, and IssueDetailPage/BacklogPage still
+   pass it. Both resolve to the same tokens. */
+.status-lozenge-cat-neutral,
+.status-lozenge-cat-todo {
+  background: var(--status-todo-bg);
+  border-color: var(--status-todo-border);
+  color: var(--status-todo-text);
 }
 
 .status-lozenge-cat-inprogress {
-  background: rgba(0, 82, 204, 0.15);
-  border-color: rgba(0, 82, 204, 0.25);
-  color: var(--jira-blue, #0052cc);
+  background: var(--status-inprogress-bg);
+  border-color: var(--status-inprogress-border);
+  color: var(--status-inprogress-text);
 }
 
 .status-lozenge-cat-done {
-  background: rgba(0, 135, 90, 0.15);
-  border-color: rgba(0, 135, 90, 0.25);
-  color: var(--jira-success, #00875a);
+  background: var(--status-done-bg);
+  border-color: var(--status-done-border);
+  color: var(--status-done-text);
 }
 
-/* Dark theme: same brighter Atlassian green/blue the board columns switch to. */
-.app-theme-dark .status-lozenge-cat-neutral {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
+.status-lozenge-cat-cancelled {
+  background: var(--status-cancelled-bg);
+  border-color: var(--status-cancelled-border);
+  color: var(--status-cancelled-text);
 }
 
-.app-theme-dark .status-lozenge-cat-inprogress {
-  background: rgba(87, 157, 255, 0.2);
-  border-color: rgba(87, 157, 255, 0.3);
-  color: #579dff;
+.status-lozenge-cat-blocked {
+  background: var(--status-blocked-bg);
+  border-color: var(--status-blocked-border);
+  color: var(--status-blocked-text);
 }
 
-.app-theme-dark .status-lozenge-cat-done {
-  background: rgba(75, 206, 151, 0.2);
-  border-color: rgba(75, 206, 151, 0.3);
-  color: #4bce97;
+/* JL-457: the category glyph. Carries the category when colour cannot —
+   greyscale, print, colour-blind readers. aria-hidden in the markup: the
+   category is already in the control accessible name, and a screen reader
+   announcing "circle" before every status would be noise. */
+.status-lozenge-glyph {
+  margin-right: 4px;
+  line-height: 1;
 }
 
 /* ── Transition menu ── */

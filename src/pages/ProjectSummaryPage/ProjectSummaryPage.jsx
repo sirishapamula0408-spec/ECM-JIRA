@@ -10,20 +10,35 @@ import { useSprints } from '../../context/SprintContext'
 import './ProjectSummaryPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { PRIORITIES } from '../../constants'
+import { resolveStatusCategory, priorityTokenName } from '../../utils/statusCategory'
 
-const STATUS_COLORS = {
-  'Backlog':     { bg: '#f4f5f7', border: '#c1c7d0', text: '#6b778c' },
-  'To Do':       { bg: '#f4f5f7', border: '#6b778c', text: '#42526e' },
-  'In Progress': { bg: '#deebff', border: '#0052cc', text: '#0052cc' },
-  'Code Review': { bg: '#fff3e0', border: '#ff991f', text: '#ff8b00' },
-  'Done':        { bg: '#e3fcef', border: '#00875a', text: '#006644' },
+/*
+ * JL-457 — status and priority colour comes from the shared tokens.
+ *
+ * STATUS_COLORS was a per-STATUS-NAME map, so it only knew the five built-in
+ * statuses: a project-defined status fell through to the To Do grey. It also
+ * disagreed with the rest of the app — Code Review was amber here and purple in
+ * the workflow editor, while the lozenge painted it in-progress blue.
+ *
+ * Both helpers return `var(--token)` strings for inline styles, so the theme
+ * keeps control and dark mode needs no JS.
+ */
+const statusColors = (status) => {
+  const cat = resolveStatusCategory(status)
+  return {
+    bg: `var(--status-${cat}-bg)`,
+    border: `var(--status-${cat}-border)`,
+    text: `var(--status-${cat}-text)`,
+    accent: `var(--status-${cat}-accent)`,
+  }
 }
 
-const PRIORITY_META = {
-  High:   { color: '#de350b', label: 'High' },
-  Medium: { color: '#ff991f', label: 'Medium' },
-  Low:    { color: '#00875a', label: 'Low' },
-}
+// PRIORITY_META's Low was #00875a — the done green. See JL-457.
+const priorityMeta = (priority) => ({
+  color: `var(--priority-${priorityTokenName(priority)}-accent)`,
+  label: priority,
+})
 
 const TYPE_ICONS = {
   Story: { color: '#00875a', symbol: '\u{1F4D7}' },
@@ -221,7 +236,7 @@ export function ProjectSummaryPage() {
               <div className="ps-status-bars">
                 {Object.entries(statusCounts).map(([status, count]) => {
                   const pct = Math.round((count / totalCount) * 100)
-                  const colors = STATUS_COLORS[status] || STATUS_COLORS['To Do']
+                  const colors = statusColors(status)
                   return (
                     <div key={status} className="ps-bar-row">
                       <span className="ps-bar-label">{status}</span>
@@ -246,7 +261,7 @@ export function ProjectSummaryPage() {
               <div className="ps-issue-list">
                 {projectIssues.slice(0, 8).map((issue) => {
                   const typeMeta = TYPE_ICONS[issue.issueType] || TYPE_ICONS.Task
-                  const statusColors = STATUS_COLORS[issue.status] || STATUS_COLORS['To Do']
+                  const rowStatusColors = statusColors(issue.status)
                   return (
                     <button
                       key={issue.id}
@@ -261,7 +276,7 @@ export function ProjectSummaryPage() {
                       <span className="ps-issue-title">{issue.title}</span>
                       <span
                         className="ps-issue-status"
-                        style={{ background: statusColors.bg, color: statusColors.text }}
+                        style={{ background: rowStatusColors.bg, color: rowStatusColors.text }}
                       >
                         {issue.status}
                       </span>
@@ -279,10 +294,12 @@ export function ProjectSummaryPage() {
           <div className="ps-card">
             <h3 className="ps-card-title">Priority</h3>
             <div className="ps-priority-list">
-              {Object.entries(PRIORITY_META).map(([priority, meta]) => (
+              {/* PRIORITIES is ordered low→high; this list has always shown
+                  High first, so it is reversed rather than reordered. */}
+              {[...PRIORITIES].reverse().map((priority) => (
                 <div key={priority} className="ps-priority-row">
-                  <span className="ps-priority-dot" style={{ background: meta.color }} />
-                  <span className="ps-priority-label">{meta.label}</span>
+                  <span className="ps-priority-dot" style={{ background: priorityMeta(priority).color }} />
+                  <span className="ps-priority-label">{priority}</span>
                   <span className="ps-priority-count">{priorityCounts[priority] || 0}</span>
                 </div>
               ))}

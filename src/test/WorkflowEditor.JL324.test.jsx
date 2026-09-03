@@ -149,7 +149,27 @@ describe('JL-324 — node content and transition labels', () => {
 /* ── 3. Colour / contrast ──────────────────────────────────────────────── */
 
 describe('JL-324 — status node colours are readable', () => {
-  it('derives a label colour that meets WCAG AA against the fill', async () => {
+  /*
+   * JL-457 changed HOW this guarantee is kept, not whether it is kept.
+   *
+   * JL-324's defect was that a node's fill came from a per-status hex the user
+   * could pick, so dark body text could land on a dark fill (~1.5:1). The fix
+   * was to DERIVE the label and border from whatever fill won, at render time,
+   * with readableTextColor()/borderFor().
+   *
+   * JL-457 removed the arbitrary hex entirely: a node now paints from one of
+   * five category token TRIPLES (bg + text + border), each pre-checked for
+   * contrast. There is nothing left to derive, and nothing left to disagree —
+   * the three values cannot come from different categories because they are
+   * read from the same one.
+   *
+   * The contrast numbers themselves are asserted on the token values in
+   * StatusPriorityPalette.JL457 (floor 5.23:1 against a 4.5 requirement). That
+   * is a stronger check than these were: it covers every consumer of the
+   * palette rather than this one component, and it does not depend on jsdom
+   * resolving a custom property, which it does not do.
+   */
+  it('paints fill, label and border from the same category', async () => {
     render(<WorkflowEditorPage />)
     await screen.findByRole('button', { name: /Status To Do/ })
 
@@ -157,33 +177,47 @@ describe('JL-324 — status node colours are readable', () => {
       const node = screen.getByRole('button', { name: new RegExp(`Status ${s.name}`) })
       const bg = node.style.backgroundColor
       const fg = node.style.color
+      const border = node.style.borderColor
       expect(bg).toBeTruthy()
       expect(fg).toBeTruthy()
-      // Both are rgb() strings once through the DOM; compare via luminance.
-      const ratio = contrastRatio(rgbToHex(bg), rgbToHex(fg))
-      expect(ratio).toBeGreaterThanOrEqual(4.5)
+      // All three name the SAME category — the invariant that replaces the
+      // render-time derivation.
+      const category = bg.match(/--status-([a-z]+)-bg/)?.[1]
+      expect(category, `fill for ${s.name} is not a category token: ${bg}`).toBeTruthy()
+      expect(fg).toContain(`--status-${category}-text`)
+      expect(border).toContain(`--status-${category}-border`)
     }
   })
 
-  it('stays readable even on a legacy dark fill (the original defect)', async () => {
-    // #42526E was the seeded value; dark body text on it measured ~1.5:1.
+  it('ignores a legacy per-status colour rather than painting it (the original defect)', async () => {
+    // #42526E was the seeded value; dark body text on it measured ~1.5:1. It is
+    // still in the DB — the column is NOT NULL — and is now simply not read.
     fetchProjectStatuses.mockResolvedValue([
       { id: 20, project_id: 1, name: 'Legacy', category: 'todo', color: '#42526E' },
     ])
     render(<WorkflowEditorPage />)
     const node = await screen.findByRole('button', { name: /Status Legacy/ })
 
-    const ratio = contrastRatio(rgbToHex(node.style.backgroundColor), rgbToHex(node.style.color))
-    expect(ratio).toBeGreaterThanOrEqual(4.5)
+    expect(node.style.backgroundColor).not.toContain('42526')
+    expect(node.style.backgroundColor).toContain('--status-todo-bg')
   })
 
-  it('derives the border from the fill so the two cannot disagree', async () => {
+  it('paints Blocked and Cancelled distinctly, though the DB cannot store either', async () => {
+    // The backend CHECK allows only todo/inprogress/done, so Blocked arrives
+    // tagged inprogress and Cancelled tagged done. Painting the stored category
+    // made a cancelled status read as a success and a blocked one as ordinary
+    // work in flight. Both are resolved by name instead.
+    fetchProjectStatuses.mockResolvedValue([
+      { id: 30, project_id: 1, name: 'Blocked', category: 'inprogress', color: '#FFFFFF' },
+      { id: 31, project_id: 1, name: 'Cancelled', category: 'done', color: '#FFFFFF' },
+    ])
     render(<WorkflowEditorPage />)
-    const node = await screen.findByRole('button', { name: /Status Done/ })
-    // Previously the border came from the category while the fill came from the
-    // status colour (grey Cancelled + mint-green `done` border).
-    expect(rgbToHex(node.style.borderColor).toUpperCase())
-      .toBe(borderFor('#E3FCEF').toUpperCase())
+
+    const blocked = await screen.findByRole('button', { name: /Status Blocked/ })
+    expect(blocked.style.backgroundColor).toContain('--status-blocked-bg')
+
+    const cancelled = screen.getByRole('button', { name: /Status Cancelled/ })
+    expect(cancelled.style.backgroundColor).toContain('--status-cancelled-bg')
   })
 })
 
@@ -305,10 +339,3 @@ describe('JL-324 — colour utility', () => {
   })
 })
 
-/** jsdom serialises inline colours as `rgb(r, g, b)`; convert back to hex. */
-function rgbToHex(value) {
-  const m = String(value).match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-  if (!m) return value
-  const h = (n) => Number(n).toString(16).padStart(2, '0')
-  return `#${h(m[1])}${h(m[2])}${h(m[3])}`
-}

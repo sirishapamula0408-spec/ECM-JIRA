@@ -231,6 +231,88 @@
        - The metric tier (--font-size-metric-*) now mirrors font.metric.*,
          so KPI numerals no longer improvise off the heading scale. */
 
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Status categories and the priority ramp (JL-457)
+     ══════════════════════════════════════════════════════════════════════
+     Before this, status and priority colour was decided in 13 places and four
+     of them were full, conflicting palettes. "In Progress" was blue in the
+     lozenge, GREEN in the dashboard gadgets and AMBER in the Reports CFD;
+     "To Do" was grey, purple and blue across the same three. Worse, green
+     meant BOTH "done" and "low priority", so a green mark on a row could not
+     be read without knowing which control had drawn it.
+
+     Two rules make that unrepeatable:
+
+       1. A status takes its colour from its CATEGORY, never from its name.
+          A new status called "In Rework" needs no new colour — it is
+          in-progress, so it is in-progress blue. Per-status hues are exactly
+          what let the four palettes drift apart.
+
+       2. The priority ramp contains NO GREEN at any step. Green belongs to
+          the done category alone. Low is neutral, which is also the more
+          honest signal: low priority is an absence of urgency, not a success.
+
+     Category values follow Atlassian's subtle lozenge fills. Cancelled and
+     blocked are new — the board (JL-311/312) and the workflow editor (JL-324)
+     had only three categories between them, and WorkflowEditorPage folded
+     Blocked into in-progress.
+
+     Each category carries bg / border / text for chips and surfaces, plus a
+     saturated `accent` for charts, bars and dots, where a subtle fill would
+     disappear. Dark-theme overrides live in theme.css under .app-theme-dark. */
+
+  /* Neutral. To Do, Backlog, and any status with no category. */
+  --status-todo-bg: #f4f5f7;
+  --status-todo-border: #dfe1e6;
+  --status-todo-text: #42526e;
+  --status-todo-accent: #8993a4;
+
+  /* In progress. Every working status, Code Review included. */
+  --status-inprogress-bg: #deebff;
+  --status-inprogress-border: #b3d4ff;
+  --status-inprogress-text: #0052cc;
+  --status-inprogress-accent: #0052cc;
+
+  /* Done. The only place green carries meaning. */
+  --status-done-bg: #e3fcef;
+  --status-done-border: #abf5d1;
+  --status-done-text: #006644;
+  --status-done-accent: #00875a;
+
+  /* Cancelled. Red, and deliberately not the done green — JL-312 established
+     that a cancelled column must not read as a success. */
+  --status-cancelled-bg: #ffebe6;
+  --status-cancelled-border: #ffbdad;
+  --status-cancelled-text: #bf2600;
+  --status-cancelled-accent: #de350b;
+
+  /* Blocked. Amber: attention, not failure. */
+  --status-blocked-bg: #fffae6;
+  --status-blocked-border: #ffe380;
+  --status-blocked-text: #974f0c;
+  --status-blocked-accent: #ff991f;
+
+  /* Priority ramp — neutral, amber, red-orange, red. No green, ever.
+     `highest` exists for completeness and for imported data (JL-451 maps
+     Atlassian's Highest onto High). PRIORITIES in src/constants.js is still
+     ['Low','Medium','High'], so nothing renders the highest step today. */
+  --priority-low-bg: #f4f5f7;
+  --priority-low-text: #42526e;
+  --priority-low-accent: #8993a4;
+
+  --priority-medium-bg: #fffae6;
+  --priority-medium-text: #974f0c;
+  --priority-medium-accent: #ff991f;
+
+  --priority-high-bg: #ffebe6;
+  --priority-high-text: #bf2600;
+  --priority-high-accent: #ff5630;
+
+  --priority-highest-bg: #ffebe6;
+  --priority-highest-text: #a01c00;
+  --priority-highest-accent: #de350b;
+
   /* ══════════════════════════════════════════════════════════════════════
      Compatibility alias layer (JL-392)
      ══════════════════════════════════════════════════════════════════════

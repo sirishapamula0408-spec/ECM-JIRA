@@ -121,7 +121,7 @@ export function PortfolioPage() {
             {chartData.length > 0 ? (
               <SvgBarChart
                 data={chartData}
-                series={[{ key: 'value', name: 'Completion %', color: '#36b37e' }]}
+                series={[{ key: 'value', name: 'Completion %', color: 'var(--status-done-accent)' /* JL-457: completion IS done-ness; same green as a Done column */ }]}
                 width={640}
                 height={280}
                 ariaLabel="Completion percentage by project"

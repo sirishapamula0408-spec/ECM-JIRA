@@ -500,16 +500,25 @@ textarea:focus {
   border-radius: 999px;
 }
 
+/* JL-457: the priority ramp, from the --priority-* tokens.
+   `.priority-low` was var(--jira-success) — the same green that means "Done"
+   everywhere else in the app, so a green dot on a row was genuinely ambiguous:
+   completed, or simply unimportant? Low is neutral now, which is also the
+   truer signal — low priority is an absence of urgency, not a success. */
+.priority-highest {
+  background: var(--priority-highest-accent);
+}
+
 .priority-high {
-  background: var(--jira-danger);
+  background: var(--priority-high-accent);
 }
 
 .priority-medium {
-  background: var(--jira-warning);
+  background: var(--priority-medium-accent);
 }
 
 .priority-low {
-  background: var(--jira-success);
+  background: var(--priority-low-accent);
 }
 
 .issue-type-badge {

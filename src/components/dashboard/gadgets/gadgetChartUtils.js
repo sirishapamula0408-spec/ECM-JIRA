@@ -1,15 +1,36 @@
+import { resolveStatusCategory, priorityTokenName } from '../../../utils/statusCategory'
+
+/*
+ * JL-457 — status and priority segments read the shared tokens.
+ *
+ * These used to be hardcoded per-name hex maps, and they were the worst
+ * offenders in the app: `In Progress` was GREEN (#7fb239) here while it was
+ * blue in the lozenge, the board and the workflow editor; `To Do` was PURPLE
+ * (#a95be7) while it was grey everywhere else; and `Low` priority was the same
+ * #00875a green that means Done. A pie chart of statuses and the board behind
+ * it were painting the same data in different colours.
+ *
+ * Values are `var(--token)` strings rather than resolved hexes on purpose. The
+ * consumers put them straight into inline `background` / `conic-gradient()`,
+ * where a custom property resolves normally — so the theme still controls
+ * them, and switching to dark mode repaints the chart without JS.
+ *
+ * `issueType` is NOT a status or priority and keeps its own hues; it is a
+ * different axis and sharing the status palette would imply a meaning it
+ * doesn't have.
+ */
+const statusVar = (category) => `var(--status-${category}-accent)`
+
 export const COLOR_PALETTES = {
-  status: {
-    'Backlog': '#8993a4',
-    'To Do': '#a95be7',
-    'In Progress': '#7fb239',
-    'Code Review': '#4c9aff',
-    'Done': '#00875a',
-  },
+  // Resolved per label at lookup time (see getColor) — a project can define
+  // statuses this map has never heard of, and they must still get the colour of
+  // their category rather than falling through to an arbitrary index.
+  status: null,
   priority: {
-    'High': '#de350b',
-    'Medium': '#ff991f',
-    'Low': '#00875a',
+    'Highest': 'var(--priority-highest-accent)',
+    'High': 'var(--priority-high-accent)',
+    'Medium': 'var(--priority-medium-accent)',
+    'Low': 'var(--priority-low-accent)',
   },
   issueType: {
     'Story': '#36b37e',
@@ -25,6 +46,14 @@ const FALLBACK_COLORS = [
 ]
 
 export function getColor(groupBy, key, index) {
+  // JL-457: status resolves through the shared category resolver rather than a
+  // name lookup, so a project-defined status ("In Rework", "UAT") gets its
+  // category's colour instead of an arbitrary fallback hue. This is the whole
+  // point of colouring by category — a new status needs no new colour.
+  if (groupBy === 'status') return statusVar(resolveStatusCategory(key))
+  if (groupBy === 'priority') {
+    return COLOR_PALETTES.priority[key] || `var(--priority-${priorityTokenName(key)}-accent)`
+  }
   const palette = COLOR_PALETTES[groupBy]
   if (palette && palette[key]) return palette[key]
   return FALLBACK_COLORS[index % FALLBACK_COLORS.length]

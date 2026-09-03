@@ -474,9 +474,12 @@
   text-decoration: underline;
 }
 
-.pill-priority--high { background: #ffebe6; color: #bf2600; }
-.pill-priority--medium { background: #fff3e0; color: #974f0c; }
-.pill-priority--low { background: #e3fcef; color: #006644; }
+/* JL-457: priority pills read the shared ramp. `--low` was #e3fcef/#006644 —
+   the done-green — which made a Low-priority pill look like a completed one. */
+.pill-priority--highest { background: var(--priority-highest-bg); color: var(--priority-highest-text); }
+.pill-priority--high { background: var(--priority-high-bg); color: var(--priority-high-text); }
+.pill-priority--medium { background: var(--priority-medium-bg); color: var(--priority-medium-text); }
+.pill-priority--low { background: var(--priority-low-bg); color: var(--priority-low-text); }
 
 .filter-results-pagination {
   display: flex;

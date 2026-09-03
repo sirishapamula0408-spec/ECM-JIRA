@@ -158,7 +158,10 @@ describe('JL-387 — status is a lozenge, not a native select', () => {
     // the lozenge must agree with the column heading above it.
     expect(inProgress.querySelector('.status-lozenge')).toHaveClass('status-lozenge-cat-inprogress')
     const todo = await findCard('Setup project')
-    expect(todo.querySelector('.status-lozenge')).toHaveClass('status-lozenge-cat-neutral')
+    // JL-457: the class is named after the category (todo) rather than after the
+    // visual it produced (neutral). Same grey; `.status-lozenge-cat-neutral` is
+    // kept in the stylesheet as an alias for call sites that still pass it.
+    expect(todo.querySelector('.status-lozenge')).toHaveClass('status-lozenge-cat-todo')
   })
 
   it('offers the project workflow statuses as transitions', async () => {

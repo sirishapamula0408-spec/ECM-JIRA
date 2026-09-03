@@ -11,6 +11,7 @@ import { useConfirm } from '../../components/common/useConfirm'
 import { RelativeTime } from '../../components/common/RelativeTime'
 import { usePermissions } from '../../hooks/usePermissions'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { resolveStatusCategory, CATEGORY_GLYPH } from '../../utils/statusCategory'
 import { ListViewControls } from '../../components/listViews/ListViewControls'
 import { EmptyState } from '../../components/common/EmptyState'
 import { initialsFromName } from '../../utils/helpers'
@@ -463,12 +464,37 @@ export function IssueListPage() {
     return <span className="list-type-mark list-type-task" />
   }
 
+  /*
+   * JL-457: the List's status label.
+   *
+   * This is used in two places that cannot share markup: the <option> text of
+   * two native <select>s (where no element may be nested, so no colour and no
+   * glyph are possible), and the cell renderer. It stays a plain string for the
+   * options; `statusCell()` below builds the coloured, glyphed chip for rows.
+   */
   function statusChip(status) {
     if (status === 'In Progress') return 'IN PROGRESS'
     if (status === 'Code Review') return 'IN REVIEW'
     if (status === 'Done') return 'DONE'
     if (status === 'Backlog') return 'BACKLOG'
     return 'TO DO'
+  }
+
+  /*
+   * The glyph goes in the option TEXT, not in markup.
+   *
+   * The List renders status as a native <select>, which may contain nothing but
+   * text — no span, so no separately styled glyph element. But the glyph is a
+   * character, and option text is a string, so prefixing it works in the closed
+   * select, in the open dropdown, and in the two bulk-action pickers, with no
+   * markup and no layout change.
+   *
+   * Colour is carried by a category class on the <select> itself (see
+   * IssueListPage.css). Before JL-457 this control had NO colour at all — the
+   * one place in the app where a status carried no visual category whatsoever.
+   */
+  function statusOptionText(status) {
+    return `${CATEGORY_GLYPH[resolveStatusCategory(status)]} ${statusChip(status)}`
   }
 
   /* ── Column toggle (add / remove from "+" menu) ── */
@@ -604,12 +630,12 @@ export function IssueListPage() {
       case 'status':
         return (
           <select
-            className="jira-list-status-select"
+            className={`jira-list-status-select jira-list-status-select--${resolveStatusCategory(issue.status)}`}
             value={issue.status}
             onChange={(e) => handleMove(issue.id, e.target.value, e.target.value === 'Backlog' ? null : issue.sprintId)}
           >
             {ISSUE_STATUSES.map((s) => (
-              <option key={s} value={s}>{statusChip(s)}</option>
+              <option key={s} value={s}>{statusOptionText(s)}</option>
             ))}
           </select>
         )
@@ -796,7 +822,7 @@ export function IssueListPage() {
               </select>
               {bulkAction === 'status' && (
                 <select className="jira-list-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={bulkBusy} aria-label="Status value">
-                  {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{statusChip(status)}</option>))}
+                  {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{statusOptionText(status)}</option>))}
                 </select>
               )}
               {bulkAction === 'priority' && (

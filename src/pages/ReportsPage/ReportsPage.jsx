@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { resolveStatusCategory } from '../../utils/statusCategory'
 import {
   Button,
   MenuItem,
@@ -34,13 +35,14 @@ import { SlaPanel } from './SlaPanel'
 import './ReportsPage.css'
 
 // Band colours for the CFD, bottom → top (Done on top).
-const CFD_STATUS_COLORS = {
-  Backlog: '#c1c7d0',
-  'To Do': '#4c9aff',
-  'In Progress': '#ff991f',
-  'Code Review': '#6554c0',
-  Done: '#36b37e',
-}
+/*
+ * JL-457: the cumulative-flow bands take their colour from the status
+ * CATEGORY, like everything else. This was a fourth independent status
+ * palette: To Do was blue here and grey in the lozenge, In Progress was amber
+ * here and blue everywhere else. A chart of statuses now matches the board it
+ * describes.
+ */
+const cfdStatusColor = (status) => `var(--status-${resolveStatusCategory(status)}-accent)`
 
 // JL-51: bin cycleDays into up to 6 buckets → { label, count } for a histogram.
 function buildHistogram(cycleValues) {
@@ -244,7 +246,7 @@ export function ReportsPage() {
     return statuses.map((status) => ({
       key: status,
       name: status,
-      color: CFD_STATUS_COLORS[status] || '#4c9aff',
+      color: cfdStatusColor(status),
     }))
   }, [cfd])
 

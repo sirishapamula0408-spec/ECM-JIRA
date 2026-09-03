@@ -4,7 +4,7 @@ import MenuItem from '@mui/material/MenuItem'
 import ListItemText from '@mui/material/ListItemText'
 import CheckIcon from '@mui/icons-material/Check'
 import { ISSUE_STATUSES } from '../../constants'
-import { defaultCategoryForStatus, isCancelStatus } from '../../utils/statusCategory'
+import { resolveStatusCategory, CATEGORY_GLYPH } from '../../utils/statusCategory'
 import './StatusLozenge.css'
 
 /**
@@ -17,25 +17,22 @@ import './StatusLozenge.css'
  * says, and its native chrome clashes with the MUI components used everywhere
  * else. This component is the replacement.
  *
- * COLOUR SOURCE — deliberately NOT a new status→hex map.
- * The board already colours its columns by *status category* (JL-311/JL-312 in
- * `src/pages/BoardPage/BoardPage.jsx`): a column is `done` when all its
- * statuses are done-category, `inprogress` when all are in-progress, otherwise
- * neutral; any cancellation status stays neutral. The category itself comes
- * per-project from `GET /api/projects/:id/statuses` (`fetchProjectStatuses`,
- * JL-309), which returns `{ name, category }` rows. The resulting
- * `.kanban-col-cat-done` / `.kanban-col-cat-inprogress` classes paint from the
- * shared `--jira-success` / `--jira-blue` tokens in `styles/variables.css`.
+ * COLOUR SOURCE — JL-457. The lozenge decides nothing about colour.
+ * It asks `resolveStatusCategory()` in `utils/statusCategory` for one of five
+ * categories (todo / inprogress / done / cancelled / blocked) and names a class
+ * after it; that class reads the `--status-*` tokens in `styles/variables.css`.
+ * Board columns and workflow-editor nodes go through the SAME resolver and the
+ * SAME tokens, so a lozenge cannot disagree with the column heading above it.
  *
- * This component takes the SAME inputs and paints from the SAME tokens:
- *   - pass the project's name→category map (BoardPage's `statusCategories`)
- *     as `categoryMap` and the lozenge agrees with the column heading exactly;
- *   - with no map it falls back to the same by-name inference the board uses
- *     when a status carries no explicit category — literally the same
- *     functions, imported from `utils/statusCategory` (JL-387 lifted them out
- *     of BoardPage so this component no longer keeps a hand-copied duplicate).
- * See StatusLozenge.css — the category classes reuse the very tokens the
- * `.kanban-col-cat-*` rules use, including the dark-theme brightenings.
+ * Pass the project's name→category map (BoardPage's `statusCategories`, from
+ * `GET /api/projects/:id/statuses`, JL-309) as `categoryMap` to honour
+ * per-project configuration; without it the resolver falls back to by-name
+ * inference. Cancelled and blocked are detected by name in either case, since
+ * no API field carries them.
+ *
+ * Dark theme is handled by overriding the tokens themselves (theme.css), not by
+ * restating brightened hexes here — that duplication is what previously let the
+ * lozenge and the board drift apart.
  *
  * Props:
  *   status       (string)   current status name. Unknown/missing degrades to a
@@ -66,18 +63,29 @@ import './StatusLozenge.css'
  */
 
 /**
- * Resolve the lozenge's visual category, exactly the way a board column does.
- * Returns 'done' | 'inprogress' | 'neutral'. Only `done` and `inprogress` are
- * accented; everything else (todo, cancelled, unknown) is neutral.
+ * JL-457: the lozenge no longer decides anything about colour. It asks the one
+ * shared resolver for a category and names a class after it; the tokens behind
+ * that class are the same ones the board column and the workflow node read.
+ *
+ * This replaced a local three-bucket function that collapsed cancelled into
+ * neutral, so a cancelled status was indistinguishable from a to-do one.
  */
-function statusLozengeCategory(status, categoryMap) {
-  const name = typeof status === 'string' ? status.trim() : ''
-  if (!name) return 'neutral'
-  if (isCancelStatus(name)) return 'neutral'
-  const category = (categoryMap && categoryMap[name]) || defaultCategoryForStatus(name)
-  if (category === 'done') return 'done'
-  if (category === 'inprogress') return 'inprogress'
-  return 'neutral'
+const statusLozengeCategory = resolveStatusCategory
+
+/*
+ * JL-457: the category glyph.
+ *
+ * aria-hidden because the category is already carried by the lozenge's
+ * accessible name ("Status for JL-12: In Progress"). A screen reader reading
+ * "half-filled circle" before every status would be pure noise; the glyph is
+ * there for people who can see the chip but not its colour.
+ */
+function CategoryGlyph({ category }) {
+  return (
+    <span className="status-lozenge-glyph" aria-hidden="true">
+      {CATEGORY_GLYPH[category] || CATEGORY_GLYPH.todo}
+    </span>
+  )
 }
 
 const NO_STATUS_LABEL = 'No status'
@@ -127,6 +135,7 @@ export function StatusLozenge({
         aria-label={accessibleName}
         title={accessibleName}
       >
+        <CategoryGlyph category={category} />
         {display}
       </span>
     )
@@ -179,6 +188,7 @@ export function StatusLozenge({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
       >
+        <CategoryGlyph category={category} />
         <span className="status-lozenge-text">{display}</span>
         <span className="status-lozenge-caret" aria-hidden="true" />
       </button>

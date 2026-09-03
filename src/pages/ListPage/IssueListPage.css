@@ -803,3 +803,39 @@ body.col-resizing * {
 .jira-list-row-menu-danger {
   color: var(--jira-danger);
 }
+
+/* ── JL-457: status category colour on the List's status control ───────────
+   Before this the List was the only place in the app that rendered a status
+   with no colour at all — .jira-list-status-select used the generic
+   --list-chip-bg regardless of status, so scanning a list for "what is in
+   flight" meant reading every row.
+
+   These override the neutral background set above; the category class is
+   appended by the cell renderer. No size, padding or position changes — the
+   control is identical apart from its fill. The glyph is carried in the option
+   TEXT (see statusOptionText), because a native <select> cannot contain
+   markup. */
+.jira-list-status-select--todo {
+  background: var(--status-todo-bg);
+  color: var(--status-todo-text);
+}
+
+.jira-list-status-select--inprogress {
+  background: var(--status-inprogress-bg);
+  color: var(--status-inprogress-text);
+}
+
+.jira-list-status-select--done {
+  background: var(--status-done-bg);
+  color: var(--status-done-text);
+}
+
+.jira-list-status-select--cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled-text);
+}
+
+.jira-list-status-select--blocked {
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-text);
+}

@@ -61,6 +61,55 @@
   --text-tertiary: var(--jira-dark-text-muted);
   --text-subtle: var(--jira-dark-text-muted);
   --primary: var(--jira-dark-blue);
+
+  /* JL-457: status categories and the priority ramp, inverted for dark.
+     Same structure as the avatar palette above — the light theme's subtle
+     tints would sink into the #1d2125 canvas, so each category becomes a
+     translucent wash of its own hue carrying a brightened text colour. The
+     green and blue are the same brightened Atlassian pair the board columns
+     already switch to (#4bce97 / #579dff), so the lozenge and the column
+     heading still agree in dark mode. */
+  --status-todo-bg: rgba(255, 255, 255, 0.08);
+  --status-todo-border: rgba(255, 255, 255, 0.16);
+  --status-todo-text: #9fadbc;
+  --status-todo-accent: #8c9bab;
+
+  --status-inprogress-bg: rgba(87, 157, 255, 0.16);
+  --status-inprogress-border: rgba(87, 157, 255, 0.28);
+  --status-inprogress-text: #579dff;
+  --status-inprogress-accent: #579dff;
+
+  --status-done-bg: rgba(75, 206, 151, 0.16);
+  --status-done-border: rgba(75, 206, 151, 0.28);
+  --status-done-text: #4bce97;
+  --status-done-accent: #4bce97;
+
+  --status-cancelled-bg: rgba(248, 113, 104, 0.16);
+  --status-cancelled-border: rgba(248, 113, 104, 0.28);
+  --status-cancelled-text: #f87168;
+  --status-cancelled-accent: #f87168;
+
+  --status-blocked-bg: rgba(245, 205, 71, 0.16);
+  --status-blocked-border: rgba(245, 205, 71, 0.28);
+  --status-blocked-text: #f5cd47;
+  --status-blocked-accent: #f5cd47;
+
+  --priority-low-bg: rgba(255, 255, 255, 0.08);
+  --priority-low-text: #9fadbc;
+  --priority-low-accent: #8c9bab;
+
+  --priority-medium-bg: rgba(245, 205, 71, 0.16);
+  --priority-medium-text: #f5cd47;
+  --priority-medium-accent: #f5cd47;
+
+  --priority-high-bg: rgba(255, 156, 143, 0.16);
+  --priority-high-text: #ff9c8f;
+  --priority-high-accent: #ff9c8f;
+
+  --priority-highest-bg: rgba(248, 113, 104, 0.2);
+  --priority-highest-text: #f87168;
+  --priority-highest-accent: #f87168;
+
 }
 
 .app-theme-dark .notif-dropdown {

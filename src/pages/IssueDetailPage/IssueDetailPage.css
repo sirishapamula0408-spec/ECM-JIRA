@@ -1231,10 +1231,20 @@
 .id-subtask-row:hover { background: #f4f5f7; }
 .id-subtask-key { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: #0052cc; }
 .id-subtask-title { flex: 1; font-size: var(--font-size-base); }
-.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: 3px; background: #dfe1e6; color: #42526e; }
-.id-subtask-status--done { background: #e3fcef; color: #006644; }
-.id-subtask-status--in-progress { background: #deebff; color: #0052cc; }
-.id-subtask-status--code-review { background: #eae6ff; color: #5243aa; }
+/* JL-457: sub-task chips take the status CATEGORY, not the status name.
+   `--code-review` used to be purple, its own hue, which is exactly the
+   per-status colouring that let four palettes drift apart. Code Review is an
+   in-progress status, so it is in-progress blue like every other one. The
+   modifier classes are kept (call sites still emit them) and simply resolve to
+   the shared tokens. */
+.id-subtask-status { font-size: var(--font-size-sm); padding: 2px 8px; border-radius: 3px; background: var(--status-todo-bg); color: var(--status-todo-text); }
+.id-subtask-status--backlog,
+.id-subtask-status--to-do { background: var(--status-todo-bg); color: var(--status-todo-text); }
+.id-subtask-status--done { background: var(--status-done-bg); color: var(--status-done-text); }
+.id-subtask-status--in-progress,
+.id-subtask-status--code-review { background: var(--status-inprogress-bg); color: var(--status-inprogress-text); }
+.id-subtask-status--cancelled { background: var(--status-cancelled-bg); color: var(--status-cancelled-text); }
+.id-subtask-status--blocked { background: var(--status-blocked-bg); color: var(--status-blocked-text); }
 .id-subtask-form { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
 /* JL-300: brief highlight of a newly added sub-task / linked-issue row */
 .id-subtask-row.id-row-flash { animation: id-row-flash 2.5s ease-out; }

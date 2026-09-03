@@ -505,53 +505,69 @@ body.board-col-resizing {
   background: #e6edf8;
 }
 
-/* JL-311: category-based column coloring (Atlassian-style).
-   A column whose mapped statuses are all in the "done" category renders with a
-   subtle GREEN accent (top bar + header text + count pill); in-progress columns
-   get a matching blue accent. Uses the shared --jira-success / --jira-blue
-   tokens; dark-theme overrides below keep it legible. Neutral columns are
-   unchanged. */
-.kanban-col-cat-done {
-  border-top: 3px solid var(--jira-success);
+/* JL-311 / JL-457: category-based column colouring.
+   Every value now comes from the --status-* tokens in variables.css, the same
+   ones StatusLozenge and the workflow-editor nodes read. The dark-theme block
+   that used to restate #4bce97 / #579dff by hand is gone — those overrides
+   live on the tokens in theme.css, so the column, the lozenge on the card
+   inside it, and the workflow node for the same status cannot disagree.
+
+   JL-457 also adds cancelled and blocked, which had no column colour at all:
+   a Cancelled column was painted neutral (JL-312 kept it out of the green) and
+   so was indistinguishable from To Do. */
+.kanban-col-cat-todo {
+  border-top: 3px solid var(--status-todo-accent);
 }
-.kanban-col-cat-done header h3 {
-  color: var(--jira-success);
+.kanban-col-cat-todo header h3 {
+  color: var(--status-todo-text);
 }
-.kanban-col-cat-done header span {
-  background: rgba(0, 135, 90, 0.15);
-  color: var(--jira-success);
-}
-.kanban-col-cat-inprogress {
-  border-top: 3px solid var(--jira-blue);
-}
-.kanban-col-cat-inprogress header h3 {
-  color: var(--jira-blue);
-}
-.kanban-col-cat-inprogress header span {
-  background: rgba(0, 82, 204, 0.15);
-  color: var(--jira-blue);
+.kanban-col-cat-todo header span {
+  background: var(--status-todo-bg);
+  color: var(--status-todo-text);
 }
 
-/* Dark theme: brighter Atlassian green (#4bce97) / blue (#579dff) for contrast. */
-.app-theme-dark .kanban-col-cat-done {
-  border-top-color: #4bce97;
+.kanban-col-cat-inprogress {
+  border-top: 3px solid var(--status-inprogress-accent);
 }
-.app-theme-dark .kanban-col-cat-done header h3,
-.app-theme-dark .kanban-col-cat-done header span {
-  color: #4bce97;
+.kanban-col-cat-inprogress header h3 {
+  color: var(--status-inprogress-text);
 }
-.app-theme-dark .kanban-col-cat-done header span {
-  background: rgba(75, 206, 151, 0.2);
+.kanban-col-cat-inprogress header span {
+  background: var(--status-inprogress-bg);
+  color: var(--status-inprogress-text);
 }
-.app-theme-dark .kanban-col-cat-inprogress {
-  border-top-color: #579dff;
+
+.kanban-col-cat-done {
+  border-top: 3px solid var(--status-done-accent);
 }
-.app-theme-dark .kanban-col-cat-inprogress header h3,
-.app-theme-dark .kanban-col-cat-inprogress header span {
-  color: #579dff;
+.kanban-col-cat-done header h3 {
+  color: var(--status-done-text);
 }
-.app-theme-dark .kanban-col-cat-inprogress header span {
-  background: rgba(87, 157, 255, 0.2);
+.kanban-col-cat-done header span {
+  background: var(--status-done-bg);
+  color: var(--status-done-text);
+}
+
+.kanban-col-cat-cancelled {
+  border-top: 3px solid var(--status-cancelled-accent);
+}
+.kanban-col-cat-cancelled header h3 {
+  color: var(--status-cancelled-text);
+}
+.kanban-col-cat-cancelled header span {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled-text);
+}
+
+.kanban-col-cat-blocked {
+  border-top: 3px solid var(--status-blocked-accent);
+}
+.kanban-col-cat-blocked header h3 {
+  color: var(--status-blocked-text);
+}
+.kanban-col-cat-blocked header span {
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-text);
 }
 
 .kanban-col header {

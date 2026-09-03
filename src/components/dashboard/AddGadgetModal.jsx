@@ -53,13 +53,13 @@ function MiniPreview({ type }) {
     case 'pie':
       return (
         <div className="mini-preview mini-preview--pie">
-          <div className="mini-pie" style={{ background: 'conic-gradient(#0052cc 0 40%, #00875a 40% 70%, #ff991f 70% 100%)' }} />
+          <div className="mini-pie" style={{ background: 'conic-gradient(var(--status-inprogress-accent) 0 40%, var(--status-done-accent) 40% 70%, var(--status-blocked-accent) 70% 100%)' }} />
         </div>
       )
     case 'donut':
       return (
         <div className="mini-preview mini-preview--donut">
-          <div className="mini-donut" style={{ background: 'conic-gradient(#7fb239 0 35%, #4c9aff 35% 65%, #a95be7 65% 100%)' }}>
+          <div className="mini-donut" style={{ background: 'conic-gradient(var(--status-done-accent) 0 35%, var(--status-inprogress-accent) 35% 65%, var(--status-todo-accent) 65% 100%)' }}>
             <div className="mini-donut-hole" />
           </div>
         </div>
