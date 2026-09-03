@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
+import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
@@ -11,10 +12,38 @@ const router = Router()
 const importExportProject = (req) => Number(req.params.projectId)
 
 const EXPORT_FIELDS = ['issue_key', 'title', 'description', 'priority', 'assignee', 'status', 'issue_type', 'sprint_id']
+// What the importer reads: everything exported except the key. The target
+// project generates its own from projects.issue_counter, so an incoming
+// issue_key could never be honoured.
+const IMPORT_FIELDS = EXPORT_FIELDS.filter((f) => f !== 'issue_key')
+
+/*
+ * JL-448 — these are READ from validate.js, not restated here.
+ *
+ * This module used to declare its own copies:
+ *
+ *   status:     Backlog, To Do, In Progress, Code Review, Done
+ *   issue_type: Story, Bug, Task
+ *
+ * and they fell behind. JL-306 appended the QA-lifecycle statuses (In Testing,
+ * In Rework, In UAT, Cancelled); JL-31 and JL-76 added Sub-task and Epic. The
+ * route layer picked all of that up, this file did not, and the DB CHECK
+ * constraints that might have caught it were deliberately dropped in db.js
+ * ("Validation now happens in the route layer").
+ *
+ * The result: THE IMPORTER REJECTED THIS APPLICATION'S OWN EXPORT. Export an
+ * issue sitting in In Testing, or any Epic or Sub-task, and the import refused
+ * the row as invalid. Measured on a real file — of five rows using values the
+ * app creates without complaint, four were rejected.
+ *
+ * One source of truth. The next status anyone adds to validate.js reaches the
+ * importer for free, and ImporterWhitelists.JL448 fails if these are ever
+ * re-declared locally.
+ */
 const VALID = {
-  priority: ['Low', 'Medium', 'High'],
-  status: ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'],
-  issue_type: ['Story', 'Bug', 'Task'],
+  priority: validPriorities,
+  status: validStatuses,
+  issue_type: validIssueTypes,
 }
 const DEFAULTS = { description: '', priority: 'Medium', status: 'To Do', issue_type: 'Task', assignee: 'Unassigned' }
 
@@ -81,7 +110,11 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
     const source = mapping?.[field] || field
     return headers.findIndex((h) => h.toLowerCase() === String(source).toLowerCase())
   }
-  const idx = Object.fromEntries(['title', 'description', 'priority', 'assignee', 'status', 'issue_type', 'sprint_id'].map((f) => [f, colOf(f)]))
+  // JL-448: derived from EXPORT_FIELDS rather than retyped, so export and
+  // import cannot claim different field sets. `issue_key` is the one exception
+  // and it is dropped deliberately: the target project mints its own key from
+  // projects.issue_counter, so an incoming key would be ignored anyway.
+  const idx = Object.fromEntries(IMPORT_FIELDS.map((f) => [f, colOf(f)]))
 
   const parsed = []
   const errors = []
