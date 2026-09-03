@@ -23,6 +23,103 @@ const IMPORT_FIELDS = EXPORT_FIELDS.filter((f) => f !== 'issue_key')
 const MAX_CSV_CHARS = 2 * 1024 * 1024
 
 /*
+ * JL-451 — resolving a value that is ALMOST one of ours.
+ *
+ * Two separate problems, and they want different answers.
+ *
+ * 1. CASE. "in testing" was rejected while "In Testing" passed. That is just a
+ *    bug: a CSV round-tripped through Excel or hand-edited loses casing all the
+ *    time, and nobody means a different status by it. Matching is now
+ *    case-insensitive, and the canonical spelling is what gets stored.
+ *
+ * 2. FOREIGN VALUES. "In Prod", "Bug raised", "UAT bug raised", "Highest" are
+ *    real statuses and priorities — in somebody else's Jira. This app has its
+ *    own workflow, and its board columns, filters and reports are all built on
+ *    the set in validate.js. Adding every foreign name to that set would change
+ *    the application's model to suit one import.
+ *
+ *    So they are MAPPED, not adopted. And critically, every mapping is REPORTED
+ *    in the dry-run — the response carries a `warnings` array naming the row,
+ *    the original value and what it became, so the user approves the
+ *    translation before committing rather than discovering it afterwards. A
+ *    silent remap would be worse than the rejection it replaces.
+ *
+ * The priority aliases are standard Jira (Highest/Lowest/Critical/Blocker/
+ * Major/Minor/Trivial) rather than anything site-specific. The status aliases
+ * lean on Atlassian's statusCategory semantics: anything meaning "shipped"
+ * lands on Done, anything meaning "a defect came back" lands on In Rework, and
+ * anything meaning "not started or blocked" lands on To Do.
+ */
+const VALUE_ALIASES = {
+  status: {
+    'in prod': 'Done',
+    'in production': 'Done',
+    released: 'Done',
+    deployed: 'Done',
+    closed: 'Done',
+    resolved: 'Done',
+    complete: 'Done',
+    completed: 'Done',
+    'bug raised': 'In Rework',
+    'uat bug raised': 'In Rework',
+    reopened: 'In Rework',
+    open: 'To Do',
+    'to-do': 'To Do',
+    todo: 'To Do',
+    new: 'To Do',
+    blocked: 'To Do',
+    'waiting for client response': 'To Do',
+    'ot ticket': 'To Do',
+    'in review': 'Code Review',
+    review: 'Code Review',
+    'in qa': 'In Testing',
+    testing: 'In Testing',
+    uat: 'In UAT',
+    cancelled: 'Cancelled',
+    canceled: 'Cancelled',
+  },
+  priority: {
+    highest: 'High',
+    blocker: 'High',
+    critical: 'High',
+    major: 'High',
+    urgent: 'High',
+    normal: 'Medium',
+    lowest: 'Low',
+    minor: 'Low',
+    trivial: 'Low',
+  },
+  issue_type: {
+    subtask: 'Sub-task',
+    'sub task': 'Sub-task',
+    'sub-task': 'Sub-task',
+    improvement: 'Task',
+    'new feature': 'Story',
+    feature: 'Story',
+    'user story': 'Story',
+    defect: 'Bug',
+  },
+}
+
+/**
+ * Resolve one value against the app's accepted set.
+ * Returns `{ value }` on success, plus `from` when an alias was applied, or
+ * `{ error }` when nothing matched.
+ */
+function resolveValue(field, raw) {
+  const accepted = VALID[field]
+  // 1. Exact, case-insensitively — the canonical spelling is what we store.
+  const exact = accepted.find((v) => v.toLowerCase() === raw.toLowerCase())
+  if (exact) return { value: exact }
+  // 2. A known foreign name.
+  const alias = VALUE_ALIASES[field]?.[raw.toLowerCase()]
+  if (alias) return { value: alias, from: raw }
+  // 3. Genuinely unknown. Say what IS accepted — a bare rejection leaves the
+  //    user guessing at a list they cannot see.
+  return { error: `invalid ${field} "${raw}" (accepted: ${accepted.join(', ')})` }
+}
+
+/*
  * JL-448 — these are READ from validate.js, not restated here.
  *
  * This module used to declare its own copies:
@@ -136,6 +233,8 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
 
   const parsed = []
   const errors = []
+  // JL-451: every value we translated, so the dry-run can show it.
+  const warnings = []
   for (let r = 1; r < grid.length; r++) {
     const row = grid[r]
     const val = (f) => (idx[f] >= 0 ? String(row[idx[f]] ?? '').trim() : '')
@@ -150,9 +249,16 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
     }
     const rowErrors = []
     if (!rec.title) rowErrors.push('title is required')
-    if (!VALID.priority.includes(rec.priority)) rowErrors.push(`invalid priority "${rec.priority}"`)
-    if (!VALID.status.includes(rec.status)) rowErrors.push(`invalid status "${rec.status}"`)
-    if (!VALID.issue_type.includes(rec.issue_type)) rowErrors.push(`invalid issue_type "${rec.issue_type}"`)
+    // JL-451: resolve rather than test-and-reject. Case differences are
+    // normalised silently; a mapped foreign value is applied AND reported.
+    for (const field of ['priority', 'status', 'issue_type']) {
+      const r2 = resolveValue(field, rec[field])
+      if (r2.error) rowErrors.push(r2.error)
+      else {
+        rec[field] = r2.value
+        if (r2.from) warnings.push({ row: r + 1, field, from: r2.from, to: r2.value })
+      }
+    }
     if (rowErrors.length) errors.push({ row: r + 1, errors: rowErrors })
     else parsed.push(rec)
   }
@@ -164,6 +270,11 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
       valid: parsed.length,
       invalid: errors.length,
       errors: errors.slice(0, 50),
+      // JL-451: what was TRANSLATED rather than rejected. Surfaced so the
+      // user approves the mapping before committing - a silent remap would
+      // be worse than the rejection it replaces.
+      warnings: warnings.slice(0, 50),
+      warningCount: warnings.length,
       preview: parsed.slice(0, 10),
     })
     return

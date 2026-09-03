@@ -58,3 +58,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* JL-451 — values the importer TRANSLATED rather than rejected. Amber, not
+   red: nothing failed, but the user is agreeing to a change of meaning and
+   should see it before committing. */
+.ie-warnings {
+  margin: var(--space-1) 0 0;
+  padding-left: 18px;
+  color: var(--color-warning, #974f0c);
+  font-size: var(--font-size-sm);
+}
+
+.ie-warnings code {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}

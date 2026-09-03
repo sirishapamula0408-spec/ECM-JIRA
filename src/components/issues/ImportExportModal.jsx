@@ -171,7 +171,24 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
             />
             {preview && (
               <div className="ie-preview">
-                <p><strong>{preview.valid}</strong> valid · <strong>{preview.invalid}</strong> invalid of {preview.totalRows} rows</p>
+                <p>
+                  <strong>{preview.valid}</strong> valid · <strong>{preview.invalid}</strong> invalid of {preview.totalRows} rows
+                  {preview.warningCount > 0 && <> · <strong>{preview.warningCount}</strong> translated</>}
+                </p>
+                {/* JL-451: values that were MAPPED rather than rejected —
+                    "In Prod" → "Done", "Highest" → "High". Shown before the
+                    commit button so the translation is approved, not
+                    discovered afterwards. A silent remap would be worse than
+                    the rejection it replaces. */}
+                {preview.warnings?.length > 0 && (
+                  <ul className="ie-warnings">
+                    {preview.warnings.map((w) => (
+                      <li key={`${w.row}-${w.field}`}>
+                        Row {w.row}: {w.field} <code>{w.from}</code> → <code>{w.to}</code>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {preview.errors?.length > 0 && (
                   <ul className="ie-errors">
                     {preview.errors.map((e) => (<li key={e.row}>Row {e.row}: {e.errors.join('; ')}</li>))}
