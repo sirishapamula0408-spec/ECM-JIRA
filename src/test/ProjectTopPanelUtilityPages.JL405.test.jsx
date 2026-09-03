@@ -24,8 +24,9 @@ const strip = () => screen.queryByRole('navigation', { name: /project views/i })
 // JL-405 — the fifth instance of this change, after JL-373 (/teams),
 // JL-374 (/users), JL-375 (/audit-log) and JL-376 (/activity). Filters,
 // Portfolio and Report Builder have no project context, so a strip offering
-// Summary / Timeline / Backlog / Active sprints / Reports / List was advertising
-// project views from pages that are not scoped to a project.
+// Summary / Backlog / Active sprints / Reports / List was advertising project
+// views from pages that are not scoped to a project. (JL-456 later dropped
+// Timeline and Wiki from that list; the point here is unchanged.)
 describe('ProjectTopPanel — hidden on the utility pages (JL-405)', () => {
   for (const route of ['/filters', '/portfolio', '/report-builder']) {
     it(`does not render the navigation strip at ${route}`, () => {

@@ -70,19 +70,27 @@ export function ProjectTopPanel({ hasProjects }) {
   // Build nav items — prefix with project path when a project is active
   const prefix = projectId ? `/projects/${projectId}` : ''
 
+  // JL-456: Timeline and Wiki were removed from this strip to shorten it.
+  //
+  // Their ROUTES are untouched — /projects/:id/roadmap and /projects/:id/wiki
+  // still render, and VIEW_LABELS below still names them in the breadcrumb, so
+  // a bookmark keeps working. Only the tabs are gone.
+  //
+  // Both keep a way in from the project pages: Roadmap already had quick-action
+  // buttons on ProjectDetailPage and ProjectSummaryPage, and JL-456 added a Wiki
+  // one beside them. That mattered — this tab was the ONLY link to the wiki in
+  // the whole app, so deleting it outright would have stranded JL-48 (pages,
+  // versions, search, issue links, and server/routes/wiki.js) behind a URL
+  // nobody could reach by clicking.
   const items = [
     { id: 'summary', label: 'Summary', path: projectId ? `/projects/${projectId}` : '/dashboard', icon: 'summary' },
-    { id: 'timeline', label: 'Timeline', path: `${prefix}/roadmap`, icon: 'timeline' },
     { id: 'backlog', label: 'Backlog', path: `${prefix}/backlog`, icon: 'backlog' },
     { id: 'active-sprints', label: 'Active sprints', path: `${prefix}/active-sprint`, icon: 'active-sprints' },
     { id: 'reports', label: 'Reports', path: `${prefix}/reports`, icon: 'reports' },
     { id: 'list', label: 'List', path: projectId ? `${prefix}/list` : '/list', icon: 'list' },
     // JL-222: project-scoped tabs (only shown when inside a project)
     ...(projectId
-      ? [
-          { id: 'wiki', label: 'Wiki', path: `${prefix}/wiki`, icon: 'list' },
-          { id: 'settings', label: 'Settings', path: `${prefix}/settings`, icon: 'settings' },
-        ]
+      ? [{ id: 'settings', label: 'Settings', path: `${prefix}/settings`, icon: 'settings' }]
       : []),
   ]
 
