@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { downloadProjectExport, importIssues } from '../../api/importExportApi'
+import { useState, useRef } from 'react'
+import { downloadProjectExport, importIssues, readCsvFile, CsvReadError } from '../../api/importExportApi'
 import './ImportExportModal.css'
 
 export function ImportExportModal({ projectId, onClose, onImported, canImport = true, initialTab = 'export' }) {
@@ -9,6 +9,16 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
   const [csv, setCsv] = useState('')
   const [preview, setPreview] = useState(null)
   const [busy, setBusy] = useState(false)
+  // JL-450: the picked file, shown so the user can see WHICH file is loaded -
+  // the textarea fills with its contents, and without the name it is not
+  // obvious whether the text came from a file or was pasted.
+  const [fileName, setFileName] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef(null)
+  // Nested elements fire dragenter/dragleave as the pointer crosses them, so a
+  // naive boolean flickers. Counting depth is the same fix useAttachmentDropZone
+  // uses for the issue-detail drop zone.
+  const dragDepth = useRef(0)
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
 
@@ -19,6 +29,54 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
     } catch (e) {
       setError(e?.message || 'Export failed')
     }
+  }
+
+  // JL-450 — the whole file path. Reads to text, then hands off to the exact
+  // flow a paste already uses: fill the textarea, clear any stale preview. The
+  // server never learns a file was involved.
+  async function loadFile(file) {
+    setError(''); setDone(''); setPreview(null)
+    try {
+      const text = await readCsvFile(file)
+      setCsv(text)
+      setFileName(file.name)
+    } catch (e) {
+      // CsvReadError messages are written for the user; anything else is not.
+      setError(e instanceof CsvReadError ? e.message : 'Could not read that file.')
+      setCsv('')
+      setFileName('')
+    }
+  }
+
+  function handleFilePicked(e) {
+    const file = e.target.files?.[0]
+    // Reset the input so re-picking the SAME file fires change again — without
+    // this, fixing the file and re-choosing it appears to do nothing.
+    e.target.value = ''
+    if (file) loadFile(file)
+  }
+
+  const dropZoneProps = {
+    onDragEnter: (e) => {
+      if (![...(e.dataTransfer?.types || [])].includes('Files')) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setIsDragging(true)
+    },
+    onDragOver: (e) => {
+      if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault()
+    },
+    onDragLeave: () => {
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setIsDragging(false)
+    },
+    onDrop: (e) => {
+      e.preventDefault()
+      dragDepth.current = 0
+      setIsDragging(false)
+      const file = e.dataTransfer?.files?.[0]
+      if (file) loadFile(file)
+    },
   }
 
   async function handlePreview() {
@@ -40,6 +98,7 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
       setDone(`Imported ${result.created} issue(s).`)
       setPreview(null)
       setCsv('')
+      setFileName('')
       onImported?.()
     } catch (e) {
       setError(e?.message || 'Import failed')
@@ -73,15 +132,41 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
         )}
 
         {canImport && tab === 'import' && (
-          <div className="ie-body">
+          <div className="ie-body" {...dropZoneProps}>
             <p className="ie-hint">
-              Paste CSV with a header row. Recognized columns: <code>title, description, priority, assignee, status, issue_type, sprint_id</code>. Only <code>title</code> is required.
+              Upload a CSV, or paste one below. Needs a header row. Recognized columns: <code>title, description, priority, assignee, status, issue_type, sprint_id</code>. Only <code>title</code> is required.
             </p>
+
+            {/* JL-450: the file route. Hidden input driven by a visible button,
+                matching the attach control on the issue-detail page — a bare
+                <input type="file"> cannot be styled consistently across
+                browsers. The whole body is also a drop target. */}
+            <div className={`ie-dropzone${isDragging ? ' ie-dropzone--active' : ''}`}>
+              <button
+                className="btn btn-ghost btn-sm"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy}
+              >
+                Choose CSV file
+              </button>
+              <span className="ie-dropzone-hint">
+                {isDragging ? 'Drop to load' : fileName ? `Loaded: ${fileName}` : 'or drag one here'}
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: 'none' }}
+                onChange={handleFilePicked}
+              />
+            </div>
+
             <textarea
               className="ie-textarea"
               rows={7}
               value={csv}
-              onChange={(e) => { setCsv(e.target.value); setPreview(null) }}
+              onChange={(e) => { setCsv(e.target.value); setPreview(null); setFileName('') }}
               placeholder={'title,priority,status,assignee\nFix login bug,High,To Do,Sirisha'}
             />
             {preview && (

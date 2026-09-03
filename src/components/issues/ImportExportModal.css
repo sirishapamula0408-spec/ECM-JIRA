@@ -28,3 +28,33 @@
 .ie-errors { margin: 6px 0 0; padding-left: 18px; color: #bf2600; font-size: var(--font-size-sm); }
 .ie-error { color: #bf2600; font-size: var(--font-size-base); margin: 8px 0 0; }
 .ie-done { color: #006644; font-size: var(--font-size-base); margin: 8px 0 0; }
+
+/* JL-450 — CSV file upload. The button + hint sit on one row above the paste
+   textarea; the whole .ie-body is also a drop target, and this is what shows
+   the drag state. Sizes come from the type tokens: stylelint gates every
+   font-size under src/ and a literal fails the build. */
+.ie-dropzone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px dashed var(--border, #dfe1e6);
+  border-radius: var(--radius-sm, 6px);
+  margin-bottom: var(--space-2);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.ie-dropzone--active {
+  border-color: var(--primary, #0052cc);
+  border-style: solid;
+  background: var(--color-primary-subtle, #deebff);
+}
+
+.ie-dropzone-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-subtle, #5e6c84);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

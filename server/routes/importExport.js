@@ -17,6 +17,11 @@ const EXPORT_FIELDS = ['issue_key', 'title', 'description', 'priority', 'assigne
 // issue_key could never be honoured.
 const IMPORT_FIELDS = EXPORT_FIELDS.filter((f) => f !== 'issue_key')
 
+// JL-450: matches MAX_CSV_BYTES in src/api/importExportApi.js. Characters
+// rather than bytes — this is a JS string by the time it reaches here — which
+// is close enough for a guard rail and avoids re-encoding to measure.
+const MAX_CSV_CHARS = 2 * 1024 * 1024
+
 /*
  * JL-448 — these are READ from validate.js, not restated here.
  *
@@ -102,6 +107,19 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
   const mapping = req.body?.mapping && typeof req.body.mapping === 'object' ? req.body.mapping : null
   const dryRun = req.body?.dryRun !== false // default to dry-run for safety
   if (!csv.trim()) { res.status(400).json({ error: 'csv content is required' }); return }
+  // JL-450: the client caps the file it reads, but that check is advisory —
+  // this endpoint takes a JSON string and anything can post to it. The limit is
+  // sized against the COMMIT loop below, not the transport: it inserts one row
+  // per await, unbatched and deliberately outside a transaction, so a very
+  // large payload is a long series of round-trips in one request and a failure
+  // part-way leaves earlier rows committed. express.json allows 25mb; that is
+  // not the binding constraint.
+  if (csv.length > MAX_CSV_CHARS) {
+    res.status(413).json({
+      error: `CSV too large (${(csv.length / 1024 / 1024).toFixed(1)}MB). Limit is ${MAX_CSV_CHARS / 1024 / 1024}MB — split it and import in parts.`,
+    })
+    return
+  }
 
   const grid = parseCsv(csv)
   if (grid.length < 2) { res.status(400).json({ error: 'CSV must have a header row and at least one data row' }); return }
