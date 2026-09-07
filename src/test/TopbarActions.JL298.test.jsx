@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 
@@ -9,7 +11,8 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
      2. Profile / "Account settings" de-duplicated
      3. Theme popup actually shows when triggered
      4. "Switch account" no longer silently logs out (removed)
-     5. "Open Quickstart" routes to a guide, not the dashboard
+     5. "Open Quickstart" — routed to a guide rather than the dashboard.
+        JL-459 later removed the item entirely; (5) now asserts its absence.
      6. Sun icon toggles theme; question-mark icon opens the help dialog
    ================================================================ */
 
@@ -91,6 +94,13 @@ beforeEach(() => {
   document.documentElement.classList.remove('app-theme-dark')
 })
 
+// Read from disk rather than rendering the Sidebar: it pulls in the whole
+// permission + context stack, and what needs guarding is that the link EXISTS,
+// which is a textual property of the source.
+function readSidebarSource() {
+  return fs.readFileSync(path.join(process.cwd(), 'src/components/layout/Sidebar.jsx'), 'utf8')
+}
+
 describe('JL-298 Topbar actions', () => {
   it('(1) notifications panel has a non-transparent background', () => {
     const { container } = renderTopbar()
@@ -130,13 +140,29 @@ describe('JL-298 Topbar actions', () => {
     expect(mockHandleLogout).toHaveBeenCalledTimes(1)
   })
 
-  it('(5) "Open Quickstart" navigates to a guide, not the dashboard', () => {
+  // JL-459 INVERTED this assertion. It used to check that "Open Quickstart"
+  // routed to /knowledge-base rather than /dashboard — JL-298's fix for a button
+  // pointing somewhere unrelated to its label.
+  //
+  // The item is now gone. There was never a quickstart feature behind it: the
+  // label promised guided onboarding and it opened the general Knowledge Base,
+  // and having to repoint it once already was the clue that it had no
+  // destination of its own. Nothing was stranded, because /knowledge-base is in
+  // the sidebar.
+  //
+  // Kept as an assertion rather than deleted, so the menu cannot quietly regrow
+  // the item.
+  it('(5) no longer offers "Open Quickstart" (JL-459)', () => {
     renderTopbar()
     openUserMenu()
-    fireEvent.click(screen.getByText('Open Quickstart'))
-    const path = screen.getByTestId('location').textContent
-    expect(path).not.toBe('/dashboard')
-    expect(path).toBe('/knowledge-base')
+    expect(screen.queryByText('Open Quickstart')).toBeNull()
+  })
+
+  it('(5b) the Knowledge Base is still reachable from the sidebar (JL-459)', () => {
+    // The check that stops this ticket removing the only way to a page. The
+    // sidebar owns that link, which is what made the button safe to delete.
+    const sidebarSource = readSidebarSource()
+    expect(sidebarSource).toContain("path: '/knowledge-base'")
   })
 
   it('(6a) the sun icon toggles the theme (light -> dark)', async () => {

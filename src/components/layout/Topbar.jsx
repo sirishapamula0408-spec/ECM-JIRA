@@ -324,12 +324,16 @@ export function Topbar({ onCreate, hasProjects }) {
                 )}
               </div>
 
-              {/* JL-298: quickstart previously opened /dashboard; route it to the
-                  knowledge base (help/guide surface) instead. */}
-              <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); navigate('/knowledge-base') }}>
-                <span className="topbar-user-item-icon"><HeaderPanelIcon name="quickstart" /></span>
-                Open Quickstart
-              </button>
+              {/* JL-459: "Open Quickstart" removed. There is no quickstart
+                  feature — the label promised guided onboarding and the button
+                  opened the general Knowledge Base. JL-298 had already had to
+                  repoint it once (it originally opened /dashboard), which is a
+                  sign the item never had a destination of its own.
+
+                  Nothing is stranded: /knowledge-base is in the sidebar, so the
+                  page it went to is still one click away. That is why this could
+                  simply be deleted, unlike JL-456's Wiki tab which was its
+                  page's only link and needed a replacement first. */}
 
               <div className="topbar-user-divider" />
 
