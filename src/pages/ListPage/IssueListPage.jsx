@@ -833,9 +833,25 @@ export function IssueListPage() {
               <button className="btn btn-primary" type="button" onClick={applyBulkAction} disabled={bulkBusy}>Apply</button>
             </>
           )}
+            {/* JL-464: the label is just "Delete". The count sits three words
+                to the left as "N selected", so repeating it here was noise.
+                aria-label keeps the scope, because a screen-reader user gets
+                none of the visual adjacency that makes the short label
+                sufficient — and the confirmation still names the count, which
+                is where the number actually matters. */}
           {canDeleteIssue && (
-            <button className="btn btn-danger" type="button" onClick={deleteSelectedIssues} disabled={bulkBusy}>
-              Delete {bulkCount} issue{bulkCount === 1 ? '' : 's'}
+            <button
+              className="btn btn-danger jira-list-bulk-delete"
+              type="button"
+              onClick={deleteSelectedIssues}
+              disabled={bulkBusy}
+              aria-label={`Delete ${bulkCount} selected issue${bulkCount === 1 ? '' : 's'}`}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.6 9a1 1 0 0 0 1 1h4.8a1 1 0 0 0 1-1L12 4" />
+                <path d="M6.5 7v4M9.5 7v4" />
+              </svg>
+              Delete
             </button>
           )}
           <button className="btn btn-ghost" type="button" onClick={clearSelection} disabled={bulkBusy}>Clear</button>

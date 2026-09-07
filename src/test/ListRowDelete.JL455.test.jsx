@@ -134,22 +134,22 @@ describe('JL-455 — bulk delete is reachable without a dropdown', () => {
     // where it is invisible until the dropdown is opened.
     const picker = screen.getByLabelText('Bulk action')
     expect(Array.from(picker.querySelectorAll('option')).map((o) => o.value)).not.toContain('delete')
-    expect(screen.getByRole('button', { name: 'Delete 1 issue' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete 1 selected issue' })).toBeInTheDocument()
   })
 
   it('counts what will be deleted, and pluralises honestly', () => {
     renderPage()
     fireEvent.click(screen.getByLabelText('Select TP-1'))
-    expect(screen.getByRole('button', { name: 'Delete 1 issue' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete 1 selected issue' })).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Select TP-2'))
-    expect(screen.getByRole('button', { name: 'Delete 2 issues' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete 2 selected issues' })).toBeInTheDocument()
   })
 
   it('deletes every selected id and drops them from the selection', async () => {
     renderPage()
     fireEvent.click(screen.getByLabelText('Select TP-1'))
     fireEvent.click(screen.getByLabelText('Select TP-3'))
-    await fireEvent.click(screen.getByRole('button', { name: 'Delete 2 issues' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete 2 selected issues' }))
     await confirmDialog('Delete')
 
     expect(handleDelete).toHaveBeenCalledTimes(2)
@@ -247,3 +247,63 @@ describe('JL-463 — the stylesheet floats the bar correctly', () => {
 function readListCss() {
   return fs.readFileSync(path.join(process.cwd(), 'src/pages/ListPage/IssueListPage.css'), 'utf8')
 }
+
+/* ── JL-464: the button says "Delete", the count lives elsewhere ───────────
+ *
+ * JL-455 put the count in the visible label because the button had just
+ * replaced an option inside a dropdown and had to carry its own scope. Once
+ * JL-463 made the bar a compact floating pill, "Delete 2 issues" sat three
+ * words from "2 selected" and the repetition was noise.
+ *
+ * The count did not disappear — it moved to the accessible name, because a
+ * screen-reader user gets none of the visual adjacency that makes the short
+ * label sufficient. Both halves are asserted here; testing only the visible
+ * text would let the accessible name silently degrade to "Delete".
+ */
+describe('JL-464 — delete button label', () => {
+  beforeEach(() => {
+    member = { workspaceRole: 'Admin', isOwner: false, projectRoles: [] }
+    vi.clearAllMocks()
+  })
+
+  const deleteBtn = () => screen.getByRole('button', { name: /^Delete \d+ selected issue/ })
+
+  it('shows just "Delete", without restating the count', () => {
+    renderPage()
+    fireEvent.click(screen.getByLabelText('Select TP-1'))
+    fireEvent.click(screen.getByLabelText('Select TP-2'))
+
+    expect(deleteBtn().textContent.trim()).toBe('Delete')
+    // The bar already says it, immediately to the left.
+    expect(within(bulkBar()).getByText('2 selected')).toBeInTheDocument()
+  })
+
+  it('keeps the count in the accessible name, pluralised honestly', () => {
+    renderPage()
+    fireEvent.click(screen.getByLabelText('Select TP-1'))
+    expect(deleteBtn()).toHaveAccessibleName('Delete 1 selected issue')
+
+    fireEvent.click(screen.getByLabelText('Select TP-2'))
+    expect(deleteBtn()).toHaveAccessibleName('Delete 2 selected issues')
+  })
+
+  it('carries a decorative icon that stays out of the accessible name', () => {
+    renderPage()
+    fireEvent.click(screen.getByLabelText('Select TP-1'))
+    const svg = deleteBtn().querySelector('svg')
+    expect(svg).toBeTruthy()
+    expect(svg).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('still names the count in the confirmation, where it actually matters', async () => {
+    // The last point before an irreversible action — the short label is fine on
+    // the bar precisely because this dialog spells it out.
+    renderPage()
+    fireEvent.click(screen.getByLabelText('Select TP-1'))
+    fireEvent.click(screen.getByLabelText('Select TP-3'))
+    await fireEvent.click(deleteBtn())
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.textContent).toMatch(/2 issues/)
+  })
+})

@@ -113,7 +113,7 @@ describe('JL-294 — List view (IssueListPage) RBAC gating', () => {
       // button, so that the page's one destructive action is visible without
       // opening a dropdown that defaults to Status.
       expect(options).not.toContain('delete')
-      expect(screen.getByRole('button', { name: 'Delete 1 issue' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete 1 selected issue' })).toBeInTheDocument()
     })
 
     it('shows the inline "+ Create" row and opens the quick-create form', () => {

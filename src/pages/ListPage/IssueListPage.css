@@ -891,3 +891,11 @@ body.col-resizing * {
   background: var(--status-blocked-bg);
   color: var(--status-blocked-text);
 }
+
+/* JL-464: icon + label. gap only — everything else comes from .btn/.btn-danger,
+   so the delete button stays identical to every other danger button in the app. */
+.jira-list-bulk-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

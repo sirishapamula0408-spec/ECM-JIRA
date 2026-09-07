@@ -86,7 +86,7 @@ describe('JL-257 — List bulk-action toolbar', () => {
 
     // JL-455: delete left the "Bulk action" dropdown and became its own button.
     // The behaviour asserted below is unchanged — only the control that starts it.
-    await fireEvent.click(screen.getByRole('button', { name: 'Delete 2 issues' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete 2 selected issues' }))
 
     // Themed ConfirmDialog (JL-232) replaces window.confirm — confirm via the dialog button.
     const dialog = await screen.findByRole('dialog')
@@ -103,7 +103,7 @@ describe('JL-257 — List bulk-action toolbar', () => {
     selectRow('TP-1')
 
     // JL-455: singular label at one selected — see the JL-455 suite.
-    await fireEvent.click(screen.getByRole('button', { name: 'Delete 1 issue' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete 1 selected issue' }))
 
     const dialog = await screen.findByRole('dialog')
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
