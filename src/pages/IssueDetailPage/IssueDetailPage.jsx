@@ -16,12 +16,9 @@ import { fetchProjectComponents, fetchIssueComponents } from '../../api/componen
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
 import { fetchIssueLinks, createIssueLink, deleteIssueLink, LINK_TYPES } from '../../api/issueLinkApi'
-import { fetchGitLinks, createGitLink, deleteGitLink, fetchDeployments, GIT_LINK_TYPES, GIT_LINK_TYPE_LABELS, PR_STATE_LABELS } from '../../api/gitIntegrationApi'
 import { fetchWorklogs, logWork, setEstimate } from '../../api/worklogApi'
 import { fetchIssueCustomFields, setIssueCustomField, createCustomField, deleteCustomField } from '../../api/customFieldApi'
 import { fetchSecurityLevels, setIssueSecurityLevel } from '../../api/securityLevelApi'
-import { fetchCiBuilds } from '../../api/cicdApi'
-import { fetchAssets, fetchIssueAssets, linkIssueAsset, unlinkIssueAsset } from '../../api/assetApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useAttachmentDropZone } from '../../hooks/useAttachmentDropZone'
 import { usePluginContributions } from '../../hooks/usePluginContributions'
@@ -212,12 +209,6 @@ export function IssueDetailPage() {
   const [attachments, setAttachments] = useState([])
   const fileInputRef = useRef(null)
   const [links, setLinks] = useState([])
-  const [ciBuilds, setCiBuilds] = useState([])
-  // JL-142: affected assets (CMDB)
-  const [issueAssets, setIssueAssets] = useState([])
-  const [allAssets, setAllAssets] = useState([])
-  const [showAssetLink, setShowAssetLink] = useState(false)
-  const [assetToLink, setAssetToLink] = useState('')
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   // JL-300: post-success feedback — scroll the updated panel into view, show a
   // success snackbar, and briefly highlight the newly added row.
@@ -237,15 +228,6 @@ export function IssueDetailPage() {
       highlightTimerRef.current = setTimeout(() => setHighlightedRow(null), 2500)
     }
   }
-  // JL-55: Git integration (branches / commits / PRs)
-  const [gitLinks, setGitLinks] = useState([])
-  const [showGitForm, setShowGitForm] = useState(false)
-  const [gitLinkType, setGitLinkType] = useState(GIT_LINK_TYPES[0])
-  const [gitRef, setGitRef] = useState('')
-  const [gitUrl, setGitUrl] = useState('')
-  const [gitTitle, setGitTitle] = useState('')
-  // JL-147: deployments recorded against this issue (via provider webhook)
-  const [deployments, setDeployments] = useState([])
   const [linkType, setLinkType] = useState(LINK_TYPES[0])
   const [linkSearch, setLinkSearch] = useState('')
   const [linkTargetId, setLinkTargetId] = useState('')
@@ -589,35 +571,6 @@ export function IssueDetailPage() {
       .catch(() => setAttachments([]))
   }, [issue?.id])
 
-  // JL-142: affected assets
-  useEffect(() => {
-    if (!issue?.id) return
-    fetchIssueAssets(issue.id)
-      .then((data) => setIssueAssets(Array.isArray(data) ? data : []))
-      .catch(() => setIssueAssets([]))
-  }, [issue?.id])
-  useEffect(() => {
-    fetchAssets()
-      .then((data) => setAllAssets(Array.isArray(data) ? data : []))
-      .catch(() => setAllAssets([]))
-  }, [])
-
-  async function handleLinkAsset() {
-    if (!assetToLink) return
-    try {
-      const rows = await linkIssueAsset(issue.id, Number(assetToLink))
-      setIssueAssets(Array.isArray(rows) ? rows : [])
-      setAssetToLink('')
-      setShowAssetLink(false)
-    } catch { /* surfaced via snackbar */ }
-  }
-  async function handleUnlinkAsset(assetId) {
-    try {
-      await unlinkIssueAsset(issue.id, assetId)
-      setIssueAssets((prev) => prev.filter((a) => a.id !== assetId))
-    } catch { /* surfaced via snackbar */ }
-  }
-
   async function handleFilesSelected(e) {
     const files = Array.from(e.target.files || [])
     if (files.length) await uploadAttachmentFiles(files)
@@ -854,14 +807,6 @@ export function IssueDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue?.id])
 
-  // CI/CD builds
-  useEffect(() => {
-    if (!issue?.id) return
-    fetchCiBuilds(issue.id)
-      .then((data) => setCiBuilds(Array.isArray(data) ? data : []))
-      .catch(() => setCiBuilds([]))
-  }, [issue?.id])
-
   async function handleAddLink() {
     if (!linkTargetId) return
     try {
@@ -881,56 +826,6 @@ export function IssueDetailPage() {
     try {
       await deleteIssueLink(linkId)
       setLinks((prev) => prev.filter((l) => l.id !== linkId))
-    } catch {
-      // ignore
-    }
-  }
-
-  // JL-55: Git links (branches / commits / PRs)
-  function reloadGitLinks() {
-    if (!issue?.id) return
-    fetchGitLinks(issue.id)
-      .then((data) => setGitLinks(Array.isArray(data) ? data : []))
-      .catch(() => setGitLinks([]))
-  }
-  // JL-147: deployments recorded against this issue
-  function reloadDeployments() {
-    if (!issue?.id) return
-    fetchDeployments(issue.id)
-      .then((data) => setDeployments(Array.isArray(data) ? data : []))
-      .catch(() => setDeployments([]))
-  }
-  useEffect(() => {
-    if (!issue?.id) return
-    reloadGitLinks()
-    reloadDeployments()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [issue?.id])
-
-  async function handleAddGitLink() {
-    if (!gitRef.trim()) return
-    try {
-      await createGitLink(issue.id, {
-        linkType: gitLinkType,
-        ref: gitRef.trim(),
-        url: gitUrl.trim(),
-        title: gitTitle.trim(),
-      })
-      setShowGitForm(false)
-      setGitRef('')
-      setGitUrl('')
-      setGitTitle('')
-      setGitLinkType(GIT_LINK_TYPES[0])
-      reloadGitLinks()
-    } catch {
-      // keep form open on failure
-    }
-  }
-
-  async function handleRemoveGitLink(id) {
-    try {
-      await deleteGitLink(id)
-      setGitLinks((prev) => prev.filter((g) => g.id !== id))
     } catch {
       // ignore
     }
@@ -1691,143 +1586,6 @@ export function IssueDetailPage() {
                     {/* JL-284: remove-link gated by canLinkIssues */}
                     {canLinkIssues && (
                       <button type="button" className="id-attach-delete" onClick={() => handleRemoveLink(l.id)} aria-label="Remove link">&times;</button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* JL-142: Affected assets (CMDB) */}
-          <div className="id-section">
-            <div className="id-subtask-header">
-              <h3 className="id-section-title">Affected assets</h3>
-              <button className="id-subtask-add-btn" type="button" onClick={() => setShowAssetLink((v) => !v)}>+ Link asset</button>
-            </div>
-            {showAssetLink && (
-              <div className="id-link-dialog">
-                <select className="id-inline-select" value={assetToLink} onChange={(e) => setAssetToLink(e.target.value)}>
-                  <option value="">Select asset…</option>
-                  {allAssets
-                    .filter((a) => !issueAssets.some((ia) => ia.id === a.id))
-                    .map((a) => <option key={a.id} value={a.id}>{a.typeIcon ? `${a.typeIcon} ` : ''}{a.name} ({a.typeName})</option>)}
-                </select>
-                <div className="id-link-dialog-actions">
-                  <button className="btn btn-primary btn-sm" type="button" onClick={handleLinkAsset} disabled={!assetToLink}>Link</button>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowAssetLink(false); setAssetToLink('') }}>Cancel</button>
-                </div>
-              </div>
-            )}
-            {issueAssets.length === 0 ? (
-              <p className="id-empty-text">No affected assets.</p>
-            ) : (
-              <ul className="id-subtask-list">
-                {issueAssets.map((a) => (
-                  <li key={a.id} className="id-subtask-row">
-                    <span className="id-subtask-title">{a.typeIcon ? `${a.typeIcon} ` : ''}{a.name}</span>
-                    <span className="id-link-type">{a.typeName}</span>
-                    <span className={`id-subtask-status id-subtask-status--${String(a.status).toLowerCase().replace(/\s+/g, '-')}`}>{a.status}</span>
-                    <button type="button" className="id-attach-delete" onClick={() => handleUnlinkAsset(a.id)} aria-label="Unlink asset">&times;</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* JL-55: Development (git branches / commits / pull requests) */}
-          <div className="id-section">
-            <div className="id-subtask-header">
-              <h3 className="id-section-title">Development</h3>
-              <button className="id-subtask-add-btn" type="button" onClick={() => setShowGitForm((v) => !v)}>+ Link branch/commit/PR</button>
-            </div>
-            {showGitForm && (
-              <div className="id-link-dialog">
-                <select className="id-inline-select" value={gitLinkType} onChange={(e) => setGitLinkType(e.target.value)}>
-                  {GIT_LINK_TYPES.map((t) => <option key={t} value={t}>{GIT_LINK_TYPE_LABELS[t]}</option>)}
-                </select>
-                <input className="id-inline-input" placeholder="Ref (branch name, commit SHA, PR #)…" value={gitRef} onChange={(e) => setGitRef(e.target.value)} />
-                <input className="id-inline-input" placeholder="Title (optional)…" value={gitTitle} onChange={(e) => setGitTitle(e.target.value)} />
-                <input className="id-inline-input" placeholder="URL (optional)…" value={gitUrl} onChange={(e) => setGitUrl(e.target.value)} />
-                <div className="id-link-dialog-actions">
-                  <button className="btn btn-primary btn-sm" type="button" onClick={handleAddGitLink} disabled={!gitRef.trim()}>Link</button>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowGitForm(false); setGitRef(''); setGitUrl(''); setGitTitle('') }}>Cancel</button>
-                </div>
-              </div>
-            )}
-            {gitLinks.length === 0 ? (
-              <p className="id-empty-text">No linked branches, commits, or pull requests.</p>
-            ) : (
-              GIT_LINK_TYPES.filter((t) => gitLinks.some((g) => g.link_type === t)).map((t) => (
-                <div key={t} className="id-git-group">
-                  <div className="id-git-group-label">{GIT_LINK_TYPE_LABELS[t]}</div>
-                  <ul className="id-subtask-list">
-                    {gitLinks.filter((g) => g.link_type === t).map((g) => (
-                      <li key={g.id} className="id-subtask-row">
-                        <span className="id-git-icon" aria-hidden="true">
-                          {t === 'branch' ? '⎇' : t === 'commit' ? '●' : '⎇'}
-                        </span>
-                        {g.url ? (
-                          <a className="id-subtask-key" href={g.url} target="_blank" rel="noreferrer">{g.ref}</a>
-                        ) : (
-                          <span className="id-subtask-key">{g.ref}</span>
-                        )}
-                        <span className="id-subtask-title">{g.title || ''}</span>
-                        {t === 'pull_request' && g.state && (
-                          <span className={`id-pr-state id-pr-state--${g.state}`}>{PR_STATE_LABELS[g.state] || g.state}</span>
-                        )}
-                        {g.author && <span className="id-git-author">{g.author}</span>}
-                        <button type="button" className="id-attach-delete" onClick={() => handleRemoveGitLink(g.id)} aria-label="Remove git link">&times;</button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* JL-147: Deployments recorded against this issue (via provider webhook) */}
-          <div className="id-section">
-            <h3 className="id-section-title">Deployments ({deployments.length})</h3>
-            {deployments.length === 0 ? (
-              <p className="id-empty-text">No deployments recorded.</p>
-            ) : (
-              <ul className="id-ci-list">
-                {deployments.map((d) => (
-                  <li key={d.id} className="id-ci-row">
-                    <span className={`id-ci-status id-ci-status--${d.status}`}>{d.status || 'deployed'}</span>
-                    {d.environment && <span className="id-ci-pipeline">{d.environment}</span>}
-                    {d.version && <span className="id-ci-branch">{d.version}</span>}
-                    {d.deployed_at && (
-                      <span className="id-ci-duration">
-                        {new Date(d.deployed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
-                    {d.url && (
-                      <a className="id-ci-link" href={d.url} target="_blank" rel="noopener noreferrer">View</a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* CI/CD Pipeline Status */}
-          <div className="id-section">
-            <h3 className="id-section-title">CI/CD ({ciBuilds.length})</h3>
-            {ciBuilds.length === 0 ? (
-              <p className="id-empty-text">No builds recorded.</p>
-            ) : (
-              <ul className="id-ci-list">
-                {ciBuilds.map((b) => (
-                  <li key={b.id} className="id-ci-row">
-                    <span className={`id-ci-status id-ci-status--${b.status}`}>{b.status}</span>
-                    <span className="id-ci-pipeline">{b.pipeline || 'pipeline'}</span>
-                    {b.branch && <span className="id-ci-branch">{b.branch}</span>}
-                    {typeof b.duration_seconds === 'number' && (
-                      <span className="id-ci-duration">{b.duration_seconds}s</span>
-                    )}
-                    {b.url && (
-                      <a className="id-ci-link" href={b.url} target="_blank" rel="noopener noreferrer">View</a>
                     )}
                   </li>
                 ))}
