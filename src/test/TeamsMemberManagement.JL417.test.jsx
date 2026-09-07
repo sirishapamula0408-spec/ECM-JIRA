@@ -307,7 +307,11 @@ describe('JL-417 — the rest of the page is undisturbed', () => {
     await renderLoaded()
 
     const h1 = screen.getByRole('heading', { level: 1 })
-    expect(h1).toHaveTextContent('Teams')
+    // JL-461: "Members", not "Teams". This page is the workspace member
+    // directory; /teams is a separate page that legitimately owns "Teams", and
+    // both rendering the same heading is what this corrected.
+    expect(h1).toHaveTextContent('Members')
+    expect(h1).not.toHaveTextContent('Teams')
     expect(h1.tagName).toBe('H1')
   })
 

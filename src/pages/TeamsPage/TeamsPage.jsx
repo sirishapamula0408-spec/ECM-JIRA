@@ -74,7 +74,12 @@ export function InviteDeliveryBadge({ status, error, sentAt }) {
 }
 
 export function TeamsPage() {
-  usePageTitle('Teams')
+  // JL-461: this page is the workspace MEMBER directory. JL-425 renamed its
+  // route from /teams to /members but left the heading and tab title saying
+  // "Teams" — the same words /teams uses for the actual team directory. The
+  // component filename stays TeamsPage.jsx; renaming it touches every import
+  // and test path, which JL-425 deliberately deferred.
+  usePageTitle('Members')
   const { handleResendInvite: onResend } = useMembers()
   const { canInviteMembers, isAdmin } = usePermissions()
 
@@ -459,7 +464,7 @@ export function TeamsPage() {
     <section className="page teams-page">
       <div className="teams-header">
         <div>
-          <h1>Teams</h1>
+          <h1>Members</h1>
           <p className="teams-subtitle">Manage your team members and their roles within the workspace.</p>
         </div>
         <div className="teams-header-actions">
