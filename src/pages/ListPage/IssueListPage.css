@@ -745,34 +745,17 @@ body.col-resizing * {
   display: inline-block;
 }
 
-/* JL-462: centred, and hidden until the row is hovered.
-   The glyph was text on the baseline in a 28px box with no centring, so it
-   hung low-left and read as stray punctuation rather than a control. It was
-   also visible on every row at once — which this page already has a
-   convention against: .col-drag-handle is opacity 0 until hovered. */
 .jira-list-row-menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   border: none;
   background: transparent;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
   color: var(--list-subtle);
   cursor: pointer;
   width: 28px;
   height: 28px;
-  padding: 0;
   border-radius: 4px;
-  opacity: 0;
-  transition: opacity 140ms ease, background 140ms ease;
-}
-
-/* Revealed on row hover, and PINNED VISIBLE while the menu is open or the
-   trigger holds keyboard focus. Without those last two a keyboard user would
-   tab to an invisible control and the menu would open from nowhere. */
-.jira-list-table tbody tr:hover .jira-list-row-menu-trigger,
-.jira-list-row-menu-trigger:focus-visible,
-.jira-list-row-menu-trigger[aria-expanded='true'] {
-  opacity: 1;
+  line-height: 1;
 }
 
 .jira-list-row-menu-trigger:hover,
@@ -793,17 +776,6 @@ body.col-resizing * {
   min-width: 140px;
   padding: 6px 0;
   display: block;
-}
-
-/* JL-462: the last two rows open the menu UPWARD.
-   Pinned to top:100% it opened past the bottom of .jira-list-table-scroll and
-   was clipped — worst on the last row of a page, which is exactly where a
-   delete is most likely after sorting. CSS-only via :nth-last-child rather
-   than measuring in JS: no scroll listener, no layout thrash, and it cannot
-   desync from the real position the way a cached measurement can. */
-.jira-list-table tbody tr:nth-last-child(-n + 2) .jira-list-row-menu {
-  top: auto;
-  bottom: 100%;
 }
 
 .jira-list-row-menu-item {
