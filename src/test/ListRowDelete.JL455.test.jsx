@@ -17,6 +17,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import fs from 'node:fs'
+import path from 'node:path'
 
 const ROWS = [
   { id: 1, key: 'TP-1', title: 'First', status: 'To Do', priority: 'Medium', issueType: 'Task', assignee: 'Alice', sprintId: 7, projectId: 1 },
@@ -176,3 +178,66 @@ describe('JL-455 — Viewers gain no delete route', () => {
     expect(screen.queryByRole('button', { name: /^Delete \d+ issue/ })).toBeNull()
   })
 })
+
+/* ── JL-462: the trigger's appearance ──────────────────────────────────────
+ *
+ * JL-455 shipped this control verified by test suite but never seen rendered —
+ * the local login form does not complete — and it looked wrong: a horizontal
+ * ellipsis on the text baseline, visible on every row at once.
+ *
+ * The behavioural half is asserted by rendering. The presentational half lives
+ * entirely in CSS that jsdom does not load, so those rules are asserted against
+ * the stylesheet source. That is weaker than a computed style, and deliberately
+ * chosen over a test that would pass with the rules deleted.
+ */
+describe('JL-462 — the row-actions trigger reads as a control', () => {
+  beforeEach(() => {
+    member = { workspaceRole: 'Admin', isOwner: false, projectRoles: [] }
+    vi.clearAllMocks()
+  })
+
+  it('renders an icon, not the ellipsis character it shipped with', () => {
+    renderPage()
+    const trigger = rowMenu('TP-1')
+    expect(trigger.querySelector('svg')).toBeTruthy()
+    // "…" reads as omitted text rather than "there are actions here".
+    expect(trigger.textContent).not.toContain('\u2026')
+  })
+
+  it('keeps the icon out of the accessible name', () => {
+    // The SVG is decorative; the button already says what it is.
+    renderPage()
+    const trigger = rowMenu('TP-2')
+    expect(trigger.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(trigger).toHaveAccessibleName('Actions for TP-2')
+  })
+})
+
+describe('JL-462 — the stylesheet carries the reveal and flip rules', () => {
+  const css = readListCss()
+
+  it('hides the trigger until its row is hovered', () => {
+    expect(css).toMatch(/\.jira-list-row-menu-trigger \{[^}]*opacity: 0;/)
+    expect(css).toContain('.jira-list-table tbody tr:hover .jira-list-row-menu-trigger')
+  })
+
+  it('pins it visible for keyboard users and while the menu is open', () => {
+    // The regression that would make this control unusable without a mouse:
+    // hover-reveal alone means tabbing to an invisible button.
+    expect(css).toContain('.jira-list-row-menu-trigger:focus-visible')
+    expect(css).toMatch(/\.jira-list-row-menu-trigger\[aria-expanded='true'\][\s\S]{0,200}opacity: 1;/)
+  })
+
+  it('centres the glyph rather than leaving it on the baseline', () => {
+    expect(css).toMatch(/\.jira-list-row-menu-trigger \{[^}]*display: inline-flex;/)
+    expect(css).toMatch(/\.jira-list-row-menu-trigger \{[^}]*justify-content: center;/)
+  })
+
+  it('opens the menu upward on the last rows so it is not clipped', () => {
+    expect(css).toMatch(/tr:nth-last-child\(-n \+ 2\) \.jira-list-row-menu \{[^}]*bottom: 100%;/)
+  })
+})
+
+function readListCss() {
+  return fs.readFileSync(path.join(process.cwd(), 'src/pages/ListPage/IssueListPage.css'), 'utf8')
+}
