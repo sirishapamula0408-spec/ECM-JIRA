@@ -709,16 +709,68 @@ body.col-resizing * {
 }
 
 /* ── Bulk-action bar (JL-257) ── */
+/* ── JL-463: the bulk bar floats, it does not push the table ──────────────
+   It used to be an in-flow block above the table with margin-bottom: 8px, so
+   ticking a checkbox REFLOWED the page — every row shifted down, and back up
+   when the selection cleared. That is worst during the exact task the bar
+   exists for: selecting several rows in a run, where the next row you were
+   aiming at slides out from under the pointer.
+
+   Fixed to the bottom of the viewport, like Atlassian's. Out of flow, so the
+   table never moves.
+
+   z-index 100 sits between two existing layers: the table's own menus are at
+   20, MUI dialogs at 1300. The bar has to clear the former and stay under the
+   latter — otherwise the delete confirmation would open BEHIND the bar that
+   launched it. */
 .jira-list-bulk-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
-  margin-bottom: 8px;
+  padding: 10px 16px;
   border: 1px solid var(--list-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--list-surface);
+  /* Deeper than a card's shadow: this floats over content and has to read as a
+     layer above the page, not as part of it. */
+  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.24), 0 0 1px rgba(9, 30, 66, 0.3);
+  animation: jira-list-bulk-bar-in 140ms ease-out;
 }
+
+@keyframes jira-list-bulk-bar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* The entrance is decoration. Anyone who has asked the OS for less motion gets
+   the bar immediately — note the transform stays applied, or it would jump out
+   of its centred position. */
+@media (prefers-reduced-motion: reduce) {
+  .jira-list-bulk-bar {
+    animation: none;
+  }
+}
+
+/* While a selection is live the table reserves room, so its last row cannot sit
+   permanently under the floating bar. Padding on the SCROLL container rather
+   than a margin on the table: it is scrolled past instead of becoming permanent
+   dead space. */
+.jira-list-table-scroll--bulk {
+  padding-bottom: 72px;
+}
+
 
 .jira-list-bulk-count {
   font-size: var(--font-size-base);

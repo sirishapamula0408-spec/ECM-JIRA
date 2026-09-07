@@ -843,7 +843,9 @@ export function IssueListPage() {
       )}
 
       <article className="jira-list-table-shell">
-        <div className="jira-list-table-scroll">
+        {/* JL-463: reserve room at the bottom while the floating bulk bar is
+            showing, so the last row cannot sit permanently underneath it. */}
+        <div className={`jira-list-table-scroll${canBulkSelect && bulkCount > 0 ? ' jira-list-table-scroll--bulk' : ''}`}>
           <table className="jira-list-table">
             <thead>
               <tr>

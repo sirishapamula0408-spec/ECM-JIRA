@@ -17,6 +17,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import fs from 'node:fs'
+import path from 'node:path'
 
 const ROWS = [
   { id: 1, key: 'TP-1', title: 'First', status: 'To Do', priority: 'Medium', issueType: 'Task', assignee: 'Alice', sprintId: 7, projectId: 1 },
@@ -176,3 +178,72 @@ describe('JL-455 — Viewers gain no delete route', () => {
     expect(screen.queryByRole('button', { name: /^Delete \d+ issue/ })).toBeNull()
   })
 })
+
+/* ── JL-463: the bulk bar floats instead of pushing the table ──────────────
+ *
+ * It was an in-flow block above the table, so ticking a checkbox reflowed the
+ * page and every row shifted. The reserve class below is real behaviour and is
+ * asserted by rendering; the positioning itself is CSS that jsdom does not
+ * load, so those rules are checked against the stylesheet source — weaker than
+ * a computed style, and chosen over a test that would pass with the rules gone.
+ */
+describe('JL-463 — the table reserves room for the floating bar', () => {
+  beforeEach(() => {
+    member = { workspaceRole: 'Admin', isOwner: false, projectRoles: [] }
+    vi.clearAllMocks()
+  })
+
+  const scroller = (c) => c.querySelector('.jira-list-table-scroll')
+
+  it('adds the reserve class only while rows are selected', () => {
+    const { container } = renderPage()
+    expect(scroller(container).className).not.toMatch(/--bulk/)
+
+    fireEvent.click(screen.getByLabelText('Select TP-1'))
+    expect(scroller(container).className).toMatch(/--bulk/)
+  })
+
+  it('drops it again when the selection is cleared', async () => {
+    const { container } = renderPage()
+    fireEvent.click(screen.getByLabelText('Select TP-1'))
+    expect(scroller(container).className).toMatch(/--bulk/)
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await waitFor(() => expect(scroller(container).className).not.toMatch(/--bulk/))
+  })
+})
+
+describe('JL-463 — the stylesheet floats the bar correctly', () => {
+  const css = readListCss()
+  const barRule = css.match(/\.jira-list-bulk-bar \{[^}]*\}/)[0]
+
+  it('takes the bar out of flow so the table cannot reflow', () => {
+    expect(barRule).toMatch(/position: fixed;/)
+    // The in-flow spacing that caused the shift must be gone, not just overridden.
+    expect(barRule).not.toMatch(/margin-bottom:/)
+  })
+
+  it('layers it above the table menus but below dialogs', () => {
+    // The specific failure this prevents: the delete confirmation opening
+    // BEHIND the bar that launched it. Table menus are z-index 20; MUI
+    // dialogs are 1300.
+    const z = Number(barRule.match(/z-index: (\d+);/)[1])
+    expect(z).toBeGreaterThan(20)
+    expect(z).toBeLessThan(1300)
+  })
+
+  it('honours prefers-reduced-motion', () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]{0,160}\.jira-list-bulk-bar[\s\S]{0,80}animation: none;/)
+  })
+
+  it('keeps the centring transform in the animation keyframes', () => {
+    // translateX(-50%) does the centring. A keyframe that animates `transform`
+    // without repeating it would fling the bar to the right of the viewport.
+    const frames = css.match(/@keyframes jira-list-bulk-bar-in \{[\s\S]*?\n\}/)[0]
+    expect(frames.match(/translateX\(-50%\)/g) || []).toHaveLength(2)
+  })
+})
+
+function readListCss() {
+  return fs.readFileSync(path.join(process.cwd(), 'src/pages/ListPage/IssueListPage.css'), 'utf8')
+}
