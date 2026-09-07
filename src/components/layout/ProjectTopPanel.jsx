@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate, matchPath } from 'react-router-dom'
 import { fetchProjectById } from '../../api/projectApi'
+import { useSprints } from '../../context/SprintContext'
 import { TopNavIcon } from '../icons/TopNavIcon'
 import './ProjectTopPanel.css'
 
@@ -45,6 +46,29 @@ export function ProjectTopPanel({ hasProjects }) {
   // name that does not belong to the project in the URL is now simply not shown.
   const [fetched, setFetched] = useState({ id: null, name: '' })
 
+  /*
+   * JL-460: the Active sprints tab is only offered when there is a started
+   * sprint to look at. Without one the tab led to ActiveSprintPage's "No active
+   * sprints" empty state — a tab promising content its destination cannot give.
+   *
+   * The predicate is DELIBERATELY the same one ActiveSprintPage uses
+   * (`sprints.filter((s) => s.isStarted)`, ActiveSprintPage.jsx:33) rather than
+   * the project-scoped one on ProjectSummaryPage (JL-343). Those two disagree:
+   * sprints in this schema are workspace-global with no project_id, and the
+   * page never reads projectId, so it shows started sprints from any project.
+   * Scoping the TAB while the PAGE stays global would hide the tab on a project
+   * whose page would still have rendered content — worse than showing it.
+   *
+   * So the invariant here is "the tab appears exactly when the page has
+   * something to show". That a project-scoped URL renders an unscoped page is a
+   * real bug, but a separate one; fixing it here would half-fix it.
+   *
+   * Reading from context rather than fetching means the tab reappears the
+   * moment a sprint is started, with no reload.
+   */
+  const { sprints } = useSprints()
+  const hasActiveSprint = Array.isArray(sprints) && sprints.some((s) => s?.isStarted)
+
   // Detect project context from URL
   const projectMatch = matchPath('/projects/:projectId/*', location.pathname)
   const projectId = projectMatch?.params?.projectId
@@ -85,7 +109,11 @@ export function ProjectTopPanel({ hasProjects }) {
   const items = [
     { id: 'summary', label: 'Summary', path: projectId ? `/projects/${projectId}` : '/dashboard', icon: 'summary' },
     { id: 'backlog', label: 'Backlog', path: `${prefix}/backlog`, icon: 'backlog' },
-    { id: 'active-sprints', label: 'Active sprints', path: `${prefix}/active-sprint`, icon: 'active-sprints' },
+    // JL-460: only when a sprint is actually started. Sprints are started from
+    // the Backlog, so hiding this costs no route to creating one.
+    ...(hasActiveSprint
+      ? [{ id: 'active-sprints', label: 'Active sprints', path: `${prefix}/active-sprint`, icon: 'active-sprints' }]
+      : []),
     { id: 'reports', label: 'Reports', path: `${prefix}/reports`, icon: 'reports' },
     { id: 'list', label: 'List', path: projectId ? `${prefix}/list` : '/list', icon: 'list' },
     // JL-222: project-scoped tabs (only shown when inside a project)

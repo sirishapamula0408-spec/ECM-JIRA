@@ -11,6 +11,14 @@ vi.mock('../api/projectApi', () => ({
   fetchProjectById: mockFetchProjectById,
   fetchProjects: vi.fn(() => Promise.resolve([])),
 }))
+
+// JL-460: ProjectTopPanel now reads sprints. These tests are about the project
+// NAME resolving across a route change, not about tabs, so a started sprint
+// keeps the strip identical to what they were written against.
+vi.mock('../context/SprintContext', () => ({
+  useSprints: () => ({ sprints: [{ id: 1, name: 'Sprint 1', isStarted: true }] }),
+}))
+
 vi.mock('../hooks/usePermissions', () => ({
   usePermissions: () => ({ canCreateProject: true, canManageUsers: true, canManageMembers: true }),
 }))

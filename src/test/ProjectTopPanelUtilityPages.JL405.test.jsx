@@ -11,6 +11,15 @@ vi.mock('../api/projectApi', () => ({
 
 import { ProjectTopPanel } from '../components/layout/ProjectTopPanel'
 
+// JL-460: ProjectTopPanel now reads sprints — the Active sprints tab only
+// renders when one is started. These suites are about OTHER tabs, so they are
+// given a started sprint: the strip they assert on is then exactly what it was
+// before JL-460, and no existing assertion changes meaning.
+vi.mock('../context/SprintContext', () => ({
+  useSprints: () => ({ sprints: [{ id: 1, name: 'Sprint 1', isStarted: true }] }),
+}))
+
+
 function renderAt(pathname) {
   return render(
     <MemoryRouter initialEntries={[pathname]}>
