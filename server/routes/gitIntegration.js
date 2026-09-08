@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { validStatuses } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { parseTimeToMinutes } from './worklogs.js'
 import { safeEqual } from '../utils/safeEqual.js'
@@ -14,8 +15,11 @@ const _PR_STATES = ['open', 'merged', 'closed']
 
 export const GIT_LINK_TYPES = ['branch', 'commit', 'pull_request']
 
-// Valid statuses a smart-commit transition may target (mirrors constants.js).
-const SMART_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+// JL-467: statuses a smart-commit transition may target, derived from
+// validStatuses rather than mirroring constants.js by hand. The mirror had
+// drifted, so #in-testing and #cancelled were unusable. The token derivation
+// below produces no collisions across the full nine.
+const SMART_STATUSES = validStatuses
 // Map a smart-commit status token (#done, #in-progress, ...) to a canonical status.
 const STATUS_BY_TOKEN = SMART_STATUSES.reduce((acc, s) => {
   acc[s.toLowerCase().replace(/\s+/g, '-')] = s

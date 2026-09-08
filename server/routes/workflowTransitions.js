@@ -1,15 +1,16 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { validStatuses } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { VALIDATOR_TYPES, POST_FUNCTION_TYPES } from '../services/workflow.js'
 
 const router = Router()
 
-// Mirrors src/constants.js ISSUE_STATUSES — the global default status names,
-// used as the final fallback when a project has no issue_statuses rows and the
-// global (project_id IS NULL) defaults are not seeded in the DB.
-const ISSUE_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+// JL-467: derived, not mirrored. The comment here used to say "Kept in sync
+// here to keep the server self-contained" — and it had not been, since
+// JL-306. A mirror maintained by hand is a copy waiting to go stale.
+const ISSUE_STATUSES = validStatuses
 
 // Compute the effective set of valid status names for a project, matching the
 // Statuses UI (GET /projects/:projectId/statuses): project-level issue_statuses

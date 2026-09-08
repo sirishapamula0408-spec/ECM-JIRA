@@ -1,3 +1,7 @@
+// JL-467: the published contract is DERIVED, not restated. It advertised the
+// pre-JL-306 five, so a generated client could not represent 46 of the 330
+// issues in the database.
+import { validStatuses, validPriorities, validIssueTypes } from './middleware/validate.js'
 // server/openapi.js
 // Hand-authored OpenAPI 3.0 specification for the ECM JIRA Clone API.
 // No external dependencies (no swagger-jsdoc / swagger-ui-express) — this is a
@@ -89,14 +93,14 @@ const openapiSpec = {
           key: { type: 'string', example: 'JL-42' },
           title: { type: 'string', example: 'Add dark mode toggle' },
           description: { type: 'string', example: 'Users should be able to switch themes.' },
-          priority: { type: 'string', enum: ['Low', 'Medium', 'High'], example: 'High' },
+          priority: { type: 'string', enum: validPriorities, example: 'High' },
           assignee: { type: 'string', example: 'jane@sedintechnologies.com' },
           status: {
             type: 'string',
-            enum: ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'],
+            enum: validStatuses,
             example: 'In Progress',
           },
-          issueType: { type: 'string', enum: ['Story', 'Bug', 'Task', 'Sub-task'], example: 'Story' },
+          issueType: { type: 'string', enum: validIssueTypes, example: 'Story' },
           sprintId: { type: 'integer', nullable: true, example: 3 },
           projectId: { type: 'integer', nullable: true, example: 1 },
           parentId: { type: 'integer', nullable: true, example: null },
@@ -109,14 +113,14 @@ const openapiSpec = {
         properties: {
           title: { type: 'string', example: 'Add dark mode toggle' },
           description: { type: 'string', example: 'Users should be able to switch themes.' },
-          priority: { type: 'string', enum: ['Low', 'Medium', 'High'], example: 'High' },
+          priority: { type: 'string', enum: validPriorities, example: 'High' },
           assignee: { type: 'string', example: 'jane@sedintechnologies.com' },
           status: {
             type: 'string',
-            enum: ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'],
+            enum: validStatuses,
             example: 'To Do',
           },
-          issueType: { type: 'string', enum: ['Story', 'Bug', 'Task', 'Sub-task'], example: 'Story' },
+          issueType: { type: 'string', enum: validIssueTypes, example: 'Story' },
           sprintId: { type: 'integer', nullable: true, example: 3 },
           projectId: { type: 'integer', nullable: true, example: 1 },
         },
@@ -127,7 +131,7 @@ const openapiSpec = {
         properties: {
           status: {
             type: 'string',
-            enum: ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'],
+            enum: validStatuses,
             example: 'Done',
           },
         },
@@ -283,7 +287,7 @@ const openapiSpec = {
             required: false,
             schema: {
               type: 'string',
-              enum: ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'],
+              enum: validStatuses,
             },
             description: 'Filter issues by status',
           },

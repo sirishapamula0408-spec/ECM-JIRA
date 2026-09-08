@@ -13,6 +13,7 @@ vi.mock('../db.js', () => ({
 
 import { all } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
+import { validStatuses } from '../middleware/validate.js'
 
 function createApp(routeModule, mountPath = '/api/reports') {
   const app = express()
@@ -58,7 +59,12 @@ describe('CFD reconstruction (JL-50)', () => {
 
     const res = await request(app).get('/api/reports/cfd?days=6&granularity=daily')
     expect(res.status).toBe(200)
-    expect(res.body.statuses).toEqual(['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done'])
+    // JL-467: the bands are every canonical status, not the five this test was
+    // written against. That hardcoded list WAS the bug — issues in In Testing /
+    // In Rework / In UAT / Cancelled had no band, so the chart quietly omitted
+    // 46 of 330 issues. Asserted against validStatuses rather than a fresh
+    // hardcoded nine, which would just move the same mistake into the test.
+    expect(res.body.statuses).toEqual([...validStatuses])
 
     const byDate = Object.fromEntries(res.body.days.map((d) => [d.date, d.counts]))
 

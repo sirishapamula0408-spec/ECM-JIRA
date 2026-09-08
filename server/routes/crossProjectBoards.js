@@ -1,13 +1,15 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { validStatuses } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 
 const router = Router()
 
-// Mirrors src/constants.js ISSUE_STATUSES — the Kanban columns, shared with the
-// single-project board. Kept in sync here to keep the server self-contained.
-export const ISSUE_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+// JL-467: derived, not mirrored. The comment here used to say "Kept in sync
+// here to keep the server self-contained" — and it had not been, since
+// JL-306. A mirror maintained by hand is a copy waiting to go stale.
+export const ISSUE_STATUSES = validStatuses
 
 export const SWIMLANE_MODES = ['project', 'assignee', 'none']
 

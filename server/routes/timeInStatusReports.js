@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { validStatuses } from '../middleware/validate.js'
 import {
   aggregateTimeInStatus,
   computeCycleTimeHours,
@@ -14,8 +15,11 @@ import {
 //   GET /api/projects/:id/reports/control-chart
 const router = Router({ mergeParams: true })
 
-// Canonical status order for stable columns/legends across the analytics UI.
-const STATUS_ORDER = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+// JL-467: canonical status order for stable columns/legends, derived from
+// validStatuses. The local copy predated JL-306, so this report could not
+// show time spent in Testing, Rework or UAT — most of the QA lifecycle those
+// statuses were added for.
+const STATUS_ORDER = validStatuses
 
 const parseProjectId = (raw) =>
   raw !== undefined && raw !== null && raw !== '' && Number.isInteger(Number(raw)) && Number(raw) > 0

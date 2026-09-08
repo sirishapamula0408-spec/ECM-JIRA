@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { parsePagination } from '../utils/pagination.js'
 import { csvCell, toCsv, toNdjson } from '../utils/tabular.js'
@@ -38,10 +39,16 @@ export const FACT_COLUMNS = [
   'resolved_at',
 ]
 
-// Static dimension catalogs (small, enum-like lookups).
-const DIM_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
-const DIM_PRIORITIES = ['Low', 'Medium', 'High']
-const DIM_TYPES = ['Story', 'Bug', 'Task', 'Sub-task']
+// JL-467: derived, not restated. The local copy was the pre-JL-306 five, so
+// the exported status dimension silently omitted four real statuses and any
+// downstream dashboard built on it under-counted.
+const DIM_STATUSES = validStatuses
+// JL-467: the same drift, one axis over. DIM_TYPES omitted Epic — JL-76 added
+// it and this copy was never updated — so every epic was absent from the
+// exported type dimension. Priorities were correct, but are derived anyway so
+// all three dimensions have one source and none can be the next to go stale.
+const DIM_PRIORITIES = validPriorities
+const DIM_TYPES = validIssueTypes
 
 const DIMENSION_NAMES = ['projects', 'users', 'statuses', 'priorities', 'types']
 

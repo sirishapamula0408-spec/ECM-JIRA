@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { validStatuses } from '../middleware/validate.js'
 import { requireRole } from '../middleware/authorize.js'
 import { toCsv } from '../utils/tabular.js'
 
@@ -19,8 +20,12 @@ const sendCsv = (res, filename, rows, columns) => {
   res.send(toCsv(rows, columns))
 }
 
-// JL-50: canonical status order for the Cumulative Flow Diagram bands.
-const CFD_STATUSES = ['Backlog', 'To Do', 'In Progress', 'Code Review', 'Done']
+// JL-50 / JL-467: canonical status order for the Cumulative Flow Diagram
+// bands. DERIVED from validStatuses, not restated. The local copy was the
+// pre-JL-306 five, so every issue in In Testing / In Rework / In UAT /
+// Cancelled was missing from every band — and a CFD with a missing band does
+// not look wrong the way an error does, which is why it went unnoticed.
+const CFD_STATUSES = validStatuses
 
 const POINTS_BY_TYPE = { Story: 8, Bug: 5, Task: 3 }
 // JL-86: prefer the real story_points when present; else fall back to the
