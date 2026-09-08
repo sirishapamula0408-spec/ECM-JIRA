@@ -107,6 +107,12 @@ const SORT_KIND = {
 }
 const SORTABLE = new Set(Object.keys(SORT_KIND))
 
+/* JL-465: the ONLY status whose label differs from its name. Atlassian calls
+   this column state "In Review"; the stored value stays "Code Review". Every
+   other status is shown as itself, so adding one to ISSUE_STATUSES needs no
+   change here — which is precisely what went wrong before. */
+const STATUS_LABEL_OVERRIDES = { 'Code Review': 'IN REVIEW' }
+
 /* ── URL-driven status filter (JL-336) ── *
  * The dashboard's Status Overview legend links here as
  * /projects/:id/list?status=In%20Progress, so the page has to read that param.
@@ -473,11 +479,22 @@ export function IssueListPage() {
    * options; `statusCell()` below builds the coloured, glyphed chip for rows.
    */
   function statusChip(status) {
-    if (status === 'In Progress') return 'IN PROGRESS'
-    if (status === 'Code Review') return 'IN REVIEW'
-    if (status === 'Done') return 'DONE'
-    if (status === 'Backlog') return 'BACKLOG'
-    return 'TO DO'
+    const name = typeof status === 'string' ? status.trim() : ''
+    if (!name) return 'NO STATUS'
+    // JL-465: derive the label, with an override only for a genuine RENAME.
+    //
+    // This used to hardcode four statuses and send everything else to 'TO DO'.
+    // ISSUE_STATUSES has had nine entries since JL-306 added the QA lifecycle,
+    // so four real statuses — In Testing, In Rework, In UAT, Cancelled — were
+    // all labelled "TO DO". The dropdowns showed it five times over five
+    // different values, which meant picking one silently applied a status the
+    // user had not chosen. Cancelled was worst: JL-457's category glyph made it
+    // render "⊘ TO DO", glyph and text contradicting each other.
+    //
+    // Falling through to the status's own name is what RoadmapPage.jsx already
+    // does. A status this page has never heard of now names itself rather than
+    // impersonating To Do.
+    return STATUS_LABEL_OVERRIDES[name] || name.toUpperCase()
   }
 
   /*

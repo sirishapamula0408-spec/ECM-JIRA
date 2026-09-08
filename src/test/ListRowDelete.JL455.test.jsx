@@ -19,6 +19,8 @@ import { render, screen, fireEvent, within, waitFor } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom'
 import fs from 'node:fs'
 import path from 'node:path'
+import { ISSUE_STATUSES } from '../constants'
+import { CATEGORY_GLYPH } from '../utils/statusCategory'
 
 const ROWS = [
   { id: 1, key: 'TP-1', title: 'First', status: 'To Do', priority: 'Medium', issueType: 'Task', assignee: 'Alice', sprintId: 7, projectId: 1 },
@@ -305,5 +307,71 @@ describe('JL-464 — delete button label', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog.textContent).toMatch(/2 issues/)
+  })
+})
+
+/* ── JL-465: every status gets its own label ───────────────────────────────
+ *
+ * statusChip() hardcoded four statuses and sent everything else to 'TO DO'.
+ * ISSUE_STATUSES has had nine entries since JL-306 added the QA lifecycle, so
+ * the dropdowns showed "TO DO" five times over five different values — picking
+ * one silently applied a status the user had not chosen.
+ *
+ * These expectations are DERIVED from ISSUE_STATUSES on purpose. A test that
+ * listed the nine labels by hand would be the same hardcoded-list bug in the
+ * test file, and would go green while a tenth status quietly regressed.
+ */
+describe('JL-465 — status dropdown labels', () => {
+  beforeEach(() => {
+    member = { workspaceRole: 'Admin', isOwner: false, projectRoles: [] }
+    vi.clearAllMocks()
+  })
+
+  const statusOptions = (container) =>
+    [...container.querySelector('.jira-list-status-select').options]
+
+  it('renders one option per canonical status, with no duplicate label', () => {
+    const { container } = renderPage()
+    const opts = statusOptions(container)
+
+    expect(opts).toHaveLength(ISSUE_STATUSES.length)
+    const labels = opts.map((o) => o.textContent.trim())
+    expect(new Set(labels).size).toBe(labels.length)
+  })
+
+  it('never labels a status "TO DO" unless it IS To Do', () => {
+    // The exact defect: four QA statuses wearing To Do's label.
+    const { container } = renderPage()
+    for (const o of statusOptions(container)) {
+      if (/\bTO DO\b/.test(o.textContent)) {
+        expect(o.value, `"${o.textContent.trim()}" is labelled TO DO`).toBe('To Do')
+      }
+    }
+  })
+
+  it('shows each status its own name, keeping the one deliberate rename', () => {
+    const { container } = renderPage()
+    const byValue = Object.fromEntries(
+      statusOptions(container).map((o) => [o.value, o.textContent.trim()]),
+    )
+    for (const status of ISSUE_STATUSES) {
+      const expected = status === 'Code Review' ? 'IN REVIEW' : status.toUpperCase()
+      expect(byValue[status], `label for "${status}"`).toContain(expected)
+    }
+  })
+
+  it('makes the Cancelled glyph and its text agree', () => {
+    // JL-457 gave Cancelled its own category, so it rendered "⊘ TO DO" —
+    // the glyph and the words stating different things about one option.
+    const { container } = renderPage()
+    const cancelled = statusOptions(container).find((o) => o.value === 'Cancelled')
+    expect(cancelled.textContent).toContain('CANCELLED')
+    expect(cancelled.textContent).toContain(CATEGORY_GLYPH.cancelled)
+  })
+
+  it('keeps every option value exactly as stored', () => {
+    // Labels changed; the values that get written to the API must not.
+    const { container } = renderPage()
+    expect(statusOptions(container).map((o) => o.value)).toEqual([...ISSUE_STATUSES])
   })
 })
