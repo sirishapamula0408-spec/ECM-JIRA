@@ -79,6 +79,9 @@ describe('JL-215 — board card flag indicator', () => {
   })
 })
 
+// JL-466: the row now hosts the flag TOGGLE, not just the indicator, so it
+// reaches useIssues(). Wrapped in IssueProvider like the detail-page tests
+// below — the row genuinely depends on issue context now.
 describe('JL-215 — backlog row flag indicator', () => {
   const rowProps = {
     onMove: vi.fn(),
@@ -90,13 +93,13 @@ describe('JL-215 — backlog row flag indicator', () => {
   }
 
   it('renders the flagged chip and row tint when flagged', () => {
-    render(<BacklogIssueRow issue={flaggedIssue} {...rowProps} />)
+    render(<IssueProvider><BacklogIssueRow issue={flaggedIssue} {...rowProps} /></IssueProvider>)
     expect(screen.getByRole('img', { name: 'Flagged as impediment' })).toBeInTheDocument()
     expect(document.querySelector('.backlog-issue-row').classList.contains('backlog-issue-flagged')).toBe(true)
   })
 
   it('renders no flag chip when not flagged', () => {
-    render(<BacklogIssueRow issue={plainIssue} {...rowProps} />)
+    render(<IssueProvider><BacklogIssueRow issue={plainIssue} {...rowProps} /></IssueProvider>)
     expect(screen.queryByRole('img', { name: 'Flagged as impediment' })).toBeNull()
     expect(document.querySelector('.backlog-issue-flagged')).toBeNull()
   })

@@ -386,14 +386,6 @@
   justify-content: space-between;
 }
 
-.flag-btn {
-  border: none;
-  background: transparent;
-  color: #de350b;
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
 
 /* JL-415: the glyph was 7px, removed on accessibility grounds (AC#6). The
    11px box was sized around that 7px glyph, so it grows with it - a 12px

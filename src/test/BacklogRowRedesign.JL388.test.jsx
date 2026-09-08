@@ -19,6 +19,17 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { BacklogIssueRow } from '../components/issues/BacklogIssueRow'
 import { ISSUE_STATUSES } from '../constants'
 
+// JL-466: the row hosts the impediment-flag toggle now, which reaches
+// useIssues() and usePermissions(). These tests are about the row's COLUMNS —
+// type icon, story points, status lozenge — so the contexts are mocked to the
+// minimum that lets the row render, rather than wrapped in real providers.
+vi.mock('../context/IssueContext', () => ({
+  useIssues: () => ({ handleUpdate: vi.fn(), handleMove: vi.fn() }),
+}))
+vi.mock('../hooks/usePermissions', () => ({
+  usePermissions: () => ({ canEditIssue: true }),
+}))
+
 const baseIssue = {
   id: 7,
   key: 'TP-7',

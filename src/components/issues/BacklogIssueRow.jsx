@@ -1,5 +1,5 @@
 import { DueDateBadge } from './DueDateBadge'
-import { ImpedimentFlagIndicator } from './ImpedimentFlag'
+import { ImpedimentFlagIndicator, ImpedimentFlagToggle } from './ImpedimentFlag'
 import { CopyButton } from '../common/CopyButton'
 import { StatusLozenge } from '../common/StatusLozenge'
 import { IssueTypeIcon } from '../icons/IssueTypeIcon'
@@ -22,7 +22,6 @@ function storyPointValue(storyPoints) {
 }
 
 export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true }) {
-  const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status === 'To Do' ? 'In Progress' : 'Done'
   const isBlocked = !!blocked?.isBlocked
   const blockers = blocked?.blockedBy || []
   const points = storyPointValue(issue.storyPoints)
@@ -86,18 +85,20 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
           readOnly={!canEdit}
           context={issue.key}
         />
-        {canEdit && (
-          <button
-            className="flag-btn"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onMove(issue.id, nextStatus)
-            }}
-          >
-            ⚑
-          </button>
-        )}
+        {/* JL-466: this was a button classed `flag-btn`, showing a flag glyph,
+            that called onMove() — it changed the issue's STATUS. JL-215 had
+            already shipped a real impediment flag, and this row renders its
+            chip a few lines above, so the control impersonated a feature that
+            existed. It is now that feature.
+
+            The status chain it used (`Backlog -> To Do -> In Progress -> Done`)
+            is gone with it. It predated JL-306's QA statuses, so it skipped up
+            to four of them, and turned Cancelled into Done — one unconfirmed
+            click on what looked like a flag marked a cancelled issue complete.
+            Status changes belong to the StatusLozenge directly above. */}
+        <span onClick={(event) => event.stopPropagation()} role="presentation">
+          <ImpedimentFlagToggle issue={issue} compact />
+        </span>
         <span className="member-avatar" style={avatarStyle(issue.assignee)}>{issue.assignee.slice(0, 2).toUpperCase()}</span>
       </div>
     </div>

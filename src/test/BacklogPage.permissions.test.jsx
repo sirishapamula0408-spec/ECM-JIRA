@@ -162,7 +162,11 @@ describe('JL-230 — Viewer sees a read-only Backlog', () => {
     const row = screen.getByText('Backlog story').closest('.backlog-issue-row')
     expect(row.getAttribute('draggable')).toBe('false')
     expect(document.querySelector('.backlog-status-select')).toBeNull()
-    expect(document.querySelector('.flag-btn')).toBeNull()
+    // JL-466: `.flag-btn` was a status-changing button wearing a flag glyph and
+    // is gone. Asserting its class is absent would now pass vacuously, so this
+    // asserts what actually matters: a Viewer gets no flag CONTROL. The
+    // "Flagged" chip is a separate, read-only indicator and may still appear.
+    expect(screen.queryByRole('button', { name: /add flag|remove flag/i })).toBeNull()
     // JL-388: status is still readable as a static chip — now the read-only
     // variant of the shared StatusLozenge (JL-384) rather than a bespoke span.
     // It is not a control: no button, no menu.
