@@ -344,10 +344,28 @@ export async function initializeDatabase() {
       issue_key TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT NOT NULL,
-      priority TEXT NOT NULL CHECK(priority IN ('Low', 'Medium', 'High')),
+      -- JL-468: no CHECK on priority/status/issue_type here.
+      --
+      -- There used to be three, all naming the pre-JL-306 vocabulary, and all
+      -- three were undone later in this same initializeDatabase(): the
+      -- issue_type one is dropped and recreated with the correct five (JL-76),
+      -- and the priority and status ones are dropped outright — "Validation now
+      -- happens in the route layer against the configured lists."
+      --
+      -- So they never rejected anything: by the time the function returned, a
+      -- fresh database accepted all nine statuses. But they READ as the
+      -- authoritative contract while stating a stale one, which is exactly the
+      -- kind of thing a reader trusts. Stating a rule you immediately revoke is
+      -- worse than stating none.
+      --
+      -- The real vocabulary is validStatuses / validPriorities / validIssueTypes
+      -- in middleware/validate.js. schema-vocabulary-JL468 builds a schema from
+      -- scratch and inserts every one of them — the only check that can see a
+      -- constraint living in a SQL string.
+      priority TEXT NOT NULL,
       assignee TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('Backlog', 'To Do', 'In Progress', 'Code Review', 'Done')),
-      issue_type TEXT NOT NULL CHECK(issue_type IN ('Story', 'Bug', 'Task')),
+      status TEXT NOT NULL,
+      issue_type TEXT NOT NULL,
       sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
       project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
