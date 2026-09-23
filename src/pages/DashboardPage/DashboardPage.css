@@ -5,12 +5,16 @@
    near-identical #f7f8fa; gadget cards below are white and carry the contrast. */
 
 /* Header */
+/* JL-472: the page ran on 12 / 16 / 12 — header gap, filter gap, grid gap —
+   three different vertical steps stacked down one column. Atlassian's grid is
+   8px; 12 is a half-step, legitimate INSIDE a component but not as the gutter
+   between the three bands of a page. All three are now --space-4. */
 .dashboard-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .dashboard-title-area {
@@ -66,9 +70,9 @@
 .dashboard-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .dashboard-clear-filters {
@@ -82,7 +86,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-flow: dense;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 /* Empty state */
@@ -93,8 +97,8 @@
   min-height: 300px;
   background: var(--jira-surface);
   border: 2px dashed var(--jira-border);
-  border-radius: 8px;
-  padding: 32px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
 }
 
 .dashboard-empty h3 {
@@ -112,11 +116,12 @@
 /* ── Gadget-specific chart styles ── */
 
 /* Pie / Donut */
+/* JL-472: 20px was the only gap on the page that was not on the 4px scale. */
 .pie-gadget {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
@@ -324,11 +329,16 @@
   outline-offset: 1px;
 }
 
+/* JL-471: the count is the only thing in this slot now (the bracketed
+   percentage is gone — see ChartLegend). `margin-left:auto` pushes it to the
+   right edge and tabular figures keep the digits in a true column, so a 1 and a
+   12 still line up on their right edge down the legend. */
 .pie-gadget-legend strong {
   font-weight: var(--font-weight-regular);
   color: var(--jira-text-muted);
   margin-left: auto;
   font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Bar chart */
@@ -431,7 +441,7 @@
 .filter-results-gadget {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .filter-results-info {
@@ -441,6 +451,29 @@
 
 .filter-results-table-wrap {
   overflow-x: auto;
+}
+
+/* JL-469: fixed layout is what makes the header and the body share a column.
+   With the default `auto` layout each row group negotiates its own widths from
+   its own content, so the <th> row and the <td> rows landed on different
+   boundaries and the labels stopped sitting over their data. `fixed` resolves
+   every width once, from the <colgroup> the gadget renders, for the whole
+   table. min-width keeps those percentages from collapsing into unreadable
+   slivers in a narrow gadget — the wrapper above scrolls instead. */
+.filter-results-table {
+  table-layout: fixed;
+  min-width: 620px;
+}
+
+/* One alignment rule for the header, the body and the empty-state row. Text,
+   lozenge and date columns are all left aligned, per Atlassian's convention;
+   the empty state used to set `text-align: center` inline and the header was
+   inheriting the UA default `center`, so this is the only declaration of
+   alignment in the grid now. */
+.filter-results-table th,
+.filter-results-table td {
+  text-align: left;
+  vertical-align: middle;
 }
 
 .filter-results-table th {
@@ -453,10 +486,43 @@
   color: var(--jira-link);
 }
 
+/* Label + sort arrow are one inline-flex unit, so the arrow is anchored to the
+   label rather than floating wherever the cell's alignment leaves it. */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.th-sort-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A capped column must clip rather than widen, or the fixed widths above would
+   be the only thing standing between a long summary and a re-flowed grid. */
+.filter-results-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-results-empty {
+  color: var(--jira-text-muted);
+}
+
 .sort-icon {
   font-size: var(--font-size-sm);
-  margin-left: 2px;
-  color: #8993a4;
+  color: var(--jira-text-muted);
+  flex-shrink: 0;
+}
+
+/* JL-472: the Status cell now renders a real <StatusLozenge>, which brings its
+   own 20px line box. Without this the lozenge's own vertical padding stacked on
+   the cell's and the Status column's rows sat 4px taller than the rest. */
+.filter-results-table .status-lozenge {
+  max-width: 100%;
 }
 
 .filter-results-key {
@@ -492,25 +558,20 @@
 }
 
 /* Activity stream */
+
+/* JL-472: `max-height: 400px; overflow-y: auto` used to live here, INSIDE
+   `.gadget-body`, which is itself `overflow: auto`. Two nested scroll
+   containers: resize the gadget past 400px and you got a scrollbar within a
+   scrollbar, and the wheel had to be aimed at the right one. The card owns the
+   scrolling; the gadget just fills it. */
 .activity-stream-gadget {
-  max-height: 400px;
-  overflow-y: auto;
+  min-width: 0;
 }
 
-.activity-stream-empty {
-  text-align: center;
-  padding: 24px;
-  color: var(--jira-text-muted);
-}
-
-.activity-stream-empty p {
-  margin: 0;
-  font-size: var(--font-size-base);
-}
-
-.activity-stream-empty small {
-  font-size: var(--font-size-sm);
-}
+/* JL-472: .activity-stream-empty is gone — the gadget now renders the shared
+   <EmptyState> (JL-244), which brings the icon, the heading level and the dark
+   theme with it. The three rules that were here restated a worse version of it
+   and used <small> for what is a description, not fine print. */
 
 /* Sprint health / burndown */
 .sprint-health-gadget {
@@ -644,6 +705,10 @@
   }
 }
 
+/* 860px is ALSO declared in GadgetWrapper.css, where .gadget--2col collapses to
+   span 1. A media query cannot read a custom property, so the number has to
+   appear in both files — change them together or a 2-col gadget will try to
+   span a 1-col grid. */
 @media (max-width: 860px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -656,5 +721,17 @@
 
   .pie-gadget {
     flex-direction: column;
+  }
+}
+
+/* JL-472: below 640px the Filter Results grid drops its two least-load-bearing
+   columns (Assignee, Created) rather than side-scrolling the whole card — see
+   OPTIONAL_COLUMN_KEYS in FilterResultsGadget, which drops them from the
+   <colgroup> AND the cells together, so the JL-469 invariant that the two
+   always agree still holds. With four columns left there is nothing to scroll,
+   so the min-width goes too. */
+@media (max-width: 640px) {
+  .filter-results-table {
+    min-width: 0;
   }
 }

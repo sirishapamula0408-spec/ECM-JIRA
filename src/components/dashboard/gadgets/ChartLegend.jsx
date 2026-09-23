@@ -34,7 +34,17 @@ import { ISSUE_STATUSES } from '../../../constants'
  * call getColor itself: it used to, indexing the unfiltered list, while the
  * gadget indexed its filtered one — so hiding a slice desynced the two. Reading
  * the colour the gadget already put on the segment removes the second source of
- * truth entirely, rather than trying to keep two index schemes in step.
+ * truth entirely, rather than trying to keep two index schemes in step. Since
+ * JL-470 that value comes from STATUS_COLORS, so a legend swatch and its donut
+ * segment are the same string by construction.
+ *
+ * ── Count, not count-and-percentage (JL-471) ────────────────────────────────
+ * The row used to read "Backlog  1 (13%)". The percentage was redundant with
+ * the "%" already drawn on the segment itself AND it was computed against a
+ * different denominator: the on-slice label is a share of the VISIBLE slices,
+ * this one was a share of the grand total. Hide a slice and the two numbers on
+ * screen for the same segment disagreed. Dropping it leaves one number per
+ * concept — the count here, the share on the disc.
  */
 
 // groupIssuesBy() buckets missing values under 'Unassigned', which is not a real
@@ -48,7 +58,6 @@ export function ChartLegend({
   groupBy,
   projectId = null,
   showCounts = true,
-  grandTotal = 0,
 }) {
   // The dashboard's project filter can be 'All', in which case DashboardPage
   // passes no projectId and we link to the unscoped list — which spans every
@@ -83,9 +92,7 @@ export function ChartLegend({
             ) : (
               <span className="legend-label">{s.label}</span>
             )}
-            {showCounts && (
-              <strong>{s.count} ({grandTotal > 0 ? Math.round((s.count / grandTotal) * 100) : 0}%)</strong>
-            )}
+            {showCounts && <strong>{s.count}</strong>}
           </li>
         )
       })}

@@ -1,6 +1,23 @@
 import { useEffect, useState, useRef } from 'react'
 import { ActivityItem } from '../../activity/ActivityItem'
+import { EmptyState } from '../../common/EmptyState'
 import { fetchActivity } from '../../../api/dashboardApi'
+
+/*
+ * JL-472: the empty state is the shared <EmptyState> (JL-244), not a local
+ * <p> + <small>.
+ *
+ * The bespoke version had no icon, no heading element, and used <small> for
+ * what is a description rather than fine print — and it carried its own colour
+ * and padding, which meant its dark-theme treatment had to be remembered
+ * separately and never was. EmptyState brings all of that, and this gadget now
+ * looks like every other empty state in the app instead of like itself.
+ */
+const EMPTY_ICON = (
+  <svg viewBox="0 0 40 40" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 20h6l4-9 6 18 4-11 2.5 4H36" />
+  </svg>
+)
 
 export function ActivityStreamGadget({ activity: initialActivity, config }) {
   const [items, setItems] = useState(initialActivity || [])
@@ -32,10 +49,11 @@ export function ActivityStreamGadget({ activity: initialActivity, config }) {
 
   if (items.length === 0) {
     return (
-      <div className="activity-stream-empty">
-        <p>No activity yet</p>
-        <small>Create some issues or invite teammates to see activity here.</small>
-      </div>
+      <EmptyState
+        icon={EMPTY_ICON}
+        title="No activity yet"
+        description="Create some issues or invite teammates to see activity here."
+      />
     )
   }
 

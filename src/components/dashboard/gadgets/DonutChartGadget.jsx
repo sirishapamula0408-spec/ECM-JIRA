@@ -38,6 +38,9 @@ export function DonutChartGadget({ issues, config, projectId = null }) {
   const allSegments = resolveSegmentColors(groupIssuesBy(issues, field), groupBy)
   const segments = allSegments.filter((s) => !hiddenLabels.has(s.label))
   const total = segments.reduce((sum, s) => sum + s.count, 0)
+  // The centre readout is "share of everything", hidden slices included, so it
+  // does not move as slices are toggled off. (Until JL-471 the legend percentage
+  // used this same total; the legend now shows the raw count and nothing else.)
   const grandTotal = allSegments.reduce((sum, s) => sum + s.count, 0)
 
   // JL-345: with no issues at all this used to render a blank grey ring with a
@@ -133,7 +136,6 @@ export function DonutChartGadget({ issues, config, projectId = null }) {
           groupBy={groupBy}
           projectId={projectId}
           showCounts={config.showLabels !== false}
-          grandTotal={grandTotal}
         />
       )}
     </div>

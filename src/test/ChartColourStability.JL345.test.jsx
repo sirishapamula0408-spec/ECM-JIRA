@@ -223,8 +223,9 @@ describe('JL-345 — donut specifics', () => {
     expect(hole.querySelector('strong').textContent).toBe('6')
 
     fireEvent.click(dotFor('Alice'))
-    // Still 6: the legend percentages are "share of everything" (JL-336), and
-    // the hole must agree with them, not with the visible subset.
+    // Still 6: the centre readout is "share of everything", not of the visible
+    // subset. (Until JL-471 the legend percentage used the same total; the
+    // legend now shows the raw count and no percentage at all.)
     expect(container.querySelector('.donut-hole strong').textContent).toBe('6')
   })
 

@@ -20,17 +20,28 @@
   border-collapse: collapse;
 }
 
-.table th,
 /* ── Numerals (JL-447) ──
    Tabular figures for anything whose digits change in place: a live clock, an
    incrementing count, a column of numbers compared down the page. Proportional
-   figures are right for prose and wrong for all three. */
+   figures are right for prose and wrong for all three.
+
+   JL-469: this block used to sit BETWEEN `.table th,` and `.table td {`, which
+   is not a comment inside a rule — it is a comment in the middle of a SELECTOR
+   LIST. `.table th` was therefore absorbed into this rule and received nothing
+   but `font-variant-numeric`, losing the padding, the left alignment and the
+   bottom border declared below. Headers across the whole app fell back to the
+   UA default `text-align: center` while their cells stayed left-aligned, so no
+   column label sat over its own data. Moved out of the selector list. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
+/* JL-472: 10/12 rather than 8/10. At 8px vertical the row box was ~36px; the
+   Atlassian table row is 40px and up, and the dashboard's Filter Results grid
+   sits next to a 140px donut where 36px rows read as cramped. */
+.table th,
 .table td {
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--jira-border);
 }
@@ -56,8 +67,13 @@
   transition: background 120ms ease;
 }
 
+/* JL-472: was a hardcoded #f2f7ff — a BLUE tint, which in this app's language
+   means "selected", not "hovered", and which no token could follow. The shared
+   neutral overlay composites over whatever the row's own background is, so it
+   works on the zebra-free white rows here and on any surface a table lands on
+   later. (The dark theme overrides this rule outright in theme.css.) */
 .table tbody tr:hover {
-  background: #f2f7ff;
+  background: var(--jira-hover-overlay);
 }
 
 .stats-grid {
@@ -287,6 +303,30 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   font-weight: var(--font-weight-semibold);
+}
+
+/*
+ * JL-472 — the LOZENGE modifier.
+ *
+ * `.pill` is deliberately NOT reshaped. The review proposed making it an
+ * Atlassian lozenge outright (3px radius, uppercase, bold), but `.pill` is
+ * doing three different jobs across its 18 call sites: a STATE chip (priority,
+ * role, status category), a LABEL chip carrying a user-chosen name and colour
+ * (IssueDetailPage), and a COUNT badge (ProjectSettingsPage issue counts).
+ * Uppercasing a user's label text is wrong, and a square 3px badge is wrong for
+ * a count — which wants to stay round. So the lozenge shape is opt-in.
+ *
+ * Matches .status-lozenge (JL-384) exactly: same radius, weight, tracking and
+ * transform, so a priority lozenge and a status lozenge in adjacent table cells
+ * are the same object in two colours rather than two different objects.
+ */
+.pill--lozenge {
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-weight: var(--font-weight-bold);
+  line-height: 16px;
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
 }
 
 .pill-green {

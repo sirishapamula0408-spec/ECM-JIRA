@@ -1,18 +1,29 @@
 /* Gadget wrapper / chrome */
 
+/* JL-472 — card chrome.
+   The border STAYS. Atlassian's guidance is border-or-elevation, but the dark
+   theme (theme.css) sets `box-shadow: none` on this card and separates it from
+   the canvas with `border-color` alone — dropping the border here would leave
+   dark-mode gadgets with no edge at all. What changes is the elevation:
+   --jira-shadow-soft is 0 2px 10px, a diffuse drop shadow meant for something
+   FLOATING. A card resting on the canvas takes the raised elevation. */
 .gadget {
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
-  box-shadow: var(--jira-shadow-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--jira-shadow-raised);
   display: flex;
   flex-direction: column;
   min-height: 180px;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, grid-column 0.3s ease;
+  transition:
+    box-shadow var(--transition-fast) var(--ease-standard),
+    border-color var(--transition-fast) var(--ease-standard),
+    grid-column var(--transition-slow) var(--ease-standard);
 }
 
+/* The literal here was character-identical to --jira-shadow-hover. */
 .gadget:hover {
-  box-shadow: 0 4px 12px rgba(9, 30, 66, 0.1);
+  box-shadow: var(--jira-shadow-hover);
 }
 
 /* Size classes */
@@ -23,27 +34,45 @@
 
 /* Drag states */
 .gadget--drag-over {
-  border-color: #4c9aff;
+  border-color: var(--jira-primary);
   box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.3);
 }
 
+/* JL-472: 40px, so a 28px action button clears its 6px of breathing room on
+   both sides. The header was 36px with 26px buttons — under the target size a
+   pointer needs, and tight enough that the row read as a strip rather than a
+   card header. */
 .gadget-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--jira-border);
   cursor: grab;
   user-select: none;
-  min-height: 36px;
+  min-height: 40px;
 }
 
 .gadget-header:active {
   cursor: grabbing;
 }
 
+/* JL-472: the handle and the action buttons used two different muted greys
+   (#8993a4 and #6b778c) sitting a few pixels apart. Both are the same idea —
+   "secondary control" — so both read the one muted token. */
 .gadget-drag-handle {
-  color: #8993a4;
+  color: var(--jira-text-muted);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* JL-472: the per-gadget type glyph. Four cards with identical chrome and only
+   a text title to tell them apart are slow to scan; the glyph is what makes
+   "the chart one" and "the feed one" findable at a glance. Sized and coloured
+   like the drag handle so the header reads as one row of furniture. */
+.gadget-type-icon {
+  color: var(--jira-text-muted);
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -60,31 +89,67 @@
   text-overflow: ellipsis;
 }
 
+/* JL-472: card actions are revealed on hover/focus, per Atlassian's card
+   pattern — four always-on icon buttons per card is 16 competing affordances on
+   a four-gadget dashboard.
+   Deliberately `opacity`, never `display: none`: the buttons stay in the tab
+   order and in the accessibility tree, and :focus-within brings them back into
+   view the moment a keyboard user reaches one. */
 .gadget-actions {
   display: flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast) var(--ease-standard);
+}
+
+.gadget:hover .gadget-actions,
+.gadget:focus-within .gadget-actions {
+  opacity: 1;
+}
+
+/* A touch device has no hover to reveal them with, so they are always on. */
+@media (hover: none) {
+  .gadget-actions {
+    opacity: 1;
+  }
+}
+
+/* The maximized panel is a focused surface, not a card in a grid — its single
+   close button must not be hidden behind a hover it may never receive. */
+.gadget-maximize-panel .gadget-actions {
+  opacity: 1;
 }
 
 .gadget-action-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
-  border-radius: 4px;
-  color: #6b778c;
+  border-radius: var(--radius-sm);
+  color: var(--jira-text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background var(--transition-fast) var(--ease-standard),
+    color var(--transition-fast) var(--ease-standard);
 }
 
 .gadget-action-btn:hover {
-  background: #f4f5f7;
-  color: #172b4d;
+  background: var(--jira-surface-sunken);
+  color: var(--jira-text);
+}
+
+/* Keyboard users get the same affordance a pointer gets, and a visible ring. */
+.gadget-action-btn:focus-visible {
+  outline: 2px solid var(--jira-primary);
+  outline-offset: 1px;
+  background: var(--jira-surface-sunken);
+  color: var(--jira-text);
 }
 
 .gadget-action-btn--danger:hover {
@@ -111,14 +176,14 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 4px;
+  margin-top: var(--space-1);
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
   z-index: 60;
   min-width: 100px;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 
 .gadget-size-option {
@@ -135,12 +200,12 @@
 }
 
 .gadget-size-option:hover {
-  background: #f4f5f7;
+  background: var(--jira-surface-sunken);
 }
 
 .gadget-size-option.active {
-  background: #deebff;
-  color: #0052cc;
+  background: var(--status-inprogress-bg);
+  color: var(--jira-primary);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -160,7 +225,7 @@
   max-height: 90vh;
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
-  border-radius: 6px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 8px 32px rgba(9, 30, 66, 0.25);
   display: flex;
   flex-direction: column;
@@ -171,7 +236,22 @@
   cursor: default;
 }
 
-/* Responsive: on small screens, all gadgets go full width */
+/* Responsive: on small screens, all gadgets go full width.
+   860px is the dashboard's one-column breakpoint and is ALSO declared in
+   DashboardPage.css (.dashboard-grid). A media query cannot read a custom
+   property, so the number genuinely has to appear twice — the two must be
+   changed together, or a 2-col gadget will span a 1-col grid. */
 @media (max-width: 860px) {
   .gadget--2col { grid-column: span 1; }
+}
+
+/* JL-472: honour a reduced-motion preference. None of these transitions carry
+   meaning — they are decoration on a hover — so they are simply removed rather
+   than shortened. */
+@media (prefers-reduced-motion: reduce) {
+  .gadget,
+  .gadget-actions,
+  .gadget-action-btn {
+    transition: none;
+  }
 }

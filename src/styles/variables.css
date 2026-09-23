@@ -33,6 +33,22 @@
   --jira-shadow-soft: 0 2px 10px rgba(9, 30, 66, 0.06);
   --jira-shadow-hover: 0 4px 12px rgba(9, 30, 66, 0.1);
   --jira-shadow-modal: 0 10px 40px rgba(9, 30, 66, 0.15), 0 0 1px rgba(9, 30, 66, 0.1);
+  /* JL-472: Atlassian's elevation.surface.raised — a 1px lift plus a 1px
+     spread that reads as an edge. It is what a CARD sits on. --jira-shadow-soft
+     (0 2px 10px) is a diffuse drop shadow: correct for a popover floating over
+     content, too heavy for a card resting on the canvas, which is what the
+     dashboard gadgets were using. */
+  --jira-shadow-raised: 0 1px 1px rgba(9, 30, 66, 0.25), 0 0 1px rgba(9, 30, 66, 0.31);
+
+  /* ── Corner radius (JL-472) ──
+     The dashboard alone had four values — 4px on a menu, 6px on a gadget, 8px
+     on the empty state, and 8px again on the OTHER gadget card system in
+     GadgetBoard.css. Atlassian uses two: a small radius for controls and
+     menus, a large one for surfaces. Named rather than restated so "what
+     radius is a card?" has one answer. */
+  --radius-sm: 3px;   /* buttons, menu items, lozenges */
+  --radius-md: 6px;   /* inputs, small popovers */
+  --radius-lg: 8px;   /* cards and other surfaces */
 
   /* ── Avatar palette (JL-386) ──
      Deterministic per-user avatar colours. The slot is chosen in JS by

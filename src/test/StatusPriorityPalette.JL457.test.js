@@ -208,12 +208,41 @@ describe('JL-457 — no site keeps its own status or priority palette', () => {
     })
   }
 
-  it('the gadget palette no longer maps status names to hexes', () => {
+  /* SUPERSEDED IN PART BY JL-470.
+   *
+   * This used to assert that gadgetChartUtils maps NO status name to a hex —
+   * the shape of the JL-457 bug, where a per-status hex map had "In Progress"
+   * green and "To Do" purple while the rest of the app had them blue and grey.
+   *
+   * JL-470 reinstates a per-status map on purpose, for CHART SEGMENTS only. A
+   * lozenge carries its status name in text, so category colour is enough; a
+   * donut slice has nothing but its colour, and five statuses sharing three
+   * category accents made four of them indistinguishable. So the blanket
+   * "no status hexes" rule cannot stand.
+   *
+   * What survives, and is what JL-457 was really protecting:
+   *   • the retired hexes stay retired (the RETIRED guard above, unchanged —
+   *     #6554C0 is not #a95be7 and #36B37E is not #7fb239);
+   *   • the chart still agrees with the board and the lozenge on the ONE
+   *     colour JL-457 found most contradictory, In Progress's blue;
+   *   • PRIORITY is untouched by JL-470 and still resolves to tokens, never to
+   *     a literal — the #00875a "Low priority is done-green" defect stays
+   *     impossible.
+   */
+  it('priority still resolves to tokens, never to a literal hex', () => {
     const src = read('src/components/dashboard/gadgets/gadgetChartUtils.js')
-    expect(src).not.toMatch(/'In Progress':\s*'#/)
-    expect(src).not.toMatch(/'Done':\s*'#/)
-    // and Low priority is not a hex either
     expect(src).not.toMatch(/'Low':\s*'#/)
+    expect(src).not.toMatch(/'Medium':\s*'#/)
+    expect(src).not.toMatch(/'High':\s*'#/)
+    expect(src).toMatch(/'Low':\s*'var\(--priority-low-accent\)'/)
+  })
+
+  it('the status chart still agrees with the lozenge on In Progress blue', () => {
+    const src = read('src/components/dashboard/gadgets/gadgetChartUtils.js')
+    const vars = read('src/styles/variables.css')
+    const lozenge = vars.match(/--status-inprogress-accent:\s*(#[0-9a-f]{6})/i)[1]
+    const chart = src.match(/'In Progress':\s*'(#[0-9A-Fa-f]{6})'/)[1]
+    expect(chart.toLowerCase()).toBe(lozenge.toLowerCase())
   })
 
   it('the workflow editor derives node fill from the category, not node.color', () => {
