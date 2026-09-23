@@ -19,6 +19,10 @@ vi.mock('../db.js', () => ({
 vi.mock('../utils/mailer.js', () => ({
   sendMail: vi.fn().mockResolvedValue(undefined),
   buildInviteEmail: vi.fn(() => ({ subject: '', html: '', text: '' })),
+  // JL-473: GET /api/members decorates each row with its latest delivery
+  // attempt, so the router now imports this too. Returns an empty Map — these
+  // suites assert on pagination and is_owner, not on delivery state.
+  getLatestEmailStatuses: vi.fn(async () => new Map()),
 }))
 
 import { all, get } from '../db.js'

@@ -24,6 +24,7 @@ import {
 import { fetchWorkspaceSettings, updateProjectCreationPolicy } from '../../api/workspaceApi'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
 import { EmptyState } from '../../components/common/EmptyState'
+import { InviteDeliveryBadge } from '../../components/common/InviteDeliveryBadge'
 import './TeamsPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -47,31 +48,9 @@ const STATUS_PILL = {
   Deactivated: 'pill-red',
 }
 
-const DELIVERY_STYLES = {
-  sent: { label: 'Sent', background: '#e3fcef', color: '#006644' },
-  failed: { label: 'Failed', background: '#ffebe6', color: '#bf2600' },
-  skipped: { label: 'Not sent', background: '#fffae6', color: '#974f0c' },
-  unknown: { label: 'Unknown', background: '#f4f5f7', color: '#5e6c84' },
-}
-
-export function InviteDeliveryBadge({ status, error, sentAt }) {
-  const key = DELIVERY_STYLES[status] ? status : 'unknown'
-  const { label, background, color } = DELIVERY_STYLES[key]
-
-  const title = key === 'unknown'
-    ? 'No delivery attempt recorded for this address'
-    : error
-      ? `${label}: ${error}`
-      : sentAt
-        ? `${label} ${new Date(sentAt).toLocaleString()}`
-        : label
-
-  return (
-    <span className="pill" style={{ background, color }} title={title}>
-      {label}
-    </span>
-  )
-}
+// JL-473: the badge moved to components/common so User Management can render
+// the same thing. It was defined and exported here, which would have meant one
+// page importing a component out of another page's module.
 
 export function TeamsPage() {
   // JL-461: this page is the workspace MEMBER directory. JL-425 renamed its

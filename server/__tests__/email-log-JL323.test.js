@@ -45,6 +45,9 @@ const { SMTP_ON, SMTP_OFF } = vi.hoisted(() => {
     SMTP_USER: 'user',
     SMTP_PASS: 'pass',
     SMTP_FROM: 'noreply@example.com',
+    // JL-473: the mailer reads this to bound every SMTP stage. A vi.mock factory
+    // must declare every export the module under test touches, or the import throws.
+    SMTP_TIMEOUT_MS: 15000,
     APP_URL: 'http://localhost:5173',
   }
   return { SMTP_ON: on, SMTP_OFF: { ...on, SMTP_HOST: '', SMTP_USER: '', SMTP_PASS: '' } }

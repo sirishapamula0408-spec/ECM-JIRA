@@ -226,12 +226,48 @@ export const SMTP_PASS = process.env.SMTP_PASS || ''
 export const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'noreply@ecm-jira.local'
 
 /**
+ * JL-473: hard ceiling on every stage of an SMTP conversation — connect,
+ * greeting and socket idle.
+ *
+ * nodemailer's own defaults are two minutes per stage. An unreachable or
+ * black-holing relay therefore parked an invite request for minutes, and the
+ * previous defence against that was to fire the send off without awaiting it,
+ * which does not protect the request so much as discard the answer. A bounded
+ * await gives us both: the caller learns whether the mail went out, and a dead
+ * provider costs one timeout instead of the whole request.
+ *
+ * 15s is comfortably above a normal TLS handshake plus AUTH to a public relay
+ * (measured ~1-2s to Gmail) and well below any sane HTTP client timeout.
+ */
+export const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS) || 15000
+
+/**
  * JL-305: true when the minimum SMTP settings (host + credentials) are all set.
  * Pure and unit-testable — pass an explicit env object for tests; defaults to
  * `process.env` so callers can check runtime state without re-importing this
  * module. Mirrors `isSmtpConfigured()` in server/utils/mailer.js, which is the
  * same predicate applied to this module's load-time SMTP_* snapshot.
  */
+/**
+ * JL-473: does APP_URL point somewhere only this machine can reach?
+ *
+ * APP_URL is what builds the accept-invite and password-reset links we put in
+ * OTHER PEOPLE's email. Left at its `http://localhost:5173` default on a
+ * deployed box, every one of those emails is delivered correctly and carries a
+ * link that resolves to the recipient's own machine — so the mail works, the
+ * link is dead, and the failure looks exactly like "invites don't work".
+ *
+ * Nothing checked this, because on a developer's laptop localhost is the right
+ * answer. What distinguishes the two cases is not NODE_ENV — this project's
+ * deploy box runs `npm run dev` — but whether we are sending real email at all.
+ * See validateConfig below.
+ */
+export function isLocalAppUrl(url) {
+  const value = String(url || '').trim()
+  if (!value) return true
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?(?:\/|$)/i.test(value)
+}
+
 export function isMailConfigured(env = process.env) {
   const has = (v) => v !== undefined && v !== null && String(v).trim() !== ''
   return has(env.SMTP_HOST) && has(env.SMTP_USER) && has(env.SMTP_PASS)
@@ -345,6 +381,29 @@ export function validateConfig(env = process.env) {
   if (smtpSet > 0 && smtpSet < smtpParts.length) {
     warnings.push(
       'SMTP is only partially configured (need SMTP_HOST, SMTP_USER and SMTP_PASS together); email delivery may fail.',
+    )
+  }
+
+  /* --- JL-473: APP_URL must be reachable by whoever receives our email ---
+   *
+   * Fires when APP_URL is local AND we are either in production or actually
+   * configured to send mail. The second half is the part that matters: a
+   * developer with no SMTP set gets no noise, because their localhost APP_URL
+   * is correct and their mail goes to the console anyway. But the moment a box
+   * has real credentials it is mailing real people, and a localhost link in
+   * those emails is broken for every one of them.
+   *
+   * A warning, not a fatal error. The server is otherwise fine, most of the app
+   * works, and refusing to boot over a link prefix would be a worse outage than
+   * the one it prevents.
+   */
+  if (isLocalAppUrl(env.APP_URL) && (isProduction || isMailConfigured(env))) {
+    const shown = String(env.APP_URL || '').trim() || '(unset — defaults to http://localhost:5173)'
+    warnings.push(
+      `APP_URL is ${shown}, which only resolves on this machine — but this server is configured to send email. `
+      + 'Invitation and password-reset links are built from APP_URL, so recipients will get a working email '
+      + 'containing a dead link. Set APP_URL to the address users actually reach this app on '
+      + '(e.g. https://jira.example.com).',
     )
   }
 

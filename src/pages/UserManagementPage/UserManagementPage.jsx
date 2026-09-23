@@ -44,12 +44,15 @@ import {
   reactivateMember,
 } from '../../api/memberApi'
 import { EmptyState } from '../../components/common/EmptyState'
+import { InviteDeliveryBadge } from '../../components/common/InviteDeliveryBadge'
+import { describeInviteOutcome } from '../../utils/inviteOutcome'
 import { usePermissions } from '../../hooks/usePermissions'
 import UserAuditLog from '../../components/users/UserAuditLog.jsx'
 import { avatarStyle } from '../../utils/avatarColour'
 import './UserManagementPage.css'
 
 const ROLE_ORDER = ['Owner', 'Admin', 'Member', 'Viewer']
+
 
 // JL-281: filter options are fixed constants now that the list is server-paged
 // (we no longer have the full member set client-side to derive them from).
@@ -295,11 +298,8 @@ export function UserManagementPage() {
       setTotal((t) => t + 1)
       setAddOpen(false)
       setAddForm(EMPTY_ADD_FORM)
-      showToast(
-        payload.password
-          ? `Created account for ${created.name || email}.`
-          : `Invited ${created.name || email}.`,
-      )
+      const { message, severity } = describeInviteOutcome(created, email, Boolean(payload.password))
+      showToast(message, severity)
     } catch (err) {
       setAddError(err?.message || 'Failed to add user.')
       showToast(err?.message || 'Failed to add user.', 'error')
@@ -512,6 +512,7 @@ export function UserManagementPage() {
                   <TableCell>Email</TableCell>
                   <TableCell>Role</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell>Invite email</TableCell>
                   {hasLastActivity && <TableCell>Last activity</TableCell>}
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
@@ -575,6 +576,22 @@ export function UserManagementPage() {
                           color={user.status === 'Active' ? 'success' : 'default'}
                           variant="outlined"
                         />
+                      </TableCell>
+                      {/* JL-473: delivery state, so an undelivered invite stays
+                          visible after the toast is gone. Only for people who
+                          are actually waiting on an email — an Active member
+                          logged in long ago and their last invite result, if
+                          any, says nothing useful about them now. */}
+                      <TableCell>
+                        {user.status === 'Invited' ? (
+                          <InviteDeliveryBadge
+                            status={user.email_status}
+                            error={user.email_error}
+                            sentAt={user.email_sent_at}
+                          />
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
                       </TableCell>
                       {hasLastActivity && (
                         <TableCell>{formatLastActivity(user.last_activity_at || user.last_active_at)}</TableCell>
@@ -767,7 +784,11 @@ export function UserManagementPage() {
 
       <Snackbar
         open={toast.open}
-        autoHideDuration={5000}
+        /* JL-473: an error toast now carries the provider's rejection reason —
+           something the admin needs to read and usually to copy. It stays until
+           dismissed; a warning gets twice the normal dwell; success is
+           unchanged. */
+        autoHideDuration={toast.severity === 'error' ? null : toast.severity === 'warning' ? 10000 : 5000}
         onClose={closeToast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

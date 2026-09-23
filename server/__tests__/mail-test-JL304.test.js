@@ -33,6 +33,9 @@ vi.mock('../config.js', () => ({
   SMTP_USER: 'user@example.com',
   SMTP_PASS: 'secret',
   SMTP_FROM: 'ECM-JIRA <no-reply@example.com>',
+  // JL-473: the mailer reads this to bound every SMTP stage. A vi.mock factory
+  // must declare every export the module under test touches, or the import throws.
+  SMTP_TIMEOUT_MS: 15000,
   APP_URL: 'http://localhost:5173',
 }))
 

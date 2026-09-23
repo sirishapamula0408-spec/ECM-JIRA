@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer'
-import { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, APP_URL } from '../config.js'
+import { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, APP_URL, SMTP_TIMEOUT_MS } from '../config.js'
 import { run, all } from '../db.js'
 
 let transporter = null
@@ -49,11 +49,25 @@ function getTransporter() {
     return null
   }
 
+  // JL-473: bound every stage of the conversation. nodemailer defaults to two
+  // MINUTES each, so an unreachable relay used to hold a request open far
+  // longer than any caller was willing to wait — the reason the invitations
+  // routes fired their sends off unawaited. With a ceiling here, awaiting the
+  // send is safe, and the caller gets a real answer instead of a shrug.
+  //
+  // Defaulted locally as well as in config.js: the mail-test suite mocks
+  // config.js wholesale, and a mock that predates this field must not silently
+  // reinstate the two-minute default.
+  const timeout = Number(SMTP_TIMEOUT_MS) || 15000
+
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
     secure: SMTP_PORT === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: timeout,
+    greetingTimeout: timeout,
+    socketTimeout: timeout,
   })
 
   return transporter
@@ -213,7 +227,7 @@ export function buildPasswordResetEmail({ token, appUrl }) {
  */
 export const INVITE_ACCEPT_PATH = '/accept-invite'
 
-export function buildInviteEmail({ recipientName, invitedBy, role, token, appUrl }) {
+export function buildInviteEmail({ recipientName, invitedBy, role, token, appUrl, workspaceName }) {
   // JL-305: read APP_URL from config.js — no direct process.env access here.
   const base = (appUrl || APP_URL || 'http://localhost:5173').replace(/\/$/, '')
   // JL-361: the invitation token was generated, stored with an expiry and
@@ -229,7 +243,33 @@ export function buildInviteEmail({ recipientName, invitedBy, role, token, appUrl
   const url = token
     ? `${base}${INVITE_ACCEPT_PATH}?token=${encodeURIComponent(token)}`
     : base
-  const subject = `You've been invited to join ECM-JIRA`
+
+  /*
+   * JL-473: name the WORKSPACE the invitation is for.
+   *
+   * The message used to say only "join the team on ECM-JIRA" — the product's
+   * name, never the workspace's. A recipient who belongs to more than one
+   * workspace, or who was invited to one they have never heard of, had no way
+   * to tell which they were accepting. Falls back to the product name when the
+   * caller has no workspace to name, so the tokenless courtesy path and the
+   * tests that predate this field read exactly as before.
+   */
+  const workspace = String(workspaceName || '').trim() || 'ECM-JIRA'
+
+  /*
+   * Escape every interpolated value. All four are attacker-influenced to some
+   * degree — a display name, an inviter address, a role and a workspace name
+   * all originate in user input — and they land in an HTML document sent to
+   * someone else's mail client. escapeHtml is the same helper buildDigestEmail
+   * has always used for exactly this reason; the invite builder simply never
+   * did. The plain-text part needs no escaping: it is not markup.
+   */
+  const safeName = escapeHtml(recipientName)
+  const safeInviter = escapeHtml(invitedBy)
+  const safeRole = escapeHtml(role)
+  const safeWorkspace = escapeHtml(workspace)
+
+  const subject = `You've been invited to join ${workspace}`
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#172b4d;">
@@ -237,21 +277,21 @@ export function buildInviteEmail({ recipientName, invitedBy, role, token, appUrl
         <h2 style="margin:0 0 4px;font-size:20px;color:#0052cc;">ECM-JIRA</h2>
         <p style="margin:0;font-size:12px;color:#6b778c;">Project Management Platform</p>
       </div>
-      <p style="font-size:14px;line-height:1.6;">Hi <strong>${recipientName}</strong>,</p>
-      <p style="font-size:14px;line-height:1.6;"><strong>${invitedBy}</strong> has invited you to join the team on <strong>ECM-JIRA</strong> as a <strong>${role}</strong>.</p>
+      <p style="font-size:14px;line-height:1.6;">Hi <strong>${safeName}</strong>,</p>
+      <p style="font-size:14px;line-height:1.6;"><strong>${safeInviter}</strong> has invited you to join <strong>${safeWorkspace}</strong> on <strong>ECM-JIRA</strong> as a <strong>${safeRole}</strong>.</p>
       <div style="text-align:center;margin:28px 0;">
         <a href="${url}" style="display:inline-block;padding:12px 32px;background:#0052cc;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Accept Invitation</a>
       </div>
       <p style="font-size:13px;line-height:1.6;color:#6b778c;">Once you accept, you'll be able to collaborate on projects, track issues, and manage sprints with your team.${token ? ' This invitation link expires in 7 days.' : ''}</p>
       <hr style="border:none;border-top:1px solid #dfe1e6;margin:24px 0;" />
       <p style="font-size:11px;color:#97a0af;text-align:center;">If the button doesn't work, paste this link into your browser:<br />${url}</p>
-      <p style="font-size:11px;color:#97a0af;text-align:center;">This invitation was sent by ${invitedBy}. If you weren't expecting this, you can safely ignore this email.</p>
+      <p style="font-size:11px;color:#97a0af;text-align:center;">This invitation was sent by ${safeInviter}. If you weren't expecting this, you can safely ignore this email.</p>
     </div>
   `
 
   // JL-361: the link must be in the plain-text part too — a text-only client has
   // to be able to accept.
-  const text = `Hi ${recipientName},\n\n${invitedBy} has invited you to join ECM-JIRA as a ${role}.\n\nAccept your invitation: ${url}\n${token ? '\nThis invitation link expires in 7 days.\n' : ''}\nIf you weren't expecting this, you can safely ignore this email.`
+  const text = `Hi ${recipientName},\n\n${invitedBy} has invited you to join ${workspace} on ECM-JIRA as a ${role}.\n\nAccept your invitation: ${url}\n${token ? '\nThis invitation link expires in 7 days.\n' : ''}\nIf you weren't expecting this, you can safely ignore this email.`
 
   return { subject, html, text }
 }

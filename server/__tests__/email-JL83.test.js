@@ -41,6 +41,9 @@ const configState = vi.hoisted(() => ({
   SMTP_USER: '',
   SMTP_PASS: '',
   SMTP_FROM: 'noreply@ecm-jira.local',
+  // JL-473: the mailer reads this to bound every SMTP stage. A vi.mock factory
+  // must declare every export the module under test touches, or the import throws.
+  SMTP_TIMEOUT_MS: 15000,
 }))
 vi.mock('../config.js', () => configState)
 

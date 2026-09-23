@@ -248,3 +248,76 @@ describe('JL-435 — CORS allow-list must be explicit in production', () => {
     )
   })
 })
+
+/* ================================================================
+   JL-473 — APP_URL must be reachable by whoever receives our email.
+
+   APP_URL builds the accept-invite and password-reset links that go
+   into OTHER PEOPLE's inboxes. Left at the localhost default on a
+   deployed box, the mail is delivered perfectly and carries a link
+   that resolves to the recipient's own machine — which is
+   indistinguishable, from the outside, from "invites don't work".
+
+   The trigger is deliberately NOT NODE_ENV: this project's deploy box
+   runs `npm run dev`, so a production-only gate would never fire where
+   it is needed. It fires when the server is actually configured to
+   send mail, because that is what turns a local APP_URL from correct
+   into broken.
+   ================================================================ */
+describe('JL-473 validateConfig — APP_URL vs. outbound email', () => {
+  const MAIL = { SMTP_HOST: 'smtp.example.com', SMTP_USER: 'u', SMTP_PASS: 'p' }
+  const base = (extra) => validateConfig({
+    NODE_ENV: 'development', JWT_SECRET: STRONG_SECRET, DATABASE_URL: 'postgres://x', ...extra,
+  })
+  const appUrlWarnings = (res) => res.warnings.filter((w) => /APP_URL/.test(w))
+
+  it('stays quiet for a developer with no SMTP — localhost is correct there', () => {
+    expect(appUrlWarnings(base({ APP_URL: 'http://localhost:5173' }))).toHaveLength(0)
+  })
+
+  it('warns when a mail-sending server still points at localhost', () => {
+    const w = appUrlWarnings(base({ APP_URL: 'http://localhost:5173', ...MAIL }))
+    expect(w).toHaveLength(1)
+    expect(w[0]).toMatch(/dead link/i)
+  })
+
+  it('treats 127.0.0.1, 0.0.0.0 and ::1 as local too', () => {
+    for (const url of ['http://127.0.0.1:4000', 'http://0.0.0.0:5173', 'http://[::1]:5173']) {
+      expect(appUrlWarnings(base({ APP_URL: url, ...MAIL })), url).toHaveLength(1)
+    }
+  })
+
+  it('warns when APP_URL is unset entirely — the default IS localhost', () => {
+    const w = appUrlWarnings(base({ ...MAIL }))
+    expect(w).toHaveLength(1)
+    expect(w[0]).toMatch(/unset/i)
+  })
+
+  it('stays quiet once APP_URL is a real address', () => {
+    for (const url of ['https://jira.example.com', 'http://20.219.248.167:5173']) {
+      expect(appUrlWarnings(base({ APP_URL: url, ...MAIL })), url).toHaveLength(0)
+    }
+  })
+
+  it('does not match a hostname that merely CONTAINS localhost', () => {
+    // `localhost.example.com` is a real, routable host.
+    expect(appUrlWarnings(base({ APP_URL: 'https://localhost.example.com', ...MAIL }))).toHaveLength(0)
+  })
+
+  it('warns in production even with no SMTP — the links are still wrong', () => {
+    const res = validateConfig({
+      NODE_ENV: 'production', JWT_SECRET: STRONG_SECRET, DATABASE_URL: 'postgres://x',
+      CORS_ALLOWED_ORIGINS: 'https://app.example.com', APP_URL: 'http://localhost:5173',
+    })
+    expect(appUrlWarnings(res)).toHaveLength(1)
+  })
+
+  it('is advisory only — it must never stop the server booting', () => {
+    const res = validateConfig({
+      NODE_ENV: 'production', JWT_SECRET: STRONG_SECRET, DATABASE_URL: 'postgres://x',
+      CORS_ALLOWED_ORIGINS: 'https://app.example.com', APP_URL: 'http://localhost:5173', ...MAIL,
+    })
+    expect(res.ok).toBe(true)
+    expect(res.errors.some((e) => /APP_URL/.test(e))).toBe(false)
+  })
+})

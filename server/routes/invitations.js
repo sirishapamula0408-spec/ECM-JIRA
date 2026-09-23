@@ -3,6 +3,7 @@ import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { sendMail, buildInviteEmail, getLatestEmailStatuses } from '../utils/mailer.js'
+import { resolveWorkspaceName } from '../services/workspaceInfo.js'
 import { unblockSignup, checkSignupAllowed } from '../services/signupPolicy.js'
 // JL-371: accepting an invitation now provisions the login, so it needs the same
 // password machinery the register path uses — hashing, org policy validation,
@@ -66,32 +67,46 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   // and writes the tokened row — the same call the members path makes.
   const invite = await issueInvitation({ email, role, invitedBy })
 
-  // Fire-and-forget invite email (never block the response on SMTP).
-  // JL-361: pass the freshly-stored token so the email carries a working
-  // /accept-invite link. Without it the token flow below (GET /:token and
-  // POST /:token/accept) could never be reached from the invitation email.
+  /*
+   * JL-473 — this send is now AWAITED, and its outcome is on the response.
+   *
+   * It used to be fire-and-forget, with the stated reason "never block the
+   * response on SMTP". That protected the latency and threw away the answer:
+   * the 201 said an invitation existed and was silent on whether anyone was
+   * ever told about it, so the only honest thing a caller could report was
+   * "Invited", which is exactly the misleading state JL-473 is about.
+   *
+   * What made the await unsafe was the transport, not the await — nodemailer
+   * defaults to a two-minute timeout per stage. JL-473 caps all three at
+   * SMTP_TIMEOUT_MS (15s), so an unreachable relay now costs one bounded
+   * timeout and still returns a 201 with email_status:'failed', instead of
+   * parking the request. sendMail never throws, so there is no failure path
+   * here that can take the invitation down with it.
+   *
+   * JL-361: pass the freshly-stored token so the email carries a working
+   * /accept-invite link, or the token flow below could never be reached.
+   */
+  const workspaceName = await resolveWorkspaceName()
   const { subject, html, text } = buildInviteEmail({
     recipientName: email.split('@')[0],
     invitedBy,
     role,
     token: invite.token,
+    workspaceName,
   })
   // JL-323: sendMail resolves with { ok:false } on an SMTP rejection rather than
   // rejecting, so the outcome must be read off the result — a bare .catch() here
   // was dead code and let failures pass as successes.
-  sendMail({ to: email, subject, html, text, type: 'invite', relatedEntity: `invitation:${invite.id}` })
-    .then((result) => {
-      if (!result.ok) {
-        console.error(
-          `[invitations] Invite email to ${email} was not delivered (${result.skipped ? 'SMTP not configured' : result.error})`,
-        )
-      }
-    })
-    .catch((err) => {
-      console.error(`[invitations] Unexpected mailer error for ${email}: ${err.message}`)
-    })
+  const result = await sendMail({
+    to: email, subject, html, text, type: 'invite', relatedEntity: `invitation:${invite.id}`,
+  })
+  const emailStatus = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed'
+  const emailError = result.ok ? null : result.error || 'SMTP not configured'
+  if (!result.ok) {
+    console.error(`[invitations] Invite email to ${email} was not delivered (${emailError})`)
+  }
 
-  res.status(201).json(invite)
+  res.status(201).json({ ...invite, email_status: emailStatus, email_error: emailError })
 }))
 
 // --- List invitations (Admin only) ---
@@ -166,30 +181,33 @@ router.post('/:id/resend', requireRole('Admin'), asyncHandler(async (req, res) =
   // now the same call POST /api/members/:id/resend makes (JL-329).
   const fresh = await issueInvitation({ email: invite.email, role: invite.role, invitedBy })
 
-  // Fire-and-forget courtesy email (never block the response on SMTP).
+  // JL-473: awaited and reported, for the same reasons as create above. Resend
+  // needs it more than create does, in fact — the only reason to press Resend is
+  // that the first attempt is believed not to have arrived, so a response that
+  // cannot say whether THIS one did is of no help at all.
+  //
   // JL-361: resend deliberately mints a NEW token and revokes the previous one
   // (JL-251), so the email must carry the token of the row just inserted — the
   // old token is no longer valid.
+  const workspaceName = await resolveWorkspaceName()
   const { subject, html, text } = buildInviteEmail({
     recipientName: invite.email.split('@')[0],
     invitedBy,
     role: invite.role,
     token: fresh.token,
+    workspaceName,
   })
   // JL-323: read the result flag; see the note on the create route above.
-  sendMail({ to: invite.email, subject, html, text, type: 'invite', relatedEntity: `invitation:${fresh.id}` })
-    .then((result) => {
-      if (!result.ok) {
-        console.error(
-          `[invitations] Resent invite email to ${invite.email} was not delivered (${result.skipped ? 'SMTP not configured' : result.error})`,
-        )
-      }
-    })
-    .catch((err) => {
-      console.error(`[invitations] Unexpected mailer error for ${invite.email}: ${err.message}`)
-    })
+  const result = await sendMail({
+    to: invite.email, subject, html, text, type: 'invite', relatedEntity: `invitation:${fresh.id}`,
+  })
+  const emailStatus = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed'
+  const emailError = result.ok ? null : result.error || 'SMTP not configured'
+  if (!result.ok) {
+    console.error(`[invitations] Resent invite email to ${invite.email} was not delivered (${emailError})`)
+  }
 
-  res.json(fresh)
+  res.json({ ...fresh, email_status: emailStatus, email_error: emailError })
 }))
 
 /**

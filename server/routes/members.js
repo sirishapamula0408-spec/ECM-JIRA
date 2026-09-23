@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run, tableExists } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { sendMail, buildInviteEmail } from '../utils/mailer.js'
+import { sendMail, buildInviteEmail, getLatestEmailStatuses } from '../utils/mailer.js'
 import { requireRole } from '../middleware/authorize.js'
 import { isAllowedEmail, hashPassword } from '../middleware/validate.js'
 import { parsePagination, isPaginationRequested } from '../utils/pagination.js'
@@ -11,6 +11,7 @@ import { blockSignup, unblockSignup } from '../services/signupPolicy.js'
 // issues a real invitation through the same service POST /api/invitations uses,
 // so both entry points leave one identical trace with one lifecycle.
 import { issueInvitation } from '../services/invitations.js'
+import { resolveWorkspaceName } from '../services/workspaceInfo.js'
 
 const router = Router()
 
@@ -186,6 +187,34 @@ const TASK_COUNT_SELECT = `(
 // is returned only when the request explicitly asks for it, i.e. when any of
 // the pagination params (limit/offset/page) or the filter params
 // (search/role/status) are present.
+/*
+ * JL-473 — attach the most recent delivery attempt to each member row.
+ *
+ * The same decoration GET /api/invitations has had since JL-323, applied to the
+ * member list so the User Management page can tell "we created the record" from
+ * "the invite actually reached them". Without it the page had nothing to render
+ * but status='Invited', which is true whether the email was delivered, rejected
+ * or never attempted.
+ *
+ * One extra query for the whole page, not one per row. Rows with no email_log
+ * entry get 'unknown' rather than being left undefined, so the client has a
+ * single shape to render and never has to distinguish absent from unsent.
+ */
+async function withDeliveryStatus(rows) {
+  const list = Array.isArray(rows) ? rows : []
+  if (list.length === 0) return list
+  const statuses = await getLatestEmailStatuses(list.map((r) => r.email))
+  return list.map((r) => {
+    const delivery = statuses.get(String(r.email || '').toLowerCase())
+    return {
+      ...r,
+      email_status: delivery?.status || 'unknown',
+      email_error: delivery?.error || null,
+      email_sent_at: delivery?.created_at || null,
+    }
+  })
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const { search, role, status } = req.query
   const paginated =
@@ -223,7 +252,7 @@ router.get('/', asyncHandler(async (req, res) => {
          FROM members m
          ORDER BY m.id ASC`,
     )
-    res.json(rows)
+    res.json(await withDeliveryStatus(rows))
     return
   }
 
@@ -239,7 +268,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const totalRow = await get(`SELECT COUNT(*)::int AS total FROM members m ${where}`, params)
   const total = Number(totalRow?.total || 0)
 
-  res.json({ items: rows, total, limit, offset })
+  res.json({ items: await withDeliveryStatus(rows), total, limit, offset })
 }))
 
 // JL-192: Admin provisions an account directly. Optionally sets a temporary
@@ -359,11 +388,15 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
       // JL-329: carry the token, so the email from THIS path lands on the same
       // /accept-invite screen as the one from POST /api/invitations. Without it
       // the recipient got a bare app link and no way to redeem anything.
+      // JL-473: name the workspace in the email. Resolved here rather than in
+      // the mailer — the mailer must not know about tables.
+      const workspaceName = await resolveWorkspaceName(row.workspace_id ?? null)
       const { subject, html, text } = buildInviteEmail({
         recipientName: normalizedName,
         invitedBy: inviter,
         role: normalizedRole,
         token: invitation?.token,
+        workspaceName,
       })
       const result = await sendMail({
         to: normalizedEmail, subject, html, text,
