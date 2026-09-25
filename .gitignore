@@ -9,6 +9,13 @@ build/
 # Environment files
 .env
 .env.local
+# A hand-made copy of .env is still a copy of .env: the rollback backups taken
+# while changing SMTP settings carried SMTP_PASS and JWT_SECRET in cleartext and
+# matched none of the patterns around them, so `git add -A` would have committed
+# them.
+.env.backup*
+.env.bak
+.env.*.backup
 .env.*.local
 *.local
 
