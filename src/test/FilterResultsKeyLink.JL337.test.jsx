@@ -33,15 +33,32 @@ describe('JL-337 — Filter Results issue key is a real link', () => {
     expect(firstKeyCell.querySelector('span.filter-results-key')).toBeNull()
   })
 
-  it('links to /issues/:id using the issue id, with the display key as visible text', () => {
+  it('links to /issues/:key, with the same key as visible text', () => {
+    /*
+     * JL-148 changed this. The link used to be /issues/99 — the internal row
+     * id, which is global across projects and unrelated to the key sequence,
+     * so the URL bore no resemblance to the text of the link the user clicked.
+     * It is now /browse/ECM-12 — the Atlassian shape: href and label agree, and the URL is shareable.
+     * Numeric links still resolve; the API accepts either form.
+     */
     const { container } = renderGadget()
     const anchors = Array.from(container.querySelectorAll('tbody a.filter-results-key'))
     expect(anchors).toHaveLength(2)
     // Default sort is by key asc: 'ECM-12' < 'ECM-7' alphabetically.
-    expect(anchors[0].getAttribute('href')).toBe('/issues/99')
+    expect(anchors[0].getAttribute('href')).toBe('/browse/ECM-12')
     expect(anchors[0].textContent).toBe('ECM-12')
-    expect(anchors[1].getAttribute('href')).toBe('/issues/42')
+    expect(anchors[1].getAttribute('href')).toBe('/browse/ECM-7')
     expect(anchors[1].textContent).toBe('ECM-7')
+  })
+
+  it('falls back to the id for an issue that carries no key', () => {
+    // A lightweight row from a list endpoint that omits the key still links
+    // somewhere that works, rather than to /issues/undefined.
+    const { container } = renderGadget([
+      { id: 77, title: 'No key', assignee: 'a@x.com', priority: 'Low', status: 'To Do', createdAt: null },
+    ])
+    expect(container.querySelector('tbody a.filter-results-key').getAttribute('href'))
+      .toBe('/browse/77')
   })
 
   it('keeps the existing visual class so the styling is unchanged', () => {

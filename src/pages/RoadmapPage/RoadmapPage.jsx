@@ -5,6 +5,7 @@ import { useIssues } from '../../context/IssueContext'
 import { ISSUE_STATUSES } from '../../constants'
 import './RoadmapPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { issueHref } from '../../utils/issueRef'
 
 /* ── helpers ── */
 
@@ -285,7 +286,7 @@ export function RoadmapPage() {
                 const iss = row.issue
                 const typeClass = iss.issueType === 'Bug' ? 'tl-type-bug' : iss.issueType === 'Story' ? 'tl-type-story' : 'tl-type-task'
                 return (
-                  <div key={`child-${iss.id}`} className="tl-row-left tl-row-left--child" onClick={() => navigate(`/issues/${iss.id}`)}>
+                  <div key={`child-${iss.id}`} className="tl-row-left tl-row-left--child" onClick={() => navigate(issueHref(iss))}>
                     <span className={`tl-type-mark ${typeClass}`} />
                     <span className="tl-row-key">{iss.key}</span>
                     <span className="tl-row-name">{iss.title}</span>

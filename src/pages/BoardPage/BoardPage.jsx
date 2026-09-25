@@ -16,6 +16,7 @@ import { defaultCategoryForStatus, isCancelStatus } from '../../utils/statusCate
 import './BoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/useConfirm'
+import { issueHref } from '../../utils/issueRef'
 
 const SWIMLANE_OPTIONS = [
   { value: 'none', label: 'No swimlanes' },
@@ -779,7 +780,7 @@ export function BoardPage() {
                           onDragEnd={canEditIssue ? () => { setDragIssueId(null); setDropColId('') } : undefined}
                         >
                           <div className="kanban-card-top">
-                            <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+                            <button className="issue-link" type="button" onClick={() => navigate(issueHref(issue))}>{issue.key}</button>
                             <CopyButton
                               className="kanban-copy-key"
                               value={issue.key}

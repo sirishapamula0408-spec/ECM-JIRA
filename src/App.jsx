@@ -248,6 +248,12 @@ function AppContent() {
               {/* JL-425: keep old links working rather than 404ing them. */}
               <Route path="/teams-directory" element={<Navigate to="/teams" replace />} />
               <Route path="/profile" element={<ProfilePage />} />
+              {/* JL-148: /browse/JL-63 is the canonical issue URL, matching
+                  Atlassian. It is what every link in the app now builds. */}
+              <Route path="/browse/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
+              {/* The legacy path, kept registered so links already shared —
+                  /issues/402 and /issues/JL-63 alike — still resolve. Same
+                  component, same param; the page accepts either form. */}
               <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
               <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
               <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />

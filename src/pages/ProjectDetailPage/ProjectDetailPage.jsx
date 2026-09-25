@@ -6,6 +6,7 @@ import { RelativeTime } from '../../components/common/RelativeTime'
 import './ProjectDetailPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { issueHref } from '../../utils/issueRef'
 
 export function ProjectDetailPage() {
   usePageTitle('Project Details')
@@ -125,7 +126,7 @@ export function ProjectDetailPage() {
                   key={issue.id}
                   type="button"
                   className="pd-issue-row"
-                  onClick={() => navigate(`/issues/${issue.id}`)}
+                  onClick={() => navigate(issueHref(issue))}
                 >
                   <span className={`pd-issue-type pd-issue-type--${(issue.issueType || 'task').toLowerCase()}`} />
                   <span className="pd-issue-key">{issue.key}</span>

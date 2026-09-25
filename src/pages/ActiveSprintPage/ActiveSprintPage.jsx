@@ -9,6 +9,7 @@ import './ActiveSprintPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/useConfirm'
+import { issueHref } from '../../utils/issueRef'
 
 const RETRO_COLUMNS = [
   { key: 'well', label: 'What went well' },
@@ -224,7 +225,7 @@ function SprintBoard({ sprint, issues, handleMove, handleCompleteSprint, handleU
               >
                 <div className="active-sprint-card__top">
                   <span className="active-sprint-card__type">{issue.issueType === 'Bug' ? '\u{1F41B}' : issue.issueType === 'Story' ? '\u{1F4D7}' : '\u{2705}'}</span>
-                  <button className="issue-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
+                  <button className="issue-link" type="button" onClick={() => navigate(issueHref(issue))}>{issue.key}</button>
                 </div>
                 <h4 className="active-sprint-card__title">{issue.title}</h4>
                 <div className="active-sprint-card__bottom">

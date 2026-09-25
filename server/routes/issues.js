@@ -21,11 +21,66 @@ const router = Router()
 // the issue id path param. Used by the project-access read/write guards. Returns
 // null for a bad id or a project-less/absent issue (guards treat null as
 // "no resolvable project" → the handler then returns its own 404 / legacy path).
+/*
+ * JL-148 — an issue may be addressed by its numeric id or by its key.
+ *
+ * Clicking an issue used to navigate to /issues/402. 402 is the issues.id
+ * primary key: global across every project and unrelated to the per-project key
+ * sequence, so it reads as a random number (id 305 is DM-266). Atlassian
+ * addresses issues as /browse/JL-63, and so should we.
+ *
+ * The key shape allows digits after the first letter — TP1-11 is a real key
+ * here — but requires a leading letter, so a bare number can never be mistaken
+ * for one. A purely numeric ref is always an id; that is what keeps every
+ * existing /issues/<id> link working.
+ */
+const ISSUE_KEY_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/
+
+/**
+ * Classify a route param without touching the database.
+ * @returns {{kind:'id', id:number} | {kind:'key', key:string} | null}
+ *   null means the param is neither — the caller should answer 400.
+ */
+export function parseIssueRef(raw) {
+  const value = String(raw ?? '').trim()
+  if (/^\d+$/.test(value)) {
+    const id = Number(value)
+    return Number.isSafeInteger(id) && id > 0 ? { kind: 'id', id } : null
+  }
+  if (ISSUE_KEY_RE.test(value)) return { kind: 'key', key: value }
+  return null
+}
+
+/**
+ * Resolve a ref to a numeric id, or null when it does not exist.
+ *
+ * Deliberately distinguishes "malformed" (parseIssueRef returns null → 400)
+ * from "well-formed but absent" (→ 404). A key that simply has not been created
+ * is a missing resource, not a bad request, and answering 400 would tell a
+ * caller to fix a URL that is already correctly shaped.
+ *
+ * Key matching is case-insensitive: keys are upper-case by construction, but a
+ * link pasted from an email or typed by hand should still resolve.
+ */
+async function resolveIssueId(raw) {
+  const ref = parseIssueRef(raw)
+  if (!ref) return { invalid: true }
+  if (ref.kind === 'id') return { id: ref.id }
+  const row = await get('SELECT id FROM issues WHERE UPPER(issue_key) = UPPER(?)', [ref.key])
+  return row ? { id: row.id } : { notFound: true }
+}
+
+/*
+ * JL-148: this guard has to accept exactly what the route accepts. It coerced
+ * with Number() and returned null for anything non-numeric, so a key-addressed
+ * request resolved to "no project" and the permission check below it was
+ * deciding on a project it had failed to find.
+ */
 function issueParamProject(param = 'id') {
   return async (req) => {
-    const issueId = Number(req.params[param])
-    if (!Number.isInteger(issueId)) return null
-    const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
+    const resolved = await resolveIssueId(req.params[param])
+    if (!resolved.id) return null
+    const row = await get('SELECT project_id FROM issues WHERE id = ?', [resolved.id])
     return row?.project_id ?? null
   }
 }
@@ -301,11 +356,19 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 router.get('/:id', requireProjectRead(issueParamProject('id')), asyncHandler(async (req, res) => {
-  const id = Number(req.params.id)
-  if (!Number.isInteger(id)) {
-    res.status(400).json({ error: 'Invalid issue id' })
+  // JL-148: :id is really :idOrKey — /issues/402 and /issues/JL-63 are the same
+  // issue. Kept on the same path rather than added as a second route so every
+  // existing caller keeps working unchanged.
+  const resolved = await resolveIssueId(req.params.id)
+  if (resolved.invalid) {
+    res.status(400).json({ error: 'Invalid issue id or key' })
     return
   }
+  if (resolved.notFound) {
+    res.status(404).json({ error: 'Issue not found' })
+    return
+  }
+  const id = resolved.id
 
   const row = await get(
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, security_level_id, flagged FROM issues WHERE id = ?',

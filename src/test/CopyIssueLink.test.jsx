@@ -28,7 +28,8 @@ describe('CopyIssueLinkButton (JL-161)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy issue link' }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
-    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/issues/42`)
+    // JL-148: the copied link is the canonical /browse/<ref>, matching Atlassian.
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/browse/42`)
   })
 
   it('shows a "Copied!" confirmation tooltip after copying', async () => {
@@ -47,7 +48,7 @@ describe('CopyIssueLinkButton (JL-161)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy issue link' }))
 
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/issues/9`))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/browse/9`))
     expect(screen.queryByText('Copied!')).not.toBeInTheDocument()
   })
 })

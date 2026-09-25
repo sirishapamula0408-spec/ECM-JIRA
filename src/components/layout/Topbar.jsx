@@ -16,6 +16,7 @@ import { NotificationDropdown } from '../notifications/NotificationDropdown'
 import { KeyboardShortcutsDialog } from '../shortcuts/KeyboardShortcutsDialog'
 import { displayNameFromEmail } from '../../utils/helpers'
 import { avatarStyle } from '../../utils/avatarColour'
+import { issueHref } from '../../utils/issueRef'
 
 export function Topbar({ onCreate, hasProjects }) {
   const { authUser: currentUser, handleLogout } = useAuth()
@@ -88,7 +89,7 @@ export function Topbar({ onCreate, hasProjects }) {
     (issue) => {
       setSearchOpen(false)
       setSearchTerm('')
-      navigate(`/issues/${issue.id}`)
+      navigate(issueHref(issue))
     },
     [navigate],
   )

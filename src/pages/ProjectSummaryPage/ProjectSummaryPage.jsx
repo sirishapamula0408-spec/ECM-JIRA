@@ -12,6 +12,7 @@ import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { PRIORITIES } from '../../constants'
 import { resolveStatusCategory, priorityTokenName } from '../../utils/statusCategory'
+import { issueHref } from '../../utils/issueRef'
 
 /*
  * JL-457 — status and priority colour comes from the shared tokens.
@@ -267,7 +268,7 @@ export function ProjectSummaryPage() {
                       key={issue.id}
                       type="button"
                       className="ps-issue-row"
-                      onClick={() => navigate(`/issues/${issue.id}`)}
+                      onClick={() => navigate(issueHref(issue))}
                     >
                       <span className="ps-issue-type-icon" style={{ background: typeMeta.color }}>
                         {typeMeta.symbol}

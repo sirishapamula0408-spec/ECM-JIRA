@@ -10,6 +10,7 @@ import './FiltersPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/useConfirm'
+import { issueHref } from '../../utils/issueRef'
 
 const EMPTY_CRITERIA = { status: 'All', priority: 'All', issueType: 'All', assignee: '', text: '', projectId: 'All' }
 
@@ -542,7 +543,7 @@ export function FiltersPage() {
                   </thead>
                   <tbody>
                     {results.map((issue) => (
-                      <tr key={issue.id} className="filters-result-row" onClick={() => navigate(`/issues/${issue.id}`)}>
+                      <tr key={issue.id} className="filters-result-row" onClick={() => navigate(issueHref(issue))}>
                         {columns.map((key) => (
                           <td key={key}>{renderCell(issue, key)}</td>
                         ))}

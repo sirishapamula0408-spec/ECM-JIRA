@@ -50,10 +50,174 @@
   font-size: var(--font-size-sm);
 }
 
+/* JL-149: the current crumb is a real <Link> now, so it has to opt out of the
+   UA anchor colour and underline to keep reading as a breadcrumb rather than
+   as body-copy link. It underlines on hover/focus for affordance, the same way
+   .id-breadcrumb-link does. */
 .id-breadcrumb-current {
   color: #172b4d;
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
+  text-decoration: none;
+}
+
+.id-breadcrumb-current:hover,
+.id-breadcrumb-current:focus-visible {
+  text-decoration: underline;
+}
+
+/* JL-149: "+ Add parent". Styled as a quiet affordance, not a button — it sits
+   in a breadcrumb trail and must not outweigh the crumbs around it. */
+.id-breadcrumb-add-parent {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #6b778c;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.id-breadcrumb-add-parent:hover:not(:disabled),
+.id-breadcrumb-add-parent:focus-visible {
+  color: #0052cc;
+  text-decoration: underline;
+}
+
+/* Disabled means there is no Epic in the project yet. Kept visible rather than
+   hidden: the absence of any parent option is itself worth seeing, and the
+   title attribute says why. */
+.id-breadcrumb-add-parent:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* JL-149: the Epic picker, opened from "+ Add parent".
+   Anchored to the trigger so it drops beneath the crumb rather than pushing
+   the trail around, which is why the wrapper is position:relative. */
+.id-parent-picker-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.id-parent-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 320px;
+  max-width: 80vw;
+  background: var(--jira-surface);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--jira-shadow-modal);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.id-parent-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: var(--font-size-base);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
+  background: var(--jira-surface);
+  color: var(--jira-text);
+}
+
+.id-parent-picker-search:focus-visible {
+  outline: 2px solid var(--jira-primary);
+  outline-offset: -1px;
+}
+
+.id-parent-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.id-parent-picker-option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--jira-text);
+}
+
+.id-parent-picker-option:hover,
+.id-parent-picker-option:focus-visible {
+  background: var(--jira-surface-sunken);
+}
+
+/* The key is the identifier people scan for, so it keeps its own weight and
+   never wraps; the title takes the remaining width and ellipsizes. */
+.id-parent-picker-key {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  color: var(--jira-link);
+  white-space: nowrap;
+}
+
+.id-parent-picker-title {
+  font-size: var(--font-size-sm);
+  color: var(--jira-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shown INSIDE the open picker rather than by disabling the trigger: the
+   reason there is nothing to pick is worth reading, and a disabled button
+   hides it behind a tooltip nobody hovers. */
+.id-parent-picker-empty {
+  padding: 10px 8px;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+/* JL-149: "+ Create Epic". Separated from the results by a rule because it is
+   a different KIND of action — everything above selects something that exists,
+   this one writes. Full width so it reads as a row, not a link in a paragraph. */
+.id-parent-picker-create {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  margin-top: var(--space-1);
+  padding: 8px;
+  border-top: 1px solid var(--jira-border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--jira-link);
+  cursor: pointer;
+}
+
+.id-parent-picker-create:hover:not(:disabled),
+.id-parent-picker-create:focus-visible {
+  background: var(--jira-surface-sunken);
+}
+
+.id-parent-picker-create:disabled {
+  cursor: default;
+  color: var(--jira-text-muted);
+}
+
+/* The typed name, quoted back so it is obvious what will be created. */
+.id-parent-picker-new {
+  font-weight: var(--font-weight-semibold);
 }
 
 .id-top-actions {

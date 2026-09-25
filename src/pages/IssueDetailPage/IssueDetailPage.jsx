@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useMemo, useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ISSUE_PATH_PREFIX, issueHref, issueMatchesRef, issueRefOf } from '../../utils/issueRef'
 import { useIssues } from '../../context/IssueContext'
 import { useMembers } from '../../context/MemberContext'
 import { useSprints } from '../../context/SprintContext'
@@ -97,7 +98,10 @@ const PRIORITY_ICON = {
 
 /* ---- Copy issue link button (JL-161; shared CopyButton since JL-238) ---- */
 export function CopyIssueLinkButton({ issueId }) {
-  const url = `${window.location.origin}/issues/${issueId}`
+  // JL-148: issueId is the issue's key where it has one, so the copied link is
+  // the shareable https://host/browse/JL-63 rather than an internal row id.
+  // Built from ISSUE_PATH_PREFIX so it cannot drift from what the app links to.
+  const url = `${window.location.origin}${ISSUE_PATH_PREFIX}/${issueId}`
   return <CopyButton value={url} title="Copy issue link" sx={{ ml: 0.5 }} />
 }
 
@@ -150,7 +154,7 @@ function InlineField({ editing, onOpen, onClose, onCancel, display, children, ca
 
 export function IssueDetailPage() {
   const { confirm, confirmDialog } = useConfirm()
-  const { issues, handleMove, handleUpdate, handleDelete } = useIssues()
+  const { issues, handleMove, handleUpdate, handleDelete, handleCreate } = useIssues()
   const { members, profile } = useMembers()
   const { sprints } = useSprints()
   const { authUser } = useAuth()
@@ -158,8 +162,14 @@ export function IssueDetailPage() {
   const { contributions: pluginIssuePanels } = usePluginContributions('issue-panel')
   const { issueId } = useParams()
   const navigate = useNavigate()
-  const id = Number(issueId)
-  const existing = issues.find((item) => item.id === id)
+  /*
+   * JL-148: the route param is a key (JL-63) or a numeric id (402), and both
+   * reach this page — from /issues/:issueId and from the /browse/:issueId
+   * alias. Nothing below needs a numeric id derived from the URL: every
+   * handler already reads issue.id from the loaded issue, which is what makes
+   * accepting a key here a two-line change rather than a sweep.
+   */
+  const existing = issues.find((item) => issueMatchesRef(item, issueId))
   const [fetchedIssue, setFetchedIssue] = useState(null)
   const [projectName, setProjectName] = useState('')
   const [commentText, setCommentText] = useState('')
@@ -206,6 +216,11 @@ export function IssueDetailPage() {
   const [epicChildren, setEpicChildren] = useState([])
   const [epicRollup, setEpicRollup] = useState({ total: 0, done: 0, percent: 0 })
   const [epicOptions, setEpicOptions] = useState([]) // available Epics in this project
+  // JL-149: the breadcrumb's "+ Add parent" affordance opens an inline picker
+  // rather than sending the user to the sidebar to find the Epic field.
+  const [addingParent, setAddingParent] = useState(false)
+  const [parentQuery, setParentQuery] = useState('')
+  const [creatingParent, setCreatingParent] = useState(false)
   const [attachments, setAttachments] = useState([])
   const fileInputRef = useRef(null)
   const [links, setLinks] = useState([])
@@ -270,14 +285,64 @@ export function IssueDetailPage() {
   // context list) so detail-only fields — parentKey, fix/affects versions — are
   // available; the context copy still wins for shared fields via the merge below.
   useEffect(() => {
-    if (!id) return
-    fetchIssueById(id).then(setFetchedIssue).catch(() => setFetchedIssue(null))
-  }, [id])
+    if (!issueId) return
+    // JL-148: fetch by the raw ref. GET /api/issues/:idOrKey resolves a key or
+    // an id, so the client does not need a lookup round trip of its own.
+    fetchIssueById(issueId).then(setFetchedIssue).catch(() => setFetchedIssue(null))
+  }, [issueId])
 
   // JL-321: overlay the context copy on the fully-fetched issue so detail-only
   // fields (e.g. parentKey for the sub-task breadcrumb, fix/affects versions)
   // survive, while context/optimistic updates still win for shared fields.
   const issue = existing ? { ...fetchedIssue, ...existing } : fetchedIssue
+
+  /*
+   * JL-149 — what the breadcrumb should show as this issue's parent.
+   *
+   * Two different columns carry "parent" depending on the type, which is why
+   * the crumb previously appeared for sub-tasks only:
+   *   Sub-task          -> parent_id, resolved by the API into parentKey
+   *   Story/Task/Bug    -> epic_id, resolved here against the loaded epic list
+   *   Epic              -> neither, and it may not be given one
+   *
+   * Returns null when there is no parent to show, which is also what enables
+   * the "+ Add parent" affordance below it.
+   */
+  const canHaveParent = Boolean(issue) && issue.issueType !== 'Epic'
+
+  /*
+   * JL-149: the Epics offered as a parent — most RECENT first, which is what
+   * Atlassian shows and what a picker is actually used for: the epic you just
+   * made, or the one the team is working in now, not the oldest in the project.
+   * createdAt descending, with the id as a tiebreak for rows that predate it.
+   *
+   * epicOptions is already scoped to this issue's project by the loader; this
+   * only orders and filters it.
+   */
+  const parentCandidates = useMemo(() => {
+    const q = parentQuery.trim().toLowerCase()
+    return [...epicOptions]
+      .sort((a, b) => {
+        const at = a.createdAt ? Date.parse(a.createdAt) : 0
+        const bt = b.createdAt ? Date.parse(b.createdAt) : 0
+        return bt - at || (b.id - a.id)
+      })
+      .filter((e) => !q
+        || String(e.key || '').toLowerCase().includes(q)
+        || String(e.title || '').toLowerCase().includes(q))
+      .slice(0, 50)
+  }, [epicOptions, parentQuery])
+  const parentCrumb = (() => {
+    if (!issue) return null
+    if (issue.parentId) return { id: issue.parentId, key: issue.parentKey }
+    if (issue.epicId) {
+      // epicOptions is loaded for exactly the types that can have an Epic; a
+      // miss degrades to the id rather than hiding the relationship.
+      const epic = epicOptions.find((e) => e.id === issue.epicId)
+      return { id: issue.epicId, key: epic?.key }
+    }
+    return null
+  })()
 
   // JL-233: dynamic tab title, e.g. "JL-233 · Fix login bug" (blank until the issue loads)
   usePageTitle(issue ? `${issue.key || `IT-${issue.id}`} · ${issue.title}` : '')
@@ -552,15 +617,70 @@ export function IssueDetailPage() {
       .catch(() => setEpicOptions([]))
   }, [issue?.id, issue?.issueType, issue?.projectId])
 
-  async function onChangeEpic(e) {
-    const val = e.target.value
+  /*
+   * JL-149: the breadcrumb picker sets a parent by clicking a row, not by
+   * changing a <select>, so the write lives in a plain function and the
+   * sidebar's change handler delegates to it. Two entry points, one behaviour —
+   * the alternative was synthesising a fake event to reuse onChangeEpic, which
+   * is the kind of thing that looks like reuse and reads like a bug.
+   */
+  async function setParentEpic(nextId) {
     const prev = issue.epicId ?? null
-    const next = val === '' ? null : Number(val)
+    const next = nextId == null || nextId === '' ? null : Number(nextId)
     if (prev !== next) {
       await handleUpdate(issue.id, { epicId: next })
       reloadHistory()
     }
     closeField()
+  }
+
+  async function onChangeEpic(e) {
+    await setParentEpic(e.target.value)
+  }
+
+  /*
+   * JL-149: create an Epic from the parent picker and attach this issue to it.
+   *
+   * The picker is most useful in the state where it has nothing to offer — a
+   * project with no Epics yet. Showing "none exist" and stopping there makes
+   * the user leave, create an Epic elsewhere, come back and find this issue
+   * again. Atlassian lets you create one inline, so this does too.
+   *
+   * The title comes from what has already been typed into the search box,
+   * which is the term the user was looking for and failed to find. No second
+   * input, no modal.
+   *
+   * POST /api/issues requires title, description and assignee, and validates
+   * priority and status against whitelists — none of which default server-side
+   * (see JL-474). They are supplied here rather than discovered through a 400.
+   */
+  async function createParentEpic() {
+    const title = parentQuery.trim()
+    if (!title || creatingParent) return
+    setCreatingParent(true)
+    try {
+      const created = await handleCreate({
+        title,
+        description: `Created from ${issue.key || `#${issue.id}`} to group related work.`,
+        assignee: issue.assignee || profile?.full_name || authUser?.email || '',
+        issueType: 'Epic',
+        priority: 'Medium',
+        status: 'Backlog',
+        projectId: issue.projectId,
+      })
+      if (!created?.id) return
+      // Seed the local catalog so the breadcrumb can render the new Epic's KEY
+      // immediately. Without this the crumb would fall back to "#id" until the
+      // next load, which is the degradation path, not the happy one.
+      setEpicOptions((prev) => [created, ...prev])
+      await setParentEpic(created.id)
+      setAddingParent(false)
+      setParentQuery('')
+    } catch (err) {
+      setSuccessToast({ open: true, message: `Could not create the Epic: ${err?.message || 'unknown error'}` })
+    } finally {
+      setCreatingParent(false)
+    }
   }
 
   // Attachments
@@ -854,7 +974,7 @@ export function IssueDetailPage() {
     setCloning(true)
     try {
       const created = await cloneIssue(issue.id)
-      if (created?.id) navigate(`/issues/${created.id}`)
+      if (created?.id) navigate(issueHref(created))
     } catch {
       // ignore — client surfaces API errors via Snackbar
     } finally {
@@ -1309,21 +1429,125 @@ export function IssueDetailPage() {
           <span className="id-breadcrumb-sep">/</span>
           <button type="button" className="id-breadcrumb-link" onClick={() => navigate(issue.projectId ? `/projects/${issue.projectId}` : '/projects')}>{projectName || 'Project'}</button>
           <span className="id-breadcrumb-sep">/</span>
-          {/* JL-321: a sub-task shows its parent as a link, like Atlassian
-              (Project / PARENT-KEY / SUBTASK-KEY). */}
-          {issue.parentId && (
+          {/* JL-321 / JL-149: the parent crumb, like Atlassian
+              (Projects / Project / PARENT-KEY / THIS-KEY).
+
+              "Parent" means two different columns depending on the issue type,
+              which is why this used to show for sub-tasks only:
+                • a Sub-task's parent is parent_id (its Story/Task/Bug)
+                • a Story/Task/Bug's parent is epic_id (its Epic)
+              An Epic has neither, and cannot be given one — validateEpicRef on
+              the server rejects "An Epic cannot belong to another Epic" — so it
+              gets no crumb and no add-parent affordance. */}
+          {parentCrumb && (
             <>
               <button
                 type="button"
                 className="id-breadcrumb-link"
-                onClick={() => navigate(`/issues/${issue.parentId}`)}
+                // JL-148: the crumb already SHOWED the key; only its link still
+                // used the id, so clicking a crumb reading "JL-40" navigated to
+                // /issues/318.
+                onClick={() => navigate(issueHref(parentCrumb))}
               >
-                {issue.parentKey || `#${issue.parentId}`}
+                {parentCrumb.key || `#${parentCrumb.id}`}
               </button>
               <span className="id-breadcrumb-sep">/</span>
             </>
           )}
-          <span className="id-breadcrumb-current">{issue.key || `IT-${issue.id}`}</span>
+
+          {/* JL-149: nothing to show a parent for, but one could be set. */}
+          {!parentCrumb && canHaveParent && canEditIssue && (
+            <>
+              <span className="id-parent-picker-wrap">
+                <button
+                  type="button"
+                  className="id-breadcrumb-add-parent"
+                  aria-haspopup="listbox"
+                  aria-expanded={addingParent}
+                  onClick={() => { setParentQuery(''); setAddingParent((v) => !v) }}
+                  title="Attach this issue to an Epic"
+                >
+                  + Add parent
+                </button>
+
+                {/* Always openable. It was previously disabled when the project
+                    had no Epic, which hid the reason behind a tooltip nobody
+                    hovers — and Atlassian opens its picker regardless, showing
+                    the empty state inside. An affordance that explains itself
+                    when opened beats one that refuses to open. */}
+                {addingParent && (
+                  <div
+                    className="id-parent-picker"
+                    role="dialog"
+                    aria-label="Attach to an Epic"
+                    onKeyDown={(e) => { if (e.key === 'Escape') setAddingParent(false) }}
+                  >
+                    <input
+                      className="id-parent-picker-search"
+                      type="text"
+                      autoFocus
+                      placeholder="Search Epics…"
+                      value={parentQuery}
+                      onChange={(e) => setParentQuery(e.target.value)}
+                    />
+                    <ul className="id-parent-picker-list" role="listbox">
+                      {parentCandidates.length === 0 && (
+                        <li className="id-parent-picker-empty">
+                          {parentQuery.trim()
+                            ? `No Epic matches "${parentQuery}".`
+                            : 'No Epics in this project yet. Type a name to create one.'}
+                        </li>
+                      )}
+                      {parentCandidates.map((ep) => (
+                        <li key={ep.id}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected="false"
+                            className="id-parent-picker-option"
+                            onClick={async () => {
+                              await setParentEpic(ep.id)
+                              setAddingParent(false)
+                            }}
+                          >
+                            <span className="id-parent-picker-key">{ep.key}</span>
+                            <span className="id-parent-picker-title">{ep.title}</span>
+                          </button>
+                        </li>
+                      ))}
+
+                      {/* Offered whenever a name has been typed — including
+                          alongside partial matches, because "Platform" matching
+                          an old Epic should not stop you making a new one. */}
+                      {canCreateIssue && parentQuery.trim() && (
+                        <li>
+                          <button
+                            type="button"
+                            className="id-parent-picker-create"
+                            disabled={creatingParent}
+                            onClick={createParentEpic}
+                          >
+                            {creatingParent
+                              ? 'Creating…'
+                              : <>+ Create Epic <span className="id-parent-picker-new">“{parentQuery.trim()}”</span></>}
+                          </button>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </span>
+              <span className="id-breadcrumb-sep">/</span>
+            </>
+          )}
+
+          {/* JL-149: the current crumb is a real link. It points at this same
+              issue, which Atlassian does too — it is what makes the key
+              right-clickable, middle-clickable and copyable as a URL rather
+              than being inert text that happens to look like an identifier. */}
+          <Link className="id-breadcrumb-current" to={issueHref(issue)}>
+            {issue.key || `IT-${issue.id}`}
+          </Link>
         </nav>
         <div className="id-top-actions">
           <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintIssue}>
@@ -1367,13 +1591,13 @@ export function IssueDetailPage() {
             {/* JL-321: the issue key is a link to the issue (like Atlassian). */}
             <a
               className="id-issue-key"
-              href={`/issues/${issue.id}`}
-              onClick={(e) => { e.preventDefault(); navigate(`/issues/${issue.id}`) }}
+              href={issueHref(issue)}
+              onClick={(e) => { e.preventDefault(); navigate(issueHref(issue)) }}
               title="Open this issue"
             >
               {issue.key || `IT-${issue.id}`}
             </a>
-            <CopyIssueLinkButton issueId={issue.id} />
+            <CopyIssueLinkButton issueId={issueRefOf(issue)} />
           </div>
 
           <h1 className="id-title">{issue.title}</h1>
@@ -1490,7 +1714,7 @@ export function IssueDetailPage() {
             ) : (
               <ul className="id-subtask-list">
                 {subtasks.map((st) => (
-                  <li key={st.id} className={`id-subtask-row${highlightedRow?.kind === 'subtask' && highlightedRow.id === st.id ? ' id-row-flash' : ''}`} onClick={() => navigate(`/issues/${st.id}`)}>
+                  <li key={st.id} className={`id-subtask-row${highlightedRow?.kind === 'subtask' && highlightedRow.id === st.id ? ' id-row-flash' : ''}`} onClick={() => navigate(issueHref(st))}>
                     <span className="id-subtask-key">{st.key}</span>
                     <span className="id-subtask-title">{st.title}</span>
                     <span className={`id-subtask-status id-subtask-status--${String(st.status).toLowerCase().replace(/\s+/g, '-')}`}>{st.status}</span>
@@ -1530,7 +1754,7 @@ export function IssueDetailPage() {
             ) : (
               <ul className="id-subtask-list">
                 {epicChildren.map((ch) => (
-                  <li key={ch.id} className="id-subtask-row" onClick={() => navigate(`/issues/${ch.id}`)}>
+                  <li key={ch.id} className="id-subtask-row" onClick={() => navigate(issueHref(ch))}>
                     <span className="id-subtask-key">{ch.key}</span>
                     <span className="id-subtask-title">{ch.title}</span>
                     <span className={`id-subtask-status id-subtask-status--${String(ch.status).toLowerCase().replace(/\s+/g, '-')}`}>{ch.status}</span>
@@ -1580,8 +1804,8 @@ export function IssueDetailPage() {
                 {links.map((l) => (
                   <li key={l.id} className={`id-subtask-row${highlightedRow?.kind === 'link' && highlightedRow.id === l.id ? ' id-row-flash' : ''}`}>
                     <span className="id-link-type">{l.type}</span>
-                    <span className="id-subtask-key" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.key}</span>
-                    <span className="id-subtask-title" onClick={() => navigate(`/issues/${l.issue.id}`)} style={{ cursor: 'pointer' }}>{l.issue.title}</span>
+                    <span className="id-subtask-key" onClick={() => navigate(issueHref(l.issue))} style={{ cursor: 'pointer' }}>{l.issue.key}</span>
+                    <span className="id-subtask-title" onClick={() => navigate(issueHref(l.issue))} style={{ cursor: 'pointer' }}>{l.issue.title}</span>
                     <span className={`id-subtask-status id-subtask-status--${String(l.issue.status).toLowerCase().replace(/\s+/g, '-')}`}>{l.issue.status}</span>
                     {/* JL-284: remove-link gated by canLinkIssues */}
                     {canLinkIssues && (

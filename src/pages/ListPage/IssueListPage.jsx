@@ -17,6 +17,7 @@ import { EmptyState } from '../../components/common/EmptyState'
 import { initialsFromName } from '../../utils/helpers'
 import { avatarStyle } from '../../utils/avatarColour'
 import { createSubtask } from '../../api/issueApi'
+import { issueHref } from '../../utils/issueRef'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -612,15 +613,15 @@ export function IssueListPage() {
         return (
           <span className="jira-list-work">
             {issueTypeIcon(issue.issueType)}
-            <button className="jira-list-key-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.key}</button>
-            <button className="jira-list-summary-link" type="button" onClick={() => navigate(`/issues/${issue.id}`)}>{issue.title}</button>
+            <button className="jira-list-key-link" type="button" onClick={() => navigate(issueHref(issue))}>{issue.key}</button>
+            <button className="jira-list-summary-link" type="button" onClick={() => navigate(issueHref(issue))}>{issue.title}</button>
             <span className="jira-list-work-actions">
               <button
                 className="jira-list-work-action"
                 type="button"
                 title="Open work item"
                 aria-label={`Open work item ${issue.key}`}
-                onClick={() => navigate(`/issues/${issue.id}`)}
+                onClick={() => navigate(issueHref(issue))}
               >
                 <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                   <path d="M6 10l4-4M6.5 5.5H10v3.5" />

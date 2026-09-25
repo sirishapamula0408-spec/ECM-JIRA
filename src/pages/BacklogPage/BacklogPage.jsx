@@ -21,6 +21,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { initialsFromName } from '../../utils/helpers'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/useConfirm'
+import { issueHref } from '../../utils/issueRef'
 
 // JL-234 — client-side backlog sort control
 const SORT_STORAGE_KEY = 'backlogSort'
@@ -651,7 +652,7 @@ export function BacklogPage() {
                 {isExpanded && (
                   <>
                     {sprintPanel.issues.map((issue) => (
-                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(issueHref(issue))} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
                     ))}
                     {canCreateIssue && quickCreateBySprint[sprintPanel.id] && (
                       <div className="quick-create-row">
@@ -698,7 +699,7 @@ export function BacklogPage() {
 
         <div className={`sprint-issues${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           {expandedPanels.backlog && backlogItems.map((issue) => (
-            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={handleBacklogMove} onOpen={() => navigate(`/issues/${issue.id}`)} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={handleBacklogMove} onOpen={() => navigate(issueHref(issue))} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
           ))}
         </div>
       </article>

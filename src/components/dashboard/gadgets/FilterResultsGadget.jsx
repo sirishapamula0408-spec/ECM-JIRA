@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { formatDateOnly } from '../../../utils/timeAgo'
 import { StatusLozenge } from '../../common/StatusLozenge'
 import { useMediaQuery } from '../../../hooks/useMediaQuery'
+import { issueHref } from '../../../utils/issueRef'
 
 /*
  * JL-469 — the column list is the single declaration of a column.
@@ -189,7 +190,7 @@ function Cell({ column, issue }) {
       // <Link> (not onClick+navigate) so middle-click / open-in-new-tab /
       // hover URL preview and keyboard Enter all work. The detail route is
       // keyed by numeric id (/issues/:issueId), not the display key.
-      return <td><Link to={`/issues/${issue.id}`} className="filter-results-key">{issue.key}</Link></td>
+      return <td><Link to={issueHref(issue)} className="filter-results-key">{issue.key}</Link></td>
 
     case 'summary': {
       // title attribute because the column is width-capped, so a long summary

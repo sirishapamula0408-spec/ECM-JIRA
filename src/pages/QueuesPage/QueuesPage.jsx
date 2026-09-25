@@ -19,6 +19,7 @@ import { EmptyState } from '../../components/common/EmptyState.jsx'
 import { useConfirm } from '../../components/common/useConfirm'
 import './QueuesPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { issueHref } from '../../utils/issueRef'
 
 const SLA_CHIP_COLOR = { breached: 'error', at_risk: 'warning', ok: 'success' }
 const SLA_CHIP_LABEL = { breached: 'Breached', at_risk: 'At risk', ok: 'On track' }
@@ -273,7 +274,7 @@ export function QueuesPage() {
                   <TableBody>
                     {issuesData.issues.map((it) => (
                       <TableRow key={it.id} hover sx={{ cursor: 'pointer' }}
-                        onClick={() => navigate(`/issues/${it.id}`)}>
+                        onClick={() => navigate(issueHref(it))}>
                         <TableCell>{it.issue_key}</TableCell>
                         <TableCell>{it.title}</TableCell>
                         <TableCell>{it.status}</TableCell>

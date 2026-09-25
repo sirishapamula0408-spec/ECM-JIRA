@@ -15,6 +15,7 @@ import { useConfirm } from '../../components/common/useConfirm'
 import { usePermissions } from '../../hooks/usePermissions'
 import './CrossProjectBoardPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { issueHref } from '../../utils/issueRef'
 
 const SWIMLANE_OPTIONS = [
   { value: 'project', label: 'By project' },
@@ -185,7 +186,7 @@ export function CrossProjectBoardPage() {
           {issuesLoading ? (
             <Box className="cpb-loading"><CircularProgress size={28} /></Box>
           ) : boardData ? (
-            <CrossProjectKanban data={boardData} projectName={projectName} onOpenIssue={(id) => navigate(`/issues/${id}`)} />
+            <CrossProjectKanban data={boardData} projectName={projectName} onOpenIssue={(issue) => navigate(issueHref(issue))} />
           ) : null}
         </>
       )}
@@ -238,8 +239,8 @@ function IssueCard({ issue, projectName, onOpenIssue }) {
   const pname = projectName[issue.project_id] || issue.project_name || `#${issue.project_id}`
   return (
     <div className="board-card cpb-card" role="button" tabIndex={0}
-      onClick={() => onOpenIssue(issue.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpenIssue(issue.id) }}
+      onClick={() => onOpenIssue(issue)}
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpenIssue(issue) }}
     >
       <div className="cpb-card-key">
         <Chip size="small" label={pname} className="cpb-project-chip" />
