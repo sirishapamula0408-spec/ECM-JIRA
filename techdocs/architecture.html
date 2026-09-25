@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture Diagrams — ECM JIRA Clone</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+  <style>
+    /* Figure treatment only. Everything else inherits assets/styles.css so this
+       page belongs to the same document set as HLD/LLD rather than inventing a
+       second visual language. */
+    .fig {
+      margin: 28px 0 32px;
+      padding: 20px 20px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+    .fig svg { display: block; width: 100%; max-width: 100%; height: auto; color: var(--text); }
+    .fig figcaption {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .fig figcaption b { color: var(--text); font-weight: 600; }
+    .fig-num {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--chip-fg);
+      background: var(--chip-bg);
+      padding: 2px 8px;
+      border-radius: 3px;
+      margin-right: 8px;
+    }
+    .svg-box { fill: var(--surface); stroke: currentColor; stroke-width: 1.25; }
+    .svg-box-alt { fill: var(--table-head-bg); stroke: currentColor; stroke-width: 1.25; }
+    .svg-accent { fill: none; stroke: var(--accent); stroke-width: 2; }
+    .svg-accent-box { fill: var(--chip-bg); stroke: var(--accent); stroke-width: 1.75; }
+    .svg-line { stroke: currentColor; stroke-width: 1.25; fill: none; }
+    .svg-line-dash { stroke: currentColor; stroke-width: 1.25; fill: none; stroke-dasharray: 5 4; opacity: 0.75; }
+    .svg-t { fill: currentColor; font-family: inherit; font-size: 12px; }
+    .svg-t-sm { fill: currentColor; font-family: inherit; font-size: 10.5px; opacity: 0.72; }
+    .svg-t-hd { fill: currentColor; font-family: inherit; font-size: 12.5px; font-weight: 600; }
+    .svg-t-acc { fill: var(--accent); font-family: inherit; font-size: 11px; font-weight: 600; }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin: 18px 0 8px;
+    }
+    .meta-cell {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .meta-cell .n {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--heading);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .meta-cell .l {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .src-note {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      border-left: 3px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 10px 14px;
+      border-radius: 0 4px 4px 0;
+      margin: 16px 0 24px;
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="index.html">
+      <span class="logo">EJ</span>
+      <span>ECM JIRA Clone <span class="sub">— Technical Design</span></span>
+    </a>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="menu-toggle" aria-label="Toggle navigation" onclick="document.querySelector('.side-nav').classList.toggle('open')">☰</button>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="hld.html">HLD</a>
+        <a href="lld.html">LLD</a>
+        <a href="architecture.html" class="active">Architecture</a>
+        <a href="jira-lite-audit-observations.html">Audit</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="side-nav">
+      <div class="side-title">Architecture</div>
+      <ol>
+        <li><a href="#scale">1. What is actually here</a></li>
+        <li><a href="#context">2. System context</a></li>
+        <li><a href="#pipeline">3. Request pipeline</a></li>
+        <li><a href="#authz">4. Authorization resolution</a></li>
+        <li><a href="#frontend">5. Frontend composition</a></li>
+        <li><a href="#data">6. Data access layer</a></li>
+        <li><a href="#surface">7. API surface</a></li>
+      </ol>
+    </aside>
+
+    <main class="content">
+      <h1>Architecture Diagrams</h1>
+      <p class="lede">
+        Five mechanisms that are hard to reconstruct from reading the source: what the system
+        talks to, what every request passes through, how a permission decision is actually
+        reached, how the client is composed, and what sits between route SQL and PostgreSQL.
+      </p>
+
+      <div class="src-note">
+        Drawn from the code at commit <code>7a38623</code>, not from prose. Counts were taken by
+        enumerating the tree and querying <code>information_schema</code>; the middleware order
+        below is the literal order of <code>app.use</code> calls in <code>server/index.js</code>.
+      </div>
+
+      <h2 id="scale">1. What is actually here</h2>
+      <div class="meta-grid">
+        <div class="meta-cell"><div class="n">76</div><div class="l">Route modules</div></div>
+        <div class="meta-cell"><div class="n">30</div><div class="l">Server services</div></div>
+        <div class="meta-cell"><div class="n">12</div><div class="l">Middleware</div></div>
+        <div class="meta-cell"><div class="n">110</div><div class="l">DB tables</div></div>
+        <div class="meta-cell"><div class="n">44</div><div class="l">Client pages</div></div>
+        <div class="meta-cell"><div class="n">60</div><div class="l">API modules</div></div>
+        <div class="meta-cell"><div class="n">7</div><div class="l">Context providers</div></div>
+        <div class="meta-cell"><div class="n">370</div><div class="l">Test files</div></div>
+      </div>
+
+      <table>
+        <thead><tr><th>Layer</th><th>Technology</th><th>Version</th></tr></thead>
+        <tbody>
+          <tr><td>UI</td><td>React + Material UI</td><td>19.2 / 7.3</td></tr>
+          <tr><td>Build / dev server</td><td>Vite</td><td>7.3</td></tr>
+          <tr><td>API</td><td>Express</td><td>5.2</td></tr>
+          <tr><td>Database</td><td>PostgreSQL via <code>pg</code></td><td>8.13 (pool, max 10)</td></tr>
+          <tr><td>Auth</td><td><code>jsonwebtoken</code>, OIDC, SAML 2.0</td><td>9.0 / 6.8 / 5.1</td></tr>
+          <tr><td>Mail</td><td><code>nodemailer</code> over SMTP</td><td>8.0</td></tr>
+          <tr><td>Object storage</td><td>AWS SDK S3 (optional)</td><td>3.x</td></tr>
+          <tr><td>Rich text</td><td>TipTap</td><td>3.27</td></tr>
+          <tr><td>Tests</td><td>Vitest, two projects</td><td>4.0</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="context">2. System context</h2>
+      <figure class="fig">
+        <svg viewBox="0 0 920 470" role="img" aria-label="System context: the browser reaches a Vite-served React SPA which calls the Express API, which reads and writes PostgreSQL. Identity providers, SCIM provisioning and inbound email arrive from outside; SMTP, object storage and outbound webhooks leave from the API.">
+          <defs>
+            <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <text class="svg-t-sm" x="16" y="22">INBOUND FROM OUTSIDE</text>
+          <rect class="svg-box-alt" x="16" y="34" width="160" height="52" rx="4" />
+          <text class="svg-t-hd" x="96" y="55" text-anchor="middle">Identity provider</text>
+          <text class="svg-t-sm" x="96" y="71" text-anchor="middle">OIDC / SAML 2.0</text>
+
+          <rect class="svg-box-alt" x="196" y="34" width="160" height="52" rx="4" />
+          <text class="svg-t-hd" x="276" y="55" text-anchor="middle">IdP provisioning</text>
+          <text class="svg-t-sm" x="276" y="71" text-anchor="middle">SCIM 2.0 → /scim/v2</text>
+
+          <rect class="svg-box-alt" x="376" y="34" width="170" height="52" rx="4" />
+          <text class="svg-t-hd" x="461" y="55" text-anchor="middle">Mail provider</text>
+          <text class="svg-t-sm" x="461" y="71" text-anchor="middle">inbound-parse webhook</text>
+
+          <path class="svg-line" d="M 96 86 L 96 150 L 470 150" marker-end="url(#ar1)" />
+          <path class="svg-line" d="M 276 86 L 276 140 L 470 140" marker-end="url(#ar1)" />
+          <path class="svg-line" d="M 461 86 L 461 130 L 470 130" marker-end="url(#ar1)" />
+
+          <rect class="svg-box" x="16" y="232" width="128" height="62" rx="4" />
+          <text class="svg-t-hd" x="80" y="258" text-anchor="middle">Browser</text>
+          <text class="svg-t-sm" x="80" y="275" text-anchor="middle">SPA client</text>
+
+          <rect class="svg-accent-box" x="196" y="212" width="176" height="102" rx="5" />
+          <text class="svg-t-hd" x="284" y="238" text-anchor="middle">React SPA</text>
+          <text class="svg-t-sm" x="284" y="256" text-anchor="middle">Vite dev :5173</text>
+          <text class="svg-t-sm" x="284" y="272" text-anchor="middle">or static /dist</text>
+          <text class="svg-t-acc" x="284" y="296" text-anchor="middle">proxies /api/*</text>
+
+          <rect class="svg-accent-box" x="470" y="212" width="176" height="102" rx="5" />
+          <text class="svg-t-hd" x="558" y="238" text-anchor="middle">Express API</text>
+          <text class="svg-t-sm" x="558" y="256" text-anchor="middle">:4000</text>
+          <text class="svg-t-sm" x="558" y="272" text-anchor="middle">76 route modules</text>
+          <text class="svg-t-sm" x="558" y="288" text-anchor="middle">30 services</text>
+
+          <rect class="svg-box" x="744" y="232" width="160" height="62" rx="4" />
+          <text class="svg-t-hd" x="824" y="255" text-anchor="middle">PostgreSQL</text>
+          <text class="svg-t-sm" x="824" y="272" text-anchor="middle">110 tables · pool max 10</text>
+
+          <path class="svg-line" d="M 144 263 L 190 263" marker-end="url(#ar1)" />
+          <path class="svg-line" d="M 372 263 L 464 263" marker-end="url(#ar1)" />
+          <text class="svg-t-sm" x="418" y="255" text-anchor="middle">JSON + JWT</text>
+          <path class="svg-line" d="M 646 263 L 738 263" marker-end="url(#ar1)" />
+          <text class="svg-t-sm" x="692" y="255" text-anchor="middle">SQL</text>
+
+          <text class="svg-t-sm" x="16" y="372">OUTBOUND FROM THE API</text>
+          <rect class="svg-box-alt" x="196" y="384" width="160" height="52" rx="4" />
+          <text class="svg-t-hd" x="276" y="405" text-anchor="middle">SMTP relay</text>
+          <text class="svg-t-sm" x="276" y="421" text-anchor="middle">invites, resets, digests</text>
+
+          <rect class="svg-box-alt" x="376" y="384" width="170" height="52" rx="4" />
+          <text class="svg-t-hd" x="461" y="405" text-anchor="middle">Object storage</text>
+          <text class="svg-t-sm" x="461" y="421" text-anchor="middle">S3, else local disk</text>
+
+          <rect class="svg-box-alt" x="566" y="384" width="170" height="52" rx="4" />
+          <text class="svg-t-hd" x="651" y="405" text-anchor="middle">Webhook targets</text>
+          <text class="svg-t-sm" x="651" y="421" text-anchor="middle">HMAC-SHA256 signed</text>
+
+          <path class="svg-line" d="M 500 314 L 500 360 L 276 360 L 276 380" marker-end="url(#ar1)" />
+          <path class="svg-line" d="M 530 314 L 530 366 L 461 366 L 461 380" marker-end="url(#ar1)" />
+          <path class="svg-line" d="M 600 314 L 600 360 L 651 360 L 651 380" marker-end="url(#ar1)" />
+        </svg>
+        <figcaption>
+          <span class="fig-num">Fig 1</span>
+          <b>Two processes, one database, six external edges.</b> In development Vite serves the
+          SPA and proxies <code>/api/*</code> to Express; in production Express serves the built
+          <code>/dist</code> itself with an SPA history fallback, and the left-hand hop disappears.
+          Every external integration is <em>config-gated</em> — absent credentials mean the feature
+          reports "not configured" rather than failing at call time.
+        </figcaption>
+      </figure>
+
+      <h2 id="pipeline">3. Request pipeline</h2>
+      <figure class="fig">
+        <svg viewBox="0 0 900 560" role="img" aria-label="Every API request passes through request logging, security headers, CORS, IP allowlist, JSON body parsing and rate limiting, then forks: public routes are served directly, while all other routes pass through authGuard, loadUserRoles and resolveWorkspace before reaching their router. All errors converge on a single error handler.">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <rect class="svg-box" x="330" y="14" width="240" height="38" rx="4" />
+          <text class="svg-t-hd" x="450" y="38" text-anchor="middle">Incoming HTTP request</text>
+          <path class="svg-line" d="M 450 52 L 450 74" marker-end="url(#ar2)" />
+
+          <rect class="svg-box-alt" x="330" y="74" width="240" height="34" rx="4" />
+          <text class="svg-t" x="450" y="96" text-anchor="middle">requestLogger</text>
+          <path class="svg-line" d="M 450 108 L 450 122" marker-end="url(#ar2)" />
+
+          <rect class="svg-box-alt" x="330" y="122" width="240" height="34" rx="4" />
+          <text class="svg-t" x="450" y="144" text-anchor="middle">securityHeaders</text>
+          <path class="svg-line" d="M 450 156 L 450 170" marker-end="url(#ar2)" />
+
+          <rect class="svg-box-alt" x="330" y="170" width="240" height="34" rx="4" />
+          <text class="svg-t" x="450" y="192" text-anchor="middle">corsAllowList</text>
+          <text class="svg-t-sm" x="584" y="192">empty list ⇒ reflect any origin</text>
+          <path class="svg-line" d="M 450 204 L 450 218" marker-end="url(#ar2)" />
+
+          <rect class="svg-box-alt" x="330" y="218" width="240" height="34" rx="4" />
+          <text class="svg-t" x="450" y="240" text-anchor="middle">ipAllowlist</text>
+          <path class="svg-line" d="M 450 252 L 450 266" marker-end="url(#ar2)" />
+
+          <rect class="svg-box-alt" x="330" y="266" width="240" height="34" rx="4" />
+          <text class="svg-t" x="450" y="288" text-anchor="middle">express.json — limit 25mb</text>
+          <text class="svg-t-sm" x="584" y="288">base64 attachment uploads</text>
+          <path class="svg-line" d="M 450 300 L 450 314" marker-end="url(#ar2)" />
+
+          <rect class="svg-box-alt" x="330" y="314" width="240" height="34" rx="4" />
+          <text class="svg-t" x="450" y="336" text-anchor="middle">rateLimit — 600/min on /api</text>
+          <path class="svg-line" d="M 450 348 L 450 368" />
+
+          <path class="svg-line" d="M 450 368 L 180 368 L 180 392" marker-end="url(#ar2)" />
+          <path class="svg-line" d="M 450 368 L 700 368 L 700 392" marker-end="url(#ar2)" />
+
+          <rect class="svg-box" x="30" y="392" width="300" height="106" rx="5" />
+          <text class="svg-t-hd" x="180" y="414" text-anchor="middle">Public — no session required</text>
+          <text class="svg-t-sm" x="180" y="434" text-anchor="middle">/api/auth  ·  60/min limiter</text>
+          <text class="svg-t-sm" x="180" y="450" text-anchor="middle">/api/public  ·  /api/inbound-email</text>
+          <text class="svg-t-sm" x="180" y="466" text-anchor="middle">/api/invitations — token redeem only</text>
+          <text class="svg-t-sm" x="180" y="486" text-anchor="middle">/scim/v2 — own bearer token</text>
+
+          <rect class="svg-accent-box" x="570" y="392" width="300" height="106" rx="5" />
+          <text class="svg-t-hd" x="720" y="414" text-anchor="middle">protect — everything else</text>
+          <text class="svg-t-acc" x="720" y="436" text-anchor="middle">authGuard</text>
+          <text class="svg-t-sm" x="720" y="452" text-anchor="middle">verifies JWT → req.user</text>
+          <text class="svg-t-acc" x="720" y="472" text-anchor="middle">loadUserRoles → resolveWorkspace</text>
+          <text class="svg-t-sm" x="720" y="488" text-anchor="middle">workspace + role context</text>
+
+          <path class="svg-line-dash" d="M 180 498 L 180 522 L 440 522" marker-end="url(#ar2)" />
+          <path class="svg-line-dash" d="M 720 498 L 720 522 L 460 522" marker-end="url(#ar2)" />
+          <rect class="svg-box" x="330" y="506" width="240" height="34" rx="4" />
+          <text class="svg-t-hd" x="450" y="528" text-anchor="middle">errorHandler — single exit</text>
+        </svg>
+        <figcaption>
+          <span class="fig-num">Fig 2</span>
+          <b>The fork is the whole security model.</b> Five public mounts are declared
+          <em>before</em> the <code>protect</code> chain exists; everything registered after it
+          inherits all three guards, so a new router is authenticated by default and public only by
+          deliberate placement. <code>/api/invitations</code> appears on both sides — its token
+          redeem endpoints must be reachable signed-out, because a session is what redeeming an
+          invitation produces.
+        </figcaption>
+      </figure>
+
+      <h2 id="authz">4. Authorization resolution</h2>
+      <figure class="fig">
+        <svg viewBox="0 0 880 330" role="img" aria-label="An authenticated request is checked first against the workspace role hierarchy, then optionally against a project role loaded from project_members. A workspace Admin or Owner bypasses the project-level check entirely.">
+          <defs>
+            <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+            <marker id="ar3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
+            </marker>
+          </defs>
+
+          <rect class="svg-box" x="16" y="128" width="150" height="58" rx="4" />
+          <text class="svg-t-hd" x="91" y="152" text-anchor="middle">Authenticated</text>
+          <text class="svg-t-sm" x="91" y="169" text-anchor="middle">req.user + roles</text>
+
+          <path class="svg-line" d="M 166 157 L 224 157" marker-end="url(#ar3)" />
+
+          <rect class="svg-box-alt" x="224" y="106" width="200" height="102" rx="5" />
+          <text class="svg-t-hd" x="324" y="130" text-anchor="middle">requireRole(min)</text>
+          <text class="svg-t-sm" x="324" y="150" text-anchor="middle">workspace hierarchy</text>
+          <text class="svg-t" x="324" y="172" text-anchor="middle">Owner › Admin ›</text>
+          <text class="svg-t" x="324" y="190" text-anchor="middle">Member › Viewer</text>
+
+          <path class="svg-line" d="M 424 157 L 482 157" marker-end="url(#ar3)" />
+
+          <rect class="svg-box-alt" x="482" y="106" width="212" height="102" rx="5" />
+          <text class="svg-t-hd" x="588" y="130" text-anchor="middle">loadProjectRole</text>
+          <text class="svg-t-sm" x="588" y="150" text-anchor="middle">reads project_members</text>
+          <text class="svg-t-hd" x="588" y="174" text-anchor="middle">requireProjectRole(min)</text>
+          <text class="svg-t-sm" x="588" y="192" text-anchor="middle">Lead / Admin / Member / Viewer</text>
+
+          <path class="svg-line" d="M 694 157 L 752 157" marker-end="url(#ar3)" />
+          <rect class="svg-box" x="752" y="128" width="112" height="58" rx="4" />
+          <text class="svg-t-hd" x="808" y="152" text-anchor="middle">Handler</text>
+          <text class="svg-t-sm" x="808" y="169" text-anchor="middle">asyncHandler</text>
+
+          <path class="svg-accent" d="M 324 106 L 324 56 L 808 56 L 808 122" marker-end="url(#ar3a)" />
+          <text class="svg-t-acc" x="566" y="46" text-anchor="middle">workspace Admin or Owner — bypasses the project check entirely</text>
+
+          <path class="svg-line-dash" d="M 324 208 L 324 262" marker-end="url(#ar3)" />
+          <path class="svg-line-dash" d="M 588 208 L 588 262" marker-end="url(#ar3)" />
+          <rect class="svg-box" x="224" y="262" width="200" height="44" rx="4" />
+          <text class="svg-t" x="324" y="289" text-anchor="middle">403 — insufficient role</text>
+          <rect class="svg-box" x="482" y="262" width="212" height="44" rx="4" />
+          <text class="svg-t" x="588" y="289" text-anchor="middle">403 — not on this project</text>
+        </svg>
+        <figcaption>
+          <span class="fig-num">Fig 3</span>
+          <b>Two tiers, and one bypass that makes them one system.</b> The blue edge is the rule
+          most easily missed when reading either middleware alone: a workspace Admin never fails a
+          project-role check, so <code>requireProjectRole</code> can only ever <em>narrow</em>
+          access for Members and Viewers. The client mirrors this in
+          <code>usePermissions()</code>, which returns capability booleans rather than roles — the
+          UI asks "can I edit this?", never "am I an Admin?".
+        </figcaption>
+      </figure>
+
+      <h2 id="frontend">5. Frontend composition</h2>
+      <figure class="fig">
+        <svg viewBox="0 0 880 400" role="img" aria-label="Seven React context providers nest in a fixed order from Auth outward to Notification, wrapping the router and 44 pages. Pages call 60 domain API modules, which all funnel through a single fetch client that injects the JWT.">
+          <defs>
+            <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <rect class="svg-box-alt" x="14" y="14" width="430" height="330" rx="6" />
+          <text class="svg-t-hd" x="28" y="34">AuthContext</text>
+          <rect class="svg-box-alt" x="34" y="44" width="390" height="286" rx="6" />
+          <text class="svg-t-hd" x="48" y="64">ThemeContext + MUI ThemeProvider</text>
+          <rect class="svg-box-alt" x="54" y="74" width="350" height="242" rx="6" />
+          <text class="svg-t-hd" x="68" y="94">IssueContext</text>
+          <rect class="svg-box-alt" x="74" y="104" width="310" height="198" rx="6" />
+          <text class="svg-t-hd" x="88" y="124">SprintContext</text>
+          <rect class="svg-box-alt" x="94" y="134" width="270" height="154" rx="6" />
+          <text class="svg-t-hd" x="108" y="154">AppDataContext</text>
+          <rect class="svg-box-alt" x="114" y="164" width="230" height="110" rx="6" />
+          <text class="svg-t-hd" x="128" y="184">MemberContext</text>
+          <rect class="svg-box-alt" x="134" y="194" width="190" height="66" rx="6" />
+          <text class="svg-t-hd" x="148" y="214">NotificationContext</text>
+          <rect class="svg-accent-box" x="154" y="224" width="150" height="28" rx="4" />
+          <text class="svg-t-acc" x="229" y="243" text-anchor="middle">Router · 44 pages</text>
+
+          <path class="svg-line" d="M 444 238 L 508 238" marker-end="url(#ar4)" />
+
+          <rect class="svg-box" x="508" y="150" width="180" height="76" rx="5" />
+          <text class="svg-t-hd" x="598" y="176" text-anchor="middle">60 API modules</text>
+          <text class="svg-t-sm" x="598" y="194" text-anchor="middle">issueApi, memberApi,</text>
+          <text class="svg-t-sm" x="598" y="210" text-anchor="middle">wikiApi, webhookApi …</text>
+
+          <path class="svg-line" d="M 598 226 L 598 258" marker-end="url(#ar4)" />
+
+          <rect class="svg-accent-box" x="508" y="258" width="180" height="82" rx="5" />
+          <text class="svg-t-hd" x="598" y="282" text-anchor="middle">api/client.js</text>
+          <text class="svg-t-sm" x="598" y="300" text-anchor="middle">injects Bearer token</text>
+          <text class="svg-t-sm" x="598" y="316" text-anchor="middle">surfaces 403 as Snackbar</text>
+          <text class="svg-t-acc" x="598" y="334" text-anchor="middle">does not stringify bodies</text>
+
+          <path class="svg-line" d="M 688 299 L 750 299" marker-end="url(#ar4)" />
+          <rect class="svg-box" x="750" y="270" width="116" height="58" rx="4" />
+          <text class="svg-t-hd" x="808" y="294" text-anchor="middle">/api/*</text>
+          <text class="svg-t-sm" x="808" y="311" text-anchor="middle">Express</text>
+
+          <text class="svg-t-sm" x="508" y="94">Binary downloads — CSV export,</text>
+          <text class="svg-t-sm" x="508" y="110">attachments — bypass client.js</text>
+          <text class="svg-t-sm" x="508" y="126">and use raw fetch, because</text>
+          <text class="svg-t-sm" x="508" y="142">client.js always parses JSON.</text>
+        </svg>
+        <figcaption>
+          <span class="fig-num">Fig 4</span>
+          <b>Nesting order is a dependency order, not a style.</b> Auth is outermost because every
+          inner provider needs a session; Notification is innermost because it depends on member
+          and app data already being resolved. Each context is split across two files — the context
+          object and hook in <code>&lt;X&gt;Context.jsx</code>, the provider component in
+          <code>&lt;X&gt;Provider.jsx</code> — because a module exporting both opts the app out of
+          Vite fast refresh.
+        </figcaption>
+      </figure>
+
+      <h2 id="data">6. Data access layer</h2>
+      <figure class="fig">
+        <svg viewBox="0 0 880 210" role="img" aria-label="Route SQL written with question-mark placeholders passes through convertPlaceholders, which rewrites them to PostgreSQL numbered parameters while respecting quoted strings, and through a run wrapper that appends RETURNING id to inserts, before reaching the pg connection pool.">
+          <defs>
+            <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <rect class="svg-box" x="14" y="66" width="206" height="76" rx="5" />
+          <text class="svg-t-hd" x="117" y="90" text-anchor="middle">Route SQL</text>
+          <text class="svg-t-sm" x="117" y="110" text-anchor="middle">WHERE id = ?</text>
+          <text class="svg-t-sm" x="117" y="126" text-anchor="middle">SQLite-style placeholders</text>
+
+          <path class="svg-line" d="M 220 104 L 278 104" marker-end="url(#ar5)" />
+
+          <rect class="svg-accent-box" x="278" y="46" width="238" height="116" rx="5" />
+          <text class="svg-t-hd" x="397" y="70" text-anchor="middle">server/db.js</text>
+          <text class="svg-t-acc" x="397" y="92" text-anchor="middle">convertPlaceholders()</text>
+          <text class="svg-t-sm" x="397" y="108" text-anchor="middle">? → $1, $2 … skipping</text>
+          <text class="svg-t-sm" x="397" y="124" text-anchor="middle">'?' inside quoted strings</text>
+          <text class="svg-t-acc" x="397" y="148" text-anchor="middle">run() appends RETURNING id</text>
+
+          <path class="svg-line" d="M 516 104 L 574 104" marker-end="url(#ar5)" />
+
+          <rect class="svg-box" x="574" y="66" width="140" height="76" rx="5" />
+          <text class="svg-t-hd" x="644" y="90" text-anchor="middle">pg Pool</text>
+          <text class="svg-t-sm" x="644" y="110" text-anchor="middle">max 10 · idle 30s</text>
+          <text class="svg-t-sm" x="644" y="126" text-anchor="middle">connect 5s</text>
+
+          <path class="svg-line" d="M 714 104 L 766 104" marker-end="url(#ar5)" />
+          <rect class="svg-box" x="766" y="66" width="100" height="76" rx="5" />
+          <text class="svg-t-hd" x="816" y="98" text-anchor="middle">Postgres</text>
+          <text class="svg-t-sm" x="816" y="116" text-anchor="middle">110 tables</text>
+
+          <text class="svg-t-sm" x="278" y="190">Composite-key tables with no id column must pass an explicit RETURNING clause, or run() injects one that does not exist.</text>
+        </svg>
+        <figcaption>
+          <span class="fig-num">Fig 5</span>
+          <b>A compatibility shim that 76 route modules depend on without naming.</b> Route code is
+          written as though it were talking to SQLite; the translation to PostgreSQL parameters
+          happens in one place and is invisible at the call site. The convenience has one sharp
+          edge, noted in the drawing: <code>run()</code>'s automatic <code>RETURNING id</code> is
+          wrong for join tables keyed by a composite primary key.
+        </figcaption>
+      </figure>
+
+      <h2 id="surface">7. API surface</h2>
+      <p>
+        Thirty-three mount points, grouped by what they serve. Theme-1 routers are mounted at
+        <code>/api</code> with absolute sub-paths (<code>/projects/:id/labels</code>,
+        <code>/issues/:id/links</code>) rather than under a prefix of their own.
+      </p>
+      <table>
+        <thead><tr><th>Group</th><th>Mounts</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Core work items</td>
+            <td><code>/api/issues</code>, <code>/api/sprints</code>, <code>/api/projects</code>, <code>/api/workflows</code>, <code>/api/comments</code>, <code>/api/filters</code>, <code>/api/list-views</code>, <code>/api/sprint-templates</code></td>
+          </tr>
+          <tr>
+            <td>Reporting</td>
+            <td><code>/api/dashboard</code>, <code>/api/reports</code>, <code>/api/roadmap</code>, <code>/api/shared-dashboards</code>, <code>/api/cross-project-boards</code></td>
+          </tr>
+          <tr>
+            <td>People &amp; access</td>
+            <td><code>/api/auth</code>, <code>/api/members</code>, <code>/api/teams</code>, <code>/api/invitations</code>, <code>/api/profile</code>, <code>/api/sessions</code>, <code>/api/api-tokens</code>, <code>/api/workspace</code>, <code>/api/workspaces</code>, <code>/scim/v2</code></td>
+          </tr>
+          <tr>
+            <td>Collaboration</td>
+            <td><code>/api/notifications</code>, <code>/api/activity</code>, <code>/api/approvals</code>, <code>/api/wiki</code></td>
+          </tr>
+          <tr>
+            <td>Integration</td>
+            <td><code>/api/webhooks</code>, <code>/api/events</code>, <code>/api/plugins</code>, <code>/api/inbound-email</code>, <code>/api/public</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="src-note">
+        <b>Regenerating these numbers.</b> Route, service and page counts come from enumerating
+        <code>server/routes</code>, <code>server/services</code> and <code>src/pages</code>; the
+        table count from <code>information_schema.tables</code>; the middleware order from the
+        <code>app.use</code> sequence in <code>server/index.js</code>. If a figure and the code
+        disagree, the code is right and this page is stale.
+      </div>
+    </main>
+  </div>
+</body>
+</html>
