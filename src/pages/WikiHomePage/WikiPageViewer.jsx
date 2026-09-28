@@ -11,6 +11,7 @@ import { recordPageView } from '../../api/wikiHomeApi'
 import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import { looksLikeHtml } from '../../utils/editorContent'
 import { VersionHistoryPanel } from '../../components/wiki/VersionHistoryPanel'
+import { PageComments } from '../../components/wiki/PageComments'
 import './WikiPageViewer.css'
 
 /*
@@ -274,6 +275,11 @@ export function WikiPageViewer() {
           ) : (
             body || <p className="wiki-viewer-empty">This page has no content yet.</p>
           )}
+
+          {/* JL-115: comments sit below the page, and only when reading it —
+              a comment thread beside an open editor competes with the text
+              the author is trying to write. */}
+          {!editing && <PageComments pageId={page.id} />}
         </article>
       )}
     </div>

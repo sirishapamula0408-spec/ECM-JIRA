@@ -787,6 +787,44 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_live ON wiki_pages(space_id) WHERE deleted_at IS NULL')
 
   /* ============================================================
+     JL-115→119 (Confluence Lite) — page comments.
+     ------------------------------------------------------------
+     A SEPARATE table from `comments`, which is issue-scoped with a
+     NOT NULL issue_id FK. Widening that table to serve both would
+     mean a nullable issue_id and a CHECK that exactly one owner is
+     set — every existing issue-comment query would then have to
+     start excluding page comments, and the one that forgot would
+     silently show wiki replies on an issue.
+
+     Threading is a self-FK rather than a thread_id column. A reply
+     names its parent, which is the fact being recorded; a thread id
+     is derived from that and would be a second place for the same
+     truth to live.
+     ============================================================ */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wiki_page_comments (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES wiki_pages(id) ON DELETE CASCADE,
+      -- JL-117: NULL for a top-level comment, else the comment replied to.
+      -- ON DELETE CASCADE so deleting a root takes its replies with it: a
+      -- reply to nothing is not a comment, it is an orphan nobody can read.
+      parent_id INTEGER REFERENCES wiki_page_comments(id) ON DELETE CASCADE,
+      author TEXT NOT NULL,
+      body TEXT NOT NULL,
+      -- JL-118: an edit is disclosed rather than silent. NULL until edited.
+      edited_at TIMESTAMPTZ,
+      /* JL-119: resolution belongs to the THREAD, so only a root carries it.
+         Storing it per comment would let a reply claim a different state
+         from the thread it sits in. */
+      resolved_at TIMESTAMPTZ,
+      resolved_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_comments_page ON wiki_page_comments(page_id, created_at)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_comments_parent ON wiki_page_comments(parent_id)')
+
+  /* ============================================================
      JL-152 (Confluence Lite home) — recently viewed, and favourites.
      ------------------------------------------------------------
      The home page is built from three sources. Spaces already exist

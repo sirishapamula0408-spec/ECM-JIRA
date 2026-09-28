@@ -306,11 +306,13 @@ router.get('/list', asyncHandler(async (req, res) => {
    ================================================================ */
 
 /*
- * The feed has two real sources today: a page being created, and a page being
- * edited (a wiki_page_versions row after the first). "Comment added" is named
- * in the brief but has no table behind it — wiki pages do not have comments
- * yet — so it is not invented here. It becomes one more UNION arm once it
- * exists, which is why the arms are shaped identically.
+ * Three sources: a page created, a page edited (a wiki_page_versions row after
+ * the first), and — since JL-115 — a comment added.
+ *
+ * The comment arm is the one JL-152 deliberately left out because the table
+ * did not exist yet, and it went in exactly as predicted: one more arm of the
+ * same shape, no change to the surrounding query. The arms are kept identical
+ * on purpose so a fourth source costs the same.
  */
 router.get('/feed', asyncHandler(async (req, res) => {
   const user = req.user
@@ -372,10 +374,23 @@ router.get('/feed', asyncHandler(async (req, res) => {
           JOIN wiki_pages w ON w.id = v.page_id
           LEFT JOIN spaces s ON s.id = w.space_id
          WHERE v.version_number > 1 AND ${vis.clause}${tabWhere}
+        UNION ALL
+        SELECT 'comment_added' AS kind, w.id AS page_id, w.title, w.space_id,
+               s.name AS space_name, s.key AS space_key,
+               c.author AS actor, c.created_at AS at,
+               ${starredExpr} AS is_starred, ${viewersExpr} AS viewers
+          FROM wiki_page_comments c
+          JOIN wiki_pages w ON w.id = c.page_id
+          LEFT JOIN spaces s ON s.id = w.space_id
+         WHERE ${vis.clause}${tabWhere}
      ) feed
      ${orderBy}
      LIMIT ? OFFSET ?`,
     [
+      // One set per UNION arm, in the order the arms appear. A missing set
+      // shifts every placeholder after it, which the db.js ?->$n conversion
+      // would happily accept and answer wrongly.
+      email, ...vis.params, ...tabParams,
       email, ...vis.params, ...tabParams,
       email, ...vis.params, ...tabParams,
       limit + 1, cursor,

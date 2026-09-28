@@ -24,6 +24,17 @@ vi.mock('../api/wikiApi', () => ({
 }))
 vi.mock('../api/wikiHomeApi', () => ({ recordPageView: mockApi.recordPageView }))
 vi.mock('../hooks/usePermissions', () => ({ usePermissions: () => mockPerms.current }))
+
+/*
+ * JL-115 mounted <PageComments> inside the viewer. Left unmocked its fetch
+ * hangs under this file's fake timers and every case here times out — so the
+ * comments panel is stubbed away. This file is about the EDITOR; comments have
+ * their own suite (PageComments.JL115) and testing them twice through a page
+ * that merely contains them would assert nothing extra.
+ */
+vi.mock('../components/wiki/PageComments', () => ({
+  PageComments: () => <div data-testid="page-comments" />,
+}))
 vi.mock('../components/editor/TipTapEditor', () => ({
   TipTapEditor: (props) => {
     editorProps.current = props

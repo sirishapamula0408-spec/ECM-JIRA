@@ -1,0 +1,146 @@
+/* JL-115→119 — page comments. Token-only. */
+
+.wiki-comments {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--jira-border);
+}
+
+.wiki-comments h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.wiki-comments-count {
+  color: var(--jira-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.wiki-comments-empty {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+}
+
+.wiki-thread {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--jira-border-subtle);
+}
+
+.wiki-thread:last-of-type {
+  border-bottom: 0;
+}
+
+/* A resolved thread stays readable — it is still the record of a decision —
+   but recedes so open threads hold the attention. */
+.wiki-thread--resolved {
+  opacity: 0.68;
+}
+
+.wiki-thread-resolved {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-success);
+}
+
+.wiki-comment {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.wiki-comment-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-sans);
+}
+
+.wiki-comment-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-comment-meta {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+.wiki-comment-edited {
+  font-style: italic;
+}
+
+/* Comment text is rendered as a text node, so it must keep the author's line
+   breaks itself — nothing upstream turns them into markup. */
+.wiki-comment-body {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wiki-comment-tools {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.wiki-comment-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--jira-link);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  cursor: pointer;
+}
+
+.wiki-comment-link:hover {
+  text-decoration: underline;
+}
+
+/* Replies are indented once and never again — threads are one level deep,
+   so there is no second indent to define. */
+.wiki-thread-replies {
+  margin-left: var(--space-6);
+  border-left: 2px solid var(--jira-border-subtle);
+  padding-left: var(--space-3);
+}
+
+.wiki-comment-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.wiki-thread-replybox {
+  margin-left: var(--space-6);
+}
+
+.wiki-comments-new {
+  margin-top: var(--space-4);
+}
+
+.wiki-comment-actions {
+  display: flex;
+  gap: var(--space-2);
+}
