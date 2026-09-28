@@ -98,6 +98,10 @@
 
   /* ── Numeric spacing scale (--space-1 .. --space-8) ──
      4px base step. Complements the named --spacing-* tokens above. */
+  /* JL-153: the shared top bar's height. A token, not a magic number —
+     the product sidebars size and stick themselves against it. */
+  --topbar-height: 64px;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

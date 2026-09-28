@@ -1,0 +1,236 @@
+/* JL-152 — Confluence Lite left sidebar.
+
+   Token-only: every colour, space, radius, shadow and type value below
+   resolves to a variable from styles/variables.css. Stylelint gates the font
+   properties; the rest follow the same rule by choice, because a one-off hex
+   here is exactly how a second palette starts. */
+
+.wiki-sidebar {
+  width: 280px;
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--jira-surface-subtle);
+  border-right: 1px solid var(--jira-border);
+  /* JL-154: no sticky positioning and no 100vh. The shell is a fixed-height
+     flex row (layout.css), so this panel is simply a flex child that scrolls
+     its own overflow — see RootLayout.css. Sticking it to the viewport while
+     the document ALSO scrolled is part of what produced two scrollbars. */
+  min-height: 0;
+  transition: width var(--transition-base) var(--ease-standard),
+              flex-basis var(--transition-base) var(--ease-standard);
+}
+
+.wiki-sidebar--collapsed {
+  width: 56px;
+  flex-basis: 56px;
+}
+
+/* JL-153: the panel header (product name + its own collapse control) was
+   removed. The shared top bar names the active product and holds the single
+   collapse control, so the rules that styled a second set of both are gone
+   rather than left behind to style nothing. */
+
+/* `min-height: 0` is what actually lets a flex child scroll — without it the
+   child grows and the whole page scrolls instead. */
+.wiki-sidebar-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2) var(--space-2) var(--space-5);
+}
+
+.wiki-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wiki-nav--rail {
+  padding: var(--space-2) 0;
+  align-items: center;
+}
+
+.wiki-nav-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-2);
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--jira-text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-regular);
+  font-family: var(--font-family-sans);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--transition-fast) var(--ease-standard);
+}
+
+.wiki-nav--rail .wiki-nav-row {
+  width: auto;
+  padding: var(--space-2);
+}
+
+.wiki-nav-row:hover {
+  background: var(--jira-hover-overlay);
+}
+
+/* react-router stamps .active on a matching NavLink. */
+.wiki-nav-row.active {
+  background: var(--jira-blue-soft);
+  color: var(--jira-link);
+  font-weight: var(--font-weight-semibold);
+}
+
+.wiki-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--jira-text-muted);
+}
+
+.wiki-nav-row.active .wiki-nav-icon {
+  color: var(--jira-link);
+}
+
+.wiki-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wiki-nav-chevron {
+  display: inline-flex;
+  color: var(--jira-text-muted);
+  transition: transform var(--transition-fast) var(--ease-standard);
+}
+
+.wiki-nav-chevron--open {
+  transform: rotate(90deg);
+}
+
+.wiki-nav-sublist {
+  list-style: none;
+  margin: 2px 0 var(--space-2);
+  padding: 0 0 0 var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wiki-nav-subrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-family: var(--font-family-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wiki-nav-subrow:hover {
+  background: var(--jira-hover-overlay);
+  color: var(--jira-text);
+}
+
+.wiki-nav-subrow svg {
+  flex: 0 0 auto;
+}
+
+.wiki-nav-subtitle {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wiki-nav-subempty {
+  padding: var(--space-1) var(--space-2);
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.wiki-nav-more {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  color: var(--jira-link);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  text-decoration: none;
+}
+
+.wiki-nav-more:hover {
+  text-decoration: underline;
+}
+
+.wiki-space-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-sans);
+}
+
+.wiki-starred-spaces {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--jira-border-subtle);
+}
+
+.wiki-sidebar-heading {
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--jira-text-muted);
+}
+
+/* Narrow widths: the panel becomes a rail so the main column keeps its
+   readable measure and the page never scrolls sideways. */
+@media (max-width: 900px) {
+  .wiki-sidebar {
+    width: 56px;
+    flex-basis: 56px;
+  }
+
+  .wiki-sidebar .wiki-sidebar-scroll {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-sidebar,
+  .wiki-nav-row,
+  .wiki-nav-chevron {
+    transition: none;
+  }
+}

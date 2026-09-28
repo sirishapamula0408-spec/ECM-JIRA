@@ -9,9 +9,11 @@
   overflow-y: auto;
 }
 
+/* Collapse control first, brand second. The auto column is the button, so the
+   brand still absorbs whatever width is left rather than the two fighting. */
 .sidebar-top {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 8px;
 }
@@ -453,6 +455,15 @@
 
 .workspace.sidebar-collapsed .sidebar {
   padding: 12px 8px;
+}
+
+/* Collapsed, the rail is ~40px — not enough for the control and the logo side
+   by side, so they stack. The control stays on top, keeping it in the same
+   place the eye already expects it whichever state the sidebar is in. */
+.workspace.sidebar-collapsed .sidebar-top {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 4px;
 }
 
 .workspace.sidebar-collapsed .brand {

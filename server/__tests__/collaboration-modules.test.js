@@ -527,12 +527,32 @@ describe('Wiki API', () => {
   })
 
   describe('DELETE /api/:id', () => {
-    it('deletes a wiki page', async () => {
+    /*
+     * JL-66/JL-93: this was a hard DELETE that ran unconditionally. It now
+     * looks the page up first, soft-deletes it, and promotes its children.
+     * A hard delete made Trash impossible AND destroyed the version history
+     * with it, because wiki_page_versions.page_id is ON DELETE CASCADE.
+     */
+    it('soft-deletes a wiki page and promotes its children', async () => {
+      get.mockResolvedValue({ id: 1, title: 'A page', parent_id: null, deleted_at: null })
       run.mockResolvedValue({ changes: 1 })
 
       const res = await request(app).delete('/api/1')
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
+      expect(res.body.softDeleted).toBe(true)
+
+      // Children are re-parented to the root, then the page itself is marked.
+      expect(run.mock.calls[0][0]).toMatch(/SET parent_id = NULL WHERE parent_id = ?/)
+      expect(run.mock.calls[1][0]).toMatch(/SET deleted_at = NOW()/)
+      // Never a hard DELETE - that would take the version history with it.
+      for (const call of run.mock.calls) expect(call[0]).not.toMatch(/^DELETE FROM wiki_pages/)
+    })
+
+    it('404s a page that does not exist, instead of reporting success', async () => {
+      get.mockResolvedValue(undefined)
+      const res = await request(app).delete('/api/999')
+      expect(res.status).toBe(404)
     })
   })
 })

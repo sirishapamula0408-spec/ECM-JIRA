@@ -707,6 +707,147 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_project ON wiki_pages(project_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_parent ON wiki_pages(parent_id)')
 
+  /* ============================================================
+     JL-77 (Confluence Lite) — Spaces, and the page columns Spaces need.
+     ------------------------------------------------------------
+     This is an EXTENSION, not a new schema. The JL-150 audit found
+     wiki_pages, wiki_page_versions and issue_wiki_links already in
+     place, with parent_id hierarchy and a version written on every
+     edit. What was genuinely missing is everything below.
+
+     A Space is the unit Confluence organises by, and the reason it is
+     not simply "a project" is that documentation outlives and crosses
+     projects: a runbook, an onboarding guide, an architecture decision
+     log. So space_id is nullable on wiki_pages and project_id stays —
+     a page may belong to a project, a Space, or both, and no existing
+     row has to be migrated to keep working.
+     ============================================================ */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS spaces (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      -- The owner is an email rather than a member id: members can be
+      -- deleted (JL-325) and a Space must not lose its owner column to a
+      -- cascade. Ownership is reassigned explicitly (JL-83).
+      owner_email TEXT NOT NULL,
+      -- Archived Spaces stay readable and stop accepting new pages (JL-84).
+      archived BOOLEAN NOT NULL DEFAULT FALSE,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_spaces_archived ON spaces(archived)')
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_spaces_key_lower ON spaces(LOWER(key))')
+
+  /*
+     Space membership — the second authorisation axis (JL-87 / JL-139).
+
+     Deliberately separate from project_members: a Space is not a project,
+     and collapsing the two would mean every project member silently
+     gained access to every Space attached to it. The roles mirror the
+     project vocabulary so there is one set of words in the product.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS space_members (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'Member',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (space_id, user_email)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_space_members_email ON space_members(LOWER(user_email))')
+
+  /*
+     Page columns Spaces and JL-66 need. Added with ALTER ... IF NOT EXISTS
+     rather than folded into the CREATE TABLE above, because that statement
+     only runs on a fresh database and every existing install already has
+     the table (the JL-468 lesson: a CREATE TABLE is not a migration).
+
+       space_id     nullable — a page may sit in a project, a Space, or both
+       status       'draft' | 'published' (JL-95). Existing rows are published:
+                    they were written before drafts existed and are visible now.
+       deleted_at   soft delete, so Trash and restore (JL-94) are possible at
+                    all. A hard DELETE cannot be undone.
+       archived     distinct from deleted: archived is intentional and
+                    permanent-ish, deleted is recoverable (JL-93).
+  */
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL')
+  await pool.query("ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published'")
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS deleted_by TEXT')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_space ON wiki_pages(space_id)')
+  // Partial index: the overwhelmingly common read is "live pages", and a
+  // partial index keeps deleted rows out of it entirely.
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_live ON wiki_pages(space_id) WHERE deleted_at IS NULL')
+
+  /* ============================================================
+     JL-152 (Confluence Lite home) — recently viewed, and favourites.
+     ------------------------------------------------------------
+     The home page is built from three sources. Spaces already exist
+     (JL-77). The other two did not, which is why JL-128 and JL-129
+     were still open: there was nowhere to record that a page had been
+     read, or starred.
+     ============================================================ */
+
+  /*
+     FR-FV-02 / JL-129 — recently viewed pages.
+
+     One row per (user, page), rewritten on each view rather than
+     appended, so this table stays proportional to pages-read and not
+     to reads. The history a person wants is "what was I looking at",
+     which is a set ordered by recency, not a log.
+
+     A read is not an edit, so viewed_at is the only thing that moves.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recently_viewed (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      page_id INTEGER NOT NULL REFERENCES wiki_pages(id) ON DELETE CASCADE,
+      viewed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_email, page_id)
+    )
+  `)
+  // The only read is "my history, newest first", so index exactly that.
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_recently_viewed_user ON recently_viewed(LOWER(user_email), viewed_at DESC)')
+
+  /*
+     FR-FV-01 / JL-128 — favourites (stars).
+
+     Deliberately ONE polymorphic table rather than wiki_page_favorites
+     plus space_favorites. The home page reads pages and Spaces in the
+     same breath ("Starred", "Starred spaces"), and two tables would
+     mean two queries, two sets of endpoints and two chances to forget
+     the permission filter.
+
+     It does NOT absorb the existing project_favorites and
+     filter_favorites: those are live, tested and referenced elsewhere,
+     and rewriting them is a migration this ticket has no reason to
+     run. New target types belong here.
+
+     There is no FK on target_id — it points into different tables by
+     target_type — so a delete leaves a dangling row. Every read joins
+     to the target and drops what no longer resolves, which is also
+     exactly what the permission filter has to do anyway.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS favorites (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      target_type TEXT NOT NULL CHECK (target_type IN ('page', 'space')),
+      target_id INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_email, target_type, target_id)
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(LOWER(user_email), target_type, created_at DESC)')
+
   // --- JL-42: Notification Preferences ---
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notification_preferences (

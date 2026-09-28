@@ -39,20 +39,47 @@
   --jira-canvas: #1d2125;
 }
 
+/* JL-154: a flex ROW, not a grid.
+   The grid declared the sidebar's width in the COLUMN rather than on the
+   sidebar, so a panel with a width of its own — Confluence Lite's 280px one —
+   overflowed its 240px column and rendered on top of the content. Hence the
+   clipped "iscover what's happening". Each sidebar now owns its own width and
+   the content column simply takes what is left. */
 .workspace {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  /* The shell owns the viewport (index.css), so this row fills what the top
+     bar leaves and never grows past it. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   background: var(--jira-canvas);
   color: var(--jira-text);
 }
 
-.workspace.sidebar-collapsed {
-  grid-template-columns: 76px 1fr;
+/* The width the grid column used to provide, now on the element itself. */
+.workspace > .sidebar {
+  flex: 0 0 240px;
+  width: 240px;
 }
 
+.workspace.sidebar-collapsed > .sidebar {
+  flex-basis: 76px;
+  width: 76px;
+}
+
+/* min-width: 0 is what lets the column shrink instead of pushing the page
+   wider than the viewport — without it a wide table inside would force
+   horizontal overflow onto the page body. */
 .content {
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Reserve the scrollbar track so content does not jump sideways the moment
+     a scrollbar appears or disappears. */
+  scrollbar-gutter: stable;
   background: var(--jira-canvas);
 }
 
@@ -89,8 +116,13 @@
    keep ordinary page scrolling, and the components' own max-height bounds (e.g.
    .kanban-col-cards) still apply there — which is why those stay in place. */
 @media (min-width: 861px) {
+  /* JL-154: NOT `height: 100dvh` any more.
+     That was right when .workspace was the root element. JL-153 moved the
+     shared top bar ABOVE it, so a full-viewport-height workspace plus a 64px
+     bar came to 100dvh + 64px — the shell overflowed the viewport by exactly
+     the height of the bar, which is one of the two scrollbars on screen. The
+     bound now comes from .app-shell, which .workspace fills what is left of. */
   .workspace {
-    height: 100dvh;
     overflow: hidden;
   }
 
@@ -109,8 +141,9 @@
     overflow-y: auto;
   }
 
-  /* Chrome keeps its natural height and never shrinks. */
-  .content > .topbar,
+  /* Chrome keeps its natural height and never shrinks. The top bar is no
+     longer listed here: JL-153 moved it out of .content and up into
+     .app-shell, where RootLayout.css gives it its fixed height. */
   .content > .project-top-panel-wrapper,
   .content > .banner {
     flex: 0 0 auto;
@@ -129,15 +162,16 @@
      would quietly get overflow-y:auto and a second scrollbar on top of their
      own inner scroller. :where() contributes zero, leaving this at (0,1,0) so
      the opt-out wins. Verified in the browser, not assumed. */
-  .content > *:not(:where(.topbar, .project-top-panel-wrapper, .banner)) {
+  .content > *:not(:where(.project-top-panel-wrapper, .banner)) {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
   }
 
-  /* Opt-out: these two delegate scrolling to a bespoke inner region (the table
-     body, the board area), so the page element itself must not scroll or the
-     board would get a second, redundant scrollbar. */
+  /* Opt-out: these pages delegate scrolling to a bespoke inner region (the
+     table body, the board area, and since JL-154 the dashboard's gadget grid),
+     so the page element itself must not scroll or it would get a second,
+     redundant scrollbar on top of its own inner one. */
   .content > .page-viewport {
     display: flex;
     flex-direction: column;
@@ -177,12 +211,14 @@
 
 /* Tablet — narrow the sidebar + tighten gutters, reflow grids (JL-60) */
 @media (max-width: 1160px) {
-  .workspace {
-    grid-template-columns: 200px 1fr;
+  .workspace > .sidebar {
+    flex-basis: 200px;
+    width: 200px;
   }
 
-  .workspace.sidebar-collapsed {
-    grid-template-columns: 64px 1fr;
+  .workspace.sidebar-collapsed > .sidebar {
+    flex-basis: 64px;
+    width: 64px;
   }
 
   .stats-grid {
@@ -295,9 +331,10 @@
 /* Mobile — hide sidebar, full-width content, bottom-nav clearance,
    horizontally scrollable board, single-column forms/grids (JL-60) */
 @media (max-width: 767px) {
+  /* Mobile: the sidebar is hidden below, so the content column is the row. */
   .workspace,
   .workspace.sidebar-collapsed {
-    grid-template-columns: 1fr;
+    display: flex;
   }
 
   .sidebar {

@@ -79,15 +79,21 @@ describe('JL-279 sidebar a11y', () => {
     expect(document.getElementById('sidebar-project-list')).not.toBeNull()
   })
 
-  it('collapse button label toggles between Collapse and Expand sidebar', () => {
-    const { unmount } = renderSidebar({ collapsed: false })
-    const collapseBtn = screen.getByRole('button', { name: 'Collapse sidebar' })
-    expect(collapseBtn).toHaveAttribute('aria-expanded', 'true')
-    unmount()
-
-    renderSidebar({ collapsed: true })
-    const expandBtn = screen.getByRole('button', { name: 'Expand sidebar' })
-    expect(expandBtn).toHaveAttribute('aria-expanded', 'false')
+  it('has no collapse control — JL-153 moved it to the shared top bar', () => {
+    /*
+     * This used to assert the Collapse/Expand label toggled on a button inside
+     * the sidebar. JL-153 gave the product exactly ONE collapse control, in the
+     * top bar, acting on whichever product sidebar is mounted — Confluence Lite
+     * had grown a second one, and two controls for one piece of state disagree
+     * the moment either is used.
+     *
+     * The label-toggle behaviour still exists and is still covered; it is
+     * asserted against the top bar in ProductShellIsolation.JL153.test.jsx.
+     */
+    renderSidebar({ collapsed: false })
+    expect(
+      screen.queryByRole('button', { name: /collapse sidebar|expand sidebar/i }),
+    ).not.toBeInTheDocument()
   })
 
   it('disabled nav items carry aria-disabled="true"', () => {

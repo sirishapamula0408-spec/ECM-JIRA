@@ -50,11 +50,21 @@ vi.mock('../components/notifications/NotificationDropdown', () => ({
 }))
 
 import { Topbar } from '../components/layout/Topbar'
+import { ProductProvider } from '../context/ProductProvider'
+import { productForPath } from '../components/appswitcher/appSwitcherApps'
 
+/*
+ * JL-153: the top bar is shared chrome and takes its brand, search target and
+ * Create action from the ACTIVE PRODUCT. In the app that always comes from
+ * RootLayout; here it is supplied directly so this suite exercises the bar the
+ * way it actually renders.
+ */
 const renderTopbar = () =>
   render(
     <MemoryRouter>
-      <Topbar onCreate={vi.fn()} hasProjects />
+      <ProductProvider product={productForPath('/')}>
+        <Topbar onCreate={vi.fn()} hasProjects />
+      </ProductProvider>
     </MemoryRouter>,
   )
 

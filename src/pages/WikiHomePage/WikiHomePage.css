@@ -1,0 +1,233 @@
+/* JL-152 — Confluence Lite home.
+
+   Token-only. Every colour, space, radius, shadow and type value resolves to a
+   variable from styles/variables.css — stylelint gates the font properties and
+   the rest follow the same rule by choice. No one-off values, per the brief. */
+
+/* JL-154: 16px horizontal padding, the same as the shared `.page` rule the
+   Jira dashboard uses, so the two products' sections line up at the same
+   gutter. The 24px this used to carry made the wiki sit visibly inset from
+   every other screen.
+
+   No `height`/`overflow` here: the content COLUMN scrolls (layout.css), not
+   the page inside it, which is what keeps one scrollbar on screen. */
+.wiki-home {
+  min-width: 0;
+  max-width: 1280px;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  /* Normal section spacing. --space-6 (32px) left a band of dead air between
+     sections that read as a rendering fault rather than as breathing room. */
+  gap: var(--space-4);
+}
+
+.wiki-home-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wiki-home-heading {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+  text-wrap: balance;
+}
+
+/* JL-154: the "Pick up where you left off" card grid was removed from the
+   page, so the ~90 lines that styled it are gone too rather than left behind
+   to style nothing. */
+
+/* ── Section 2: the feed ──────────────────────────────────────────────── */
+
+.wiki-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.wiki-feed-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wiki-sort-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
+  background: var(--jira-surface);
+  color: var(--jira-text);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  cursor: pointer;
+}
+
+.wiki-sort-trigger:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.wiki-tabs {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.wiki-tab {
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  /* A pill, so the radius is deliberately not one of the surface tokens —
+     999px is the shape, not a size decision. */
+  border-radius: 999px;
+  background: none;
+  color: var(--jira-text-muted);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast) var(--ease-standard);
+}
+
+.wiki-tab:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.wiki-tab--selected {
+  background: var(--jira-blue-soft);
+  color: var(--jira-link);
+  font-weight: var(--font-weight-semibold);
+}
+
+.wiki-feed {
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-lg);
+  background: var(--jira-surface);
+}
+
+.wiki-feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-feed-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--jira-border-subtle);
+}
+
+.wiki-feed-row:last-child {
+  border-bottom: 0;
+}
+
+.wiki-feed-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-sans);
+}
+
+.wiki-feed-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.wiki-feed-line {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text);
+}
+
+.wiki-feed-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--jira-link);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.wiki-feed-link:hover {
+  text-decoration: underline;
+}
+
+.wiki-feed-meta {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+.wiki-feed-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3);
+  border-top: 1px solid var(--jira-border-subtle);
+}
+
+@media (max-width: 640px) {
+  .wiki-home {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .wiki-feed-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-tab {
+    transition: none;
+  }
+}
+
+/* JL-154 — a compact empty state.
+
+   A section with no data gets a line, not a screen. The full <EmptyState>
+   block is right when the whole page is empty and the user needs somewhere to
+   go; inside a section it reserves vertical space for nothing, which is what
+   made the home page look broken rather than new. Matches the sidebar's
+   "Nothing viewed yet" treatment. */
+.wiki-compact-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.wiki-compact-empty-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.wiki-compact-empty-text {
+  min-width: 0;
+}

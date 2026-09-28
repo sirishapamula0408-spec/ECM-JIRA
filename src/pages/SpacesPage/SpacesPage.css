@@ -1,0 +1,124 @@
+/* JL-65 — the Space directory.
+   Token-only: every colour, space, radius and type value below resolves to a
+   variable from styles/variables.css. Stylelint gates the font properties, and
+   the rest follow the same rule by choice, not by enforcement. */
+
+.spaces-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.spaces-lede {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+  max-width: 60ch;
+}
+
+.spaces-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* auto-fill with a minimum keeps the row count honest: cards never stretch
+     across dead space, and a single Space does not sit alone in a full-width
+     row. */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.space-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--jira-surface);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--jira-shadow-raised);
+  padding: var(--space-4);
+  transition: box-shadow var(--transition-fast) var(--ease-standard);
+}
+
+.space-card:hover {
+  box-shadow: var(--jira-shadow-hover);
+}
+
+/* An archived Space stays readable — it is still the home of real pages — but
+   recedes, so it never competes with a live one for attention. */
+.space-card--archived {
+  opacity: 0.72;
+}
+
+.space-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.space-card-key {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--jira-link);
+}
+
+.space-card-name {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.space-card-desc {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+  /* Clip to three lines: a card grid only works if the cards are the same
+     shape, and a long description would otherwise set the row height. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.space-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--jira-border);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.space-card-role {
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 640px) {
+  .spaces-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .space-card {
+    transition: none;
+  }
+}

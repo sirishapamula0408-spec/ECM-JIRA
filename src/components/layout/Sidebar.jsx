@@ -4,7 +4,6 @@ import { SidebarNavIcon } from '../icons/SidebarNavIcon'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { usePluginContributions } from '../../hooks/usePluginContributions'
-import sedinLogo from '../../assets/sedin-logo.svg'
 import './Sidebar.css'
 
 // JL-277: launch sidebar shows only these sections; flip LAUNCH_SIDEBAR to false to restore the full nav.
@@ -13,10 +12,10 @@ const LAUNCH_SIDEBAR = true
 // JL-436: keep this in step with the nav items below — SidebarNavCoverage.JL436
 // fails if an item is neither listed here nor declared deliberately hidden.
 // JL-425 renamed 'Team directory' to 'Teams' and the old 'Teams' to 'Members'.
-const LAUNCH_NAV = ['Projects', 'Teams', 'Members', 'Users', 'Filters', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
+const LAUNCH_NAV = ['Projects', 'Knowledge', 'Teams', 'Members', 'Users', 'Filters', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
-export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRefreshKey, hasProjects }) {
+export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProjects }) {
   const { canCreateProject, canManageUsers, canManageMembers } = usePermissions()
   // JL-145: declarative plugin nav-item contributions, rendered as safe links.
   const { contributions: pluginNavItems } = usePluginContributions('nav-item')
@@ -97,6 +96,13 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
     // plain 'Teams' name and moved the member directory to 'Members', so the
     // label and the route finally describe the same thing.
     { label: 'Teams', path: '/teams', icon: 'teams' },
+    /* JL-80: Knowledge is TOP-LEVEL, not under a project.
+       The existing wiki tab lives on ProjectTopPanel and is scoped to one
+       project. Spaces are deliberately cross-project - a runbook or an
+       onboarding guide outlives the project that prompted it - so the entry
+       point has to sit outside the project shell or those pages would be
+       reachable only through a project they do not belong to. */
+    { label: 'Knowledge', path: '/spaces', icon: 'spaces' },
     // JL-425: the workspace member directory, renamed from 'Teams' because
     // that is not what it is. Admin/Owner-only (JL-227).
     ...(canManageMembers ? [{ label: 'Members', path: '/members', icon: 'teams' }] : []),
@@ -132,25 +138,13 @@ export function Sidebar({ collapsed, onToggleSidebar, onCreateProject, projectRe
 
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
-      <div className="sidebar-top">
-        <div className="brand jira-brand">
-          <img src={sedinLogo} alt="Sedin" className="brand-logo" />
-          {!collapsed && <h2>ECM Projects</h2>}
-        </div>
-        <button
-          className="icon-btn collapse-btn"
-          type="button"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-expanded={!collapsed}
-          onClick={onToggleSidebar}
-        >
-          {collapsed ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-          )}
-        </button>
-      </div>
+      {/* JL-153: the brand and the sidebar-collapse control used to live here,
+          in a `.sidebar-top` header. Both moved to the shared top bar: the
+          brand because the bar now names the ACTIVE PRODUCT ("ECM JIRA LITE" /
+          "Confluence Lite"), and the collapse control because there must be
+          exactly one of it, acting on whichever product sidebar is mounted.
+          Confluence Lite had grown a second one, which is the duplicate this
+          removes. */}
 
       {primaryItems.length > 0 && (
       <nav aria-label="Main navigation">

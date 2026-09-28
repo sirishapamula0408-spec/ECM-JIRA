@@ -52,3 +52,8 @@ coverage/
 
 # Theme-1 #3: uploaded attachment files (not versioned)
 server/uploads/
+
+# Database/project backup archives. backups/ was already ignored; the zip
+# beside it was not, and it carries a pg_dump including password hashes.
+backups.zip
+*.dump

@@ -1,0 +1,38 @@
+/* JL-152 — the reader a home-page card opens. Token-only. */
+
+.wiki-viewer {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-5);
+}
+
+.wiki-viewer-body {
+  max-width: 74ch;
+}
+
+.wiki-viewer-head h1 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+  text-wrap: balance;
+}
+
+.wiki-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: var(--space-2) 0 var(--space-5);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+.wiki-viewer-empty {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+}

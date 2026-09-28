@@ -254,7 +254,12 @@ export function DashboardPage() {
   const hasActiveFilters = showMyOpenOnly || Object.entries(filters).some(([key, v]) => key !== 'project' && v !== 'All')
 
   return (
-    <section className="page dashboard-page">
+    /* JL-154: `page-viewport` is the SAME opt-out the List and Board pages
+       use (JL-399/JL-401) — the page element itself does not scroll, and the
+       scrolling is delegated to a bespoke inner region, here the gadget grid.
+       Reused rather than re-implemented: a second mechanism doing this would
+       be a second set of rules to keep in step with layout.css. */
+    <section className="page dashboard-page page-viewport">
       {/* Dashboard header */}
       <div className="dashboard-header">
         <div className="dashboard-title-area">

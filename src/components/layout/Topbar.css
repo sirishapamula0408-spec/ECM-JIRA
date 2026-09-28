@@ -1,5 +1,5 @@
 .topbar {
-  height: 64px;
+  height: var(--topbar-height);
   padding: 8px 16px;
   background: var(--jira-surface);
   border-bottom: 1px solid var(--jira-border);
@@ -318,4 +318,59 @@
   color: var(--text-color, #172b4d);
   font-size: var(--font-size-base);
   cursor: pointer;
+}
+
+/* ── JL-153: the shared chrome's product slots ─────────────────────────── */
+
+/* THE sidebar-collapse control — one per product, acting on whichever
+   product sidebar is mounted. */
+.topbar-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--jira-text-muted);
+  border-radius: var(--radius-sm);
+}
+
+.topbar-collapse:hover {
+  background: var(--jira-hover-overlay);
+  color: var(--jira-text);
+}
+
+/* Brand + product name. Names the ACTIVE product and links to its home. */
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--jira-text);
+  text-decoration: none;
+}
+
+.topbar-brand:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.topbar-brand-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.topbar-brand-name {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* Narrow: the name is the first thing to go — the logo still identifies the
+   product and the search field is what people actually need the width for. */
+@media (max-width: 900px) {
+  .topbar-brand-name {
+    display: none;
+  }
 }

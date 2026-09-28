@@ -23,9 +23,29 @@
   box-sizing: border-box;
 }
 
+/* JL-154: the app shell fills the viewport EXACTLY and never scrolls as a
+   whole. Before this, the document scrolled AND the regions inside it did, so
+   two vertical scrollbars were visible at once and neither was the one the
+   content actually belonged to. Scrolling now belongs to the region that
+   overflows — the sidebar or the content column — and nothing else. */
+html,
+#root {
+  height: 100%;
+}
+
+html {
+  overflow: hidden;
+}
+
+/* The overflow lock is folded INTO this rule rather than added as a separate
+   "html, body" block above it. A second block whose selector list starts with
+   body shadows this one for anything that reads the stylesheet by selector,
+   which is exactly how it broke the JL-231 background assertion. */
 body {
   margin: 0;
   min-width: 320px;
+  height: 100%;
+  overflow: hidden;
   /* JL-231: pure white page background in light mode (was smoke-white #f1f5f9).
      Dark mode is unaffected — .app-theme-dark body overrides to #1d2125. */
   background: #ffffff;

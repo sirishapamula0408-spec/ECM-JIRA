@@ -13,6 +13,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
+
+// JL-153: the top bar moved out of .content and up into the shell, so the rule
+// that pins it now lives in RootLayout.css rather than layout.css.
+const shellCss = fs
+  .readFileSync(path.join(here, '..', 'components', 'layout', 'RootLayout.css'), 'utf8')
+
 const layoutCss = fs
   .readFileSync(path.join(here, '..', 'styles', 'layout.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -61,13 +67,21 @@ describe('JL-401 — every page gets a scroll region', () => {
   })
 
   it('excludes the chrome from becoming a scroll region', () => {
-    const chrome = ruleWith('.content > .topbar')
+    /*
+     * JL-153 moved the top bar OUT of .content and up into .app-shell, where
+     * RootLayout.css gives it its fixed height — so it is no longer a child of
+     * .content and no longer belongs in either list here.
+     */
+    const chrome = ruleWith('.content > .project-top-panel-wrapper')
     expect(chrome).not.toBeNull()
     expect(chrome).toMatch(/flex:\s*0 0 auto/)
     const selector = layoutCss.match(/(\.content > \*[^{]*)\{/)?.[1] ?? ''
-    for (const c of ['topbar', 'project-top-panel-wrapper', 'banner']) {
+    for (const c of ['project-top-panel-wrapper', 'banner']) {
       expect(selector, `${c} must be excluded`).toContain(c)
     }
+    expect(selector, 'the topbar is no longer a child of .content').not.toContain('topbar')
+    expect(shellCss, 'the topbar is pinned by the shell instead')
+      .toMatch(/\.app-shell > \.topbar\s*\{[^}]*flex:\s*0 0 var\(--topbar-height\)/)
   })
 })
 
@@ -109,12 +123,17 @@ describe('JL-401 — scope', () => {
     expect(block[1]).toContain('.content >')
   })
 
-  it('leaves the unlocked base rules alone for narrow widths', () => {
-    // Below the breakpoint the page scrolls normally, so the base .workspace
-    // must keep its min-height and gain no overflow.
+  it('keeps the base workspace bounded by the shell at narrow widths', () => {
+    /*
+     * JL-154 replaced `min-height: 100vh` with flex bounding. The document no
+     * longer scrolls at ANY width (index.css locks html and body), so a base
+     * rule that let .workspace grow past the viewport would strand content
+     * rather than produce the old page scroll.
+     */
     const base = layoutCss.match(/(^|\})\s*\.workspace\s*\{([^}]*)\}/m)
     expect(base).not.toBeNull()
-    expect(base[2]).toMatch(/min-height:\s*100vh/)
-    expect(base[2]).not.toMatch(/overflow/)
+    expect(base[2]).toMatch(/display:\s*flex/)
+    expect(base[2]).toMatch(/min-height:\s*0/)
+    expect(base[2]).not.toMatch(/min-height:\s*100vh/)
   })
 })

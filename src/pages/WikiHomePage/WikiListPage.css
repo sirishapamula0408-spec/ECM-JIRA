@@ -1,0 +1,90 @@
+/* JL-152 — /wiki/recent and /wiki/starred. Token-only. */
+
+.wiki-list-page {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-5);
+}
+
+.wiki-list-page h1 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.wiki-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-lg);
+  background: var(--jira-surface);
+  overflow: hidden;
+}
+
+.wiki-list-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--jira-border-subtle);
+  background: none;
+  color: var(--jira-text);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wiki-list li:last-child .wiki-list-row {
+  border-bottom: 0;
+}
+
+.wiki-list-row:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.wiki-list-title {
+  min-width: 0;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wiki-list-space,
+.wiki-list-time {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+  white-space: nowrap;
+}
+
+.wiki-list-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.wiki-list-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+/* Narrow: the meta columns stack under the title rather than forcing the row
+   wider than the screen. */
+@media (max-width: 640px) {
+  .wiki-list-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .wiki-list-space,
+  .wiki-list-time {
+    grid-column: 2;
+  }
+}

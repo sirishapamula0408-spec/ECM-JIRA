@@ -76,8 +76,18 @@ describe('JL-399 — the height chain from the viewport down', () => {
     const media = locked.match(/@media \(min-width: 861px\)\s*\{([\s\S]*?)\n\}/)[1]
     const block = exactRule(media, '.workspace')
     expect(block, 'no locked workspace rule inside the breakpoint').not.toBeNull()
-    expect(block).toMatch(/height:\s*100dvh/)
     expect(block).toMatch(/overflow:\s*hidden/)
+    /*
+     * JL-154: NO LONGER 100dvh here. That was correct while .workspace was the
+     * root element. JL-153 moved the shared top bar above it, so 100dvh plus
+     * the bar's 64px overflowed the viewport by exactly the bar's height —
+     * one of the two scrollbars on screen. The bound now comes from
+     * .app-shell, and .workspace fills what is left of it.
+     */
+    expect(block).not.toMatch(/height:/)
+    const shell = read('components/layout/RootLayout.css')
+    expect(exactRule(shell, '.app-shell')).toMatch(/height:\s*100%/)
+    expect(exactRule(shell, '.app-shell')).toMatch(/overflow:\s*hidden/)
   })
 
   it('locks the shell only because every page now has a scroll region (JL-401)', () => {
@@ -105,7 +115,13 @@ describe('JL-399 — the height chain from the viewport down', () => {
   })
 
   it('keeps a tall sidebar reachable now that the shell cannot scroll', () => {
-    const block = ruleWith(locked, '.workspace > .sidebar')
+    /*
+     * Scoped to the media block: JL-154 added an unlocked
+     * `.workspace > .sidebar` rule above it, carrying the width the grid
+     * column used to supply, and an unscoped lookup finds that one first.
+     */
+    const media = locked.match(/@media \(min-width: 861px\)\s*\{([\s\S]*?)\n\}/)[1]
+    const block = ruleWith(media, '.workspace > .sidebar')
     expect(block).not.toBeNull()
     expect(block).toMatch(/overflow-y:\s*auto/)
   })

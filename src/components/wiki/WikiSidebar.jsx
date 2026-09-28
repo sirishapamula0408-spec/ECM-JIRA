@@ -1,0 +1,205 @@
+import { NavLink, useNavigate } from 'react-router-dom'
+import { avatarStyle } from '../../utils/avatarColour'
+import { useWikiSidebarState } from '../../hooks/useWikiSidebarState'
+import {
+  ForYouIcon, RecentIcon, StarIcon, SpacesIcon, AppsIcon,
+  DocumentIcon, ChevronIcon,
+} from './WikiIcons'
+import './WikiSidebar.css'
+
+/*
+ * JL-152 — the Confluence Lite left sidebar.
+ *
+ * Persistent across every /wiki route, which is why it is mounted by the route
+ * shell rather than by WikiHomePage: a panel that unmounts and remounts per
+ * route loses its scroll position and flashes on every navigation.
+ *
+ * ── Expandable sections ─────────────────────────────────────────────────────
+ *
+ * Recent, Starred and Spaces expand IN PLACE and must not navigate. That makes
+ * each of them a <button aria-expanded>, NOT a link — a link that does not
+ * navigate is a broken promise to anyone using a keyboard or a screen reader,
+ * and ctrl-click would open a URL that was never meant to exist.
+ *
+ * "For you" and "Apps" do navigate, so those are NavLinks and take the active
+ * highlight from react-router's own isActive rather than a hand-rolled
+ * comparison against location.pathname.
+ */
+
+/** A Space's 24x24 tile: its initial, on a colour derived from its key. */
+export function SpaceAvatar({ space }) {
+  const key = String(space?.key || space?.name || '?')
+  return (
+    <span className="wiki-space-avatar" style={avatarStyle(key)} aria-hidden="true">
+      {key.charAt(0).toUpperCase()}
+    </span>
+  )
+}
+
+/** One expandable nav section: a toggle row, then up to 5 rows in place. */
+function ExpandableSection({
+  id, label, icon, items, hasMore, expanded, onToggle, renderItem, moreHref, emptyLabel,
+}) {
+  const panelId = `wiki-nav-panel-${id}`
+  return (
+    <li className="wiki-nav-section">
+      <button
+        type="button"
+        className="wiki-nav-row wiki-nav-row--toggle"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={() => onToggle(id)}
+      >
+        <span className="wiki-nav-icon">{icon}</span>
+        <span className="wiki-nav-label">{label}</span>
+        <span className={`wiki-nav-chevron${expanded ? ' wiki-nav-chevron--open' : ''}`}>
+          <ChevronIcon size={16} />
+        </span>
+      </button>
+
+      {expanded && (
+        <ul className="wiki-nav-sublist" id={panelId}>
+          {items.length === 0 && <li className="wiki-nav-subempty">{emptyLabel}</li>}
+          {items.map(renderItem)}
+          {hasMore && (
+            <li>
+              <NavLink className="wiki-nav-more" to={moreHref}>Show more</NavLink>
+            </li>
+          )}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+export function WikiSidebar({ data, loading, collapsed = false }) {
+  // JL-153: `collapsed` is the shell's, driven by the single collapse control
+  // in the top bar. This panel keeps only its own section expansion.
+  const { isExpanded, toggleSection } = useWikiSidebarState()
+  const navigate = useNavigate()
+
+  const recent = data?.recent ?? []
+  const starredPages = data?.starredPages ?? []
+  const spaces = data?.spaces ?? []
+  const starredSpaces = data?.starredSpaces ?? []
+
+  const pageRow = (page) => (
+    <li key={page.id}>
+      <button
+        type="button"
+        className="wiki-nav-subrow"
+        onClick={() => navigate(`/wiki/pages/${page.id}`)}
+        title={page.title}
+      >
+        <DocumentIcon size={16} />
+        <span className="wiki-nav-subtitle">{page.title}</span>
+      </button>
+    </li>
+  )
+
+  const spaceRow = (space) => (
+    <li key={space.id}>
+      <button
+        type="button"
+        className="wiki-nav-subrow"
+        onClick={() => navigate(`/spaces?key=${encodeURIComponent(space.key)}`)}
+        title={space.name}
+      >
+        <SpaceAvatar space={space} />
+        <span className="wiki-nav-subtitle">{space.name}</span>
+      </button>
+    </li>
+  )
+
+  return (
+    <nav
+      className={`wiki-sidebar${collapsed ? ' wiki-sidebar--collapsed' : ''}`}
+      aria-label="Confluence Lite"
+      data-testid="wiki-sidebar"
+    >
+      {/* Collapsed, the rail is too narrow for labels, sublists or "Show more",
+          so it shows the two real destinations and drops everything that would
+          be truncated into meaninglessness. */}
+      {collapsed ? (
+        <ul className="wiki-nav wiki-nav--rail">
+          <li>
+            <NavLink to="/wiki/home" className="wiki-nav-row" title="For you" aria-label="For you">
+              <span className="wiki-nav-icon"><ForYouIcon /></span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/wiki/apps" className="wiki-nav-row" title="Apps" aria-label="Apps">
+              <span className="wiki-nav-icon"><AppsIcon /></span>
+            </NavLink>
+          </li>
+        </ul>
+      ) : (
+        <div className="wiki-sidebar-scroll">
+          <ul className="wiki-nav">
+            <li>
+              <NavLink to="/wiki/home" className="wiki-nav-row">
+                <span className="wiki-nav-icon"><ForYouIcon /></span>
+                <span className="wiki-nav-label">For you</span>
+              </NavLink>
+            </li>
+
+            <ExpandableSection
+              id="recent"
+              label="Recent"
+              icon={<RecentIcon />}
+              items={recent}
+              hasMore={data?.recentHasMore}
+              expanded={isExpanded('recent')}
+              onToggle={toggleSection}
+              renderItem={pageRow}
+              moreHref="/wiki/recent"
+              emptyLabel={loading ? 'Loading…' : 'Nothing viewed yet'}
+            />
+
+            <ExpandableSection
+              id="starred"
+              label="Starred"
+              icon={<StarIcon />}
+              items={starredPages}
+              hasMore={data?.starredPagesHasMore}
+              expanded={isExpanded('starred')}
+              onToggle={toggleSection}
+              renderItem={pageRow}
+              moreHref="/wiki/starred"
+              emptyLabel={loading ? 'Loading…' : 'No starred pages'}
+            />
+
+            <ExpandableSection
+              id="spaces"
+              label="Spaces"
+              icon={<SpacesIcon />}
+              items={spaces}
+              hasMore={data?.spacesHasMore}
+              expanded={isExpanded('spaces')}
+              onToggle={toggleSection}
+              renderItem={spaceRow}
+              moreHref="/spaces"
+              emptyLabel={loading ? 'Loading…' : 'No spaces yet'}
+            />
+
+            <li>
+              <NavLink to="/wiki/apps" className="wiki-nav-row">
+                <span className="wiki-nav-icon"><AppsIcon /></span>
+                <span className="wiki-nav-label">Apps</span>
+              </NavLink>
+            </li>
+          </ul>
+
+          {starredSpaces.length > 0 && (
+            <section className="wiki-starred-spaces" aria-labelledby="wiki-starred-spaces-heading">
+              <h2 className="wiki-sidebar-heading" id="wiki-starred-spaces-heading">
+                Starred spaces
+              </h2>
+              <ul className="wiki-nav">{starredSpaces.map(spaceRow)}</ul>
+            </section>
+          )}
+        </div>
+      )}
+    </nav>
+  )
+}

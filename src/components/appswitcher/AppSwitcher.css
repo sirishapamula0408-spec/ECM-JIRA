@@ -1,0 +1,145 @@
+/*
+ * JL-151 — app switcher (waffle).
+ *
+ * Every colour, space, radius, shadow and type value below is a token from
+ * src/styles/variables.css; nothing here is a one-off literal. The panel and
+ * the rows are MUI <Menu> / <MenuItem> internals being skinned, which is why
+ * the selectors are doubled up with .MuiPaper-root / .MuiMenuItem-root — that
+ * is what it takes to out-specify emotion's own class without !important.
+ */
+
+.app-switcher {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+/* ── trigger ─────────────────────────────────────────────────────────── */
+
+.app-switcher-trigger {
+  height: var(--space-6);      /* 32px */
+  width: var(--space-6);
+  min-width: var(--space-6);
+  padding: 0;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* .icon-btn sizes every svg to --icon-sm; the waffle wants the medium step so
+   the 3x3 grid does not collapse into a smudge. */
+.app-switcher-trigger .app-switcher-grid-icon,
+.app-switcher-trigger svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+/* Open state: reads as pressed rather than merely hovered. */
+.app-switcher-trigger--open,
+.app-switcher-trigger--open:hover {
+  background: var(--jira-blue-soft);
+  border-color: var(--jira-blue);
+  color: var(--jira-blue);
+}
+
+.app-switcher-trigger:focus-visible {
+  outline: 2px solid var(--jira-blue);
+  outline-offset: 2px;
+}
+
+/* ── panel ───────────────────────────────────────────────────────────── */
+
+.MuiPaper-root.app-switcher-panel {
+  width: 280px;
+  /* Narrow viewports: never wider than the screen minus a gutter each side. */
+  max-width: calc(100vw - var(--space-5));
+  max-height: 320px;
+  background: var(--jira-menu-bg);
+  color: var(--jira-text);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--jira-shadow-hover);
+  overflow: hidden;
+}
+
+.MuiList-root.app-switcher-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-1) 0;
+  /* "Visible scrollbar past ~5 entries" — a thin but always-rendered track,
+     not the overlay scrollbar that only appears mid-scroll. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--jira-border-strong) transparent;
+}
+
+.app-switcher-list::-webkit-scrollbar {
+  width: var(--space-2);
+}
+
+.app-switcher-list::-webkit-scrollbar-thumb {
+  background: var(--jira-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.app-switcher-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── rows ────────────────────────────────────────────────────────────── */
+
+.MuiMenuItem-root.app-switcher-item {
+  min-height: var(--space-7);  /* 48px */
+  padding: var(--space-1) var(--space-4);
+  gap: var(--space-3);
+  display: flex;
+  align-items: center;
+  /* The whole row is the target, not just the label. */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.MuiMenuItem-root.app-switcher-item:hover,
+.MuiMenuItem-root.app-switcher-item:focus,
+.MuiMenuItem-root.app-switcher-item.Mui-focusVisible {
+  background: var(--jira-menu-hover);
+}
+
+.MuiMenuItem-root.app-switcher-item--current {
+  background: var(--jira-selected-bg);
+}
+
+.app-switcher-tile {
+  flex: 0 0 auto;
+  width: var(--space-6);       /* 32px */
+  height: var(--space-6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-switcher-tile .app-switcher-tile-icon {
+  width: var(--space-6);
+  height: var(--space-6);
+  display: block;
+  border-radius: var(--radius-lg);
+}
+
+.app-switcher-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-base);
+  color: var(--jira-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-switcher-check {
+  flex: 0 0 auto;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--jira-blue);
+}

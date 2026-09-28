@@ -82,11 +82,29 @@
 }
 
 /* Grid */
+/* JL-154: the dashboard produces no PAGE-level scrollbar.
+
+   Its gadgets already scroll their own overflow — the Filter Results grid most
+   visibly — so a scrollbar for the page as a whole was the redundant second
+   one. The page carries `page-viewport`, the SAME opt-out List and Board use
+   (JL-399/JL-401), so layout.css stops the page element scrolling and the
+   gadget grid below becomes the scroll region.
+
+   Deliberately the GRID and not `overflow: hidden` on the page: if the gadget
+   set outgrows the viewport, the rows stay reachable. Removing a scrollbar by
+   clipping content is a worse bug than the one being fixed. */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-flow: dense;
   gap: var(--space-4);
+  /* Rows keep their natural height and stack from the top rather than
+     stretching to fill, so a short dashboard does not inflate its gadgets. */
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 /* Empty state */
@@ -449,8 +467,27 @@
   color: var(--jira-text-muted);
 }
 
+/* JL-154: the grid scrolls INSIDE this container — both ways — so a wide or
+   long table never makes the page scroll. Horizontal overflow belongs to the
+   table, never to the page body.
+
+   `overflow: auto` on both axes is what makes the sticky header below work at
+   all: a sticky element scrolls within its nearest scrolling ancestor, so
+   without a vertical scroller here the header would have nothing to stick to. */
 .filter-results-table-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 420px;
+  scrollbar-gutter: stable;
+}
+
+/* The header stays put while the body scrolls under it. Column widths do not
+   drift, because `table-layout: fixed` plus the <colgroup> below resolve every
+   width once for the whole table rather than per row group. */
+.filter-results-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--jira-surface);
 }
 
 /* JL-469: fixed layout is what makes the header and the body share a column.

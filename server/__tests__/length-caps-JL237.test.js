@@ -156,8 +156,14 @@ describe('Wiki length caps (wiki.js)', () => {
     const res = await request(app).post('/api/wiki').send({ projectId: 1, title: '  Page  ', content: '  Body  ' })
     expect(res.status).toBe(201)
     const insert = run.mock.calls.find(([sql]) => /INSERT INTO wiki_pages/.test(sql))
-    expect(insert[1][1]).toBe('Page')
-    expect(insert[1][2]).toBe('Body')
+    // JL-66 added space_id and status to this INSERT, which shifted every
+    // positional index after project_id. What this test is about is that the
+    // values arrive TRIMMED, not where they sit in the tuple — so assert on
+    // membership and let the column list change without breaking it again.
+    expect(insert[1]).toContain('Page')
+    expect(insert[1]).toContain('Body')
+    expect(insert[1]).not.toContain('  Page  ')
+    expect(insert[1]).not.toContain('  Body  ')
   })
 
   it(`PATCH /:id rejects a title over ${WIKI_TITLE_MAX} chars with 400`, async () => {

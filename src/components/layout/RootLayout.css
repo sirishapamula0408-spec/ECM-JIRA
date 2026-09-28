@@ -1,0 +1,35 @@
+/* JL-153 / JL-154 — the global shell.
+
+   The top bar is ABOVE the sidebar rather than inside the content column,
+   because it is shared between products while the sidebar is not.
+
+   JL-154: the shell is a fixed-height flex column that fills the viewport and
+   never scrolls itself. Exactly one scrollbar is visible at a time, and it
+   belongs to whichever region actually overflows — the product sidebar or the
+   content column. Before this the document scrolled as well as the regions
+   inside it, which is why two vertical scrollbars showed at once. */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--jira-canvas);
+  color: var(--jira-text);
+}
+
+/* Fixed height, never scrolls, never shrinks. */
+.app-shell > .topbar {
+  flex: 0 0 var(--topbar-height);
+}
+
+/* Each product sidebar scrolls on its own, and only when its own content
+   overflows. `min-height: 0` is what actually permits that inside a flex
+   parent — without it the child grows and pushes the shell instead. */
+.app-shell .sidebar,
+.app-shell .wiki-sidebar {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}

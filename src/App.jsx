@@ -25,13 +25,8 @@ import { useNotifications } from './context/NotificationContext'
 import { NotificationProvider } from './context/NotificationProvider'
 
 import { ErrorBoundary } from './components/common/ErrorBoundary'
-import { SkipToContent } from './components/common/SkipToContent'
 import { useFocusMainOnRouteChange } from './hooks/useFocusMainOnRouteChange'
-import { LoadingSkeleton } from './components/LoadingSkeleton'
-import { Sidebar } from './components/layout/Sidebar'
-import { Topbar } from './components/layout/Topbar'
 import { MobileBottomNav } from './components/layout/MobileBottomNav'
-import { ProjectTopPanel } from './components/layout/ProjectTopPanel'
 import { RequireRole } from './components/auth/RequireRole'
 import { CreateIssueModal } from './components/issues/CreateIssueModal'
 import { CreateProjectModal } from './components/projects/CreateProjectModal'
@@ -40,6 +35,18 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { ACCEPT_INVITE_PATH, AcceptInvitePage } from './pages/AcceptInvitePage/AcceptInvitePage'
+import { SpacesPage } from './pages/SpacesPage/SpacesPage' // JL-65: Confluence Lite Spaces
+// JL-153: the three layout levels. RootLayout carries the shared top bar;
+// JiraLayout and ConfluenceLayout are siblings under it, one per product.
+import { RootLayout } from './components/layout/RootLayout'
+import { JiraLayout } from './components/layout/JiraLayout'
+import { ConfluenceLayout } from './components/layout/ConfluenceLayout'
+// JL-152: Confluence Lite pages.
+import { WikiHomePage } from './pages/WikiHomePage/WikiHomePage'
+import { WikiCreatePage } from './pages/WikiHomePage/WikiCreatePage'
+import { WikiPageViewer } from './pages/WikiHomePage/WikiPageViewer'
+import { WikiListPage } from './pages/WikiHomePage/WikiListPage'
+import { WikiAppsPage } from './pages/WikiHomePage/WikiAppsPage'
 import { RESET_PASSWORD_PATH, ResetPasswordPage } from './pages/ResetPasswordPage/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
 import { BacklogPage } from './pages/BacklogPage/BacklogPage'
@@ -181,106 +188,152 @@ function AppContent() {
   if (!isAuthenticated) return <LoginPage />
 
   return (
-    <div className={`workspace${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
-      <SkipToContent />
-      <Sidebar collapsed={isSidebarCollapsed} onToggleSidebar={() => setIsSidebarCollapsed((c) => !c)} onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} hasProjects={hasProjects} />
-      <main className="content" role="main" id="main-content" tabIndex={-1}>
-        <Topbar onCreate={() => setShowCreate(true)} hasProjects={hasProjects} />
-        <ProjectTopPanel onCreate={() => setShowCreate(true)} hasProjects={hasProjects} />
-        {error && <p className="banner error" role="alert">{error}</p>}
-        {loading && <LoadingSkeleton />}
-        {!loading && (
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={hasProjects ? <DashboardPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/dashboard" element={hasProjects ? <DashboardPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/report-builder" element={hasProjects ? <ReportBuilderPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
-              <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/settings" element={hasProjects ? <ProjectSettingsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/list" element={hasProjects ? <IssueListPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/list" element={hasProjects ? <IssueListPage /> : <Navigate to="/projects" replace />} />
-              {/* JL-254: /workflows historically served the issue-list UI (a mis-named
-                  route that collided with the real workflow editor). Redirect it to the
-                  properly-named /list view to avoid breaking any existing bookmarks. */}
-              <Route path="/workflows" element={<Navigate to="/list" replace />} />
-              <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
-              <Route path="/advanced-roadmap" element={hasProjects ? <AdvancedRoadmapPage /> : <Navigate to="/projects" replace />} />
-              {/* JL-425: the member directory lives at /members. It used to be
-                  /teams, which meant "user list" while /teams/:teamId meant "a
-                  team" — two unrelated things behind one name. That collision
-                  hid the whole team directory for a day (JL-436), so the page is
-                  named for what it is. Still Admin/Owner-only (JL-227). */}
-              <Route
-                path="/members"
-                element={(
-                  <RequireRole permission="canManageMembers" fallback={<Navigate to="/" replace />}>
-                    <TeamsPage />
-                  </RequireRole>
-                )}
+    <>
+      {/*
+        JL-153 — three layout levels, replacing chrome that used to be
+        unconditional JSX above <Routes>. That shape meant EVERY route in the
+        app rendered inside Jira's sidebar, top bar and issue tabs — including
+        Confluence Lite, which is the bug this fixes.
+
+          RootLayout        the shared top bar only
+            JiraLayout      Jira sidebar + issue tabs, Jira routes only
+            ConfluenceLayout  Confluence sidebar, /wiki/* only
+
+        The two product layouts are SIBLINGS. Neither can be reached from
+        inside the other, so "exactly one product sidebar is mounted" is a
+        property of the route tree rather than a rule each component has to
+        remember.
+      */}
+      <Routes>
+        <Route
+          element={(
+            <RootLayout
+              collapsed={isSidebarCollapsed}
+              onToggleSidebar={() => setIsSidebarCollapsed((c) => !c)}
+            />
+          )}
+        >
+          {/* ── Confluence Lite ─────────────────────────────────────────
+              Declared BEFORE the Jira layout so /wiki/* is claimed by its own
+              product rather than falling through to Jira's catch-all. */}
+          <Route path="/wiki" element={<ConfluenceLayout collapsed={isSidebarCollapsed} />}>
+            <Route index element={<Navigate to="/wiki/home" replace />} />
+            <Route path="home" element={<WikiHomePage />} />
+            <Route path="new" element={<WikiCreatePage />} />
+            <Route path="pages/:pageId" element={<WikiPageViewer />} />
+            <Route path="recent" element={<WikiListPage />} />
+            <Route path="starred" element={<WikiListPage />} />
+            <Route path="apps" element={<WikiAppsPage />} />
+          </Route>
+
+          {/* ── JIRA Lite ───────────────────────────────────────────────
+              `loading` and `error` are JIRA's app data (issues, sprints,
+              projects), so the gate lives with the product that needs it.
+              Confluence Lite fetches its own and must not wait on the
+              tracker's. */}
+          <Route
+            element={(
+              <JiraLayout
+                collapsed={isSidebarCollapsed}
+                onCreateProject={() => setShowCreateProject(true)}
+                projectRefreshKey={projectRefreshKey}
+                hasProjects={hasProjects}
+                loading={loading}
+                error={error}
               />
-              <Route
-                path="/users"
-                element={(
-                  <RequireRole permission="canManageUsers" fallback={<Navigate to="/" replace />}>
-                    <UserManagementPage />
-                  </RequireRole>
-                )}
-              />
-              {/* JL-419/JL-425: /teams is now the Atlassian-style team directory,
-                  consistent with /teams/:teamId below. Open to every workspace
-                  member — teams are not an admin feature. */}
-              <Route path="/teams" element={<TeamDirectoryPage />} />
-              <Route path="/teams/:teamId" element={<TeamProfilePage />} />
-              {/* JL-425: keep old links working rather than 404ing them. */}
-              <Route path="/teams-directory" element={<Navigate to="/teams" replace />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              {/* JL-148: /browse/JL-63 is the canonical issue URL, matching
-                  Atlassian. It is what every link in the app now builds. */}
-              <Route path="/browse/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
-              {/* The legacy path, kept registered so links already shared —
-                  /issues/402 and /issues/JL-63 alike — still resolve. Same
-                  component, same param; the page accepts either form. */}
-              <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/cross-project-boards" element={hasProjects ? <CrossProjectBoardPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/marketplace" element={<MarketplacePage />} />
-              <Route path="/inbound-email" element={hasProjects ? <InboundEmailPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/audit-log" element={<AuditLogPage />} />
-              <Route path="/bi-export" element={<BiExportPage />} />
-              <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/projects/:projectId/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/incidents" element={<IncidentsPage />} />
-              <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/plugins" element={<PluginsPage />} />
-              <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
-              <Route path="/assets" element={<AssetsPage />} />
-              <Route path="/portal" element={<PortalPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </ErrorBoundary>
-        )}
-      </main>
+            )}
+          >
+            <Route path="/" element={hasProjects ? <DashboardPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/dashboard" element={hasProjects ? <DashboardPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/report-builder" element={hasProjects ? <ReportBuilderPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects" element={<ProjectsPage onCreateProject={() => setShowCreateProject(true)} projectRefreshKey={projectRefreshKey} onProjectDeleted={() => setProjectRefreshKey((k) => k + 1)} />} />
+            <Route path="/projects/:projectId" element={hasProjects ? <ProjectSummaryPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/settings" element={hasProjects ? <ProjectSettingsPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/board" element={hasProjects ? <BoardPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/backlog" element={hasProjects ? <BacklogPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/reports" element={hasProjects ? <ReportsPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/roadmap" element={hasProjects ? <RoadmapPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/active-sprint" element={hasProjects ? <ActiveSprintPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/list" element={hasProjects ? <IssueListPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/list" element={hasProjects ? <IssueListPage /> : <Navigate to="/projects" replace />} />
+            {/* JL-254: /workflows historically served the issue-list UI (a mis-named
+                route that collided with the real workflow editor). Redirect it to the
+                properly-named /list view to avoid breaking any existing bookmarks. */}
+            <Route path="/workflows" element={<Navigate to="/list" replace />} />
+            <Route path="/workflow-editor" element={hasProjects ? <WorkflowEditorPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/filters" element={hasProjects ? <FiltersPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/portfolio" element={hasProjects ? <PortfolioPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+            <Route path="/advanced-roadmap" element={hasProjects ? <AdvancedRoadmapPage /> : <Navigate to="/projects" replace />} />
+            {/* JL-425: the member directory lives at /members. It used to be
+                /teams, which meant "user list" while /teams/:teamId meant "a
+                team" — two unrelated things behind one name. That collision
+                hid the whole team directory for a day (JL-436), so the page is
+                named for what it is. Still Admin/Owner-only (JL-227). */}
+            <Route
+              path="/members"
+              element={(
+                <RequireRole permission="canManageMembers" fallback={<Navigate to="/" replace />}>
+                  <TeamsPage />
+                </RequireRole>
+              )}
+            />
+            <Route
+              path="/users"
+              element={(
+                <RequireRole permission="canManageUsers" fallback={<Navigate to="/" replace />}>
+                  <UserManagementPage />
+                </RequireRole>
+              )}
+            />
+            {/* JL-419/JL-425: /teams is now the Atlassian-style team directory,
+                consistent with /teams/:teamId below. Open to every workspace
+                member — teams are not an admin feature. */}
+            <Route path="/teams" element={<TeamDirectoryPage />} />
+            <Route path="/teams/:teamId" element={<TeamProfilePage />} />
+            {/* JL-425: keep old links working rather than 404ing them. */}
+            <Route path="/teams-directory" element={<Navigate to="/teams" replace />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            {/* JL-148: /browse/JL-63 is the canonical issue URL, matching
+                Atlassian. It is what every link in the app now builds. */}
+            {/* JL-65/JL-80: Knowledge is top-level, not inside a project shell -
+                Spaces are cross-project by design. */}
+            <Route path="/spaces" element={<SpacesPage />} />
+            <Route path="/browse/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
+            {/* The legacy path, kept registered so links already shared —
+                /issues/402 and /issues/JL-63 alike — still resolve. Same
+                component, same param; the page accepts either form. */}
+            <Route path="/issues/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/activity" element={hasProjects ? <ActivityFeedPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/shared-dashboards" element={hasProjects ? <SharedDashboardsPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/cross-project-boards" element={hasProjects ? <CrossProjectBoardPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/webhooks" element={hasProjects ? <WebhooksPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/inbound-email" element={hasProjects ? <InboundEmailPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/audit-log" element={<AuditLogPage />} />
+            <Route path="/bi-export" element={<BiExportPage />} />
+            <Route path="/projects/:projectId/wiki" element={hasProjects ? <WikiPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/automation" element={hasProjects ? <AutomationPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/releases" element={hasProjects ? <ReleasesPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/projects/:projectId/queues" element={hasProjects ? <QueuesPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/incidents" element={<IncidentsPage />} />
+            <Route path="/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/plugins" element={<PluginsPage />} />
+            <Route path="/projects/:projectId/goals" element={hasProjects ? <GoalsPage /> : <Navigate to="/projects" replace />} />
+            <Route path="/assets" element={<AssetsPage />} />
+            <Route path="/portal" element={<PortalPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Route>
+      </Routes>
       <MobileBottomNav onCreate={() => setShowCreate(true)} />
       {showCreate && <CreateIssueModal onClose={() => setShowCreate(false)} />}
       <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
@@ -295,7 +348,7 @@ function AppContent() {
           {permissionSnackbar.message}
         </Alert>
       </Snackbar>
-    </div>
+    </>
   )
 }
 

@@ -25,6 +25,8 @@ import securityPolicyRoutes from './routes/securityPolicy.js'
 import memberRoutes from './routes/members.js'
 import teamRoutes, { projectTeamsRouter } from './routes/teams.js' // JL-419: Atlassian-style teams
 import invitationRoutes, { publicRouter as publicInvitationRoutes } from './routes/invitations.js'
+import spaceRoutes from './routes/spaces.js' // JL-79: Confluence Lite Spaces
+import wikiHomeRoutes from './routes/wikiHome.js' // JL-152: Confluence Lite home
 import emailLogRoutes from './routes/emailLog.js' // JL-323: outbound email delivery log
 import blockedSignupRoutes from './routes/blockedSignups.js' // JL-325: signup deny-list
 import activityRoutes from './routes/activity.js'
@@ -227,6 +229,14 @@ app.use('/api/events', ...protect, eventRoutes)
 app.use('/api', ...protect, auditLogRoutes)
 app.use('/api/api-tokens', ...protect, apiTokenRoutes)
 app.use('/api/wiki', ...protect, wikiRoutes)
+// JL-79: Confluence Lite. Spaces sit behind the same protect chain as every
+// other authenticated router; space-level access is a second axis resolved
+// inside routes/spaces.js, not a replacement for authGuard.
+app.use('/api/spaces', ...protect, spaceRoutes)
+// JL-152: the Confluence Lite home page's two reads, plus the recently-viewed
+// and favourites writes that feed them. Same protect chain as every other
+// authenticated router; per-page and per-Space filtering happens inside.
+app.use('/api/wiki-home', ...protect, wikiHomeRoutes)
 app.use('/api', ...protect, kbRoutes) // JL-144: knowledge base (/api/kb/*)
 app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)

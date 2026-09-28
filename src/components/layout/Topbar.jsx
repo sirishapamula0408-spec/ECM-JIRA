@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useMembers } from '../../context/MemberContext'
@@ -9,16 +9,31 @@ import { useRecentIssues } from '../../hooks/useRecentIssues'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import { searchIssues } from '../../api/issueApi'
+import { searchWikiHomePages } from '../../api/wikiSearchApi'
+import { useProduct } from '../../context/ProductContext'
+// The .svg, matching what the sidebar header used to show — sedin-logo.png
+// is a 92-byte placeholder, not the real mark.
+import sedinLogo from '../../assets/sedin-logo.svg'
 import { fetchWorkspaces, getActiveWorkspaceId, setActiveWorkspaceId, DEFAULT_WORKSPACE_SLUG } from '../../api/workspaceApi'
 import './Topbar.css'
 import { HeaderPanelIcon } from '../icons/HeaderPanelIcon'
+import { AppSwitcher } from '../appswitcher/AppSwitcher'
 import { NotificationDropdown } from '../notifications/NotificationDropdown'
 import { KeyboardShortcutsDialog } from '../shortcuts/KeyboardShortcutsDialog'
 import { displayNameFromEmail } from '../../utils/helpers'
 import { avatarStyle } from '../../utils/avatarColour'
 import { issueHref } from '../../utils/issueRef'
 
-export function Topbar({ onCreate, hasProjects }) {
+export function Topbar({ onCreate, hasProjects, collapsed, onToggleSidebar }) {
+  /*
+   * JL-153: the bar is shared chrome, and the ACTIVE PRODUCT fills the slots
+   * that differ — brand, name, search target, Create. Supplied by RootLayout
+   * from the one registry in appSwitcherApps.js, never worked out here by
+   * testing location.pathname, which is what let the Jira issue tabs and the
+   * JQL placeholder leak onto /wiki in the first place.
+   */
+  const product = useProduct()
+  const isPageSearch = product?.searchKind === 'pages'
   const { authUser: currentUser, handleLogout } = useAuth()
   const { theme, onThemeChange } = useTheme()
   const { profile, currentMember } = useMembers()
@@ -68,7 +83,14 @@ export function Topbar({ onCreate, hasProjects }) {
     const isJql = /[a-zA-Z_]+\s*(!=|=|~)/.test(term)
     const timer = setTimeout(async () => {
       try {
-        const results = await searchIssues(isJql ? { jql: term } : { q: term })
+        /*
+         * Searching from the wiki must NOT run a JQL query — that is the whole
+         * point of the product split. Different endpoint, different result
+         * shape, and the wiki one is permission-filtered server-side.
+         */
+        const results = isPageSearch
+          ? (await searchWikiHomePages(term, { limit: 8 }))?.items
+          : await searchIssues(isJql ? { jql: term } : { q: term })
         if (!cancelled) {
           setSearchResults(Array.isArray(results) ? results.slice(0, 8) : [])
           setSearchOpen(true)
@@ -83,15 +105,15 @@ export function Topbar({ onCreate, hasProjects }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [searchTerm])
+  }, [searchTerm, isPageSearch])
 
   const handleSelectResult = useCallback(
-    (issue) => {
+    (row) => {
       setSearchOpen(false)
       setSearchTerm('')
-      navigate(issueHref(issue))
+      navigate(isPageSearch ? `/wiki/pages/${row.id}` : issueHref(row))
     },
-    [navigate],
+    [navigate, isPageSearch],
   )
 
   // JL-73 — workspace indicator / switcher
@@ -133,6 +155,38 @@ export function Topbar({ onCreate, hasProjects }) {
   return (
     <header className="topbar">
       <div className="topbar-left">
+        {/* JL-153: THE sidebar-collapse control. There is exactly one in the
+            product and it lives here, acting on whichever product sidebar is
+            mounted below. It used to live inside the Jira sidebar, and
+            Confluence Lite grew a second one of its own — two controls for one
+            piece of state, which disagree the moment either is used. */}
+        <button
+          type="button"
+          className="icon-btn topbar-collapse"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
+          onClick={onToggleSidebar}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <line x1="9" y1="4" x2="9" y2="20" />
+          </svg>
+        </button>
+
+        {/* JL-151: the app switcher, immediately right of the collapse control
+            and left of the product name — the position Atlassian gives it. */}
+        <AppSwitcher />
+
+        {/* JL-153: brand and product name come from the ACTIVE PRODUCT, and
+            the link goes to that product's own home. This is what makes the
+            bar read as "Confluence Lite" on a wiki page instead of silently
+            claiming you are still in the tracker. */}
+        {product && (
+          <Link className="topbar-brand" to={product.homePath} aria-label={`${product.productName} home`}>
+            <img src={sedinLogo} alt="" className="topbar-brand-logo" aria-hidden="true" />
+            <span className="topbar-brand-name">{product.productName}</span>
+          </Link>
+        )}
         {/* JL-445: only render the switcher when there is something to switch
             TO. With a single workspace this was a label plus a dropdown holding
             one option - about 200px of header offering no choice - and it
@@ -170,14 +224,16 @@ export function Topbar({ onCreate, hasProjects }) {
         >
           <input
             className="search"
-            placeholder="Search issues or JQL (e.g. status = Done AND priority = High)"
+            placeholder={product?.searchPlaceholder || 'Search'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onFocus={() => { if (searchResults.length || recentIssues.length) setSearchOpen(true) }}
-            aria-label="Search issues"
+            aria-label={product?.searchLabel || 'Search'}
           />
           {searching && <CircularProgress size={16} className="topbar-search-spinner" />}
-          {searchOpen && !searchTerm.trim() && recentIssues.length > 0 && (
+          {/* Recently viewed ISSUES — a Jira affordance. The wiki has its own
+              Recent list in its sidebar and must not offer issues here. */}
+          {!isPageSearch && searchOpen && !searchTerm.trim() && recentIssues.length > 0 && (
             <div className="topbar-search-results" role="listbox" aria-label="Recently viewed issues">
               <div className="topbar-search-section-label">Recent</div>
               {recentIssues.map((issue) => (
@@ -198,20 +254,26 @@ export function Topbar({ onCreate, hasProjects }) {
           {searchOpen && searchTerm.trim() && (
             <div className="topbar-search-results" role="listbox">
               {searchResults.length === 0 && !searching && (
-                <div className="topbar-search-empty">No matching issues</div>
+                <div className="topbar-search-empty">
+                  {isPageSearch ? 'No matching pages' : 'No matching issues'}
+                </div>
               )}
-              {searchResults.map((issue) => (
+              {searchResults.map((row) => (
                 <button
-                  key={issue.id}
+                  key={row.id}
                   type="button"
                   role="option"
                   aria-selected="false"
                   className="topbar-search-item"
-                  onClick={() => handleSelectResult(issue)}
+                  onClick={() => handleSelectResult(row)}
                 >
-                  <span className="topbar-search-key">{issue.key}</span>
-                  <span className="topbar-search-title">{issue.title}</span>
-                  <span className="topbar-search-status">{issue.status}</span>
+                  {/* A page has no issue key and no status; it has a Space.
+                      Same row, different facts — not a second component. */}
+                  <span className="topbar-search-key">{isPageSearch ? row.space_key : row.key}</span>
+                  <span className="topbar-search-title">{row.title}</span>
+                  <span className="topbar-search-status">
+                    {isPageSearch ? (row.space_name || 'No space') : row.status}
+                  </span>
                 </button>
               ))}
             </div>
@@ -221,7 +283,18 @@ export function Topbar({ onCreate, hasProjects }) {
 
       <div className="top-actions top-actions-jira">
         {canCreateIssueAnywhere && (
-          <button className="btn btn-primary create-btn" type="button" onClick={onCreate} disabled={!hasProjects} title={!hasProjects ? 'No project access' : undefined}>
+          /* JL-153: Create makes an ISSUE in Jira and a PAGE in the wiki.
+             Jira's opens a modal owned by App.jsx; the wiki declares a real
+             address instead (product.createPath), so it is deep-linkable and
+             needs no callback threaded up past the layout that owns the page.
+             Driven by the product descriptor, not by reading the URL. */
+          <button
+            className="btn btn-primary create-btn"
+            type="button"
+            onClick={() => (product?.createPath ? navigate(product.createPath) : onCreate())}
+            disabled={!product?.createPath && !hasProjects}
+            title={!product?.createPath && !hasProjects ? 'No project access' : undefined}
+          >
             <span className="plus-create-content">
               <span className="plus-create-symbol">+</span>
               <span>Create</span>

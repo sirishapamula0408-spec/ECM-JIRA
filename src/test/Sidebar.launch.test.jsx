@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -141,5 +141,49 @@ describe('JL-277 launch sidebar', () => {
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
     // The "Show Projects" restore button only appears once Projects is hidden via the menu.
     expect(screen.queryByText('Show Projects')).toBeNull()
+  })
+})
+
+/* ================================================================
+   The collapse control is the FIRST thing in the sidebar header.
+
+   It used to sit after the brand, which read as though it belonged to
+   the logo. It acts on the whole panel, so it leads — and the order is
+   pinned here because DOM order is exactly the kind of thing a later
+   refactor reshuffles without anyone noticing.
+   ================================================================ */
+describe('Sidebar header (JL-153: moved to the shared top bar)', () => {
+  /*
+   * This block used to pin the brand and the collapse control INSIDE the Jira
+   * sidebar, and their order within it. JL-153 moved both to the shared top
+   * bar: the bar now names whichever product is active ("ECM Projects" /
+   * "Confluence Lite"), and there is exactly ONE collapse control in the
+   * product, acting on whichever sidebar is mounted.
+   *
+   * The assertions are inverted rather than deleted, because "the Jira
+   * sidebar has grown its own brand and collapse control again" is precisely
+   * the regression that would put two of each on screen.
+   */
+  it('has no collapse control of its own', () => {
+    renderSidebar()
+    const sidebar = document.querySelector('aside.sidebar')
+    expect(sidebar).toBeTruthy()
+    expect(sidebar.querySelector('.collapse-btn')).toBeNull()
+    expect(
+      within(sidebar).queryByRole('button', { name: /collapse sidebar|expand sidebar/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('has no brand header of its own', () => {
+    renderSidebar()
+    const sidebar = document.querySelector('aside.sidebar')
+    expect(sidebar.querySelector('.sidebar-top')).toBeNull()
+    expect(sidebar.querySelector('.brand')).toBeNull()
+  })
+
+  it('still renders its navigation', () => {
+    // The header went; the sidebar's actual job did not.
+    renderSidebar()
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
   })
 })
