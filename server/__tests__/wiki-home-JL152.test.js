@@ -382,3 +382,49 @@ describe('JL-152 GET /api/wiki-home/list', () => {
     expect(sql).toMatch(/deleted_at IS NULL/)
   })
 })
+
+/* ---------------------------------------------------------------- *
+ * JL-130 — recently modified pages within a Space
+ * ---------------------------------------------------------------- */
+describe('JL-130 recently modified', () => {
+  it('orders by when the page changed, not by when I looked at it', async () => {
+    const res = await request(await buildApp()).get('/list?kind=modified')
+    expect(res.status).toBe(200)
+    expect(res.body.kind).toBe('modified')
+    const sql = db.all.mock.calls.map((c) => c[0]).find((q) => /modified_at/.test(q))
+    expect(sql).toMatch(/ORDER BY w\.updated_at DESC/)
+  })
+
+  it('needs no join — it is about the SPACE, not about me', async () => {
+    await request(await buildApp()).get('/list?kind=modified')
+    const sql = db.all.mock.calls.map((c) => c[0]).find((q) => /modified_at/.test(q))
+    expect(sql).not.toMatch(/JOIN recently_viewed/)
+    expect(sql).not.toMatch(/JOIN favorites/)
+  })
+
+  it('narrows to one Space when asked', async () => {
+    await request(await buildApp()).get('/list?kind=modified&spaceId=7')
+    const sql = db.all.mock.calls.map((c) => c[0]).find((q) => /modified_at/.test(q))
+    expect(sql).toMatch(/w\.space_id = \?/)
+  })
+
+  it('returns nothing for a Space the caller cannot see', async () => {
+    // Narrowing sits on top of the visibility filter, never instead of it.
+    const res = await request(await buildApp()).get('/list?kind=modified&spaceId=999')
+    expect(res.body.items).toEqual([])
+    expect(db.all.mock.calls.some((c) => /modified_at/.test(c[0]))).toBe(false)
+  })
+
+  it('still filters by visibility', async () => {
+    await request(await buildApp()).get('/list?kind=modified')
+    const sql = db.all.mock.calls.map((c) => c[0]).find((q) => /modified_at/.test(q))
+    expect(sql).toMatch(/deleted_at IS NULL/)
+  })
+
+  it('leaves recent and starred behaving as before', async () => {
+    const recent = await request(await buildApp()).get('/list?kind=recent')
+    expect(recent.body.kind).toBe('recent')
+    const starred = await request(await buildApp()).get('/list?kind=starred')
+    expect(starred.body.kind).toBe('starred')
+  })
+})

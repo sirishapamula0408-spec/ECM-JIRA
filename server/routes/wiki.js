@@ -398,7 +398,8 @@ router.post('/:id/versions/:versionId/restore', requireRole('Member'), asyncHand
 router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   // JL-88/JL-95: a page belongs to a project, a Space, or both, and may start
   // life as a draft.
-  const { projectId = null, spaceId = null, title, content = '', parentId = null, status } = req.body
+  // JL-125: templateId supplies the starting body when no content is given.
+  const { projectId = null, spaceId = null, title, content = '', parentId = null, status, templateId } = req.body
   if ((!projectId && !spaceId) || !title?.trim()) {
     res.status(400).json({ error: 'projectId or spaceId, and title, are required' })
     return
@@ -408,8 +409,29 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     res.status(400).json({ error: `status must be one of: ${PAGE_STATUSES.join(', ')}` })
     return
   }
+  /*
+   * JL-125 — a template supplies the STARTING body, and only when the caller
+   * has not written one. Explicit content wins: a client that sends both has
+   * already made its choice, and silently discarding what someone typed in
+   * favour of a template is the worse failure of the two.
+   *
+   * Resolved server-side rather than by the client fetching a template and
+   * posting its body: that would let any caller claim any body came from a
+   * template, and would mean the template text travelled twice over the wire
+   * for no reason.
+   */
+  let startingContent = content
+  if (templateId != null && !String(content).trim()) {
+    const template = await get('SELECT body FROM wiki_templates WHERE id = ?', [Number(templateId)])
+    if (!template) {
+      res.status(404).json({ error: 'Template not found' })
+      return
+    }
+    startingContent = template.body || ''
+  }
+
   const trimmedTitle = String(title).trim()
-  const trimmedContent = String(content ?? '').trim()
+  const trimmedContent = String(startingContent ?? '').trim()
 
   // JL-237: server-side length caps (checked after trim)
   const lengthErr =

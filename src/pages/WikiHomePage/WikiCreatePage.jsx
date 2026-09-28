@@ -9,6 +9,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { EmptyState } from '../../components/common/EmptyState'
 import { SpacesIcon } from '../../components/wiki/WikiIcons'
 import { createWikiPage } from '../../api/wikiApi'
+import { fetchWikiTemplates } from '../../api/wikiTemplateApi'
 
 /*
  * JL-153 — /wiki/new, the Confluence Lite Create action.
@@ -32,8 +33,20 @@ export function WikiCreatePage() {
   const [spaceId, setSpaceId] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  // JL-125: the body is resolved SERVER-side from templateId, so the template
+  // text never travels back and forth just to be posted again.
+  const [templateId, setTemplateId] = useState('')
+  const [templates, setTemplates] = useState([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchWikiTemplates()
+      .then((rows) => { if (!cancelled) setTemplates(Array.isArray(rows) ? rows : []) })
+      .catch(() => { /* templates are optional — a page can be started blank */ })
+    return () => { cancelled = true }
+  }, [])
 
   // Default to the first Space the user can write in, once they have loaded.
   useEffect(() => {
@@ -49,6 +62,9 @@ export function WikiCreatePage() {
         spaceId: Number(spaceId),
         title: title.trim(),
         content,
+        // Ignored by the server when content is non-empty: what the author
+        // actually typed wins over the template.
+        templateId: templateId ? Number(templateId) : undefined,
       })
       // The sidebar's Recent/Spaces counts are now stale.
       reloadHome?.()
@@ -60,7 +76,7 @@ export function WikiCreatePage() {
     } finally {
       setSaving(false)
     }
-  }, [spaceId, title, content, navigate, reloadHome])
+  }, [spaceId, title, content, templateId, navigate, reloadHome])
 
   // A page has to live in a Space. Saying so beats a disabled form.
   if (!homeLoading && spaces.length === 0) {
@@ -104,6 +120,26 @@ export function WikiCreatePage() {
             fullWidth
             autoFocus
           />
+          {/* JL-125. Offered only when there are templates AND the author has
+              not started writing: a picker that would be ignored is worse
+              than no picker, because it implies a choice that has no effect. */}
+          {templates.length > 0 && !content.trim() && (
+            <TextField
+              id="wiki-new-template"
+              select
+              label="Start from a template"
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              fullWidth
+              helperText="Optional. The template fills the page; you can change anything afterwards."
+            >
+              <MenuItem value="">Blank page</MenuItem>
+              {templates.map((t) => (
+                <MenuItem key={t.id} value={String(t.id)}>{t.name}</MenuItem>
+              ))}
+            </TextField>
+          )}
+
           <TextField
             id="wiki-new-content"
             label="Content"
@@ -112,6 +148,9 @@ export function WikiCreatePage() {
             fullWidth
             multiline
             minRows={8}
+            helperText={templateId && !content.trim()
+              ? 'Leave blank to use the template.'
+              : undefined}
           />
           <Stack direction="row" spacing={2}>
             <Button type="submit" variant="contained" disabled={saving || !title.trim() || !spaceId}>

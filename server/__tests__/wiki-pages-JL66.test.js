@@ -494,3 +494,53 @@ describe('JL-103 concurrent edit detection', () => {
     expect(res.body.version).toBe(7)
   })
 })
+
+/* ---------------------------------------------------------------- *
+ * JL-125 — starting a page from a template
+ * ---------------------------------------------------------------- */
+describe('JL-125 create from a template', () => {
+  it('uses the template body when no content is given', async () => {
+    db.get.mockImplementation(async (sql) => {
+      if (/FROM wiki_templates/.test(sql)) return { body: '<h2>Purpose</h2>' }
+      return page()
+    })
+    const res = await request(await buildApp()).post('/').send({ spaceId: 7, title: 'New SOP', templateId: 3 })
+    expect(res.status).toBe(201)
+    const insert = db.run.mock.calls.find((c) => /INSERT INTO wiki_pages/.test(c[0]))
+    expect(insert[1]).toContain('<h2>Purpose</h2>')
+  })
+
+  it('lets explicit content WIN over the template', async () => {
+    /*
+     * A client sending both has already made its choice. Silently discarding
+     * what somebody typed in favour of a template is the worse failure of the
+     * two available.
+     */
+    db.get.mockImplementation(async (sql) => {
+      if (/FROM wiki_templates/.test(sql)) return { body: '<h2>Purpose</h2>' }
+      return page()
+    })
+    await request(await buildApp()).post('/').send({
+      spaceId: 7, title: 'New', templateId: 3, content: '<p>my own words</p>',
+    })
+    const insert = db.run.mock.calls.find((c) => /INSERT INTO wiki_pages/.test(c[0]))
+    expect(insert[1]).toContain('<p>my own words</p>')
+    expect(insert[1]).not.toContain('<h2>Purpose</h2>')
+  })
+
+  it('404s an unknown template rather than creating an empty page', async () => {
+    db.get.mockImplementation(async (sql) => {
+      if (/FROM wiki_templates/.test(sql)) return null
+      return page()
+    })
+    const res = await request(await buildApp()).post('/').send({ spaceId: 7, title: 'x', templateId: 999 })
+    expect(res.status).toBe(404)
+    expect(db.run).not.toHaveBeenCalled()
+  })
+
+  it('is untouched when no templateId is sent', async () => {
+    await request(await buildApp()).post('/').send({ spaceId: 7, title: 'x', content: '<p>hi</p>' })
+    const queried = db.get.mock.calls.some((c) => /FROM wiki_templates/.test(c[0]))
+    expect(queried, 'no template lookup should happen').toBe(false)
+  })
+})

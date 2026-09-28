@@ -274,27 +274,61 @@ router.get('/search', asyncHandler(async (req, res) => {
 router.get('/list', asyncHandler(async (req, res) => {
   const user = req.user
   const email = String(user?.email || '')
-  const kind = String(req.query.kind) === 'starred' ? 'starred' : 'recent'
+  /*
+   * JL-130 adds 'modified': what changed recently, optionally within one
+   * Space. Unlike 'recent' (what I looked at) and 'starred' (what I kept),
+   * this one is about the SPACE rather than about me — which is why it takes
+   * a spaceId and the other two do not.
+   */
+  const KINDS = ['recent', 'starred', 'modified']
+  const kind = KINDS.includes(String(req.query.kind)) ? String(req.query.kind) : 'recent'
   const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), 100)
   const cursor = Math.max(Number(req.query.cursor) || 0, 0)
 
-  const q = await visiblePages(user)
-  const join = kind === 'starred'
-    ? `JOIN favorites f ON f.target_id = w.id AND f.target_type = 'page'
-        AND LOWER(f.user_email) = LOWER(?)`
-    : 'JOIN recently_viewed rv ON rv.page_id = w.id AND LOWER(rv.user_email) = LOWER(?)'
-  const order = kind === 'starred' ? 'ORDER BY f.created_at DESC' : 'ORDER BY rv.viewed_at DESC'
-  const stamp = kind === 'starred' ? 'f.created_at AS starred_at' : 'rv.viewed_at'
+  /*
+   * 'modified' needs no join and no per-user parameter — it is a property of
+   * the Space, not of the reader — so it is built separately rather than
+   * bent through the same JOIN with a dummy condition.
+   */
+  let rows
+  if (kind === 'modified') {
+    const spaceId = req.query.spaceId ? Number(req.query.spaceId) : null
+    // Narrowing is applied ON TOP of the visibility filter, never instead:
+    // a Space the caller cannot see must yield nothing, not its pages.
+    if (spaceId) {
+      const visibleSpaces = await visibleSpaceIds(user)
+      if (!visibleSpaces.has(spaceId)) {
+        res.json({ kind, items: [], hasMore: false, nextCursor: null })
+        return
+      }
+    }
+    const q = await visiblePages(user, spaceId ? 'w.space_id = ?' : '', spaceId ? [spaceId] : [])
+    rows = await all(
+      `SELECT ${CARD_COLUMNS}, w.updated_at AS modified_at
+         ${q.from} ${q.where}
+        ORDER BY w.updated_at DESC
+        LIMIT ? OFFSET ?`,
+      [...q.params, limit + 1, cursor],
+    )
+  } else {
+    const q = await visiblePages(user)
+    const join = kind === 'starred'
+      ? `JOIN favorites f ON f.target_id = w.id AND f.target_type = 'page'
+          AND LOWER(f.user_email) = LOWER(?)`
+      : 'JOIN recently_viewed rv ON rv.page_id = w.id AND LOWER(rv.user_email) = LOWER(?)'
+    const order = kind === 'starred' ? 'ORDER BY f.created_at DESC' : 'ORDER BY rv.viewed_at DESC'
+    const stamp = kind === 'starred' ? 'f.created_at AS starred_at' : 'rv.viewed_at'
 
-  const rows = await all(
-    `SELECT ${CARD_COLUMNS}, ${stamp}
-       ${q.from}
-       ${join}
-       ${q.where}
-      ${order}
-      LIMIT ? OFFSET ?`,
-    [email, ...q.params, limit + 1, cursor],
-  )
+    rows = await all(
+      `SELECT ${CARD_COLUMNS}, ${stamp}
+         ${q.from}
+         ${join}
+         ${q.where}
+        ${order}
+        LIMIT ? OFFSET ?`,
+      [email, ...q.params, limit + 1, cursor],
+    )
+  }
 
   const items = rows.slice(0, limit)
   const hasMore = rows.length > limit

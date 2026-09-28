@@ -1,4 +1,6 @@
 import pg from 'pg'
+// JL-126: the seven templates Confluence Lite ships with.
+import { BUILTIN_TEMPLATES } from './utils/builtinTemplates.js'
 import { DATABASE_URL } from './config.js'
 
 const pool = new pg.Pool({
@@ -785,6 +787,56 @@ export async function initializeDatabase() {
   // Partial index: the overwhelmingly common read is "live pages", and a
   // partial index keeps deleted rows out of it entirely.
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_live ON wiki_pages(space_id) WHERE deleted_at IS NULL')
+
+  /* ============================================================
+     JL-125→127 (Confluence Lite) — page templates.
+     ------------------------------------------------------------
+     A template is a named starting body. It is NOT a page: it has
+     no Space, no history, no comments and no parent, so storing it
+     in wiki_pages behind a flag would mean every page query
+     growing an "and not a template" clause — the shape that let
+     the issue tabs leak onto /wiki.
+
+     `is_builtin` marks the seven the product ships (JL-126). They
+     are seeded idempotently on boot and can be EDITED but not
+     deleted: a team that has reshaped the SOP template should keep
+     its edits across a deploy, and a team that deletes the set
+     should not have it silently return on the next restart.
+     ============================================================ */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wiki_templates (
+      id SERIAL PRIMARY KEY,
+      -- Stable identity for the shipped set, so a reseed updates rather
+      -- than duplicates. NULL for anything an admin creates.
+      template_key TEXT UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      is_builtin BOOLEAN NOT NULL DEFAULT FALSE,
+      created_by TEXT,
+      updated_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_templates_name ON wiki_templates(name)')
+
+  /*
+     JL-126 — the seven standard templates.
+
+     Seeded with ON CONFLICT DO NOTHING rather than an upsert, on
+     purpose: the body is editable (JL-127), and an upsert would
+     overwrite a team's customised SOP template on every boot. New
+     installs get the shipped text; existing ones keep their edits.
+  */
+  for (const t of BUILTIN_TEMPLATES) {
+    await pool.query(
+      `INSERT INTO wiki_templates (template_key, name, description, body, is_builtin)
+       VALUES ($1, $2, $3, $4, TRUE)
+       ON CONFLICT (template_key) DO NOTHING`,
+      [t.key, t.name, t.description, t.body],
+    )
+  }
 
   /* ============================================================
      JL-120→124 (Confluence Lite) — page attachments.
