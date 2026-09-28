@@ -374,3 +374,10 @@
     display: none;
   }
 }
+
+/* JL-110: the link from the inline hits to the full results page. */
+.topbar-search-all {
+  color: var(--jira-link);
+  font-weight: var(--font-weight-semibold);
+  border-top: 1px solid var(--jira-border-subtle);
+}

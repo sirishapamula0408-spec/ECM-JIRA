@@ -46,6 +46,7 @@ import { WikiHomePage } from './pages/WikiHomePage/WikiHomePage'
 import { WikiCreatePage } from './pages/WikiHomePage/WikiCreatePage'
 import { WikiPageViewer } from './pages/WikiHomePage/WikiPageViewer'
 import { WikiListPage } from './pages/WikiHomePage/WikiListPage'
+import { WikiSearchPage } from './pages/WikiHomePage/WikiSearchPage'
 import { WikiAppsPage } from './pages/WikiHomePage/WikiAppsPage'
 import { RESET_PASSWORD_PATH, ResetPasswordPage } from './pages/ResetPasswordPage/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage/DashboardPage'
@@ -223,6 +224,7 @@ function AppContent() {
             <Route path="pages/:pageId" element={<WikiPageViewer />} />
             <Route path="recent" element={<WikiListPage />} />
             <Route path="starred" element={<WikiListPage />} />
+            <Route path="search" element={<WikiSearchPage />} />
             <Route path="apps" element={<WikiAppsPage />} />
           </Route>
 

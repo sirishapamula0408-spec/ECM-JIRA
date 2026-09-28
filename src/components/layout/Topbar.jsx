@@ -276,6 +276,24 @@ export function Topbar({ onCreate, hasProjects, collapsed, onToggleSidebar }) {
                   </span>
                 </button>
               ))}
+
+              {/* JL-110: the bar shows the first few hits; the results PAGE is
+                  where the rest live, with the space filter and paging. Only
+                  offered in the wiki — Jira has its own search surfaces. */}
+              {isPageSearch && searchResults.length > 0 && (
+                <button
+                  type="button"
+                  className="topbar-search-item topbar-search-all"
+                  onClick={() => {
+                    const q = searchTerm.trim()
+                    setSearchOpen(false)
+                    setSearchTerm('')
+                    navigate(`/wiki/search?q=${encodeURIComponent(q)}`)
+                  }}
+                >
+                  See all results for “{searchTerm.trim()}”
+                </button>
+              )}
             </div>
           )}
         </div>

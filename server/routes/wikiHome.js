@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { pageVisibilityFilter, visibleSpaceIds } from '../utils/wikiVisibility.js'
+// JL-112: the snippet that shows why a page matched.
+import { buildExcerpt } from '../utils/searchExcerpt.js'
 
 /*
  * JL-152 — the Confluence Lite home page's data.
@@ -148,33 +150,112 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 /* ================================================================
-   GET /api/wiki-home/search?q= — the top bar's page search
+   JL-110→114 — page search
    ================================================================ */
 
+/** Result page size, and the ceiling a caller can ask for. */
+const SEARCH_PAGE = 20
+const SEARCH_MAX = 50
+
 /*
- * JL-153: searching from Confluence Lite must not run a JQL query, and the
- * existing /api/wiki/search demands a projectId — it was built for the
- * per-project wiki tab and cannot answer "search everything I can read".
+ * Searching from Confluence Lite must not run a JQL query, and the existing
+ * /api/wiki/search demands a projectId — it was built for the per-project wiki
+ * tab and cannot answer "search everything I can read".
  *
- * So: the same question, asked through the same visibility filter as every
- * other read here. A page the caller cannot see is not findable by guessing
- * its title.
+ * JL-111 is not a feature of this endpoint so much as a property of it: the
+ * SAME pageVisibilityFilter every other read here uses. A page the caller
+ * cannot see is not findable by guessing a word in it, and the filter is not
+ * restated — restating it is how the two would drift.
+ *
+ * JL-114: a page also matches on the NAME of the Space it lives in, so
+ * searching "engineering" finds the Engineering runbooks even when no page
+ * says the word. The Space name comes back on every row so a result is
+ * identifiable without opening it.
+ *
+ * JL-113: ?spaceId= narrows to one Space. Applied on top of the visibility
+ * filter, never instead of it — asking for a Space you cannot see returns
+ * nothing rather than its contents.
  */
 router.get('/search', asyncHandler(async (req, res) => {
   const term = String(req.query.q || '').trim()
   if (!term) {
-    res.json({ items: [] })
+    res.json({ items: [], total: 0, term: '', hasMore: false, nextCursor: null })
     return
   }
-  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 25)
-  const q = await visiblePages(req.user, '(w.title ILIKE ? OR w.content ILIKE ?)')
+
+  const limit = Math.min(Math.max(Number(req.query.limit) || SEARCH_PAGE, 1), SEARCH_MAX)
+  const cursor = Math.max(Number(req.query.cursor) || 0, 0)
+  const spaceId = req.query.spaceId ? Number(req.query.spaceId) : null
+
+  const vis = await pageVisibilityFilter(req.user, 'w')
   const like = `%${term}%`
-  const items = await all(
-    `SELECT ${CARD_COLUMNS} ${q.from} ${q.where}
-      ORDER BY w.updated_at DESC LIMIT ?`,
-    [...q.params, like, like, limit],
+
+  // JL-110 title + content, JL-114 Space name.
+  const match = '(w.title ILIKE ? OR w.content ILIKE ? OR s.name ILIKE ? OR s.key ILIKE ?)'
+  const matchParams = [like, like, like, like]
+
+  /*
+   * JL-113. The requested Space is intersected with what the caller may see
+   * rather than trusted: a spaceId they have no access to must return an empty
+   * result, not that Space's pages.
+   */
+  let spaceClause = ''
+  const spaceParams = []
+  if (spaceId) {
+    const visibleSpaces = await visibleSpaceIds(req.user)
+    if (!visibleSpaces.has(spaceId)) {
+      res.json({ items: [], total: 0, term, hasMore: false, nextCursor: null })
+      return
+    }
+    spaceClause = ' AND w.space_id = ?'
+    spaceParams.push(spaceId)
+  }
+
+  const from = 'FROM wiki_pages w LEFT JOIN spaces s ON s.id = w.space_id'
+  const where = `WHERE ${vis.clause} AND ${match}${spaceClause}`
+  const params = [...vis.params, ...matchParams, ...spaceParams]
+
+  /*
+   * A total, so the page can say "24 results" rather than "20 results" when
+   * there are more. One extra COUNT against the same filter — cheaper than
+   * paging blind, and the number is the first thing a searcher reads.
+   */
+  const counted = await get(`SELECT COUNT(*)::int AS n ${from} ${where}`, params)
+  const total = Number(counted?.n || 0)
+
+  const rows = await all(
+    `SELECT ${CARD_COLUMNS}, w.content
+       ${from} ${where}
+      ORDER BY
+        /* A title hit outranks a body hit: someone searching "runbook" wants
+           the page called Runbook first, not the one that mentions it. */
+        CASE WHEN w.title ILIKE ? THEN 0 ELSE 1 END,
+        w.updated_at DESC
+      LIMIT ? OFFSET ?`,
+    [...params, like, limit, cursor],
   )
-  res.json({ items })
+
+  /*
+   * JL-112. The excerpt is text plus match OFFSETS, never pre-marked HTML —
+   * building markup out of stored content outside sanitizeHtml is the thing
+   * JL-359 removed. `content` is dropped from the response: the excerpt is
+   * what a result list needs, and shipping whole pages for a search would be
+   * both slower and a wider disclosure than the snippet.
+   */
+  const items = rows.map(({ content, ...row }) => ({
+    ...row,
+    excerpt: buildExcerpt(content, term),
+  }))
+
+  const hasMore = cursor + items.length < total
+  res.json({
+    items,
+    total,
+    term,
+    spaceId,
+    hasMore,
+    nextCursor: hasMore ? cursor + limit : null,
+  })
 }))
 
 /* ================================================================
