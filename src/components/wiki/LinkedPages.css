@@ -1,0 +1,74 @@
+/* JL-135 — wiki pages linked to an issue. Token-only. */
+
+.linked-pages {
+  margin-top: var(--space-4);
+}
+
+.linked-pages h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.linked-pages-count {
+  color: var(--jira-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.linked-pages-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.linked-page {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+  background: var(--jira-surface);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-family-sans);
+}
+
+.linked-page:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.linked-page-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-link);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-page-meta {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .linked-page {
+    flex-wrap: wrap;
+  }
+
+  .linked-page-meta {
+    flex-basis: 100%;
+  }
+}

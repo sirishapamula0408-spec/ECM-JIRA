@@ -5,6 +5,8 @@ import { requireRole } from '../middleware/authorize.js'
 import { maxLengthError, WIKI_TITLE_MAX, WIKI_CONTENT_MAX } from '../utils/validation.js'
 // JL-109: comparing two revisions.
 import { diffLines, contentToLines, summarise } from '../utils/textDiff.js'
+// JL-135: the reverse lookup is gated by the same page rule as every read.
+import { pageVisibilityFilter } from '../utils/wikiVisibility.js'
 
 const router = Router()
 
@@ -239,6 +241,43 @@ router.get('/search', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
+/* ---------------------------------------------------------------- *
+ * JL-135 — the pages linked to an ISSUE
+ *
+ * The reverse of the list above, for the Jira side of the link.
+ * JL-136 made linking bidirectional in the data; this makes it
+ * bidirectional in the product, which is the half a reader notices.
+ *
+ * Declared before /:id/link-issue so "by-issue" is not read as a page
+ * id — the same ordering trap the JL-109 compare route hit.
+ * ---------------------------------------------------------------- */
+router.get('/by-issue/:issueId', asyncHandler(async (req, res) => {
+  const issueId = Number(req.params.issueId)
+  if (!Number.isInteger(issueId) || issueId <= 0) {
+    res.status(400).json({ error: 'A numeric issue id is required' })
+    return
+  }
+
+  /*
+   * Filtered by the SAME page-visibility rule as everything else. Reaching a
+   * page through an issue must not be a way around the page's permissions —
+   * otherwise the link table becomes a side door, and an issue is a much more
+   * widely-readable object than a Space.
+   */
+  const vis = await pageVisibilityFilter(req.user, 'w')
+  const rows = await all(
+    `SELECT iwl.id AS link_id, w.id, w.title, w.space_id, s.name AS space_name,
+            s.key AS space_key, w.updated_at
+       FROM issue_wiki_links iwl
+       JOIN wiki_pages w ON w.id = iwl.wiki_page_id
+       LEFT JOIN spaces s ON s.id = w.space_id
+      WHERE iwl.issue_id = ? AND ${vis.clause}
+      ORDER BY iwl.created_at DESC`,
+    [issueId, ...vis.params],
+  )
+  res.json(rows)
+}))
+
 // GET /api/wiki/:id — get a single wiki page with content
 router.get('/:id', asyncHandler(async (req, res) => {
   const row = await get('SELECT * FROM wiki_pages WHERE id = ?', [Number(req.params.id)])
@@ -262,8 +301,27 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const version = await currentVersion(row.id)
 
   // Get linked issues
+  /*
+   * JL-132/133 — key, summary and STATUS for each linked issue.
+   *
+   * The status is JOINed from `issues` on every read rather than copied into
+   * issue_wiki_links at link time. That is the whole of JL-133: a status
+   * stored alongside the link would be correct at the moment it was written
+   * and wrong from the next transition onwards, and documentation that
+   * confidently shows a stale status is worse than documentation that shows
+   * none — a reader has no way to tell the difference.
+   *
+   * The cost is one join on a page read, against a primary key. That is the
+   * right trade for a value whose entire purpose is to be current.
+   */
   const linkedIssues = await all(
-    'SELECT iwl.id AS link_id, iwl.issue_id, i.issue_key, i.title AS issue_title FROM issue_wiki_links iwl JOIN issues i ON i.id = iwl.issue_id WHERE iwl.wiki_page_id = ? ORDER BY iwl.created_at DESC',
+    `SELECT iwl.id AS link_id, iwl.issue_id, i.issue_key,
+            i.title AS issue_title, i.status AS issue_status,
+            i.priority AS issue_priority, i.issue_type
+       FROM issue_wiki_links iwl
+       JOIN issues i ON i.id = iwl.issue_id
+      WHERE iwl.wiki_page_id = ?
+      ORDER BY iwl.created_at DESC`,
     [row.id],
   )
   res.json({ ...row, children, linkedIssues, version })

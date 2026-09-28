@@ -544,3 +544,79 @@ describe('JL-125 create from a template', () => {
     expect(queried, 'no template lookup should happen').toBe(false)
   })
 })
+
+/* ---------------------------------------------------------------- *
+ * JL-132/133/135 — JIRA Lite integration
+ * ---------------------------------------------------------------- */
+describe('JL-132/133 linked issues carry live status', () => {
+  it('returns key, summary AND status for each linked issue', async () => {
+    db.get.mockResolvedValue(page())
+    db.all.mockImplementation(async (sql) => {
+      if (/issue_wiki_links/.test(sql)) {
+        return [{ link_id: 1, issue_id: 9, issue_key: 'JL-9', issue_title: 'Do it', issue_status: 'In Progress' }]
+      }
+      return []
+    })
+    const res = await request(await buildApp()).get('/1')
+    expect(res.body.linkedIssues[0]).toMatchObject({
+      issue_key: 'JL-9', issue_title: 'Do it', issue_status: 'In Progress',
+    })
+  })
+
+  it('JOINS the status rather than reading a copy stored on the link', async () => {
+    /*
+     * JL-133. A status copied into issue_wiki_links at link time is correct
+     * for exactly as long as nobody transitions the issue. Documentation that
+     * confidently shows a stale status is worse than one showing none — the
+     * reader cannot tell the difference.
+     */
+    db.get.mockResolvedValue(page())
+    await request(await buildApp()).get('/1')
+    const sql = db.all.mock.calls.map((c) => c[0]).find((q) => /issue_wiki_links/.test(q))
+    expect(sql).toMatch(/JOIN issues i ON i\.id = iwl\.issue_id/)
+    expect(sql).toMatch(/i\.status AS issue_status/)
+  })
+})
+
+describe('JL-135 pages linked to an issue', () => {
+  it('is not swallowed by the /:id route', async () => {
+    /*
+     * Express matches in declaration order. With /:id first, "by-issue" is
+     * read as a page id, Number('by-issue') is NaN, and a working endpoint
+     * 404s. The same trap JL-109's compare route hit.
+     */
+    db.all.mockResolvedValue([])
+    const res = await request(await buildApp()).get('/by-issue/9')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+  })
+
+  it('filters by the SAME page-visibility rule', async () => {
+    /*
+     * Reaching a page through an issue must not be a way around the page's
+     * permissions — an issue is a far more widely-readable object than a
+     * Space, so the link table would otherwise be a side door.
+     */
+    db.all.mockResolvedValue([])
+    await request(await buildApp()).get('/by-issue/9')
+    const sql = db.all.mock.calls.map((c) => c[0]).find((q) => /iwl\.issue_id = \?/.test(q))
+    expect(sql).toMatch(/deleted_at IS NULL/)
+    expect(sql).toMatch(/status <> 'draft'/)
+  })
+
+  it('returns the Space so a linked page is identifiable unopened', async () => {
+    db.all.mockImplementation(async (sql) => {
+      if (/iwl\.issue_id = \?/.test(sql)) {
+        return [{ link_id: 1, id: 5, title: 'Runbook', space_name: 'Engineering', space_key: 'ENG' }]
+      }
+      return []
+    })
+    const res = await request(await buildApp()).get('/by-issue/9')
+    expect(res.body[0].space_name).toBe('Engineering')
+  })
+
+  it('rejects a non-numeric issue id', async () => {
+    const res = await request(await buildApp()).get('/by-issue/abc')
+    expect(res.status).toBe(400)
+  })
+})

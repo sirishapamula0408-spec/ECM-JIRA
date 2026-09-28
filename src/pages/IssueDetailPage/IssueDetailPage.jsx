@@ -9,6 +9,7 @@ import { fetchIssueById, fetchComments, createComment, updateComment, deleteComm
 import { fetchProjectById } from '../../api/projectApi'
 import { fetchWatchers, watchIssue, unwatchIssue } from '../../api/watcherApi'
 import VoteButton from '../../components/issues/VoteButton'
+import { LinkedPages } from '../../components/wiki/LinkedPages'
 import { fetchIssueApprovals, submitApproval, checkApproval } from '../../api/approvalApi'
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
@@ -1764,6 +1765,12 @@ export function IssueDetailPage() {
             )}
           </div>
           )}
+
+          {/* JL-135: documentation linked to this issue. JL-136 made linking
+              bidirectional in the data; this is the half a reader notices.
+              Renders nothing when there are no links, so an issue in a team
+              that does not use the wiki is unaffected. */}
+          <LinkedPages issueId={issue?.id} />
 
           <div className="id-section" ref={linksPanelRef}>
             <div className="id-subtask-header">

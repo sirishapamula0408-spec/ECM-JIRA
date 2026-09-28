@@ -55,3 +55,14 @@ export const restoreWikiVersion = (pageId, versionId) =>
  */
 export const compareWikiVersions = (pageId, from, to) =>
   api(`/api/wiki/${pageId}/versions/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+
+/**
+ * JL-135 — the wiki pages linked to an issue.
+ *
+ * The reverse of the linkedIssues a page already returns. Filtered by the
+ * same page-visibility rule as every other wiki read: reaching a page through
+ * an issue must not be a way around the page's permissions, since an issue is
+ * a far more widely-readable object than a Space.
+ */
+export const fetchPagesForIssue = (issueId) =>
+  api(`/api/wiki/by-issue/${encodeURIComponent(issueId)}`)
