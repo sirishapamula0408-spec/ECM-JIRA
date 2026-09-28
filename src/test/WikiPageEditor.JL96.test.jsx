@@ -11,7 +11,12 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
    contenteditable in jsdom would test the mock, not the behaviour.
    ================================================================ */
 
-const { mockApi, mockPerms, editorProps } = vi.hoisted(() => ({
+const { mockApi, mockPerms, editorProps, mockAttach } = vi.hoisted(() => ({
+  mockAttach: {
+    uploadPageAttachment: vi.fn(),
+    fileToBase64: vi.fn(),
+    attachmentDownloadUrl: vi.fn((pageId, id) => `/api/wiki/${pageId}/attachments/${id}/download`),
+  },
   mockApi: { fetchWikiPage: vi.fn(), updateWikiPage: vi.fn(), recordPageView: vi.fn() },
   mockPerms: { current: { canCreateIssue: true } },
   // Captures what the page hands the editor, so the opt-ins can be asserted.
@@ -35,6 +40,7 @@ vi.mock('../hooks/usePermissions', () => ({ usePermissions: () => mockPerms.curr
 vi.mock('../components/wiki/PageComments', () => ({
   PageComments: () => <div data-testid="page-comments" />,
 }))
+vi.mock('../api/wikiAttachmentApi', () => mockAttach)
 vi.mock('../components/wiki/PageAttachments', () => ({
   PageAttachments: () => <div data-testid="page-attachments" />,
 }))
@@ -88,6 +94,8 @@ beforeEach(() => {
   mockApi.fetchWikiPage.mockResolvedValue(PAGE)
   mockApi.updateWikiPage.mockResolvedValue({ ...PAGE, content: '<p>Step two</p>' })
   mockApi.recordPageView.mockResolvedValue({})
+  mockAttach.fileToBase64.mockResolvedValue('YmFzZTY0')
+  mockAttach.uploadPageAttachment.mockResolvedValue({ id: 77 })
 })
 
 afterEach(() => { vi.useRealTimers() })
@@ -249,5 +257,40 @@ describe('editing is gated', () => {
     renderPage()
     await screen.findByText('Deploy runbook')
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+  })
+})
+
+/* ---------------------------------------------------------------- *
+ * JL-99 / JL-101 — what the page hands the editor
+ * ---------------------------------------------------------------- */
+describe('JL-99/JL-101 the editor gets a real picker and a real uploader', () => {
+  it('supplies both, so the editor does not fall back to window.prompt', async () => {
+    await startEditing()
+    expect(typeof editorProps.current.onPickLink).toBe('function')
+    expect(typeof editorProps.current.onUploadImage).toBe('function')
+  })
+
+  it('stores the CANONICAL relative url for an uploaded image', async () => {
+    /*
+     * The single most important assertion in this pair. A blob: URL dies with
+     * the browser session and a data: URI is stripped by the sanitiser's
+     * scheme allow-list — both look correct in the editor and are gone on
+     * reload. Only the relative API URL survives the round trip.
+     */
+    await startEditing()
+    const file = new File(['bytes'], 'chart.png', { type: 'image/png' })
+    const src = await editorProps.current.onUploadImage(file)
+
+    expect(src).toBe('/api/wiki/11/attachments/77/download')
+    expect(src.startsWith('blob:')).toBe(false)
+    expect(src.startsWith('data:')).toBe(false)
+  })
+
+  it('uploads against THIS page', async () => {
+    await startEditing()
+    await editorProps.current.onUploadImage(new File(['b'], 'a.png', { type: 'image/png' }))
+    expect(mockAttach.uploadPageAttachment).toHaveBeenCalledWith(11, expect.objectContaining({
+      filename: 'a.png', mimeType: 'image/png',
+    }))
   })
 })

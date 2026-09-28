@@ -13,6 +13,9 @@ import { looksLikeHtml } from '../../utils/editorContent'
 import { VersionHistoryPanel } from '../../components/wiki/VersionHistoryPanel'
 import { PageComments } from '../../components/wiki/PageComments'
 import { PageAttachments } from '../../components/wiki/PageAttachments'
+import { PageLinkDialog } from '../../components/wiki/PageLinkDialog'
+import { useAuthedImages } from '../../hooks/useAuthedImages'
+import { uploadPageAttachment, fileToBase64, attachmentDownloadUrl } from '../../api/wikiAttachmentApi'
 import './WikiPageViewer.css'
 
 /*
@@ -57,6 +60,8 @@ export function WikiPageViewer() {
 
   const [editing, setEditing] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  // JL-99: the link picker resolves a promise the editor is awaiting.
+  const [linkDialog, setLinkDialog] = useState(null)
   const [draft, setDraft] = useState('')
   // 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict'
   const [saveState, setSaveState] = useState('idle')
@@ -74,6 +79,9 @@ export function WikiPageViewer() {
    */
   const latest = useRef(0)
   const timer = useRef(null)
+  // JL-101: the rendered body, so uploaded images can be hydrated into blob
+  // URLs an <img> can actually load (see useAuthedImages).
+  const bodyRef = useRef(null)
 
   const load = useCallback(async () => {
     const ticket = latest.current + 1
@@ -182,6 +190,46 @@ export function WikiPageViewer() {
     )
   }, [page])
 
+  /*
+   * JL-99 — the editor awaits this, so the dialog has to hand a promise back.
+   * Resolving with undefined means cancelled; with '' means "remove the
+   * link", which is a deliberate choice rather than the same thing.
+   */
+  const pickLink = useCallback((currentHref) => new Promise((resolve) => {
+    setLinkDialog({ initialHref: currentHref || '', resolve })
+  }), [])
+
+  function closeLinkDialog(value) {
+    linkDialog?.resolve(value)
+    setLinkDialog(null)
+  }
+
+  /*
+   * JL-101 — upload, then hand back the CANONICAL relative URL.
+   *
+   * Not a blob: and not a data: URI. The stored content has to survive the
+   * sanitiser's scheme allow-list and outlive this browser session, and the
+   * bytes have to stay behind the endpoint that re-checks the page's
+   * visibility. useAuthedImages turns this URL into something an <img> can
+   * actually display at render time.
+   */
+  const uploadImage = useCallback(async (file) => {
+    const data = await fileToBase64(file)
+    const created = await uploadPageAttachment(page.id, {
+      filename: file.name,
+      mimeType: file.type,
+      data,
+    })
+    return attachmentDownloadUrl(page.id, created.id)
+  }, [page])
+
+  /*
+   * JL-101: swap authenticated image URLs for blob URLs after each render of
+   * the body. Re-runs when the page changes; the blobs are revoked on the way
+   * out so the bytes are not held for the life of the document.
+   */
+  useAuthedImages(bodyRef, [page?.id, page?.content, editing])
+
   const SAVE_LABEL = {
     dirty: 'Unsaved changes',
     saving: 'Saving…',
@@ -192,11 +240,19 @@ export function WikiPageViewer() {
 
   return (
     <div className="wiki-viewer">
+      {/* JL-99: mounted at the page level so it survives editor re-renders. */}
+      <PageLinkDialog
+        open={Boolean(linkDialog)}
+        initialHref={linkDialog?.initialHref || ''}
+        onCancel={() => closeLinkDialog(undefined)}
+        onConfirm={(href) => closeLinkDialog(href)}
+      />
+
       {loading && <LoadingState label="Loading page…" variant="skeleton" rows={6} />}
       {!loading && error && !editing && <ErrorState error={error} onRetry={load} />}
 
       {!loading && !error && page && (
-        <article className="wiki-viewer-body">
+        <article className="wiki-viewer-body" ref={bodyRef}>
           <header className="wiki-viewer-head">
             <h1>{page.title}</h1>
             <p className="wiki-viewer-meta">
@@ -271,6 +327,8 @@ export function WikiPageViewer() {
                 tables
                 images
                 autoFocus
+                onPickLink={pickLink}
+                onUploadImage={uploadImage}
               />
             </Suspense>
           ) : (

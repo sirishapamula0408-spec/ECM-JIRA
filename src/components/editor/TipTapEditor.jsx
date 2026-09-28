@@ -55,10 +55,15 @@ function ToolbarButton({ onClick, active, disabled, title, children }) {
 export function TipTapEditor({
   value = '', onChange, placeholder = 'Write something…', autoFocus = false,
   tables = false, images = false,
+  onPickLink, onUploadImage,
 }) {
   const [, forceRender] = useState(0)
   const [slashOpen, setSlashOpen] = useState(false)
   const slashRef = useRef(false)
+  // JL-101: the real control is the toolbar button; this only opens the picker.
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   const editor = useEditor({
     extensions: [
@@ -142,8 +147,42 @@ export function TipTapEditor({
 
   const can = editor.can()
 
+  async function handleFile(event) {
+    const file = event.target.files?.[0]
+    // Reset immediately so the SAME file can be picked twice in a row.
+    event.target.value = ''
+    if (!file || !onUploadImage) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      const src = await onUploadImage(file)
+      if (src) editor.chain().focus().setImage({ src, alt: file.name }).run()
+    } catch (err) {
+      /*
+       * The server's message names the real limit and the real allow-list,
+       * so it is shown as-is rather than restated here where the two could
+       * drift apart.
+       */
+      setUploadError(err?.message || 'Could not upload that image.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="tte-container">
+      {onUploadImage && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="tte-file"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={handleFile}
+        />
+      )}
+      {uploadError && <p className="tte-upload-error" role="alert">{uploadError}</p>}
       <div className="tte-toolbar" role="toolbar" aria-label="Text formatting">
         <ToolbarButton title="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><strong>B</strong></ToolbarButton>
         <ToolbarButton title="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><em>I</em></ToolbarButton>
@@ -160,7 +199,28 @@ export function TipTapEditor({
         <ToolbarButton title="Code block" active={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>{'{}'}</ToolbarButton>
         <ToolbarButton title="Horizontal rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>―</ToolbarButton>
         <span className="tte-sep" />
-        <ToolbarButton title="Link" active={editor.isActive('link')} onClick={() => setLink(editor)}>🔗</ToolbarButton>
+        {/* JL-99: a consumer can supply a real picker (search by title).
+            Without one this falls back to the prompt, which is what the issue
+            description editor still uses — an issue has no page to search. */}
+        <ToolbarButton
+          title="Link"
+          active={editor.isActive('link')}
+          onClick={async () => {
+            if (!onPickLink) { setLink(editor); return }
+            const current = editor.getAttributes('link').href || ''
+            const href = await onPickLink(current)
+            // undefined means cancelled; '' means "remove the link", which is
+            // a deliberate choice and not the same thing.
+            if (href === undefined || href === null) return
+            if (href === '') {
+              editor.chain().focus().extendMarkRange('link').unsetLink().run()
+              return
+            }
+            editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
+          }}
+        >
+          🔗
+        </ToolbarButton>
 
         {/* JL-98/JL-101: only rendered for consumers that opted in, so the
             issue-description toolbar is unchanged. The row/column controls
@@ -170,7 +230,19 @@ export function TipTapEditor({
         {images && (
           <>
             <span className="tte-sep" />
-            <ToolbarButton title="Insert image" onClick={() => setImage(editor)}>🖼</ToolbarButton>
+            {/* JL-101: with an uploader, this attaches a real file and
+                inserts the stored URL. Without one it falls back to asking
+                for a URL, which is all Phase 4 could do. */}
+            <ToolbarButton
+              title={onUploadImage ? 'Upload an image' : 'Insert image by URL'}
+              disabled={uploading}
+              onClick={() => {
+                if (!onUploadImage) { setImage(editor); return }
+                fileRef.current?.click()
+              }}
+            >
+              {uploading ? '…' : '🖼'}
+            </ToolbarButton>
           </>
         )}
         {tables && (

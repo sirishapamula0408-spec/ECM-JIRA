@@ -133,3 +133,16 @@
 .tte-slash-item:hover { background: rgba(9, 30, 66, 0.06); }
 .tte-slash-label { font-size: var(--font-size-base); color: var(--text-primary, #172b4d); }
 .tte-slash-hint { font-size: var(--font-size-sm); color: var(--text-secondary, #5e6c84); }
+
+/* JL-101: the toolbar button is the control; this only opens the picker. */
+.tte-file {
+  display: none;
+}
+
+.tte-upload-error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--jira-danger);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
