@@ -1,4 +1,18 @@
 import { Router } from 'express'
+/*
+ * JL-140 — administrative actions go to the EXISTING JIRA Lite audit log.
+ *
+ * safeAppendAudit swallows its own failures by design: an audit write must
+ * never be the reason a user's action fails. That is also why these calls are
+ * not awaited — the response does not wait on the log.
+ *
+ * Only ADMINISTRATIVE actions are recorded: creating and deleting Spaces and
+ * pages, archiving, restoring, and template changes. Ordinary edits are NOT,
+ * because wiki_page_versions already records every one of those with an
+ * author and a timestamp, and duplicating that into the audit log would
+ * double the volume while adding nothing a reader could not already see.
+ */
+import { safeAppendAudit } from '../services/auditLog.js'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
@@ -172,6 +186,13 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     'INSERT INTO spaces (key, name, description, owner_email, created_by) VALUES (?, ?, ?, ?, ?)',
     [key, name, description, actor, actor],
   )
+  safeAppendAudit({
+    actor,
+    action: 'space.created',
+    target: `space:${created.lastID}`,
+    metadata: { key, name },
+  })
+
   // The creator is seeded as an explicit Admin member as well as the owner.
   // Owner is a single column and can be reassigned (JL-83); membership is what
   // the access check actually reads, so it must not depend on ownership alone.

@@ -789,6 +789,50 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_live ON wiki_pages(space_id) WHERE deleted_at IS NULL')
 
   /* ============================================================
+     JL-137/JL-138 — indexes the Confluence Lite read paths need.
+     ------------------------------------------------------------
+     JL-138. The search is ILIKE '%term%' on title, content and space
+     name. A LEADING wildcard cannot use a btree index, so without
+     something else this is a sequential scan and no amount of query
+     tuning changes that.
+
+     pg_trgm with GIN is the option that does NOT change what counts
+     as a match: it makes the SAME ILIKE indexable. The alternative,
+     a tsvector column with websearch_to_tsquery, is faster still and
+     ranks better, but it introduces stemming and stop words — so
+     "running" would start matching "run" and "the" would stop
+     matching anything. That is a product decision about search
+     behaviour, not a tuning change, and it is not one to make
+     silently inside a performance ticket.
+
+     The extension is created CONDITIONALLY. CREATE EXTENSION needs
+     privileges a hardened deployment may not grant the app role, and
+     an install that cannot create it should still boot and still
+     search — just without the index. Failing startup over an
+     optimisation would be the wrong trade.
+     ============================================================ */
+  try {
+    await pool.query('CREATE EXTENSION IF NOT EXISTS pg_trgm')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_title_trgm ON wiki_pages USING gin (title gin_trgm_ops)')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_content_trgm ON wiki_pages USING gin (content gin_trgm_ops)')
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_spaces_name_trgm ON spaces USING gin (name gin_trgm_ops)')
+  } catch (err) {
+    // Not fatal: search still works, it is simply a scan. Said out loud so
+    // a slow search on a large corpus is diagnosable rather than mysterious.
+    console.warn(
+      '[db] pg_trgm unavailable — wiki search will not be indexed:',
+      err?.message || err,
+    )
+  }
+
+  /* JL-137: the page read path. A page load fetches its children and its
+     linked issues, both by a foreign key that was previously unindexed on
+     the lookup side. */
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_page ON issue_wiki_links(wiki_page_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_issue ON issue_wiki_links(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_page_versions_page ON wiki_page_versions(page_id, version_number DESC)')
+
+  /* ============================================================
      JL-125→127 (Confluence Lite) — page templates.
      ------------------------------------------------------------
      A template is a named starting body. It is NOT a page: it has

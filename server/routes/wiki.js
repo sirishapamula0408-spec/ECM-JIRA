@@ -1,4 +1,17 @@
 import { Router } from 'express'
+/*
+ * JL-140 — administrative actions go to the EXISTING JIRA Lite audit log.
+ *
+ * safeAppendAudit swallows its own failures by design: an audit write must
+ * never be the reason a user's action fails. These calls are deliberately not
+ * awaited, so the response does not wait on the log either.
+ *
+ * Only ADMINISTRATIVE actions are recorded — create, delete, restore.
+ * Ordinary edits are NOT, because wiki_page_versions already records every one
+ * with an author and a timestamp; duplicating that here would double the
+ * volume while adding nothing a reader could not already see.
+ */
+import { safeAppendAudit } from '../services/auditLog.js'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
@@ -217,6 +230,13 @@ router.post('/:id/restore', requireRole('Member'), asyncHandler(async (req, res)
     'UPDATE wiki_pages SET deleted_at = NULL, deleted_by = NULL, parent_id = ?, updated_at = NOW() WHERE id = ?',
     [page.parent_id != null && orphaned ? page.parent_id : null, id],
   )
+  safeAppendAudit({
+    actor: req.user?.email || 'unknown',
+    action: 'wikipage.restored',
+    target: `wikipage:${id}`,
+    metadata: { title: page.title },
+  })
+
   const row = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
   res.json(row)
 }))
@@ -510,6 +530,13 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?)',
     [result.lastID, 1, trimmedTitle, trimmedContent, email],
   )
+  safeAppendAudit({
+    actor: email,
+    action: 'wikipage.created',
+    target: `wikipage:${result.lastID}`,
+    metadata: { title: trimmedTitle, spaceId, projectId },
+  })
+
   const row = await get('SELECT * FROM wiki_pages WHERE id = ?', [result.lastID])
   res.status(201).json(row)
 }))
@@ -658,6 +685,15 @@ router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
     'UPDATE wiki_pages SET deleted_at = NOW(), deleted_by = ?, updated_at = NOW() WHERE id = ?',
     [req.user?.email || 'unknown', id],
   )
+  safeAppendAudit({
+    actor: req.user?.email || 'unknown',
+    action: 'wikipage.deleted',
+    target: `wikipage:${id}`,
+    // Recorded as soft so an audit reader knows it is recoverable without
+    // having to know the implementation.
+    metadata: { title: page.title, soft: true },
+  })
+
   res.json({ success: true, softDeleted: true, promotedChildren: true })
 }))
 

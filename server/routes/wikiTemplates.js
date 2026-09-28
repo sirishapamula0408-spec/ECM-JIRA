@@ -1,4 +1,17 @@
 import { Router } from 'express'
+/*
+ * JL-140 — administrative actions go to the EXISTING JIRA Lite audit log.
+ *
+ * safeAppendAudit swallows its own failures by design: an audit write must
+ * never be the reason a user's action fails. These calls are deliberately not
+ * awaited, so the response does not wait on the log either.
+ *
+ * Only ADMINISTRATIVE actions are recorded — create, delete, restore.
+ * Ordinary edits are NOT, because wiki_page_versions already records every one
+ * with an author and a timestamp; duplicating that here would double the
+ * volume while adding nothing a reader could not already see.
+ */
+import { safeAppendAudit } from '../services/auditLog.js'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
@@ -80,6 +93,13 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
      VALUES (NULL, ?, ?, ?, FALSE, ?, ?)`,
     [name, description, body, req.user.email, req.user.email],
   )
+  safeAppendAudit({
+    actor: req.user.email,
+    action: 'wikitemplate.created',
+    target: `wikitemplate:${created.lastID}`,
+    metadata: { name },
+  })
+
   const row = await get(
     `SELECT ${TEMPLATE_COLUMNS} FROM wiki_templates WHERE id = ?`,
     [created.lastID],
@@ -151,6 +171,11 @@ router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     return
   }
   await run('DELETE FROM wiki_templates WHERE id = ?', [id])
+  safeAppendAudit({
+    actor: req.user.email,
+    action: 'wikitemplate.deleted',
+    target: `wikitemplate:${id}`,
+  })
   res.json({ success: true })
 }))
 
