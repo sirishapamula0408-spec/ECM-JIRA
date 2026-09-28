@@ -423,3 +423,74 @@ describe('JL-94 trash does not expose another author’s deleted draft', () => {
     expect(res.body).toHaveLength(1)
   })
 })
+
+/* ---------------------------------------------------------------- *
+ * JL-103 — a save built on a superseded version is refused
+ *
+ * Without this, two people editing the same page produces a silent
+ * last-write-wins: the second save overwrites the first with content
+ * that never contained it, and nothing anywhere reports a loss.
+ * ---------------------------------------------------------------- */
+describe('JL-103 concurrent edit detection', () => {
+  /** Answer the MAX(version_number) probe with `v`, everything else normally. */
+  function atVersion(v, page = pageAt()) {
+    db.get.mockImplementation(async (sql) => {
+      if (/MAX\(version_number\)/.test(sql)) return { v, max_ver: v }
+      if (/FROM wiki_page_versions/.test(sql)) return { edited_by: OTHER, created_at: '2026-09-28T00:00:00Z' }
+      return page
+    })
+  }
+  const pageAt = () => page()
+
+  it('saves when the editor is on the current version', async () => {
+    atVersion(4)
+    const res = await request(await buildApp())
+      .patch('/1').send({ content: 'new', expectedVersion: 4 })
+    expect(res.status).toBe(200)
+  })
+
+  it('409s when someone else saved in the meantime', async () => {
+    atVersion(5)
+    const res = await request(await buildApp())
+      .patch('/1').send({ content: 'mine', expectedVersion: 4 })
+    expect(res.status).toBe(409)
+    expect(res.body.currentVersion).toBe(5)
+    expect(res.body.yourVersion).toBe(4)
+  })
+
+  it('names who changed it, so the message is actionable', async () => {
+    atVersion(5)
+    const res = await request(await buildApp())
+      .patch('/1').send({ content: 'mine', expectedVersion: 4 })
+    expect(res.body.editedBy).toBe(OTHER)
+    expect(res.body.error).toMatch(/changed by someone else/i)
+  })
+
+  it('writes NOTHING when it refuses — the check runs before the update', async () => {
+    atVersion(5)
+    await request(await buildApp()).patch('/1').send({ content: 'mine', expectedVersion: 4 })
+    expect(db.run).not.toHaveBeenCalled()
+  })
+
+  it('leaves callers that send no expectedVersion exactly as they were', async () => {
+    // A move from the page tree has no base revision to compare against.
+    atVersion(5)
+    const res = await request(await buildApp()).patch('/1').send({ content: 'mine' })
+    expect(res.status).toBe(200)
+  })
+
+  it('does not gate a pure move, which carries no content', async () => {
+    atVersion(5)
+    const res = await request(await buildApp())
+      .patch('/1').send({ parentId: 9, expectedVersion: 1 })
+    expect(res.status).toBe(200)
+  })
+
+  it('reports the current version on GET so the editor has a base', async () => {
+    atVersion(7)
+    db.all.mockResolvedValue([])
+    const res = await request(await buildApp()).get('/1')
+    expect(res.status).toBe(200)
+    expect(res.body.version).toBe(7)
+  })
+})

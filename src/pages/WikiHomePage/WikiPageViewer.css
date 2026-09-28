@@ -36,3 +36,70 @@
   line-height: var(--line-height-base);
   color: var(--jira-text-muted);
 }
+
+/* ── JL-96→103: editing a page ────────────────────────────────────────── */
+
+.wiki-viewer-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+/* Autosave state. Answering "did that save?" on screen is the whole point of
+   an autosave that the user never triggered. */
+.wiki-save-state {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+.wiki-save-state--saved {
+  color: var(--jira-success);
+}
+
+.wiki-save-state--error,
+.wiki-save-state--conflict {
+  color: var(--jira-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.wiki-conflict {
+  margin-bottom: var(--space-4);
+}
+
+/* Rendered page body. Only the tags sanitizeHtml admits can appear here. */
+.wiki-viewer-content {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text);
+}
+
+.wiki-viewer-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+.wiki-viewer-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--space-3) 0;
+}
+
+.wiki-viewer-content th,
+.wiki-viewer-content td {
+  border: 1px solid var(--jira-border);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.wiki-viewer-content th {
+  background: var(--jira-surface-sunken);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* A wide table scrolls inside the body, never widening the page (JL-154). */
+.wiki-viewer-content {
+  overflow-x: auto;
+}

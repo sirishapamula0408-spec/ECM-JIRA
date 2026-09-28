@@ -23,11 +23,18 @@ describe('sanitizeHtml (JL-91)', () => {
     expect(out).toContain('href="https://x"')
   })
 
-  it('escapes tags with only an event handler and no allow-listed use (img)', () => {
+  it('strips the event handler from an img, which JL-101 now allows', () => {
+    /*
+     * This used to assert that <img> was escaped wholesale, because the tag
+     * was not on the allow-list. JL-101 added it for wiki page content, so the
+     * tag now survives — but the property this test actually exists to protect
+     * is that `onerror` never does. Asserted directly rather than as a side
+     * effect of the tag being banned.
+     */
     const out = sanitizeHtml('<img src=x onerror=alert(1)>')
-    // img is not on the allow-list → escaped as literal text, never executes
-    expect(out).not.toMatch(/<img/i)
-    expect(out).toContain('&lt;img')
+    expect(out).toMatch(/<img/i)
+    expect(out).not.toMatch(/onerror/i)
+    expect(out).not.toContain('alert(1)')
   })
 
   it('neutralizes javascript: hrefs', () => {
@@ -484,5 +491,77 @@ describe('sanitizeHtml (JL-91)', () => {
       const once = sanitizeHtml(input)
       expect(sanitizeHtml(once)).toBe(once)
     })
+  })
+})
+
+/* ================================================================
+   JL-98 / JL-101 — the allow-list additions for wiki page content.
+
+   Tables were already permitted; what is new is image support and
+   the cell attributes TipTap emits. The additions widen the
+   allow-list, so each one gets a test that the widening did NOT
+   also admit a way to execute something.
+   ================================================================ */
+describe('sanitizeHtml — images and table cells (JL-98/JL-101)', () => {
+  it('keeps an image with an http src', () => {
+    const out = sanitizeHtml('<p><img src="https://example.com/a.png" alt="A"></p>')
+    expect(out).toContain('<img')
+    expect(out).toContain('src="https://example.com/a.png"')
+    expect(out).toContain('alt="A"')
+  })
+
+  it('keeps a relative image src, which is what an attachment URL will be', () => {
+    const out = sanitizeHtml('<img src="/api/attachments/12/raw" alt="chart">')
+    expect(out).toContain('src="/api/attachments/12/raw"')
+  })
+
+  it('drops a data: image src', () => {
+    /*
+     * The usual way an <img> becomes script execution is a data: URI carrying
+     * an SVG with an embedded <script>. data: is not on ALLOWED_URL_SCHEMES,
+     * and adding the img tag must not have created an exception to that.
+     */
+    const out = sanitizeHtml('<img src="data:image/svg+xml;base64,PHN2Zz48c2NyaXB0Pg==">')
+    expect(out).not.toContain('data:')
+  })
+
+  it('drops a javascript: image src', () => {
+    const out = sanitizeHtml('<img src="javascript:alert(1)">')
+    expect(out).not.toContain('javascript:')
+    expect(out).not.toContain('alert(1)')
+  })
+
+  it('drops style from an image rather than admitting CSS', () => {
+    const out = sanitizeHtml('<img src="/a.png" style="position:fixed;top:0">')
+    expect(out).not.toContain('style')
+    expect(out).toContain('src="/a.png"')
+  })
+
+  it('emits img as a void element, with no closing tag', () => {
+    const out = sanitizeHtml('<img src="/a.png">')
+    expect(out).not.toMatch(/<\/img>/i)
+  })
+
+  it('keeps colspan and rowspan on table cells', () => {
+    const html = '<table><tbody><tr><td colspan="2" rowspan="3">c</td></tr></tbody></table>'
+    const out = sanitizeHtml(html)
+    expect(out).toContain('colspan="2"')
+    expect(out).toContain('rowspan="3"')
+  })
+
+  it('still drops an event handler from a table cell', () => {
+    const out = sanitizeHtml('<table><tbody><tr><td onclick="e()">c</td></tr></tbody></table>')
+    expect(out).not.toContain('onclick')
+    expect(out).toContain('<td>c</td>')
+  })
+
+  it('is idempotent over images and spanned cells', () => {
+    for (const input of [
+      '<img src="/a.png" alt="A">',
+      '<table><tbody><tr><td colspan="2">c</td></tr></tbody></table>',
+    ]) {
+      const once = sanitizeHtml(input)
+      expect(sanitizeHtml(once)).toBe(once)
+    }
   })
 })

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+// JL-98/JL-101: opt-in extensions for Confluence Lite page content.
+import { TableKit } from '@tiptap/extension-table'
+import { Image } from '@tiptap/extension-image'
 // JL-359: sanitizeHtml now comes from utils/sanitizeHtml — the single
 // sanitizer in the codebase. editorContent keeps only the pure text helpers.
 import { isEmptyDoc } from '../../utils/editorContent'
@@ -38,7 +41,21 @@ function ToolbarButton({ onClick, active, disabled, title, children }) {
   )
 }
 
-export function TipTapEditor({ value = '', onChange, placeholder = 'Write something…', autoFocus = false }) {
+/**
+ * @param {object}  props
+ * @param {boolean} [props.tables]  JL-98 — table editing (Confluence Lite)
+ * @param {boolean} [props.images]  JL-101 — inline images (Confluence Lite)
+ *
+ * `tables` and `images` default to OFF so IssueDetailPage, the only consumer
+ * before JL-98/JL-101, keeps exactly the editor it had. Opting in per consumer
+ * rather than enabling everywhere: an issue description is a short field where
+ * a table grid would be noise, and the two products can diverge without a
+ * second editor component existing.
+ */
+export function TipTapEditor({
+  value = '', onChange, placeholder = 'Write something…', autoFocus = false,
+  tables = false, images = false,
+}) {
   const [, forceRender] = useState(0)
   const [slashOpen, setSlashOpen] = useState(false)
   const slashRef = useRef(false)
@@ -49,6 +66,14 @@ export function TipTapEditor({ value = '', onChange, placeholder = 'Write someth
         heading: { levels: [1, 2, 3] },
         link: { openOnClick: false, autolink: true },
       }),
+      // JL-98: TableKit bundles Table + Row + Cell + Header, so the four nodes
+      // cannot be wired up inconsistently. `resizable` is off — column widths
+      // are written as inline styles on a <colgroup>, and sanitizeHtml drops
+      // both `style` and `colgroup`, so a resize would silently not persist.
+      ...(tables ? [TableKit.configure({ table: { resizable: false } })] : []),
+      // JL-101: `inline: false` keeps an image its own block node, which is
+      // what the sanitiser's allow-list shape expects.
+      ...(images ? [Image.configure({ inline: false, allowBase64: false })] : []),
     ],
     content: value || '',
     autofocus: autoFocus,
@@ -136,6 +161,38 @@ export function TipTapEditor({ value = '', onChange, placeholder = 'Write someth
         <ToolbarButton title="Horizontal rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>―</ToolbarButton>
         <span className="tte-sep" />
         <ToolbarButton title="Link" active={editor.isActive('link')} onClick={() => setLink(editor)}>🔗</ToolbarButton>
+
+        {/* JL-98/JL-101: only rendered for consumers that opted in, so the
+            issue-description toolbar is unchanged. The row/column controls
+            appear only with the caret inside a table — a table command fired
+            outside one is a no-op, and a permanently dead button is worse
+            than no button. */}
+        {images && (
+          <>
+            <span className="tte-sep" />
+            <ToolbarButton title="Insert image" onClick={() => setImage(editor)}>🖼</ToolbarButton>
+          </>
+        )}
+        {tables && (
+          <>
+            <span className="tte-sep" />
+            <ToolbarButton
+              title="Insert table"
+              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            >
+              ▦
+            </ToolbarButton>
+            {editor.isActive('table') && (
+              <>
+                <ToolbarButton title="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()}>+Row</ToolbarButton>
+                <ToolbarButton title="Add column after" onClick={() => editor.chain().focus().addColumnAfter().run()}>+Col</ToolbarButton>
+                <ToolbarButton title="Delete row" onClick={() => editor.chain().focus().deleteRow().run()}>−Row</ToolbarButton>
+                <ToolbarButton title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()}>−Col</ToolbarButton>
+                <ToolbarButton title="Delete table" onClick={() => editor.chain().focus().deleteTable().run()}>⌫▦</ToolbarButton>
+              </>
+            )}
+          </>
+        )}
         <span className="tte-sep" />
         <ToolbarButton title="Undo" disabled={!can.undo?.()} onClick={() => editor.chain().focus().undo().run()}>↶</ToolbarButton>
         <ToolbarButton title="Redo" disabled={!can.redo?.()} onClick={() => editor.chain().focus().redo().run()}>↷</ToolbarButton>
@@ -164,6 +221,27 @@ export function TipTapEditor({ value = '', onChange, placeholder = 'Write someth
       </div>
     </div>
   )
+}
+
+/*
+ * JL-101 — insert an image by URL.
+ *
+ * URL rather than file upload, deliberately. sanitizeHtml allows only http:,
+ * https: and relative URLs in a `src` (JL-368), so a pasted base64 data: URI
+ * would be stripped on save and the image would vanish — the usual way an
+ * <img> becomes script execution is exactly such a data: URI carrying an SVG.
+ * Upload-backed images arrive with attachments (JL-71/JL-120), whose endpoint
+ * returns a relative URL that passes this check unchanged.
+ */
+function setImage(editor) {
+  const url = typeof window !== 'undefined' && window.prompt
+    ? window.prompt('Image URL (https:// or a relative path)')
+    : null
+  if (!url) return
+  const alt = typeof window !== 'undefined' && window.prompt
+    ? window.prompt('Describe the image (for screen readers)', '')
+    : ''
+  editor.chain().focus().setImage({ src: url, alt: alt || undefined }).run()
 }
 
 function setLink(editor) {

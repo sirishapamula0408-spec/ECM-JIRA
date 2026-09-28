@@ -50,13 +50,20 @@ const ALLOWED_TAGS = new Set([
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'blockquote', 'span',
   'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  // JL-101: inline images in wiki page content. `src` is scheme-checked by
+  // the same allow-list as `href` (see URL_ATTRS below), which permits only
+  // http:, https: and relative URLs — so a data: URI carrying an SVG, the
+  // usual way an <img> becomes a script, does not survive.
+  'img',
 ])
 
 // Elements whose entire contents must be discarded, not just the tag.
 const DANGEROUS_TAGS = new Set(['script', 'style', 'iframe'])
 
-// Void tags that never have a closing tag.
-const VOID_TAGS = new Set(['br', 'hr'])
+// Void tags that never have a closing tag. `img` joins them with JL-101 —
+// omitting it here would emit `<img></img>`, which browsers recover from but
+// which is not what the parser was handed.
+const VOID_TAGS = new Set(['br', 'hr', 'img'])
 
 // Per-tag allow-list of attributes. '*' applies to every allowed tag.
 //
@@ -65,8 +72,20 @@ const VOID_TAGS = new Set(['br', 'hr'])
 // IssueDetailPage's stylesheet targets those classes. Neither can execute:
 // values are entity-escaped on the way out, and no user-controlled CSS exists
 // for a class name to select.
+// JL-98/JL-101: the table cells TipTap emits carry colspan/rowspan, and an
+// image carries src/alt. All four are inert data attributes — none can
+// execute, and `src` goes through the same scheme check as `href`.
+//
+// `style` is deliberately NOT allowed, on img or anywhere. TipTap's table
+// writes column widths as `<colgroup><col style="width:…">`; colgroup and col
+// are not allow-listed, so those are dropped and the table renders at its
+// natural widths. Losing a column width is worth more than admitting a style
+// attribute to every element in the document.
 const ALLOWED_ATTRS = {
   a: new Set(['href', 'target', 'rel', 'title']),
+  img: new Set(['src', 'alt', 'title', 'width', 'height']),
+  td: new Set(['colspan', 'rowspan']),
+  th: new Set(['colspan', 'rowspan', 'scope']),
   '*': new Set(['class']),
 }
 
@@ -321,7 +340,17 @@ export function sanitizeHtml(dirty) {
       if (isClosing) {
         if (!VOID_TAGS.has(name)) result += `</${name}>`
       } else if (VOID_TAGS.has(name)) {
-        result += `<${name}/>`
+        /*
+         * JL-101: void tags go through sanitizeAttributes too.
+         *
+         * This branch used to emit a bare `<name/>` and discard the attribute
+         * string wholesale. That was invisible while the only void tags were
+         * `br` and `hr`, which carry nothing worth keeping — but `img` is void
+         * AND its `src` is the entire point, so the image survived as an empty
+         * tag. Dropping attributes is the safe direction to fail, which is why
+         * nothing caught it until a void tag needed one.
+         */
+        result += `<${name}${sanitizeAttributes(name, attrString)}/>`
       } else {
         result += `<${name}${sanitizeAttributes(name, attrString)}>`
       }

@@ -24,6 +24,25 @@ const router = Router()
 const PAGE_COLUMNS =
   'id, project_id, space_id, title, parent_id, status, archived, deleted_at, deleted_by, created_by, updated_by, created_at, updated_at'
 
+/**
+ * JL-103 — the page's current version number.
+ *
+ * MAX(version_number) is already how a new version's number is chosen on write
+ * (see POST and PATCH below), so reusing it as the concurrency token means
+ * there is ONE notion of "which revision is this" rather than a second counter
+ * that could disagree with the history the user is shown.
+ *
+ * Returns 0 for a page with no versions, which cannot happen for a page
+ * created through POST but keeps a hand-inserted row from throwing.
+ */
+async function currentVersion(pageId) {
+  const row = await get(
+    'SELECT COALESCE(MAX(version_number), 0) AS v FROM wiki_page_versions WHERE page_id = ?',
+    [pageId],
+  )
+  return Number(row?.v || 0)
+}
+
 /** JL-95: a page is a draft until published. Existing rows are published. */
 const PAGE_STATUSES = ['draft', 'published']
 
@@ -217,12 +236,17 @@ router.get('/:id', asyncHandler(async (req, res) => {
     `SELECT id, title, created_at FROM wiki_pages WHERE parent_id = ? AND ${LIVE} ORDER BY title ASC`,
     [row.id],
   )
+  // JL-103: the client holds on to this and sends it back on save, so a
+  // PATCH built from stale content can be refused rather than silently
+  // overwriting whatever was written in between.
+  const version = await currentVersion(row.id)
+
   // Get linked issues
   const linkedIssues = await all(
     'SELECT iwl.id AS link_id, iwl.issue_id, i.issue_key, i.title AS issue_title FROM issue_wiki_links iwl JOIN issues i ON i.id = iwl.issue_id WHERE iwl.wiki_page_id = ? ORDER BY iwl.created_at DESC',
     [row.id],
   )
-  res.json({ ...row, children, linkedIssues })
+  res.json({ ...row, children, linkedIssues, version })
 }))
 
 // GET /api/wiki/:id/versions — get version history
@@ -297,7 +321,40 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   }
 
   // JL-92: a move changes parent_id, space_id, or both.
-  const { title, content, parentId, spaceId, status } = req.body
+  // JL-103: expectedVersion is what the editor loaded.
+  const { title, content, parentId, spaceId, status, expectedVersion } = req.body
+
+  /*
+   * JL-103 — refuse an edit written against a version that is no longer
+   * current, rather than letting the later save silently discard the earlier
+   * one. Checked BEFORE anything is written.
+   *
+   * Opt-in: a request that sends no expectedVersion behaves exactly as before.
+   * A move (re-parenting from the tree) legitimately carries no version, and
+   * so do the existing callers; only the page editor has a base revision to
+   * compare against.
+   *
+   * 409 carries the current version and who wrote it, because "someone else
+   * changed this" is only actionable if the client can say who and offer to
+   * reload.
+   */
+  if (expectedVersion !== undefined && (title !== undefined || content !== undefined)) {
+    const version = await currentVersion(id)
+    if (Number(expectedVersion) !== version) {
+      const latest = await get(
+        'SELECT edited_by, created_at FROM wiki_page_versions WHERE page_id = ? ORDER BY version_number DESC LIMIT 1',
+        [id],
+      )
+      res.status(409).json({
+        error: 'That page was changed by someone else while you were editing it',
+        currentVersion: version,
+        yourVersion: Number(expectedVersion),
+        editedBy: latest?.edited_by || null,
+        editedAt: latest?.created_at || null,
+      })
+      return
+    }
+  }
   const nextTitle = title !== undefined ? String(title).trim() : undefined
   const nextContent = content !== undefined ? String(content ?? '').trim() : undefined
 
