@@ -12,7 +12,7 @@ const LAUNCH_SIDEBAR = true
 // JL-436: keep this in step with the nav items below — SidebarNavCoverage.JL436
 // fails if an item is neither listed here nor declared deliberately hidden.
 // JL-425 renamed 'Team directory' to 'Teams' and the old 'Teams' to 'Members'.
-const LAUNCH_NAV = ['Projects', 'Knowledge', 'Teams', 'Members', 'Users', 'Filters', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
+const LAUNCH_NAV = ['Projects', 'Teams', 'Members', 'Users', 'Filters', 'Activity', 'Workflows', 'Audit Log', 'Dashboards', 'Portfolio', 'Report Builder']
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
 export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProjects }) {
@@ -96,13 +96,14 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
     // plain 'Teams' name and moved the member directory to 'Members', so the
     // label and the route finally describe the same thing.
     { label: 'Teams', path: '/teams', icon: 'teams' },
-    /* JL-80: Knowledge is TOP-LEVEL, not under a project.
-       The existing wiki tab lives on ProjectTopPanel and is scoped to one
-       project. Spaces are deliberately cross-project - a runbook or an
-       onboarding guide outlives the project that prompted it - so the entry
-       point has to sit outside the project shell or those pages would be
-       reachable only through a project they do not belong to. */
-    { label: 'Knowledge', path: '/spaces', icon: 'spaces' },
+    /* JL-80 put a 'Knowledge' entry here, pointing at /spaces. It is gone:
+       Spaces belong to Confluence Lite, and since JL-153 that product has its
+       own sidebar carrying them. Listing them in the JIRA nav as well put one
+       product's navigation inside the other, which is the boundary JL-153
+       exists to draw.
+
+       The /spaces ROUTE is untouched and still reachable — from the wiki
+       sidebar's Spaces section and from the home page's create actions. */
     // JL-425: the workspace member directory, renamed from 'Teams' because
     // that is not what it is. Admin/Owner-only (JL-227).
     ...(canManageMembers ? [{ label: 'Members', path: '/members', icon: 'teams' }] : []),
