@@ -12,6 +12,7 @@ import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import { looksLikeHtml } from '../../utils/editorContent'
 import { VersionHistoryPanel } from '../../components/wiki/VersionHistoryPanel'
 import { PageComments } from '../../components/wiki/PageComments'
+import { PageAttachments } from '../../components/wiki/PageAttachments'
 import './WikiPageViewer.css'
 
 /*
@@ -279,6 +280,10 @@ export function WikiPageViewer() {
           {/* JL-115: comments sit below the page, and only when reading it —
               a comment thread beside an open editor competes with the text
               the author is trying to write. */}
+          {/* JL-120: attachments sit between the page and its comments —
+              they belong to the page, and the discussion follows both. */}
+          {!editing && <PageAttachments pageId={page.id} />}
+
           {!editing && <PageComments pageId={page.id} />}
         </article>
       )}

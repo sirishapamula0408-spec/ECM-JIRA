@@ -787,6 +787,38 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_live ON wiki_pages(space_id) WHERE deleted_at IS NULL')
 
   /* ============================================================
+     JL-120→124 (Confluence Lite) — page attachments.
+     ------------------------------------------------------------
+     A SEPARATE table from `attachments`, for the same reason page
+     comments are separate from `comments`: that table's issue_id is
+     NOT NULL, and widening it would mean a nullable owner plus a
+     CHECK that exactly one is set — after which every existing
+     issue-attachment query has to start excluding page rows, and the
+     one that forgets shows wiki uploads on an issue.
+
+     What IS shared is the machinery, not the table: validateUpload
+     (type and size, JL-123) and the getStorage() backend come from
+     routes/attachments.js and services/storage.js unchanged. One
+     validator and one object store, two owners — the duplication
+     worth avoiding is the logic, not the foreign key.
+     ============================================================ */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wiki_page_attachments (
+      id SERIAL PRIMARY KEY,
+      page_id INTEGER NOT NULL REFERENCES wiki_pages(id) ON DELETE CASCADE,
+      filename TEXT NOT NULL,
+      mime_type TEXT,
+      size_bytes INTEGER,
+      -- The object key in whichever backend is active (local disk or S3).
+      storage_path TEXT NOT NULL,
+      storage_backend TEXT NOT NULL DEFAULT 'local',
+      uploaded_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_attachments_page ON wiki_page_attachments(page_id, created_at)')
+
+  /* ============================================================
      JL-115→119 (Confluence Lite) — page comments.
      ------------------------------------------------------------
      A SEPARATE table from `comments`, which is issue-scoped with a

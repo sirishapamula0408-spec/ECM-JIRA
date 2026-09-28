@@ -28,6 +28,7 @@ import invitationRoutes, { publicRouter as publicInvitationRoutes } from './rout
 import spaceRoutes from './routes/spaces.js' // JL-79: Confluence Lite Spaces
 import wikiHomeRoutes from './routes/wikiHome.js' // JL-152: Confluence Lite home
 import wikiCommentRoutes from './routes/wikiComments.js' // JL-115: page comments
+import wikiAttachmentRoutes from './routes/wikiAttachments.js' // JL-120: page attachments
 import emailLogRoutes from './routes/emailLog.js' // JL-323: outbound email delivery log
 import blockedSignupRoutes from './routes/blockedSignups.js' // JL-325: signup deny-list
 import activityRoutes from './routes/activity.js'
@@ -233,6 +234,9 @@ app.use('/api/wiki', ...protect, wikiRoutes)
 // JL-115: page comments share the /api/wiki mount but not the file — wiki.js
 // is already the page lifecycle, versions and issue links.
 app.use('/api/wiki', ...protect, wikiCommentRoutes)
+// JL-120: page attachments. Separate table from issue attachments, but the
+// same validator and the same object store.
+app.use('/api/wiki', ...protect, wikiAttachmentRoutes)
 // JL-79: Confluence Lite. Spaces sit behind the same protect chain as every
 // other authenticated router; space-level access is a second axis resolved
 // inside routes/spaces.js, not a replacement for authGuard.

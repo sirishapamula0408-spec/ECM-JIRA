@@ -1,0 +1,108 @@
+/* JL-120→124 — page attachments. Token-only. */
+
+.wiki-attachments {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--jira-border);
+}
+
+.wiki-attachments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.wiki-attachments h2 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.wiki-attachments-count {
+  color: var(--jira-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+/* The button is the control; the input only exists to open the file picker.
+   `display: none` would remove it from the accessibility tree entirely, which
+   is fine here precisely BECAUSE the button carries the label and the focus. */
+.wiki-attachments-input {
+  display: none;
+}
+
+.wiki-attachments-empty {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--jira-text-muted);
+}
+
+.wiki-attachments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wiki-attachment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+  background: var(--jira-surface);
+}
+
+.wiki-attachment-name {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+  color: var(--jira-link);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  /* A long filename truncates rather than pushing the row wider than the
+     column — horizontal overflow belongs to tables, not to a list. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiki-attachment-name:hover {
+  text-decoration: underline;
+}
+
+.wiki-attachment-meta {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+  white-space: nowrap;
+}
+
+.wiki-attachment-delete {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--jira-link);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  cursor: pointer;
+}
+
+.wiki-attachment-delete:hover {
+  text-decoration: underline;
+}

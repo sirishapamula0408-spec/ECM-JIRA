@@ -35,6 +35,9 @@ vi.mock('../hooks/usePermissions', () => ({ usePermissions: () => mockPerms.curr
 vi.mock('../components/wiki/PageComments', () => ({
   PageComments: () => <div data-testid="page-comments" />,
 }))
+vi.mock('../components/wiki/PageAttachments', () => ({
+  PageAttachments: () => <div data-testid="page-attachments" />,
+}))
 vi.mock('../components/editor/TipTapEditor', () => ({
   TipTapEditor: (props) => {
     editorProps.current = props
