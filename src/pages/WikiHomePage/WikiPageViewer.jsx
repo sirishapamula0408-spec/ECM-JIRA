@@ -10,6 +10,7 @@ import { fetchWikiPage, updateWikiPage } from '../../api/wikiApi'
 import { recordPageView } from '../../api/wikiHomeApi'
 import { sanitizeHtml } from '../../utils/sanitizeHtml'
 import { looksLikeHtml } from '../../utils/editorContent'
+import { VersionHistoryPanel } from '../../components/wiki/VersionHistoryPanel'
 import './WikiPageViewer.css'
 
 /*
@@ -53,6 +54,7 @@ export function WikiPageViewer() {
   const [error, setError] = useState('')
 
   const [editing, setEditing] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const [draft, setDraft] = useState('')
   // 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict'
   const [saveState, setSaveState] = useState('idle')
@@ -207,6 +209,11 @@ export function WikiPageViewer() {
             {canEdit && (
               <div className="wiki-viewer-actions">
                 {!editing && <Button size="small" variant="outlined" onClick={() => setEditing(true)}>Edit</Button>}
+                {!editing && (
+                  <Button size="small" onClick={() => setShowHistory((v) => !v)}>
+                    {showHistory ? 'Hide history' : 'History'}
+                  </Button>
+                )}
                 {editing && (
                   <>
                     <Button size="small" variant="contained" onClick={saveNow} disabled={saveState === 'saving'}>
@@ -223,6 +230,19 @@ export function WikiPageViewer() {
             <Alert severity="error" className="wiki-conflict" onClose={() => setSaveError('')}>
               {saveError}
             </Alert>
+          )}
+
+          {/* JL-108/JL-109: history is read-only until a Restore, so it is
+              available whether or not the reader can edit — the Restore
+              control inside is what is gated. */}
+          {showHistory && !editing && (
+            <VersionHistoryPanel
+              pageId={page.id}
+              currentVersion={page.version}
+              canEdit={canEdit}
+              onClose={() => setShowHistory(false)}
+              onRestored={load}
+            />
           )}
 
           {/* JL-103: say who, and offer the only two things that help. */}

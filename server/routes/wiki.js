@@ -3,6 +3,8 @@ import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { maxLengthError, WIKI_TITLE_MAX, WIKI_CONTENT_MAX } from '../utils/validation.js'
+// JL-109: comparing two revisions.
+import { diffLines, contentToLines, summarise } from '../utils/textDiff.js'
 
 const router = Router()
 
@@ -41,6 +43,24 @@ async function currentVersion(pageId) {
     [pageId],
   )
   return Number(row?.v || 0)
+}
+
+/**
+ * JL-108/JL-109 — load a page only if this caller may see it.
+ *
+ * The version endpoints below had NO visibility check: they read
+ * wiki_page_versions by page_id directly, so another author's unpublished
+ * draft, or a page sitting in the trash, had its full content readable
+ * through its own history. Gating the page while leaving its history open
+ * protects nothing — the history IS the content, one revision per row.
+ *
+ * Same shape as the fix applied to GET /:id: 404 rather than 403, because
+ * that a draft exists is itself private.
+ */
+async function loadVisiblePage(id, user) {
+  const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
+  if (!page || page.deleted_at != null || !canSeePage(page, user)) return null
+  return page
 }
 
 /** JL-95: a page is a draft until published. Existing rows are published. */
@@ -251,6 +271,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // GET /api/wiki/:id/versions — get version history
 router.get('/:id/versions', asyncHandler(async (req, res) => {
+  // JL-108: the history is the content, so it is gated like the content.
+  if (!await loadVisiblePage(Number(req.params.id), req.user)) {
+    res.status(404).json({ error: 'Wiki page not found' })
+    return
+  }
   const rows = await all(
     'SELECT id, page_id, version_number, title, edited_by, created_at FROM wiki_page_versions WHERE page_id = ? ORDER BY version_number DESC',
     [Number(req.params.id)],
@@ -258,8 +283,54 @@ router.get('/:id/versions', asyncHandler(async (req, res) => {
   res.json(rows)
 }))
 
+/* ---------------------------------------------------------------- *
+ * JL-109 — compare two versions
+ *
+ * Declared BEFORE /:id/versions/:versionId so "compare" is not read
+ * as a version id. Express matches in declaration order, and
+ * Number('compare') is NaN, which would have queried for a version
+ * that cannot exist and returned a 404 for a working feature.
+ * ---------------------------------------------------------------- */
+router.get('/:id/versions/compare', asyncHandler(async (req, res) => {
+  const pageId = Number(req.params.id)
+  if (!await loadVisiblePage(pageId, req.user)) {
+    res.status(404).json({ error: 'Wiki page not found' })
+    return
+  }
+
+  const fromNo = Number(req.query.from)
+  const toNo = Number(req.query.to)
+  if (!Number.isInteger(fromNo) || !Number.isInteger(toNo)) {
+    res.status(400).json({ error: 'from and to version numbers are required' })
+    return
+  }
+
+  const [from, to] = await Promise.all([
+    get('SELECT * FROM wiki_page_versions WHERE page_id = ? AND version_number = ?', [pageId, fromNo]),
+    get('SELECT * FROM wiki_page_versions WHERE page_id = ? AND version_number = ?', [pageId, toNo]),
+  ])
+  if (!from || !to) {
+    res.status(404).json({ error: 'Version not found' })
+    return
+  }
+
+  const diff = diffLines(contentToLines(from.content), contentToLines(to.content))
+  res.json({
+    from: { versionNumber: from.version_number, title: from.title, editedBy: from.edited_by, createdAt: from.created_at },
+    to: { versionNumber: to.version_number, title: to.title, editedBy: to.edited_by, createdAt: to.created_at },
+    // A rename is a change a line diff over the body would never show.
+    titleChanged: from.title !== to.title,
+    diff,
+    summary: summarise(diff),
+  })
+}))
+
 // GET /api/wiki/:id/versions/:versionId — get a specific version
 router.get('/:id/versions/:versionId', asyncHandler(async (req, res) => {
+  if (!await loadVisiblePage(Number(req.params.id), req.user)) {
+    res.status(404).json({ error: 'Wiki page not found' })
+    return
+  }
   const row = await get(
     'SELECT * FROM wiki_page_versions WHERE id = ? AND page_id = ?',
     [Number(req.params.versionId), Number(req.params.id)],
@@ -269,6 +340,58 @@ router.get('/:id/versions/:versionId', asyncHandler(async (req, res) => {
     return
   }
   res.json(row)
+}))
+
+/* ---------------------------------------------------------------- *
+ * JL-108 — restore a previous version
+ * ---------------------------------------------------------------- */
+router.post('/:id/versions/:versionId/restore', requireRole('Member'), asyncHandler(async (req, res) => {
+  const pageId = Number(req.params.id)
+  const page = await loadVisiblePage(pageId, req.user)
+  if (!page) {
+    res.status(404).json({ error: 'Wiki page not found' })
+    return
+  }
+
+  const source = await get(
+    'SELECT * FROM wiki_page_versions WHERE id = ? AND page_id = ?',
+    [Number(req.params.versionId), pageId],
+  )
+  if (!source) {
+    res.status(404).json({ error: 'Version not found' })
+    return
+  }
+
+  /*
+   * A restore APPENDS a new version carrying the old content. It does not
+   * rewind the page to an earlier row and it never edits or deletes one.
+   *
+   * That is what JL-141 (immutability of version history) requires, and it is
+   * also the only behaviour that makes a restore itself undoable: the edits
+   * being stepped back over remain in the history, so restoring the wrong
+   * version is recoverable rather than destructive.
+   */
+  const last = await get(
+    'SELECT COALESCE(MAX(version_number), 0) AS max_ver FROM wiki_page_versions WHERE page_id = ?',
+    [pageId],
+  )
+  const nextNumber = (last?.max_ver || 0) + 1
+
+  await run(
+    'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?) RETURNING id',
+    [pageId, nextNumber, source.title, source.content, req.user.email],
+  )
+  await run(
+    'UPDATE wiki_pages SET title = ?, content = ?, updated_by = ?, updated_at = NOW() WHERE id = ?',
+    [source.title, source.content, req.user.email, pageId],
+  )
+
+  const updated = await get('SELECT * FROM wiki_pages WHERE id = ?', [pageId])
+  res.json({
+    ...updated,
+    version: nextNumber,
+    restoredFrom: source.version_number,
+  })
 }))
 
 // POST /api/wiki — create a wiki page (saves initial version)

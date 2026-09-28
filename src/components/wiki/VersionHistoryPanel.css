@@ -1,0 +1,160 @@
+/* JL-108/JL-109 — version history. Token-only. */
+
+.wiki-history {
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-lg);
+  background: var(--jira-surface);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.wiki-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.wiki-history-head h2 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.wiki-history-hint,
+.wiki-history-empty,
+.wiki-history-sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text-muted);
+}
+
+.wiki-history-list {
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+}
+
+.wiki-history-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--jira-border-subtle);
+}
+
+.wiki-history-row:last-child {
+  border-bottom: 0;
+}
+
+.wiki-history-row--current {
+  background: var(--jira-surface-subtle);
+}
+
+.wiki-history-pick {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.wiki-history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-history-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.wiki-history-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.wiki-history-alert {
+  margin: var(--space-3) 0;
+}
+
+.wiki-history-diff {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--jira-border);
+}
+
+.wiki-history-diff h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--jira-text);
+}
+
+.wiki-diff {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.wiki-diff-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  color: var(--jira-text);
+}
+
+/* Added and removed are told apart by an edge colour and a line-through,
+   not by two background fills — there is no subtle-green token, and
+   inventing one for a diff would put a colour in the palette that nothing
+   else uses. */
+.wiki-diff-row--added {
+  background: var(--jira-surface-subtle);
+  box-shadow: inset 3px 0 0 var(--jira-success);
+}
+
+.wiki-diff-row--removed {
+  background: var(--jira-surface-sunken);
+  color: var(--jira-text-muted);
+  text-decoration: line-through;
+}
+
+.wiki-diff-sign {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* The +/− sign is decorative and colour is not the only cue, so the kind is
+   also present as text for assistive tech — visually hidden, not removed. */
+.wiki-diff-kind {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wiki-diff-text {
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

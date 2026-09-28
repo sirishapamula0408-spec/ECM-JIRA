@@ -36,3 +36,22 @@ export const linkIssueToWiki = (pageId, issueRef) => {
 
 export const unlinkIssueFromWiki = (pageId, issueId) =>
   api(`/api/wiki/${pageId}/link-issue/${issueId}`, { method: 'DELETE' })
+
+/*
+ * JL-108 — restore a previous version.
+ *
+ * The server APPENDS a new version carrying the old content rather than
+ * rewinding, so a restore is itself undoable and the history stays immutable
+ * (JL-141). Returns the updated page plus `restoredFrom`.
+ */
+export const restoreWikiVersion = (pageId, versionId) =>
+  api(`/api/wiki/${pageId}/versions/${versionId}/restore`, { method: 'POST' })
+
+/**
+ * JL-109 — compare two versions, BY VERSION NUMBER (not row id).
+ *
+ * Version numbers are what the history list shows the reader, so they are what
+ * the URL carries; the row ids are an implementation detail.
+ */
+export const compareWikiVersions = (pageId, from, to) =>
+  api(`/api/wiki/${pageId}/versions/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
