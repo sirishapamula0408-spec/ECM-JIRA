@@ -483,6 +483,28 @@ textarea:focus {
   box-shadow: 0 0 0 1px #4c9aff;
 }
 
+/*
+ * JL-161 — a MUI field draws its own focus treatment; do not add a second.
+ *
+ * The three rules above are for hand-rolled controls, which have no wrapper
+ * and need their own focus ring. MUI renders a real <input>/<textarea> INSIDE
+ * a wrapper that already draws a focused border of its own — the notched
+ * outline carrying the field's legend. So the ring above landed inside that
+ * outline and painted a second blue border: a box inside a box.
+ *
+ * It showed on the multiline fields — Content on /wiki/new, Description in
+ * the create-Space dialog — because only the textarea actually picked the
+ * shadow up; the single-line inputs came out clean.
+ *
+ * MUI zeroes the BORDER on .MuiInputBase-input but says nothing about
+ * box-shadow, which is the one declaration that therefore has to be handed
+ * back. Specificity (0,2,0) beats the element selector above (0,1,1), so this
+ * needs no !important.
+ */
+.MuiInputBase-input:focus {
+  box-shadow: none;
+}
+
 .avatar {
   width: 36px;
   height: 36px;
