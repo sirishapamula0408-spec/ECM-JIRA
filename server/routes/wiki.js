@@ -300,7 +300,26 @@ router.get('/by-issue/:issueId', asyncHandler(async (req, res) => {
 
 // GET /api/wiki/:id — get a single wiki page with content
 router.get('/:id', asyncHandler(async (req, res) => {
-  const row = await get('SELECT * FROM wiki_pages WHERE id = ?', [Number(req.params.id)])
+  /*
+   * JL-158 — the Space's NAME comes back with the page.
+   *
+   * This was a bare `SELECT * FROM wiki_pages`, so space_name was never in
+   * the response and WikiPageViewer's `page.space_name || 'No space'` read
+   * "No space" on every page in a Space — including one just created there.
+   * The row was fine; only the read was short.
+   *
+   * Every other surface that shows a Space name already joins for it: the
+   * feed, list and search endpoints in wikiHome.js, and /by-issue directly
+   * above. This was the one detail fetch that did not, which is why the
+   * label looked wrong only after opening a page.
+   */
+  const row = await get(
+    `SELECT w.*, s.name AS space_name, s.key AS space_key
+       FROM wiki_pages w
+       LEFT JOIN spaces s ON s.id = w.space_id
+      WHERE w.id = ?`,
+    [Number(req.params.id)],
+  )
   /*
    * JL-93/95: the list endpoints filter deleted rows and other people's
    * drafts, so this one has to as well — a rule enforced on the listing but
