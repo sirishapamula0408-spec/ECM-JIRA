@@ -1,0 +1,48 @@
+/*
+ * JL-160 — the borderless multiline field.
+ *
+ * The Content box on /wiki/new and the Description box in the Create-a-Space
+ * dialog are the two large multiline fields in Confluence Lite. Each already
+ * sits inside something that frames it — a page column, a dialog — so its own
+ * outlined box reads as a second, inner frame around content that is mostly
+ * empty. The short single-line fields beside them (Title, Name, Key) keep
+ * their outline: a one-line box is a control, a ten-line box is a canvas.
+ *
+ * ── Why not variant="standard" or variant="filled" ──────────────────────────
+ *
+ * Both were considered and both trade one border for another treatment — an
+ * underline, or a grey fill. The ask was to remove the border, so the resting
+ * state here has neither.
+ *
+ * ── What is deliberately NOT removed ────────────────────────────────────────
+ *
+ * The FOCUS ring and the ERROR outline stay. A field with no resting border,
+ * no fill and no focus indicator is invisible to anyone navigating by
+ * keyboard — they would have no way to tell which control they are in. So the
+ * box disappears at rest and comes back the moment it matters.
+ *
+ * Specificity note: MUI's own rule is `.MuiOutlinedInput-notchedOutline`
+ * (0,1,0). Scoping under .wiki-borderless-field wins on specificity alone,
+ * which is why none of this needs !important — the rte-textarea rules in
+ * RichTextEditor.css did need it, and are worth not imitating.
+ */
+
+.wiki-borderless-field .MuiOutlinedInput-notchedOutline {
+  border: 0;
+}
+
+/* Back on focus — see the note above. */
+.wiki-borderless-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border: 2px solid var(--jira-blue);
+}
+
+/* And on error, so a rejected value is still visibly attached to its field. */
+.wiki-borderless-field .MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline {
+  border: 2px solid var(--jira-danger);
+}
+
+/* The textarea keeps the padding the outline used to imply, so the text does
+   not jump leftwards against the edge of the page or dialog. */
+.wiki-borderless-field .MuiInputBase-inputMultiline {
+  padding-inline: 2px;
+}

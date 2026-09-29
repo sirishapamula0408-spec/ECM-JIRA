@@ -10,6 +10,8 @@ import { EmptyState } from '../../components/common/EmptyState'
 import { SpacesIcon } from '../../components/wiki/WikiIcons'
 import { createWikiPage } from '../../api/wikiApi'
 import { fetchWikiTemplates } from '../../api/wikiTemplateApi'
+// JL-160 - the borderless treatment for the Content box.
+import '../../components/wiki/fields.css'
 
 /*
  * JL-153 — /wiki/new, the Confluence Lite Create action.
@@ -140,8 +142,12 @@ export function WikiCreatePage() {
             </TextField>
           )}
 
+          {/* JL-160: no outlined box at rest — see fields.css. The page
+              column already frames this, and an eight-row empty outline reads
+              as an inner border around nothing. */}
           <TextField
             id="wiki-new-content"
+            className="wiki-borderless-field"
             label="Content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
