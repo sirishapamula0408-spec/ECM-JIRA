@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { avatarStyle } from '../../utils/avatarColour'
 import { useWikiSidebarState } from '../../hooks/useWikiSidebarState'
 import {
-  ForYouIcon, RecentIcon, StarIcon, SpacesIcon, AppsIcon,
+  ForYouIcon, RecentIcon, StarIcon, SpacesIcon,
   DocumentIcon, ChevronIcon, PlusIcon, TrashIcon,
 } from './WikiIcons'
 import { CreateSpaceDialog, DeleteSpaceDialog } from './SpaceDialogs'
@@ -23,9 +23,14 @@ import './WikiSidebar.css'
  * navigate is a broken promise to anyone using a keyboard or a screen reader,
  * and ctrl-click would open a URL that was never meant to exist.
  *
- * "For you" and "Apps" do navigate, so those are NavLinks and take the active
- * highlight from react-router's own isActive rather than a hand-rolled
- * comparison against location.pathname.
+ * "For you" does navigate, so it is a NavLink and takes the active highlight
+ * from react-router's own isActive rather than a hand-rolled comparison
+ * against location.pathname.
+ *
+ * JL-159 removed "Apps" from this panel. The /wiki/apps route and its page are
+ * still registered — nothing else links to them, so the page is now reachable
+ * only by typing the URL. Left in place deliberately rather than deleted: an
+ * address that already exists is cheap to keep and expensive to break.
  *
  * ── Row actions (JL-156) ────────────────────────────────────────────────────
  *
@@ -178,11 +183,6 @@ export function WikiSidebar({ data, loading, collapsed = false, onSpacesChanged 
               <span className="wiki-nav-icon"><ForYouIcon /></span>
             </NavLink>
           </li>
-          <li>
-            <NavLink to="/wiki/apps" className="wiki-nav-row" title="Apps" aria-label="Apps">
-              <span className="wiki-nav-icon"><AppsIcon /></span>
-            </NavLink>
-          </li>
         </ul>
       ) : (
         <div className="wiki-sidebar-scroll">
@@ -244,12 +244,6 @@ export function WikiSidebar({ data, loading, collapsed = false, onSpacesChanged 
               )}
             />
 
-            <li>
-              <NavLink to="/wiki/apps" className="wiki-nav-row">
-                <span className="wiki-nav-icon"><AppsIcon /></span>
-                <span className="wiki-nav-label">Apps</span>
-              </NavLink>
-            </li>
           </ul>
 
           {starredSpaces.length > 0 && (

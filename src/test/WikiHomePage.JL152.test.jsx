@@ -269,10 +269,10 @@ describe('JL-154 feed rows navigate', () => {
 /* ---------------------------------------------------------------- *
  * The sidebar
  * ---------------------------------------------------------------- */
-function renderSidebar(data = HOME) {
+function renderSidebar(data = HOME, props = {}) {
   return render(
     <MemoryRouter initialEntries={['/wiki/home']}>
-      <WikiSidebar data={data} loading={false} />
+      <WikiSidebar data={data} loading={false} {...props} />
     </MemoryRouter>,
   )
 }
@@ -283,7 +283,28 @@ describe('JL-152 sidebar', () => {
     const nav = screen.getByTestId('wiki-sidebar')
     const labels = within(nav).getAllByText(/^(For you|Recent|Starred|Spaces|Apps)$/)
       .map((el) => el.textContent)
-    expect(labels).toEqual(['For you', 'Recent', 'Starred', 'Spaces', 'Apps'])
+    // JL-159 dropped "Apps". It stays in the match above so that re-adding it
+    // to the panel fails here rather than passing unnoticed.
+    expect(labels).toEqual(['For you', 'Recent', 'Starred', 'Spaces'])
+  })
+
+  it('does not offer Apps, in either the expanded panel or the rail', async () => {
+    /*
+     * JL-159. The collapsed rail carried its own Apps link, separate from the
+     * expanded list — removing one and not the other is the obvious way to
+     * half-do this, and it would be invisible until someone collapsed the
+     * sidebar.
+     */
+    for (const collapsed of [false, true]) {
+      const { unmount } = renderSidebar(HOME, { collapsed })
+      const nav = screen.getByTestId('wiki-sidebar')
+      expect(within(nav).queryByText('Apps'), `collapsed=${collapsed}`).not.toBeInTheDocument()
+      expect(
+        within(nav).queryByRole('link', { name: 'Apps' }),
+        `collapsed=${collapsed} rail link`,
+      ).not.toBeInTheDocument()
+      unmount()
+    }
   })
 
   it('expands a section in place without navigating', async () => {
