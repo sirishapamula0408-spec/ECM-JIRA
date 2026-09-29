@@ -95,6 +95,10 @@ function renderAt(path, collapsed = false) {
             <Route path="pages/:pageId" element={<div>wiki page</div>} />
             <Route path="apps" element={<div>wiki apps</div>} />
           </Route>
+          {/* JL-155 — the Spaces directory is a Confluence Lite page. */}
+          <Route path="/spaces" element={<ConfluenceLayout collapsed={collapsed} />}>
+            <Route index element={<div>spaces directory</div>} />
+          </Route>
           <Route element={<JiraLayout collapsed={collapsed} hasProjects loading={false} error="" />}>
             <Route path="/" element={<div>jira dashboard</div>} />
             <Route path="/projects/:projectId/backlog" element={<div>jira backlog</div>} />
@@ -116,8 +120,14 @@ beforeEach(() => { vi.clearAllMocks() })
 /* ---------------------------------------------------------------- *
  * The negative assertion — the one that must never regress
  * ---------------------------------------------------------------- */
-describe('JL-153 no JIRA chrome renders on a /wiki route', () => {
-  const wikiRoutes = ['/wiki', '/wiki/home', '/wiki/pages/11', '/wiki/apps']
+describe('JL-153 no JIRA chrome renders on a Confluence Lite route', () => {
+  /*
+   * JL-155 — /spaces is in this list, and that is the point of the fix.
+   * This list used to be every path starting /wiki, which silently
+   * excluded the one Confluence Lite page on another prefix. It rendered
+   * under the Jira layout for two phases without failing a test.
+   */
+  const wikiRoutes = ['/wiki', '/wiki/home', '/wiki/pages/11', '/wiki/apps', '/spaces']
 
   it.each(wikiRoutes)('%s has no Jira sidebar and no Jira tab bar', async (path) => {
     const { container } = renderAt(path)
@@ -244,6 +254,11 @@ describe('JL-153 productForPath', () => {
     ['/wiki/home', 'confluence-lite'],
     ['/wiki/pages/11', 'confluence-lite'],
     ['/projects/3/wiki', 'confluence-lite'],
+    // JL-155 — a Space is a Confluence Lite object, so its directory is
+    // Confluence Lite chrome. /spacesuit must NOT be, hence the anchor.
+    ['/spaces', 'confluence-lite'],
+    ['/spaces/ENG', 'confluence-lite'],
+    ['/spacesuit', 'jira-lite'],
     ['/', 'jira-lite'],
     ['/backlog', 'jira-lite'],
     ['/projects/3/backlog', 'jira-lite'],
@@ -291,6 +306,18 @@ describe('JL-153 App.jsx wires the layouts as siblings', () => {
     // Declared before the Jira layout element => a sibling of it, never a
     // child. Nesting it after/inside is what put two sidebars on screen.
     expect(wikiAt).toBeLessThan(jiraAt)
+  })
+
+  it('declares /spaces OUTSIDE the Jira layout too (JL-155)', () => {
+    /*
+     * The sibling test above reads path="/wiki" only. /spaces was nested
+     * inside the Jira layout while that test passed, which is how the
+     * page hosting space creation kept Jira chrome after JL-153.
+     */
+    const spacesAt = src.indexOf('path="/spaces"')
+    const jiraAt = src.indexOf('<JiraLayout')
+    expect(spacesAt, '/spaces route missing from App.jsx').toBeGreaterThan(-1)
+    expect(spacesAt).toBeLessThan(jiraAt)
   })
 
   it('mounts both product layouts inside RootLayout', () => {

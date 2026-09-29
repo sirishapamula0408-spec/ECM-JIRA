@@ -228,6 +228,17 @@ function AppContent() {
             <Route path="apps" element={<WikiAppsPage />} />
           </Route>
 
+          {/* JL-65/JL-80: Spaces are cross-project by design, so the
+              directory is top-level rather than inside a project shell.
+              JL-155: it is top-level *within Confluence Lite*, though — it
+              sat under the Jira layout, which put Jira chrome around the
+              page that creates Spaces and around every wiki link that
+              points at it. Same layout element as /wiki, so moving between
+              the two does not remount the shell or refetch the sidebar. */}
+          <Route path="/spaces" element={<ConfluenceLayout collapsed={isSidebarCollapsed} />}>
+            <Route index element={<SpacesPage />} />
+          </Route>
+
           {/* ── JIRA Lite ───────────────────────────────────────────────
               `loading` and `error` are JIRA's app data (issues, sprints,
               projects), so the gate lives with the product that needs it.
@@ -303,9 +314,6 @@ function AppContent() {
             <Route path="/profile" element={<ProfilePage />} />
             {/* JL-148: /browse/JL-63 is the canonical issue URL, matching
                 Atlassian. It is what every link in the app now builds. */}
-            {/* JL-65/JL-80: Knowledge is top-level, not inside a project shell -
-                Spaces are cross-project by design. */}
-            <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/browse/:issueId" element={hasProjects ? <IssueDetailPage /> : <Navigate to="/projects" replace />} />
             {/* The legacy path, kept registered so links already shared —
                 /issues/402 and /issues/JL-63 alike — still resolve. Same

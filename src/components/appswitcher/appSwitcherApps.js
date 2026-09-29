@@ -71,8 +71,18 @@ export const APP_SWITCHER_APPS = [
     // up past the layout that owns the page.
     createPath: '/wiki/new',
     showContextTabs: false,
-    // /wiki, and the per-project wiki the Wiki tab links to.
-    match: /^\/wiki(\/|$)|^\/projects\/[^/]+\/wiki(\/|$)/,
+    // /wiki, the per-project wiki the Wiki tab links to, and /spaces.
+    //
+    // JL-155 — /spaces is listed here because a Space is a Confluence Lite
+    // object, not a Jira one. The Spaces directory is where a Space is
+    // CREATED, and every link that reaches it is inside this product:
+    // "Show more" under Spaces in the wiki sidebar, and the "Create a
+    // space" buttons on the wiki home and create-page empty states. It
+    // resolved to Jira until now, so those links left Confluence Lite and
+    // landed in Jira chrome — the same wrong-product-shell bug JL-153
+    // fixed for /wiki, surviving on the one page that hosts space
+    // creation.
+    match: /^\/wiki(\/|$)|^\/spaces(\/|$)|^\/projects\/[^/]+\/wiki(\/|$)/,
   },
 ]
 
