@@ -9,8 +9,6 @@ import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import { createSpace, deleteSpace } from '../../api/spaceApi'
-// JL-160 - the borderless treatment for the Description box.
-import './fields.css'
 
 /*
  * JL-156 — the create and delete dialogs for a Space, in one module because
@@ -101,12 +99,8 @@ export function CreateSpaceDialog({ open, onClose, onCreated }) {
               fullWidth
               helperText="2–10 characters, starting with a letter. Used in URLs, like ENG."
             />
-            {/* JL-160: no outlined box at rest — see fields.css. The dialog
-                already frames this; a box inside a box is one border too
-                many. The two single-line fields above keep theirs. */}
             <TextField
               id="space-description"
-              className="wiki-borderless-field"
               label="Description"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
