@@ -46,7 +46,16 @@ export function ConfluenceLayout({ collapsed }) {
 
   return (
     <>
-      <WikiSidebar data={home} loading={homeLoading} collapsed={collapsed} />
+      {/* JL-156: creating or deleting a Space from the sidebar changes the
+          very payload that drew it, so the sidebar is handed the same
+          reload this layout already owns rather than keeping a second,
+          divergent copy of the Spaces list. */}
+      <WikiSidebar
+        data={home}
+        loading={homeLoading}
+        collapsed={collapsed}
+        onSpacesChanged={reloadHome}
+      />
       <main className="content" role="main" id="main-content" tabIndex={-1}>
         <ErrorBoundary>
           <Outlet context={{ home, homeLoading, homeError, reloadHome }} />

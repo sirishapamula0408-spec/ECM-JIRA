@@ -137,6 +137,27 @@ export function TeammatesIcon(props) {
   )
 }
 
+/** A plus — "create", on the Spaces section header (JL-156). */
+export function PlusIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M10 4.75v10.5M4.75 10h10.5" />
+    </Svg>
+  )
+}
+
+/** A waste bin — the per-Space delete control (JL-156). */
+export function TrashIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M4.5 6.25h11" />
+      <path d="M8.25 6.25V4.9c0-.5.4-.9.9-.9h1.7c.5 0 .9.4.9.9v1.35" />
+      <path d="M6.1 6.25l.6 8.7c.04.58.52 1.05 1.1 1.05h4.4c.58 0 1.06-.47 1.1-1.05l.6-8.7" />
+      <path d="M8.9 9v4.2M11.1 9v4.2" />
+    </Svg>
+  )
+}
+
 /** A collapse handle for the wiki sidebar — the sidebar's own chevrons. */
 export function CollapsePanelIcon(props) {
   return (

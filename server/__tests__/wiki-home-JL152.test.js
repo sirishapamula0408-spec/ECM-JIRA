@@ -20,7 +20,14 @@ import request from 'supertest'
 
 const db = { run: vi.fn(), get: vi.fn(), all: vi.fn(), tableExists: vi.fn(), columnExists: vi.fn() }
 vi.mock('../db.js', () => db)
-vi.mock('../middleware/authorize.js', () => ({
+/*
+ * The middleware is stubbed, but ROLE_RANK is a real CONSTANT the route reads
+ * (JL-156, to answer canCreateSpace with the same rank table requireRole uses).
+ * importActual rather than a literal copy: a hand-written rank table here would
+ * be a second one, free to disagree with the one the server enforces.
+ */
+vi.mock('../middleware/authorize.js', async (orig) => ({
+  ROLE_RANK: (await orig()).ROLE_RANK,
   requireRole: () => (req, _res, next) => next(),
   loadProjectRole: () => (req, _res, next) => next(),
   requireProjectRole: () => (req, _res, next) => next(),

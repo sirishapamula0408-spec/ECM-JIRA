@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogActions from '@mui/material/DialogActions'
-import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Checkbox from '@mui/material/Checkbox'
@@ -13,7 +7,9 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
-import { fetchSpaces, createSpace } from '../../api/spaceApi'
+import { fetchSpaces } from '../../api/spaceApi'
+// JL-156 — the same dialog the sidebar's "+" opens. One create form.
+import { CreateSpaceDialog } from '../../components/wiki/SpaceDialogs'
 import './SpacesPage.css'
 
 /*
@@ -28,8 +24,6 @@ import './SpacesPage.css'
  * `pageCount`, so this page needs no permission round trip of its own and no
  * request per Space.
  */
-
-const EMPTY_FORM = { key: '', name: '', description: '' }
 
 const SPACES_ICON = (
   <svg viewBox="0 0 40 40" width="40" height="40" fill="none" stroke="currentColor"
@@ -51,9 +45,6 @@ export function SpacesPage() {
   const [showArchived, setShowArchived] = useState(false)
 
   const [addOpen, setAddOpen] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [addError, setAddError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -70,28 +61,6 @@ export function SpacesPage() {
   }, [showArchived])
 
   useEffect(() => { load() }, [load])
-
-  async function handleCreate(event) {
-    event.preventDefault()
-    setAddError('')
-    setSubmitting(true)
-    try {
-      const created = await createSpace({
-        key: form.key.trim(),
-        name: form.name.trim(),
-        description: form.description.trim(),
-      })
-      setSpaces((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)))
-      setAddOpen(false)
-      setForm(EMPTY_FORM)
-    } catch (err) {
-      // The server owns the rules — key shape, duplicates — so surface its
-      // message rather than restating them here and letting the two drift.
-      setAddError(err?.message || 'Could not create the Space.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   return (
     <section className="page spaces-page">
@@ -155,49 +124,13 @@ export function SpacesPage() {
         </ul>
       )}
 
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
-        <form onSubmit={handleCreate}>
-          <DialogTitle>Create a Space</DialogTitle>
-          <DialogContent>
-            {addError && <Alert severity="error" sx={{ mb: 2 }}>{addError}</Alert>}
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField
-                id="space-name"
-                label="Name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                required
-                fullWidth
-                autoFocus
-              />
-              <TextField
-                id="space-key"
-                label="Key"
-                value={form.key}
-                onChange={(e) => setForm((f) => ({ ...f, key: e.target.value.toUpperCase() }))}
-                required
-                fullWidth
-                helperText="2–10 characters, starting with a letter. Used in URLs, like ENG."
-              />
-              <TextField
-                id="space-description"
-                label="Description"
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                fullWidth
-                multiline
-                minRows={2}
-              />
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setAddOpen(false)} disabled={submitting}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={submitting}>
-              {submitting ? 'Creating…' : 'Create'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+      <CreateSpaceDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreated={(created) => setSpaces((current) => (
+          [...current, created].sort((a, b) => a.name.localeCompare(b.name))
+        ))}
+      />
     </section>
   )
 }

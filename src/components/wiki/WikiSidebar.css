@@ -234,3 +234,92 @@
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------- *
+ * JL-156 — the Spaces "+" and the per-Space delete control.
+ *
+ * Each of these sits BESIDE its row's button, never inside it: a
+ * <button> within a <button> is invalid and the browser drops one of
+ * them. So the row becomes a flex wrapper and the row button keeps
+ * its own width:100% by flexing to fill what is left.
+ * ---------------------------------------------------------------- */
+.wiki-nav-rowgroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.wiki-nav-rowgroup > .wiki-nav-row,
+.wiki-nav-rowgroup > .wiki-nav-subrow {
+  /* min-width:0 so a long Space name ellipsises instead of shoving the
+     action button out past the sidebar's edge. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-nav-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--jira-text-muted);
+  cursor: pointer;
+  /* Hidden until the row is approached, so eight Spaces do not read as
+     eight delete buttons. Opacity rather than display:none keeps the
+     control in the tab order — see the :focus-visible rule below.
+
+     This is the default because most row actions are destructive. The
+     section-level "+" opts out below: it is the primary way to create a
+     Space, and a create affordance nobody can see until they happen to
+     hover the right row is one that does not exist. */
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+/* Revealed on hover of the whole row, and whenever the button itself takes
+   keyboard focus — a control that only appears on hover is unreachable by
+   keyboard, which is how "hover to reveal" usually breaks. */
+.wiki-nav-rowgroup:hover .wiki-nav-action,
+.wiki-nav-rowgroup:focus-within .wiki-nav-action,
+.wiki-nav-action:focus-visible {
+  opacity: 1;
+}
+
+/* Always visible — see the note above. */
+.wiki-nav-action--persistent {
+  opacity: 1;
+}
+
+.wiki-nav-action:hover {
+  background: var(--jira-hover-overlay);
+  color: var(--jira-text);
+}
+
+.wiki-nav-action--danger:hover {
+  color: var(--jira-danger);
+}
+
+.wiki-nav-action:focus-visible {
+  outline: 2px solid var(--jira-link);
+  outline-offset: -2px;
+}
+
+/* Coarse pointers have no hover, so the controls would never appear.
+   Show them permanently there rather than hiding a feature on touch. */
+@media (hover: none) {
+  .wiki-nav-action {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-nav-action {
+    transition: none;
+  }
+}

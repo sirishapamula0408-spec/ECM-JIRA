@@ -25,6 +25,15 @@ export const updateSpace = (idOrKey, fields) =>
 export const archiveSpace = (idOrKey, archived = true) =>
   updateSpace(idOrKey, { archived })
 
+/*
+ * JL-156. The server refuses (409) when the Space still holds live pages,
+ * because wiki_pages.space_id is ON DELETE SET NULL and dropping the row
+ * would orphan them rather than delete them. Its message names the count
+ * and the alternative, so callers surface it rather than pre-empting it.
+ */
+export const deleteSpace = (idOrKey) =>
+  api(`/api/spaces/${encodeURIComponent(idOrKey)}`, { method: 'DELETE' })
+
 export const addSpaceMember = (idOrKey, { email, role }) =>
   api(`/api/spaces/${encodeURIComponent(idOrKey)}/members`, {
     method: 'POST',

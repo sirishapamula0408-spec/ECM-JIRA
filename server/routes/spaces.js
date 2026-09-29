@@ -71,8 +71,14 @@ export function normalizeSpaceKey(raw) {
   return SPACE_KEY_RE.test(value) ? value.toUpperCase() : null
 }
 
-/** True when this user is a workspace Admin or Owner. */
-function isWorkspaceAdmin(user) {
+/**
+ * True when this user is a workspace Admin or Owner.
+ *
+ * Exported since JL-156 so the wiki-home sidebar query can apply the SAME
+ * bypass when it decorates each Space with the caller’s role. Restating it
+ * there is how two places end up disagreeing about who may delete a Space.
+ */
+export function isWorkspaceAdmin(user) {
   const role = String(user?.workspaceRole || '')
   return role === 'Admin' || role === 'Owner' || user?.isOwner === true
 }
@@ -334,6 +340,65 @@ router.delete('/:idOrKey/members/:email', asyncHandler(async (req, res) => {
   }
   await run('DELETE FROM space_members WHERE space_id = ? AND LOWER(user_email) = LOWER(?)', [space.id, email])
   res.json({ ok: true })
+}))
+
+/* ---------------------------------------------------------------- *
+ * JL-156 — delete a Space
+ *
+ * ── Why this refuses when the Space still holds pages ─────────────
+ *
+ * `wiki_pages.space_id` is ON DELETE SET NULL, so dropping a Space that
+ * still holds pages would not delete them — it would silently ORPHAN
+ * them into the space-less pool, where they stay readable and findable
+ * but belong to nothing. That is worse than either outcome the person
+ * clicking delete has in mind, so it is refused with the count and the
+ * two real options: empty the Space, or archive it (JL-84), which is
+ * what "I am done with this but want to keep the content" means.
+ *
+ * Pages already in the trash do NOT block: they are deleted content
+ * already, and the FK sets their space_id to NULL. A later restore
+ * brings the page back space-less, which is a state the schema supports
+ * by design (space_id is nullable) rather than a broken row.
+ *
+ * space_members is ON DELETE CASCADE, so membership goes with the Space
+ * and no cleanup is needed here.
+ * ---------------------------------------------------------------- */
+router.delete('/:idOrKey', asyncHandler(async (req, res) => {
+  const space = await loadSpace(req.params.idOrKey)
+  const role = await resolveSpaceRole(space, req.user)
+  if (!space || !role) {
+    // 404 rather than 403: see resolveSpaceRole — saying a Space exists but
+    // is closed to you is itself a disclosure.
+    res.status(404).json({ error: 'Space not found' })
+    return
+  }
+  if (!spaceRoleAtLeast(role, 'Admin')) {
+    res.status(403).json({ error: 'Only a Space Admin can delete a Space' })
+    return
+  }
+
+  const live = await get(
+    'SELECT COUNT(*)::int AS pages FROM wiki_pages WHERE space_id = ? AND deleted_at IS NULL',
+    [space.id],
+  )
+  const pages = Number(live?.pages || 0)
+  if (pages > 0) {
+    res.status(409).json({
+      error: `This Space still has ${pages} ${pages === 1 ? 'page' : 'pages'}. `
+        + 'Move or delete them first, or archive the Space to keep them.',
+      pageCount: pages,
+    })
+    return
+  }
+
+  await run('DELETE FROM spaces WHERE id = ?', [space.id])
+  safeAppendAudit({
+    actor: req.user?.email || 'unknown',
+    action: 'space.deleted',
+    target: `space:${space.id}`,
+    metadata: { key: space.key, name: space.name },
+  })
+  res.json({ ok: true, id: space.id, key: space.key })
 }))
 
 export default router

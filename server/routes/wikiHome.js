@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { isWorkspaceAdmin } from './spaces.js'
+import { ROLE_RANK } from '../middleware/authorize.js'
 import { pageVisibilityFilter, visibleSpaceIds } from '../utils/wikiVisibility.js'
 // JL-112: the snippet that shows why a page matched.
 import { buildExcerpt } from '../utils/searchExcerpt.js'
@@ -117,28 +119,66 @@ router.get('/', asyncHandler(async (req, res) => {
   const spaceIds = await visibleSpaceIds(user)
   const spaceMarks = [...spaceIds].map(() => '?').join(', ')
 
+  /*
+   * JL-156 — every Space row carries the caller’s own role, so the sidebar
+   * can show a delete control only to someone who may actually use it.
+   *
+   * It is a LEFT JOIN rather than a role lookup per Space (which is what
+   * GET /api/spaces does) because this payload loads on every wiki route,
+   * and the brief for this page was an explicit budget of two round trips.
+   * One join costs nothing; N queries against the sidebar would.
+   */
+  const roleSelect = `CASE WHEN LOWER(sp.owner_email) = LOWER(?) THEN 'Admin'
+              ELSE COALESCE(m.role, 'Viewer') END AS my_role`
+  const roleJoin = `LEFT JOIN space_members m
+              ON m.space_id = sp.id AND LOWER(m.user_email) = LOWER(?)`
+  // A workspace Admin bypasses space membership entirely — the same rule
+  // resolveSpaceRole applies, imported rather than restated.
+  const wsAdmin = isWorkspaceAdmin(user)
+  const withRole = (rows) => rows.map(({ my_role: mine, ...rest }) => ({
+    ...rest, myRole: wsAdmin ? 'Admin' : (mine || 'Viewer'),
+  }))
+
   const spaces = spaceIds.size
-    ? await all(
-      `SELECT id, key, name, archived FROM spaces
-        WHERE archived = FALSE AND id IN (${spaceMarks})
-        ORDER BY name ASC LIMIT ?`,
-      [...spaceIds, probe],
-    )
+    ? withRole(await all(
+      `SELECT sp.id, sp.key, sp.name, sp.archived, ${roleSelect}
+         FROM spaces sp ${roleJoin}
+        WHERE sp.archived = FALSE AND sp.id IN (${spaceMarks})
+        ORDER BY sp.name ASC LIMIT ?`,
+      [email, email, ...spaceIds, probe],
+    ))
     : []
 
   const starredSpaces = spaceIds.size
-    ? await all(
-      `SELECT sp.id, sp.key, sp.name, sp.archived, f.created_at AS starred_at
+    ? withRole(await all(
+      `SELECT sp.id, sp.key, sp.name, sp.archived, f.created_at AS starred_at, ${roleSelect}
          FROM favorites f
          JOIN spaces sp ON sp.id = f.target_id
+         ${roleJoin}
         WHERE f.target_type = 'space' AND LOWER(f.user_email) = LOWER(?)
           AND sp.id IN (${spaceMarks})
         ORDER BY sp.name ASC`,
-      [email, ...spaceIds],
-    )
+      [email, email, email, ...spaceIds],
+    ))
     : []
 
+  /*
+   * JL-156 — whether this caller may create a Space travels WITH the
+   * payload the sidebar is drawn from.
+   *
+   * The alternative was usePermissions() in the sidebar component, which
+   * reads MemberContext — and that hook throws outside its provider, so a
+   * presentational nav panel would have acquired a hard dependency on a
+   * context three levels up. It is also a second statement of a rule the
+   * server already owns: POST /api/spaces is requireRole('Member'), and
+   * this is that same rank test, against the same ROLE_RANK table, rather
+   * than a mirror of it free to drift.
+   */
+  const canCreateSpace = Boolean(user?.isOwner)
+    || (ROLE_RANK[user?.workspaceRole] || 0) >= ROLE_RANK.Member
+
   res.json({
+    canCreateSpace,
     recent: viewed.slice(0, SIDEBAR_LIMIT),
     recentHasMore: viewed.length > SIDEBAR_LIMIT,
     starredPages: starredPages.slice(0, SIDEBAR_LIMIT),
