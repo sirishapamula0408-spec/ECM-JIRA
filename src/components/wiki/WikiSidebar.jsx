@@ -141,7 +141,10 @@ export function WikiSidebar({ data, loading, collapsed = false, onSpacesChanged 
       <button
         type="button"
         className="wiki-nav-subrow"
-        onClick={() => navigate(`/spaces?key=${encodeURIComponent(space.key)}`)}
+        // JL-162: the Space itself. This used to carry ?key= to the
+        // directory page, which ignored the parameter and listed every
+        // Space — so clicking one Space showed you all of them.
+        onClick={() => navigate(`/spaces/${encodeURIComponent(space.key)}`)}
         title={space.name}
       >
         <SpaceAvatar space={space} />

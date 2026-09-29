@@ -35,7 +35,8 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { ACCEPT_INVITE_PATH, AcceptInvitePage } from './pages/AcceptInvitePage/AcceptInvitePage'
-import { SpacesPage } from './pages/SpacesPage/SpacesPage' // JL-65: Confluence Lite Spaces
+import { SpacesPage } from './pages/SpacesPage/SpacesPage'
+import { SpaceViewPage } from './pages/SpacesPage/SpaceViewPage' // JL-65: Confluence Lite Spaces
 // JL-153: the three layout levels. RootLayout carries the shared top bar;
 // JiraLayout and ConfluenceLayout are siblings under it, one per product.
 import { RootLayout } from './components/layout/RootLayout'
@@ -237,6 +238,10 @@ function AppContent() {
               the two does not remount the shell or refetch the sidebar. */}
           <Route path="/spaces" element={<ConfluenceLayout collapsed={isSidebarCollapsed} />}>
             <Route index element={<SpacesPage />} />
+            {/* JL-162: one Space and the pages in it. Addressed by KEY
+                (/spaces/ENG) because a key is what people say and type —
+                the same reasoning as JL-148 for issue URLs. */}
+            <Route path=":spaceKey" element={<SpaceViewPage />} />
           </Route>
 
           {/* ── JIRA Lite ───────────────────────────────────────────────

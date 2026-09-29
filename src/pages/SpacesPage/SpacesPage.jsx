@@ -7,6 +7,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePermissions } from '../../hooks/usePermissions'
 import { EmptyState } from '../../components/common/EmptyState'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
+import { useNavigate } from 'react-router-dom'
 import { fetchSpaces } from '../../api/spaceApi'
 // JL-156 — the same dialog the sidebar's "+" opens. One create form.
 import { CreateSpaceDialog } from '../../components/wiki/SpaceDialogs'
@@ -38,6 +39,7 @@ const SPACES_ICON = (
 export function SpacesPage() {
   usePageTitle('Knowledge')
   const { canCreateIssue } = usePermissions()
+  const navigate = useNavigate()
 
   const [spaces, setSpaces] = useState([])
   const [loading, setLoading] = useState(true)
@@ -109,16 +111,25 @@ export function SpacesPage() {
         <ul className="spaces-grid">
           {spaces.map((space) => (
             <li key={space.id} className={`space-card${space.archived ? ' space-card--archived' : ''}`}>
-              <div className="space-card-top">
-                <span className="space-card-key">{space.key}</span>
-                {space.archived && <span className="pill pill--lozenge pill-yellow">Archived</span>}
-              </div>
-              <h2 className="space-card-name">{space.name}</h2>
-              {space.description && <p className="space-card-desc">{space.description}</p>}
-              <div className="space-card-meta">
-                <span>{space.pageCount} {space.pageCount === 1 ? 'page' : 'pages'}</span>
-                <span className="space-card-role">{space.myRole}</span>
-              </div>
+              {/* JL-162: the whole card opens the Space. A button rather
+                  than a link wrapping block content, which nests badly and
+                  reads as one long link name to a screen reader. */}
+              <button
+                type="button"
+                className="space-card-open"
+                onClick={() => navigate(`/spaces/${encodeURIComponent(space.key)}`)}
+              >
+                <span className="space-card-top">
+                  <span className="space-card-key">{space.key}</span>
+                  {space.archived && <span className="pill pill--lozenge pill-yellow">Archived</span>}
+                </span>
+                <span className="space-card-name">{space.name}</span>
+                {space.description && <span className="space-card-desc">{space.description}</span>}
+                <span className="space-card-meta">
+                  <span>{space.pageCount} {space.pageCount === 1 ? 'page' : 'pages'}</span>
+                  <span className="space-card-role">{space.myRole}</span>
+                </span>
+              </button>
             </li>
           ))}
         </ul>

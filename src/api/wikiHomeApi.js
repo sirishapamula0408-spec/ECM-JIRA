@@ -39,8 +39,15 @@ export const removeFavorite = (targetType, targetId) =>
  * The paginated form of the sidebar's Recent / Starred lists — what its
  * "Show more" link opens. Same permission filter as every other read.
  */
-export function fetchWikiList({ kind = 'recent', cursor = 0, limit } = {}) {
+export function fetchWikiList({ kind = 'recent', cursor = 0, limit, spaceId } = {}) {
   const params = new URLSearchParams({ kind, cursor: String(cursor) })
   if (limit) params.set('limit', String(limit))
+  /*
+   * JL-162 - spaceId narrows to one Space, and only 'modified' honours it:
+   * 'recent' and 'starred' are about the READER, not the Space. The server
+   * applies it on top of the visibility filter, never instead, so a Space the
+   * caller cannot see yields nothing rather than its pages.
+   */
+  if (spaceId) params.set('spaceId', String(spaceId))
   return api(`/api/wiki-home/list?${params.toString()}`)
 }

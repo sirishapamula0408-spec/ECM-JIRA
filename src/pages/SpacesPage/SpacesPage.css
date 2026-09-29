@@ -34,14 +34,37 @@
 
 .space-card {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   background: var(--jira-surface);
   border: 1px solid var(--jira-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--jira-shadow-raised);
-  padding: var(--space-4);
+  /* JL-162: the padding moved to the button inside, so the whole card is the
+     click target rather than a padded frame around one. */
+  padding: 0;
+  overflow: hidden;
   transition: box-shadow var(--transition-fast) var(--ease-standard);
+}
+
+/* JL-162 — the card opens its Space. */
+.space-card-open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-4);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.space-card-open:focus-visible {
+  outline: 2px solid var(--jira-link);
+  outline-offset: -2px;
 }
 
 .space-card:hover {

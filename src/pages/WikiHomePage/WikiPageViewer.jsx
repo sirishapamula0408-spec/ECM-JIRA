@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -256,7 +256,14 @@ export function WikiPageViewer() {
           <header className="wiki-viewer-head">
             <h1>{page.title}</h1>
             <p className="wiki-viewer-meta">
-              {page.space_name || 'No space'} · updated <RelativeTime value={page.updated_at} />
+              {/* JL-162: the Space name is the way back to the rest of the
+                  Space. A page that names its Space but cannot reach it is
+                  still a page floating on its own. `space_key` comes from the
+                  same join JL-158 added. */}
+              {page.space_key
+                ? <Link className="wiki-viewer-space" to={`/spaces/${encodeURIComponent(page.space_key)}`}>{page.space_name}</Link>
+                : 'No space'}
+              {' · updated '}<RelativeTime value={page.updated_at} />
               {page.status === 'draft' && <span className="pill pill--lozenge pill-yellow">Draft</span>}
               {editing && saveState !== 'idle' && (
                 <span className={`wiki-save-state wiki-save-state--${saveState}`} role="status">
