@@ -696,7 +696,10 @@ export async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wiki_pages (
       id SERIAL PRIMARY KEY,
-      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      -- JL-157: NOT NULL until Confluence Lite. A page belongs to a project,
+      -- a Space, or both (JL-88), so neither key can be mandatory. The route
+      -- enforces "at least one of the two"; the column cannot express that.
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       content TEXT NOT NULL DEFAULT '',
       parent_id INTEGER REFERENCES wiki_pages(id) ON DELETE SET NULL,
@@ -778,6 +781,22 @@ export async function initializeDatabase() {
        archived     distinct from deleted: archived is intentional and
                     permanent-ish, deleted is recoverable (JL-93).
   */
+  /*
+     JL-157 — project_id stops being mandatory.
+
+     JL-88 added space_id as nullable so a page could live in a Space
+     instead of a project, but left project_id NOT NULL from the original
+     per-project wiki (JL-48). The result was that creating a page in a
+     Space — the ONLY kind of page Confluence Lite creates — failed with a
+     23502 not-null violation, surfacing as a 500 on /wiki/new. It was not
+     a local data problem: the CREATE TABLE above carried the same NOT NULL,
+     so a brand new database was born broken too.
+
+     Unconditional, like the JL-166 mentions.comment_id relaxation above:
+     DROP NOT NULL on a column that is already nullable is a no-op, so this
+     needs no columnExists guard and is safe to re-run.
+  */
+  await pool.query('ALTER TABLE wiki_pages ALTER COLUMN project_id DROP NOT NULL')
   await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL')
   await pool.query("ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published'")
   await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ')
