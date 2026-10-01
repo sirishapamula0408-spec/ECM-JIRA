@@ -105,3 +105,37 @@
     display: none;
   }
 }
+
+/* JL-164 — the Pages / Documents tab strip (spec section 1). */
+.space-view-tabs {
+  display: flex;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+  border-bottom: 1px solid var(--jira-border);
+}
+
+.space-view-tab {
+  padding: var(--space-2) 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--jira-text-muted);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.space-view-tab:hover {
+  color: var(--jira-text);
+}
+
+.space-view-tab--active {
+  color: var(--jira-link);
+  border-bottom-color: var(--jira-link);
+}
+
+.space-view-tab:focus-visible {
+  outline: 2px solid var(--jira-link);
+  outline-offset: 2px;
+}

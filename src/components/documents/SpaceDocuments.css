@@ -1,0 +1,203 @@
+/* JL-164 — the Documents tab inside a Space. */
+
+.space-documents-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+/*
+ * JL-169 — every filter keeps a width its LABEL fits in.
+ *
+ * Measured at 46px before this: a flex item shrinks to its CONTENT, and a
+ * MUI select that is empty has almost none, so the Folder control collapsed
+ * and rendered its label as "F…". The label is the only thing naming the
+ * control, so losing it loses the control.
+ */
+.space-documents-bar > .MuiFormControl-root {
+  flex: 0 1 150px;
+  min-width: 140px;
+}
+
+/* The search box takes the slack so the filters keep their natural width. */
+.space-documents-search {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+/* Only the table scrolls sideways on a narrow screen — never the page. */
+.space-documents-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+}
+
+.space-documents-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: var(--font-size-base);
+}
+
+.space-documents-table th,
+.space-documents-table td {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--jira-border);
+  vertical-align: middle;
+}
+
+.space-documents-table th {
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  background: var(--jira-surface-sunken);
+}
+
+.space-documents-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.space-documents-table tbody tr:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.space-documents-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.space-documents-name span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 28ch;
+}
+
+.space-documents-type {
+  text-transform: uppercase;
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.space-documents-more {
+  margin-top: var(--space-3);
+  text-align: center;
+}
+
+.space-documents-storage {
+  margin-top: var(--space-4);
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+  max-width: 320px;
+}
+
+.space-documents-storage-bar {
+  margin-top: var(--space-1);
+}
+
+/* ---------------------------------------------------------------- *
+ * JL-169 — folder navigation
+ * ---------------------------------------------------------------- */
+.space-documents-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+  font-size: var(--font-size-base);
+}
+
+.space-documents-crumb {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--jira-link);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+
+.space-documents-crumb:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.space-documents-crumb:focus-visible {
+  outline: 2px solid var(--jira-link);
+  outline-offset: -2px;
+}
+
+/* The last crumb is where you already are, so it is not offered as a
+   destination even though it stays focusable for orientation. */
+.space-documents-crumb[aria-current='page'] {
+  color: var(--jira-text);
+  font-weight: var(--font-weight-semibold);
+  cursor: default;
+}
+
+.space-documents-crumb-sep {
+  color: var(--jira-text-muted);
+}
+
+.space-documents-scopenote {
+  margin: 0 0 var(--space-2);
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.space-documents-folders {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 1px solid var(--jira-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.space-documents-folders li {
+  display: flex;
+  align-items: center;
+}
+
+.space-documents-folders li + li {
+  border-top: 1px solid var(--jira-border);
+}
+
+.space-documents-folder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--jira-text);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.space-documents-folder:hover {
+  background: var(--jira-hover-overlay);
+}
+
+.space-documents-folder:focus-visible {
+  outline: 2px solid var(--jira-link);
+  outline-offset: -2px;
+}
+
+.space-documents-folder-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

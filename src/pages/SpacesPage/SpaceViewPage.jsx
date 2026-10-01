@@ -7,6 +7,7 @@ import { LoadingState, ErrorState } from '../../components/common/LoadingState'
 import { RelativeTime } from '../../components/common/RelativeTime'
 import { DocumentIcon, SpacesIcon } from '../../components/wiki/WikiIcons'
 import { SpaceAvatar } from '../../components/wiki/WikiSidebar'
+import { SpaceDocuments } from '../../components/documents/SpaceDocuments'
 import { fetchSpace } from '../../api/spaceApi'
 import { fetchWikiList } from '../../api/wikiHomeApi'
 import './SpaceViewPage.css'
@@ -51,6 +52,13 @@ export function SpaceViewPage() {
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  /*
+   * JL-164: the Documents tab (spec section 1). Kept in component state
+   * rather than the URL for now — the Space itself is the addressable thing,
+   * and a tab is a view of it. Promote it to a route segment if deep-linking
+   * to Documents is ever asked for.
+   */
+  const [tab, setTab] = useState('pages')
 
   usePageTitle(space?.name || 'Space')
 
@@ -111,6 +119,38 @@ export function SpaceViewPage() {
 
       {space.description && <p className="space-view-desc">{space.description}</p>}
 
+      {/* Section 1: every Space has a Documents section beside its Pages. */}
+      <div className="space-view-tabs" role="tablist" aria-label="Space sections">
+        {[['pages', 'Pages'], ['documents', 'Documents']].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`space-tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls={`space-panel-${id}`}
+            className={`space-view-tab${tab === id ? ' space-view-tab--active' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'documents' && (
+        <div role="tabpanel" id="space-panel-documents" aria-labelledby="space-tab-documents">
+          <SpaceDocuments
+            spaceKey={space.key}
+            /* The server decides both of these again on every request; these
+               only govern whether a control that would 403 is offered. */
+            canUpload={!space.archived && ['Admin', 'Member'].includes(space.myRole)}
+            canManage={space.myRole === 'Admin'}
+          />
+        </div>
+      )}
+
+      {tab === 'pages' && (
+      <div role="tabpanel" id="space-panel-pages" aria-labelledby="space-tab-pages">
       {pages.length === 0 ? (
         <EmptyState
           icon={<SpacesIcon size={40} />}
@@ -146,6 +186,8 @@ export function SpaceViewPage() {
         <p className="space-view-more">
           Showing the {PAGE_SIZE} most recently changed pages in this Space.
         </p>
+      )}
+      </div>
       )}
     </section>
   )
