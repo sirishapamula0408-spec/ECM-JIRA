@@ -54,28 +54,74 @@ export function estimateBase64Bytes(dataBase64) {
   return Math.floor((s.length * 3) / 4) - padding
 }
 
-// Returns null when valid, or an { status, error } rejection.
-export function validateUpload({ filename, mime, dataBase64 }) {
+/*
+ * JL-164: extensions that are refused no matter which allowlist is in play.
+ *
+ * The allowlist already excludes these by omission, so this is belt as well as
+ * braces — but it is the rule a reader comes looking for, and a future widening
+ * of the allowlist must not be able to admit an executable by accident. Checked
+ * BEFORE the allowlist so the refusal names the real reason.
+ */
+export const DENIED_EXTENSIONS = new Set([
+  'exe', 'bat', 'cmd', 'msi', 'scr', 'com', 'ps1', 'vbs',
+  // Same family, same reasoning — not in the spec's list but no more welcome.
+  'dll', 'jar', 'sh', 'app', 'pif', 'reg', 'hta', 'jse', 'wsf',
+])
+
+/**
+ * Validate an upload. Returns null when valid, or an { status, error } rejection.
+ *
+ * JL-164 made the limits a PARAMETER rather than forking this function: the
+ * Document Store admits more types and a far larger file than an issue
+ * attachment does, and two validators would be two places for the executable
+ * denylist to drift apart. Defaults reproduce the issue-attachment behaviour
+ * exactly, so existing callers are unchanged.
+ *
+ * `oversizeMessage` exists because the two callers must say different things:
+ * the Document Store has spec-mandated wording (section 3), and issue
+ * attachments have their own, already asserted by JL-203. Sharing the check
+ * must not mean sharing the sentence.
+ *
+ * @param {object} upload  { filename, mime, dataBase64 }
+ * @param {object} [limits] { extensions, mimeTypes, maxBytes, oversizeMessage }
+ */
+export function validateUpload(
+  { filename, mime, dataBase64 },
+  {
+    extensions = ALLOWED_EXTENSIONS,
+    mimeTypes = ALLOWED_MIME_TYPES,
+    maxBytes = MAX_ATTACHMENT_BYTES,
+    oversizeMessage = null,
+  } = {},
+) {
   const ext = String(filename || '').split('.').pop().toLowerCase()
   const hasExt = String(filename || '').includes('.') && ext.length > 0
-  if (!hasExt || !ALLOWED_EXTENSIONS.has(ext)) {
+
+  if (hasExt && DENIED_EXTENSIONS.has(ext)) {
     return {
       status: 415,
-      error: `File type ${hasExt ? `".${ext}"` : '(no extension)'} is not allowed. Allowed types: ${[...ALLOWED_EXTENSIONS].join(', ')}`,
+      error: `Executable files are not allowed. ".${ext}" cannot be uploaded.`,
+    }
+  }
+  if (!hasExt || !extensions.has(ext)) {
+    return {
+      status: 415,
+      error: `File type ${hasExt ? `".${ext}"` : '(no extension)'} is not allowed. Allowed types: ${[...extensions].join(', ')}`,
     }
   }
   const normalizedMime = String(mime || '').trim().toLowerCase()
-  if (normalizedMime && !ALLOWED_MIME_TYPES.has(normalizedMime)) {
+  if (normalizedMime && !mimeTypes.has(normalizedMime)) {
     return {
       status: 415,
       error: `MIME type "${normalizedMime}" is not allowed`,
     }
   }
   const estimatedBytes = estimateBase64Bytes(dataBase64)
-  if (estimatedBytes > MAX_ATTACHMENT_BYTES) {
+  if (estimatedBytes > maxBytes) {
     return {
       status: 413,
-      error: `File is too large (${(estimatedBytes / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is ${MAX_ATTACHMENT_BYTES / (1024 * 1024)} MB`,
+      error: oversizeMessage
+        || `File is too large (${(estimatedBytes / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is ${maxBytes / (1024 * 1024)} MB`,
     }
   }
   return null
