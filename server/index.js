@@ -27,6 +27,7 @@ import teamRoutes, { projectTeamsRouter } from './routes/teams.js' // JL-419: At
 import invitationRoutes, { publicRouter as publicInvitationRoutes } from './routes/invitations.js'
 import spaceRoutes from './routes/spaces.js' // JL-79: Confluence Lite Spaces
 import wikiHomeRoutes from './routes/wikiHome.js' // JL-152: Confluence Lite home
+import documentRoutes from './routes/documents.js' // JL-164: Space Document Store
 import wikiCommentRoutes from './routes/wikiComments.js' // JL-115: page comments
 import wikiAttachmentRoutes from './routes/wikiAttachments.js' // JL-120: page attachments
 import wikiTemplateRoutes from './routes/wikiTemplates.js' // JL-125: page templates
@@ -249,6 +250,9 @@ app.use('/api/spaces', ...protect, spaceRoutes)
 // and favourites writes that feed them. Same protect chain as every other
 // authenticated router; per-page and per-Space filtering happens inside.
 app.use('/api/wiki-home', ...protect, wikiHomeRoutes)
+// JL-164: Document Store. Mounted at /api with absolute sub-paths, because its
+// routes span /spaces/:id/documents, /documents/:id and /folders/:id.
+app.use('/api', ...protect, documentRoutes)
 app.use('/api', ...protect, kbRoutes) // JL-144: knowledge base (/api/kb/*)
 app.use('/api', ...protect, labelRoutes)
 app.use('/api', ...protect, importExportRoutes)
