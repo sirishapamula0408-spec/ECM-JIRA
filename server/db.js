@@ -934,6 +934,150 @@ export async function initializeDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_attachments_page ON wiki_page_attachments(page_id, created_at)')
 
   /* ============================================================
+     JL-164 (Confluence Lite) — the Space Document Store.
+     ------------------------------------------------------------
+     Three tables, and deliberately NOT the wiki_page_attachments
+     table widened to serve both. An attachment hangs off a PAGE and
+     dies with it; a document belongs to a SPACE, outlives any page,
+     carries folders, versions, tags and a lifecycle of its own.
+     Sharing one table would mean a nullable page_id, a CHECK that
+     exactly one owner is set, and every existing attachment query
+     rewritten to exclude documents — the JL-115 reasoning for
+     page comments, applied again.
+
+     Binary content is NOT stored here (spec section 14). Rows carry
+     a storage_key resolved through services/storage.js, which is
+     local disk today and S3 when configured. PostgreSQL holds the
+     metadata only.
+     ============================================================ */
+
+  /*
+     Folders first: documents reference them.
+
+     parent_folder_id is self-referencing and nullable — NULL means a
+     root folder in the Space. ON DELETE CASCADE on the parent so
+     deleting a folder takes its subtree, which is what "Delete
+     folder" means; the route still refuses when documents remain,
+     so the cascade never silently destroys content.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS document_folders (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      parent_folder_id INTEGER REFERENCES document_folders(id) ON DELETE CASCADE,
+      folder_name TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_document_folders_space ON document_folders(space_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_document_folders_parent ON document_folders(parent_folder_id)')
+  /*
+     Two folders with the same name in the same place is a filing
+     mistake, not a feature. Enforced in the database because the
+     route is not the only thing that will ever insert here. Two
+     partial indexes rather than one: NULL never equals NULL in a
+     unique index, so a single index would let root folders collide.
+  */
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_document_folders_unique_named
+    ON document_folders(space_id, parent_folder_id, LOWER(folder_name))
+    WHERE parent_folder_id IS NOT NULL`)
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_document_folders_unique_root
+    ON document_folders(space_id, LOWER(folder_name))
+    WHERE parent_folder_id IS NULL`)
+
+  /*
+     folder_id is NULLABLE: a document sits at the Space root until
+     it is filed. ON DELETE SET NULL rather than CASCADE — losing a
+     folder must never destroy the documents inside it. That is the
+     JL-156 rule for Spaces and pages, and the JL-157 lesson about
+     deciding nullability deliberately rather than inheriting it.
+
+     deleted_at is a soft delete so a delete is recoverable and an
+     audit trail keeps its subject.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+      folder_id INTEGER REFERENCES document_folders(id) ON DELETE SET NULL,
+      file_name TEXT NOT NULL,
+      original_file_name TEXT NOT NULL,
+      file_extension TEXT NOT NULL,
+      mime_type TEXT,
+      file_size BIGINT NOT NULL,
+      -- The object key in whichever backend is active. Never a path the
+      -- client has seen: section 12 forbids exposing physical storage.
+      storage_key TEXT NOT NULL,
+      storage_backend TEXT NOT NULL DEFAULT 'local',
+      description TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '',
+      uploaded_by TEXT NOT NULL,
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      current_version INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'active',
+      deleted_at TIMESTAMPTZ
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_space ON documents(space_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id)')
+  // The listing is always "live documents in this Space, newest first", so the
+  // partial index matches the query rather than the table.
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_documents_live
+    ON documents(space_id, uploaded_at DESC) WHERE deleted_at IS NULL`)
+
+  /*
+     Versions are append-only (spec section 10): replacing a document
+     writes a NEW row and bumps documents.current_version. Nothing
+     here is ever overwritten, and a restore appends rather than
+     rewinds — the JL-108 rule for page versions.
+
+     Each version keeps its OWN storage_key, which is what makes
+     "download a previous version" possible at all; sharing one key
+     would mean the older rows described bytes that no longer exist.
+  */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS document_versions (
+      id SERIAL PRIMARY KEY,
+      document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      version_number INTEGER NOT NULL,
+      file_name TEXT NOT NULL,
+      file_size BIGINT NOT NULL,
+      mime_type TEXT,
+      storage_key TEXT NOT NULL,
+      storage_backend TEXT NOT NULL DEFAULT 'local',
+      uploaded_by TEXT NOT NULL,
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      change_comment TEXT NOT NULL DEFAULT ''
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_document_versions_doc ON document_versions(document_id, version_number DESC)')
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_document_versions_unique
+    ON document_versions(document_id, version_number)`)
+
+  /*
+     Section 8 asks for full-text search over document METADATA where
+     practical. A GIN index over the searchable text columns gives
+     that without a tsvector column to keep in sync — the expression
+     is computed at index time, so there is no trigger to drift.
+  */
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_documents_fts ON documents
+    USING GIN (to_tsvector('english',
+      file_name || ' ' || COALESCE(description, '') || ' ' || COALESCE(tags, '')))`)
+
+  /*
+     Per-Space storage quota (section 3). NULL means "use the server
+     default", so raising SPACE_STORAGE_LIMIT_GB lifts every Space
+     that has not been given an explicit override.
+  */
+  await pool.query('ALTER TABLE spaces ADD COLUMN IF NOT EXISTS storage_limit_bytes BIGINT')
+  await pool.query('ALTER TABLE spaces ADD COLUMN IF NOT EXISTS max_document_bytes BIGINT')
+
+
+  /* ============================================================
      JL-115→119 (Confluence Lite) — page comments.
      ------------------------------------------------------------
      A SEPARATE table from `comments`, which is issue-scoped with a

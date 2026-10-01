@@ -10,6 +10,19 @@ export const APP_URL = process.env.APP_URL || 'http://localhost:5173'
 // purged via POST /api/audit-log/retention. Default 365 days.
 export const AUDIT_RETENTION_DAYS = Number(process.env.AUDIT_RETENTION_DAYS) || 365
 
+// JL-164: Document Store limits (spec sections 3 and 14).
+//
+// Both are configurable so the cap can move without an application change,
+// which is the requirement. A Space may override either through its own
+// spaces.max_document_bytes / storage_limit_bytes column; these are the
+// defaults every Space inherits until it does.
+export const MAX_DOCUMENT_SIZE_MB = Number(process.env.MAX_DOCUMENT_SIZE_MB) || 100
+export const SPACE_STORAGE_LIMIT_GB = Number(process.env.SPACE_STORAGE_LIMIT_GB) || 10
+
+/** The per-file cap in bytes, as the routes and the UI both need it. */
+export const MAX_DOCUMENT_BYTES = MAX_DOCUMENT_SIZE_MB * 1024 * 1024
+export const SPACE_STORAGE_LIMIT_BYTES = SPACE_STORAGE_LIMIT_GB * 1024 * 1024 * 1024
+
 // --- JL-90: fail-fast environment validation ---
 // Variables the server cannot safely run without.
 export const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL']
