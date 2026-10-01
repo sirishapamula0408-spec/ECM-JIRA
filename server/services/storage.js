@@ -46,6 +46,22 @@ export class LocalStorage {
     await fs.writeFile(this._resolve(key), buffer)
   }
 
+  /*
+   * JL-164: stream a body in without holding it in memory.
+   *
+   * The Document Store accepts files up to 100 MB. Reading one into a Buffer
+   * just to hand it to put() would put the whole file on the heap for the
+   * duration of the write, which is exactly what the multipart change was
+   * made to avoid. pipeline() also destroys the source on failure, so a
+   * broken upload does not leak the read handle.
+   */
+  async putStream(key, readable /*, contentType */) {
+    await fs.mkdir(this.dir, { recursive: true })
+    const { pipeline } = await import('node:stream/promises')
+    const { createWriteStream } = await import('node:fs')
+    await pipeline(readable, createWriteStream(this._resolve(key)))
+  }
+
   async get(key) {
     return fs.readFile(this._resolve(key))
   }
@@ -95,6 +111,26 @@ export class S3Storage {
         Key: key,
         Body: buffer,
         ContentType: contentType || 'application/octet-stream',
+      }),
+    )
+  }
+
+  /*
+   * JL-164: PutObject accepts a stream body, so the same contract as
+   * LocalStorage.putStream holds here and a large upload never lands on the
+   * heap. ContentLength is passed when known because the SDK cannot infer it
+   * from a stream and will otherwise buffer to find out.
+   */
+  async putStream(key, readable, contentType, contentLength) {
+    const { PutObjectCommand } = await import('@aws-sdk/client-s3')
+    const client = await this._getClient()
+    await client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: readable,
+        ContentType: contentType || 'application/octet-stream',
+        ...(contentLength ? { ContentLength: contentLength } : {}),
       }),
     )
   }
