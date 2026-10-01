@@ -1,0 +1,75 @@
+/* JL-169 — version history (spec section 10). */
+
+.doc-versions-wrap {
+  overflow-x: auto;
+}
+
+.doc-versions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-base);
+}
+
+.doc-versions-table th,
+.doc-versions-table td {
+  text-align: left;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--jira-border);
+  vertical-align: top;
+}
+
+.doc-versions-table th {
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.doc-versions-current td {
+  background: var(--jira-blue-soft);
+}
+
+.doc-versions-comment {
+  color: var(--jira-text-muted);
+  max-width: 24ch;
+  overflow-wrap: anywhere;
+}
+
+.doc-versions-actions {
+  white-space: nowrap;
+}
+
+.doc-versions-empty,
+.doc-versions-note {
+  color: var(--jira-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.doc-versions-replace {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--jira-border);
+}
+
+.doc-versions-replace h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.doc-versions-file {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.doc-versions-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--jira-text-muted);
+}
+
+.doc-versions-progress .MuiLinearProgress-root {
+  flex: 1 1 auto;
+}

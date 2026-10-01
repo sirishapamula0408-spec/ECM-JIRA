@@ -137,6 +137,15 @@ export function TeammatesIcon(props) {
   )
 }
 
+/** A folder — the Document Store's folder rows (JL-169). */
+export function FolderIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M3.25 6.25c0-.83.67-1.5 1.5-1.5h2.9c.4 0 .78.16 1.06.44l1.12 1.12h5.42c.83 0 1.5.67 1.5 1.5v6.44c0 .83-.67 1.5-1.5 1.5H4.75c-.83 0-1.5-.67-1.5-1.5V6.25Z" />
+    </Svg>
+  )
+}
+
 /** A plus — "create", on the Spaces section header (JL-156). */
 export function PlusIcon(props) {
   return (
