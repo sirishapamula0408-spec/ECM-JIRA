@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ECM JIRA Clone — User Journey</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+  <style>
+    .stage { border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow); margin:18px 0; overflow:hidden; }
+    .stage-head { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--surface-2); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .stage-num { width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; flex:0 0 auto; }
+    .stage-head h3 { margin:0; }
+    .stage-head .route { margin-left:auto; font-family:ui-monospace,Consolas,monospace; font-size:12px; color:var(--text-muted); }
+    .stage-body { padding:4px 16px 14px; }
+    .steps { counter-reset:s; list-style:none; padding:0; margin:10px 0; }
+    .steps li { counter-increment:s; position:relative; padding:6px 0 6px 34px; border-left:2px solid var(--border); margin-left:10px; }
+    .steps li::before { content:counter(s); position:absolute; left:-11px; top:6px; width:20px; height:20px; border-radius:50%; background:var(--surface); border:2px solid var(--accent); color:var(--accent); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+    .steps li:last-child { border-left-color:transparent; }
+    .outcome { font-size:13px; color:var(--text-muted); border-top:1px dashed var(--border); padding-top:8px; margin-top:6px; }
+    .outcome b { color:var(--heading); }
+    .persona-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="index.html">
+      <span class="logo">EJ</span>
+      <span>ECM JIRA Clone <span class="sub">— User Journey</span></span>
+    </a>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="menu-toggle" aria-label="Toggle navigation" onclick="document.querySelector('.side-nav').classList.toggle('open')">☰</button>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="hld.html">HLD</a>
+        <a href="lld.html">LLD</a>
+        <a href="user-journey.html" class="active">Journey</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="side-nav">
+      <div class="side-title">On this page</div>
+      <ol>
+        <li><a href="#overview" class="active">Overview</a></li>
+        <li><a href="#personas">Personas</a></li>
+        <li><a href="#map">Journey map</a></li>
+        <li><a href="#s1">1 · Get in</a></li>
+        <li><a href="#s2">2 · First run</a></li>
+        <li><a href="#s3">3 · Plan work</a></li>
+        <li><a href="#s4">4 · Run a sprint</a></li>
+        <li><a href="#s5">5 · Work an issue</a></li>
+        <li><a href="#s6">6 · Stay informed</a></li>
+        <li><a href="#s7">7 · Track &amp; report</a></li>
+        <li><a href="#s8">8 · Document (Confluence Lite)</a></li>
+        <li><a href="#s9">9 · Administer</a></li>
+        <li><a href="#hidden">Built but not in the nav</a></li>
+        <li><a href="#gaps">Known rough edges</a></li>
+      </ol>
+      <div class="divider"></div>
+      <div class="side-title">Documents</div>
+      <ol class="cross-link">
+        <li><a href="hld.html">High-Level Design →</a></li>
+        <li><a href="lld.html">Low-Level Design →</a></li>
+        <li><a href="jira-lite-audit-observations.html">Audit Observations →</a></li>
+      </ol>
+    </aside>
+
+    <main class="content">
+      <div class="content-inner">
+        <section id="overview" class="section">
+          <div class="doc-hero">
+            <h1>User Journey: the app as it stands</h1>
+            <p class="doc-subtitle">What a person actually does in ECM JIRA Clone, from first sign-in to running sprints and writing docs. Every step below is taken from the routes, layouts and sidebar in the current code.</p>
+            <p>The product is now two apps behind one top bar: <b>JIRA Lite</b> (projects, backlog, boards, sprints, issues, reports) and <b>Confluence Lite</b> (spaces, wiki pages, documents). You switch between them with the app switcher. Each has its own sidebar (JL-153).</p>
+            <div class="meta-row">
+              <span><b>Snapshot:</b> 2026-10-05</span>
+              <span><b>Branch:</b> feature/JL-148-issue-key-urls</span>
+              <span><b>Latest work:</b> JL-170 Documents tab</span>
+              <span><b>Source:</b> src/App.jsx, Sidebar.jsx, ProjectTopPanel.jsx</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="personas" class="section">
+          <h2>Personas</h2>
+          <p>Workspace roles decide what the sidebar shows and which actions are enabled (<code>usePermissions()</code>). Project roles (Lead/Admin/Member/Viewer) narrow this further inside a project. Workspace Admins and Owners skip project-level checks.</p>
+          <div class="persona-grid">
+            <div class="card"><span class="role owner">Owner</span><h3>Workspace owner</h3><p>Everything an Admin can do. Owner is a flag (JL-317), not a role you can assign, so the Owner row has no role dropdown.</p></div>
+            <div class="card"><span class="role admin">Admin</span><h3>Workspace admin</h3><p>Invites people, changes roles, manages <b>Members</b> and <b>Users</b>, and sets up workflows, custom fields, webhooks and approval rules.</p></div>
+            <div class="card"><span class="role member">Member</span><h3>Team member</h3><p>Creates and edits issues, comments, logs work and moves cards. Can see the Teams directory but not Members or Users.</p></div>
+            <div class="card"><span class="role viewer">Viewer</span><h3>Read-only</h3><p>Sees boards, issues and reports. Create, edit and delete controls are hidden or disabled.</p></div>
+            <div class="card"><span class="role public">Invitee</span><h3>Not signed up yet</h3><p>Arrives from an invitation email. The accept-invite page loads <i>before</i> the login gate, because this person has no account yet (JL-361).</p></div>
+          </div>
+        </section>
+
+        <section id="map" class="section">
+          <h2>Journey map</h2>
+          <div class="table-wrap" style="overflow-x:auto">
+          <pre class="mermaid">
+flowchart LR
+  A([Invite email / login page]) --> B{Signed in?}
+  B -- no --> L[Log in / Sign up / SSO / Reset password]
+  L --> B
+  B -- yes --> C{Has a project?}
+  C -- no --> P[/projects<br/>Create project<br/>Scrum or Kanban/]
+  P --> D
+  C -- yes --> D[Dashboard<br/>4 widgets]
+  D --> BL[Backlog<br/>create issues, sprints]
+  BL --> SP[Start sprint]
+  SP --> AS[Active sprints / Board]
+  AS --> ID[Issue detail<br/>/browse/KEY]
+  ID --> AS
+  AS --> R[Reports / Filters / List]
+  D -. app switcher .-> W[Confluence Lite<br/>/wiki/home]
+  W --> S[Spaces /spaces/KEY]
+  S --> PG[Pages + Documents]
+  PG -. linked issues .-> ID
+  D --> AD[Admin: Teams, Members,<br/>Users, Workflows, Audit log]
+          </pre>
+          </div>
+        </section>
+
+        <!-- 1 -->
+        <section id="s1" class="section">
+          <h2>Stages</h2>
+          <div class="stage">
+            <div class="stage-head"><span class="stage-num">1</span><h3>Get in</h3><span class="route">LoginPage · /accept-invite · /reset-password</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>A signed-out visitor gets the <b>Log In / Sign Up</b> tabs. You can switch tabs with the arrow keys (JL-264), and the browser tab title changes with the mode (JL-265).</li>
+                <li><b>SSO buttons</b> only show when the backend reports a configured SSO method (JL-129). Otherwise they stay hidden.</li>
+                <li><b>Forgot password</b> has three steps: enter email → enter token → done. The link in the email opens <code>/reset-password</code>, which loads ahead of the login gate (JL-370).</li>
+                <li>An <b>invitee</b> clicks the link in the email, lands on <code>/accept-invite</code>, sets up the account and gets signed in. The inviter is told whether the email was actually sent (JL-473).</li>
+                <li>A JWT is stored (localStorage or sessionStorage). After that, every API call sends it automatically.</li>
+              </ol>
+              <div class="outcome"><b>Outcome:</b> signed in. The app loads the dashboard, issues, sprints, members, projects and notifications in one batch.</div>
+            </div>
+          </div>
+
+          <!-- 2 -->
+          <div class="stage" id="s2">
+            <div class="stage-head"><span class="stage-num">2</span><h3>First run with no projects</h3><span class="route">/projects</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>With no project access, every project-scoped route (<code>/</code>, <code>/backlog</code>, <code>/board</code>, …) redirects to <code>/projects</code>.</li>
+                <li>Sidebar items that need a project are greyed out with the tooltip "No project access". Teams, Members and Users stay usable.</li>
+                <li>Someone with <code>canCreateProject</code> opens <b>Create project</b>, either from the page or from the <b>+</b> next to Projects in the sidebar, and picks <b>Scrum</b> or <b>Kanban</b>.</li>
+                <li>The new project appears in the sidebar's expandable project list. Each entry links to that project's board.</li>
+              </ol>
+              <div class="outcome"><b>Outcome:</b> a project exists, and the rest of JIRA Lite unlocks.</div>
+            </div>
+          </div>
+
+          <!-- 3 -->
+          <div class="stage" id="s3">
+            <div class="stage-head"><span class="stage-num">3</span><h3>Plan work</h3><span class="route">/projects/:id · /projects/:id/backlog</span></div>
+            <div class="stage-body">
+              <p>The project tabs are <b>Summary · Backlog · Active sprints</b> (only while a sprint is running, JL-460) <b>· Reports · List · Settings</b>.</p>
+              <ol class="steps">
+                <li><b>Summary</b> gives the project overview, with quick-action buttons for Roadmap and Wiki (JL-456). Those buttons are now the only way to reach them from the project.</li>
+                <li><b>Create issue:</b> choose Epic, Story, Bug, Task or Sub-task, then set priority, assignee and description (rich text / markdown).</li>
+                <li>In the <b>Backlog</b>, create a sprint and drag or assign issues into it.</li>
+                <li><b>Bulk toolbar:</b> select several rows and change Status, Assignee, Priority or Sprint, or Delete them after confirming (JL-39, JL-464).</li>
+                <li><b>Flag</b> an issue as an impediment. The flag button flags; it no longer changes status (JL-466).</li>
+                <li><b>Import / Export</b> from the Backlog toolbar: CSV/JSON export, and import with column mapping and a dry-run preview (JL-40).</li>
+              </ol>
+              <div class="outcome"><b>Outcome:</b> a groomed backlog and a sprint ready to start.</div>
+            </div>
+          </div>
+
+          <!-- 4 -->
+          <div class="stage" id="s4">
+            <div class="stage-head"><span class="stage-num">4</span><h3>Run a sprint</h3><span class="route">/projects/:id/active-sprint · /projects/:id/board</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>Start the sprint from the Backlog. The <b>Active sprints</b> tab appears.</li>
+                <li>Move cards across <b>Backlog → To Do → In Progress → Code Review → Done</b>. Each status has its own label (JL-465).</li>
+                <li>If an admin set an <b>approval rule</b> on a transition, the move waits for approval (JL-45).</li>
+                <li><b>Automation rules</b> can react to status changes and comments by assigning, transitioning, commenting or notifying. They are loop-safe (JL-38).</li>
+                <li>A parent issue can't be closed while it still has open sub-tasks (409).</li>
+              </ol>
+              <div class="outcome"><b>Outcome:</b> work moves through the workflow and every move is recorded in activity history.</div>
+            </div>
+          </div>
+
+          <!-- 5 -->
+          <div class="stage" id="s5">
+            <div class="stage-head"><span class="stage-num">5</span><h3>Work an issue</h3><span class="route">/browse/JL-63 (canonical) · /issues/:id</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>Open an issue by its <b>key</b>. <code>/browse/KEY</code> is the canonical URL you can share, and the breadcrumb links work (JL-148/149).</li>
+                <li>Edit the fields: status, assignee, priority, <b>labels</b> (colored chips with inline create), <b>estimate</b> (<code>1d 4h</code>, <code>45m</code>) and <b>custom fields</b> under "More fields".</li>
+                <li>Add <b>child issues</b> (shown with a progress bar), <b>issue links</b> (blocks / duplicates / relates to), <b>attachments</b> (up to 10 MB) and <b>linked wiki pages</b>.</li>
+                <li>Use the activity tabs: <b>All · Comments · History · Work log</b>. Comments support <b>@mentions</b> with autocomplete, shown as chips.</li>
+                <li><b>Watch</b> the issue. You are added automatically when you create it or comment on it.</li>
+              </ol>
+              <div class="outcome"><b>Outcome:</b> one page holds the issue's full context, and you can share it by key.</div>
+            </div>
+          </div>
+
+          <!-- 6 -->
+          <div class="stage" id="s6">
+            <div class="stage-head"><span class="stage-num">6</span><h3>Stay informed</h3><span class="route">Top bar bell · /activity</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>The <b>notification bell</b> shows an unread count that updates live over SSE. You can mark items read one at a time or all at once.</li>
+                <li>Notifications come from mentions, comments on watched issues and automation <i>notify</i> actions.</li>
+                <li>On <b>Profile</b>, set preferences: in-app, email, and digest frequency.</li>
+                <li>The <b>Activity</b> feed can be filtered by type, project, actor and date range, and scrolls infinitely.</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- 7 -->
+          <div class="stage" id="s7">
+            <div class="stage-head"><span class="stage-num">7</span><h3>Track &amp; report</h3><span class="route">/dashboard · /reports · /filters · /list · /portfolio · /report-builder</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>The <b>Dashboard</b> is the home page and has four widgets (JL-469–472).</li>
+                <li><b>Reports</b> per project. Status lists come from the server's validation vocabulary, so no issues are left out (JL-467).</li>
+                <li>The <b>List</b> view shows a flat issue table, per project or across all projects.</li>
+                <li><b>Filters</b> are saved searches. <b>Portfolio</b> and <b>Report Builder</b> give cross-project views.</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- 8 -->
+          <div class="stage" id="s8">
+            <div class="stage-head"><span class="stage-num">8</span><h3>Document in Confluence Lite</h3><span class="route">/wiki/* · /spaces · /spaces/:spaceKey</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li>Switch apps with the <b>app switcher</b>. Confluence Lite has its own sidebar; no Jira chrome is shown (JL-153/155).</li>
+                <li>The <b>Home</b> page lists recently modified pages. The sidebar also has <b>Recent</b>, <b>Starred</b> and <b>Search</b> (with excerpts and space filter).</li>
+                <li><b>Spaces:</b> create or delete a space from the sidebar (JL-156) and open it by key, e.g. <code>/spaces/ENG</code> (JL-162). A space doesn't have to belong to a project (JL-157).</li>
+                <li><b>Pages:</b> create one from a template, edit it, link to another page by title, and upload images in the editor (JL-99/101).</li>
+                <li><b>Version history:</b> compare and restore versions. Pages also have comments and attachments.</li>
+                <li><b>Documents tab</b> in a space: upload files (multipart, up to 100 MB, executables blocked), organise them in folders and see version history (JL-164–170).</li>
+                <li>Link pages to JIRA issues in both directions. The page shows up on the issue too.</li>
+              </ol>
+              <div class="outcome"><b>Outcome:</b> project knowledge sits next to the issues it describes.</div>
+            </div>
+          </div>
+
+          <!-- 9 -->
+          <div class="stage" id="s9">
+            <div class="stage-head"><span class="stage-num">9</span><h3>Administer</h3><span class="route">/teams · /members · /users · /workflow-editor · /audit-log · /projects/:id/settings</span></div>
+            <div class="stage-body">
+              <ol class="steps">
+                <li><b>Teams</b> (<code>/teams</code>, anyone): the team directory, with a profile page per team at <code>/teams/:teamId</code>.</li>
+                <li><b>Members</b> (<code>/members</code>, Admin+): the member directory. Status filter defaults to Active, and an inline dropdown changes workspace role.</li>
+                <li><b>Users</b> (<code>/users</code>, Admin+): full user management. Invite, deactivate (a suspension that keeps role and history) or delete. Status pills: Active, Invited, Deactivated.</li>
+                <li><b>Workflows:</b> edit statuses and transitions. <b>Audit log:</b> see who changed what.</li>
+                <li><b>Project settings:</b> project details and members. Project roles are not edited inline here.</li>
+              </ol>
+              <div class="note"><b>Guard rails</b>The server rejects removing the last Admin and changing the Owner, and the UI shows that rejection rather than enforcing the rule itself.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="hidden" class="section">
+          <h2>Built, but not in the launch sidebar</h2>
+          <p>With <code>LAUNCH_SIDEBAR = true</code> (JL-277), the sidebar shows only: Projects, Teams, Members, Users, Filters, Activity, Workflows, Audit Log, Dashboards, Portfolio, Report Builder. The pages below still exist and open by URL, but there's no link to them in the sidebar:</p>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Area</th><th>Routes</th></tr></thead>
+            <tbody>
+              <tr><td>Planning</td><td><code>/roadmap</code>, <code>/advanced-roadmap</code>, <code>/releases</code>, <code>/goals</code></td></tr>
+              <tr><td>Service desk</td><td><code>/queues</code>, <code>/incidents</code>, <code>/portal</code> (Help Center), <code>/knowledge-base</code>, <code>/assets</code></td></tr>
+              <tr><td>Integration</td><td><code>/webhooks</code>, <code>/inbound-email</code>, <code>/automation</code>, <code>/bi-export</code>, <code>/marketplace</code>, <code>/plugins</code></td></tr>
+              <tr><td>Views</td><td><code>/shared-dashboards</code>, <code>/cross-project-boards</code></td></tr>
+              <tr><td>Project wiki (legacy)</td><td><code>/projects/:id/wiki</code>, reachable from the Summary page's Wiki button</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p>To show the full navigation, set <code>LAUNCH_SIDEBAR</code> to <code>false</code> in <code>src/components/layout/Sidebar.jsx</code>.</p>
+        </section>
+
+        <section id="gaps" class="section">
+          <h2>Known rough edges in the journey</h2>
+          <div class="warn"><b>Two admin member lists</b><code>/members</code> and <code>/users</code> overlap. Both are Admin-only member lists, and <code>/users</code> does more. Tracked as an open follow-up after JL-425.</div>
+          <div class="warn"><b>Roadmap and Wiki tabs removed</b>The project top panel no longer has them, so the Summary page's quick-action buttons are the only in-app way in.</div>
+          <div class="warn"><b>Two wikis</b>The older per-project wiki (<code>/projects/:id/wiki</code>, JL-48) and Confluence Lite (<code>/wiki</code>, <code>/spaces</code>) both exist. A new user may not know which one to use.</div>
+        </section>
+
+        <div class="doc-footer">ECM JIRA Clone · User Journey · generated from source on 2026-10-05</div>
+      </div>
+    </main>
+  </div>
+  <script src="assets/mermaid.min.js"></script>
+  <script>
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+      || (document.documentElement.getAttribute('data-theme') !== 'light'
+          && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default', securityLevel: 'loose' });
+  </script>
+  <script>
+    (function () {
+      const links = Array.from(document.querySelectorAll('.side-nav a[href^="#"]'));
+      const map = new Map();
+      links.forEach((l) => { const id = l.getAttribute('href').slice(1); const el = document.getElementById(id); if (el) map.set(el, l); });
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            links.forEach((l) => l.classList.remove('active'));
+            const a = map.get(e.target); if (a) a.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+      map.forEach((_l, el) => obs.observe(el));
+      document.querySelectorAll('.side-nav a[href^="#"]').forEach((a) =>
+        a.addEventListener('click', () => document.querySelector('.side-nav').classList.remove('open')));
+    })();
+  </script>
+</body>
+</html>
