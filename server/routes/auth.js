@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { Router } from 'express'
-import { get, run, all } from '../db.js'
+import { get, run, all, withTransaction } from '../db.js'
 import {
   APP_URL,
   getOAuthProvider,
@@ -24,6 +24,7 @@ import { safeAppendAudit } from '../services/auditLog.js'
 import { validatePassword, isPasswordExpired } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
 import { checkSignupAllowed } from '../services/signupPolicy.js'
+import { classifyExistingLogin, logSignupRejection, SIGNUP_ERRORS } from '../services/reRegistration.js'
 // JL-371: issueToken now lives in its own module so the invitation-accept route
 // can issue an identical session without importing this router.
 import { issueToken } from '../utils/authToken.js'
@@ -51,6 +52,17 @@ function lockoutKey(email, req) {
 
 const router = Router()
 
+// JL-155: the order of the signup gates, which is the whole security story:
+//
+//   1. email domain        office / Gmail address only
+//   2. deny-list           a removed member stays out until an admin re-admits
+//   3. invite policy       under invite_only, a live invitation is required
+//   4. password rules      length, then the org password policy
+//   5. existing login      see classifyExistingLogin (reRegistration.js)
+//
+// 1–3 decide whether the address may register at all and run before anything
+// looks at an existing record, so having no record grants nothing. 5 only
+// decides what to do with a leftover login for an address 1–3 already allowed.
 router.post('/signup', asyncHandler(async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase()
   const password = String(req.body?.password || '')
@@ -65,6 +77,7 @@ router.post('/signup', asyncHandler(async (req, res) => {
   // password for an account it could never create.
   const signupCheck = await checkSignupAllowed(email)
   if (!signupCheck.allowed) {
+    await logSignupRejection(email, signupCheck.reason, { run })
     res.status(signupCheck.status).json({ error: signupCheck.error })
     return
   }
@@ -82,18 +95,88 @@ router.post('/signup', asyncHandler(async (req, res) => {
     return
   }
 
-  const existing = await get('SELECT id FROM users WHERE email = ?', [email])
-  if (existing) {
-    res.status(409).json({ error: 'Email already registered. Please log in.' })
+  // --- JL-155: an existing login for this address ---
+  // Classified and acted on in ONE transaction, so a failure part-way can never
+  // leave the address with its old login deleted and no new one.
+  const passwordHash = hashPassword(password)
+  const outcome = await withTransaction(async (tx) => {
+    const found = await classifyExistingLogin(email, tx)
+
+    if (found.kind === 'active' || found.kind === 'refused') return found
+
+    if (found.kind === 'reactivate') {
+      // Keep the row and its id: content and account links stay attached.
+      // MFA is cleared because the person signing up has never seen the old
+      // secret; old reset links die with the old password.
+      await tx.run(
+        `UPDATE users
+            SET password_hash = ?, password_changed_at = NOW(), status = 'Active',
+                active = TRUE, mfa_enabled = FALSE, mfa_secret = NULL
+          WHERE id = ?`,
+        [passwordHash, found.user.id],
+      )
+      await tx.run('DELETE FROM password_reset_tokens WHERE user_id = ?', [found.user.id])
+      await tx.run(
+        `INSERT INTO user_audit_log (actor, target_email, action, before_value, after_value, created_at)
+         VALUES (?, ?, ?, ?, ?, NOW())`,
+        ['system', email, 'login_reactivated', found.user.status, 'Active (re-registration)'],
+      )
+      return { ...found, userId: found.user.id }
+    }
+
+    if (found.kind === 'replace') {
+      // Re-checked inside the transaction by classifyExistingLogin above:
+      // nothing references this login, so deleting it orphans nothing.
+      await tx.run('DELETE FROM users WHERE id = ?', [found.user.id])
+      await tx.run(
+        `INSERT INTO user_audit_log (actor, target_email, action, before_value, after_value, created_at)
+         VALUES (?, ?, ?, ?, ?, NOW())`,
+        ['system', email, 'stale_login_deleted', found.user.status, 'reason: re-registration'],
+      )
+    }
+
+    const created = await tx.run(
+      'INSERT INTO users (email, password_hash, password_changed_at) VALUES (?, ?, NOW())',
+      [email, passwordHash],
+    )
+    return { ...found, userId: created.lastID }
+  })
+
+  if (outcome.kind === 'active') {
+    await logSignupRejection(email, 'already active: a live account exists for this address', { run })
+    res.status(409).json({ error: SIGNUP_ERRORS.accountExists, code: 'account_exists' })
+    return
+  }
+  if (outcome.kind === 'refused') {
+    await logSignupRejection(email, `${outcome.reason}: existing login is shut and only an admin can reopen it`, { run })
+    res.status(403).json({ error: SIGNUP_ERRORS.notEligible })
     return
   }
 
-  const passwordHash = hashPassword(password)
-  const created = await run(
-    'INSERT INTO users (email, password_hash, password_changed_at) VALUES (?, ?, NOW())',
-    [email, passwordHash],
-  )
-  const user = await get('SELECT id, email, created_at FROM users WHERE id = ?', [created.lastID])
+  // The tamper-evident log is written after COMMIT, so it never records a
+  // deletion or reactivation that was rolled back.
+  if (outcome.kind === 'replace') {
+    safeAppendAudit({
+      actor: 'system',
+      action: 'auth.signup.stale_login_deleted',
+      target: email,
+      metadata: { reason: 're-registration', deletedUserId: outcome.user.id, previousStatus: outcome.user.status },
+    })
+  } else if (outcome.kind === 'reactivate') {
+    safeAppendAudit({
+      actor: 'system',
+      action: 'auth.signup.reactivated',
+      target: email,
+      metadata: {
+        reason: 're-registration',
+        userId: outcome.userId,
+        previousStatus: outcome.user.status,
+        dependents: outcome.dependents,
+      },
+    })
+  }
+
+  const user = await get('SELECT id, email, created_at FROM users WHERE id = ?', [outcome.userId])
 
   // JL-74: Self-serve onboarding. Ensure the new user exists as a member so they
   // aren't stranded with memberId=null. The very first user to ever sign up becomes

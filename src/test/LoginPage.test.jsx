@@ -230,4 +230,48 @@ describe('LoginPage full password errors (JL-267)', () => {
       screen.getByText('Password must contain a number')
     ).toBeInTheDocument()
   })
+
+  it('offers Log in and Reset password when signup says the account exists (JL-155)', async () => {
+    signupWithEmail.mockRejectedValueOnce(
+      Object.assign(new Error('An account already exists for this email address.'), {
+        status: 409,
+        data: { error: 'An account already exists for this email address.', code: 'account_exists' },
+      })
+    )
+    renderLoginPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    fireEvent.change(screen.getByPlaceholderText('name@company.com'), {
+      target: { value: 'taken@test.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/ }))
+
+    await screen.findByText(/already exists/)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset password' }))
+    // The reset flow opens with the address carried over.
+    expect(await screen.findByDisplayValue('taken@test.com')).toBeInTheDocument()
+  })
+
+  it('shows no account actions for other signup refusals', async () => {
+    signupWithEmail.mockRejectedValueOnce(
+      Object.assign(new Error('This email address is not eligible to register here.'), {
+        status: 403,
+        data: { error: 'This email address is not eligible to register here.' },
+      })
+    )
+    renderLoginPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    fireEvent.change(screen.getByPlaceholderText('name@company.com'), {
+      target: { value: 'gone@test.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Min. 6 characters'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/ }))
+
+    await screen.findByText(/not eligible/)
+    expect(screen.queryByRole('button', { name: 'Reset password' })).not.toBeInTheDocument()
+  })
 })

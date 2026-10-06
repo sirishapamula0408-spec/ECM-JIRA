@@ -585,7 +585,7 @@ describe('JL-371 — the invite_only rule (JL-369) is unchanged', () => {
   it('an uninvited address still cannot register', async () => {
     const res = await signup('stranger@sedintechnologies.com')
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/invitation only/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
     expect(db.state.users.some((u) => u.email === 'stranger@sedintechnologies.com')).toBe(false)
   })
 
@@ -632,7 +632,7 @@ describe('JL-371 — the invite_only rule (JL-369) is unchanged', () => {
 
     const res = await accept(invite.token, { password: PASSWORD })
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/not permitted to register/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
     expect(db.state.users.some((u) => u.email === email)).toBe(false)
     expect(db.state.invitations.find((i) => i.id === invite.id).status).toBe('pending')
   })

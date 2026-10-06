@@ -20,6 +20,7 @@
 // explicit.
 
 import { get, run, all, getSetting, setSetting } from '../db.js'
+import { SIGNUP_ERRORS } from './reRegistration.js'
 
 export const SIGNUP_POLICY_KEY = 'signup_policy'
 export const SIGNUP_POLICIES = ['open', 'invite_only']
@@ -98,7 +99,11 @@ export async function listBlockedSignups() {
 
 /**
  * Decide whether `email` may register right now.
- * Returns { allowed: true } or { allowed: false, status, error }.
+ * Returns { allowed: true } or { allowed: false, status, error, reason }.
+ *
+ * JL-155: `error` is the same for both refusals, so the response does not say
+ * whether an address was removed or was simply never invited. `reason` is for
+ * the admin-facing log only and is never sent to the client.
  */
 export async function checkSignupAllowed(email) {
   const normalized = normalize(email)
@@ -108,7 +113,8 @@ export async function checkSignupAllowed(email) {
     return {
       allowed: false,
       status: 403,
-      error: 'This email address is not permitted to register. Contact your workspace admin.',
+      error: SIGNUP_ERRORS.notEligible,
+      reason: 'blocked: address was removed from the workspace',
     }
   }
 
@@ -148,7 +154,8 @@ export async function checkSignupAllowed(email) {
       return {
         allowed: false,
         status: 403,
-        error: 'Registration is by invitation only. Ask your workspace admin for an invite.',
+        error: SIGNUP_ERRORS.notEligible,
+        reason: 'no invite: signup is invite-only and there is no live invitation',
       }
     }
   }

@@ -9,7 +9,12 @@ vi.mock('../db.js', () => ({
   get: vi.fn(),
   columnExists: vi.fn(),
   tableExists: vi.fn(),
-  withTransaction: vi.fn(async (fn) => fn({ run: vi.fn(), all: vi.fn(), get: vi.fn() })),
+  // JL-155: signup now runs its user writes in a transaction; hand it the same
+  // mocks so the tests below still see (and stub) those statements.
+  withTransaction: vi.fn(async (fn) => {
+    const db = await import('../db.js')
+    return fn({ run: db.run, all: db.all, get: db.get })
+  }),
   // JL-325: signup resolves the workspace signup_policy via getSetting; return
   // the fallback so these password-policy tests run under the default 'open'.
   getSetting: vi.fn(async (_key, fallback = null) => fallback),

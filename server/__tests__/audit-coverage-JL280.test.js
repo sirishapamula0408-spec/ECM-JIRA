@@ -21,6 +21,11 @@ vi.mock('../db.js', () => ({
   // returning the fallback keeps these tests on the default 'open' policy.
   getSetting: vi.fn(async (_key, fallback = null) => fallback),
   setSetting: vi.fn(),
+  // JL-155: signup runs its user writes in a transaction.
+  withTransaction: vi.fn(async (fn) => {
+    const db = await import('../db.js')
+    return fn({ run: db.run, all: db.all, get: db.get })
+  }),
 }))
 
 // --- Mock the audit-log service so we can spy on safeAppendAudit() ---

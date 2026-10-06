@@ -17,6 +17,8 @@ export function LoginPage() {
   const [authError, setAuthError] = useState('')
   // JL-267: full list of password-policy violations (400 with { errors: [...] }).
   const [authErrors, setAuthErrors] = useState([])
+  // JL-155: signup's 409 carries code 'account_exists' — offer the two ways out.
+  const [accountExists, setAccountExists] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
 
   // JL-265: inline email validation + Caps Lock hint.
@@ -155,6 +157,7 @@ export function LoginPage() {
     setMode(newMode)
     setAuthError('')
     setAuthErrors([])
+    setAccountExists(false)
     setEmailError('')
     setCapsLockOn(false)
     setMfaRequired(false)
@@ -247,6 +250,7 @@ export function LoginPage() {
     e.preventDefault()
     setAuthError('')
     setAuthErrors([])
+    setAccountExists(false)
     setAuthLoading(true)
     try {
       const credentials = { email: form.email.trim(), password: form.password, remember: form.remember }
@@ -277,6 +281,7 @@ export function LoginPage() {
         setAuthErrors(error.data.errors)
       } else {
         setAuthError(error?.message || 'Authentication failed')
+        setAccountExists(error?.data?.code === 'account_exists')
       }
     } finally {
       setAuthLoading(false)
@@ -558,7 +563,15 @@ export function LoginPage() {
                         {authErrors.map((msg, i) => <li key={i}>{msg}</li>)}
                       </ul>
                     ) : (
-                      <span>{displayAuthError}</span>
+                      <span>
+                        {displayAuthError}
+                        {accountExists && mode === 'signup' && (
+                          <span className="login-error-actions">
+                            <button type="button" onClick={() => switchMode('login')}>Log in</button>
+                            <button type="button" onClick={openForgotPassword}>Reset password</button>
+                          </span>
+                        )}
+                      </span>
                     )}
                   </div>
                 )}

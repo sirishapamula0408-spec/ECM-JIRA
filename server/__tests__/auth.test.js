@@ -37,7 +37,9 @@ describe('POST /api/auth/signup', () => {
       .send({ email: testEmail, password: 'password123' })
 
     expect(res.status).toBe(409)
-    expect(res.body.error).toContain('already registered')
+    // JL-155: points the person at log in / reset rather than a dead end
+    expect(res.body.error).toContain('already exists')
+    expect(res.body.code).toBe('account_exists')
   })
 
   it('rejects short password', async () => {

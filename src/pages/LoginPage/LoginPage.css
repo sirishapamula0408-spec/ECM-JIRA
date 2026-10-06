@@ -458,6 +458,24 @@
   flex-shrink: 0;
 }
 
+/* JL-155: "account already exists" — the two ways forward, under the message */
+.login-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.login-error-actions button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0052cc;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Align the icon to the top when the banner holds a multi-line list (JL-267) */
 .login-error:has(.login-error-list) {
   align-items: flex-start;

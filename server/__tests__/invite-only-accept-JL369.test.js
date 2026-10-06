@@ -294,7 +294,7 @@ describe('JL-369 — invite_only still refuses everyone it should', () => {
   it('refuses an uninvited address', async () => {
     const res = await signup('stranger@sedintechnologies.com')
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/invitation only/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
     expect(db.state.users.some((u) => u.email === 'stranger@sedintechnologies.com')).toBe(false)
   })
 
@@ -312,7 +312,7 @@ describe('JL-369 — invite_only still refuses everyone it should', () => {
     // ...and so is signup.
     const res = await signup(email)
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/invitation only/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
   })
 
   it('refuses an address whose invitation was revoked AFTER acceptance', async () => {
@@ -324,7 +324,7 @@ describe('JL-369 — invite_only still refuses everyone it should', () => {
 
     const res = await signup(email)
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/invitation only/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
   })
 
   it('refuses an EXPIRED pending invitation', async () => {
@@ -338,7 +338,7 @@ describe('JL-369 — invite_only still refuses everyone it should', () => {
 
     const res = await signup(email)
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/invitation only/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
   })
 
   it('refuses a STALE accepted invitation — acceptance does not authorise forever', async () => {
@@ -356,7 +356,7 @@ describe('JL-369 — invite_only still refuses everyone it should', () => {
 
     const res = await signup(email)
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/invitation only/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
   })
 
   it('the open policy is unchanged', async () => {
@@ -376,9 +376,11 @@ describe('JL-369 — the JL-325 deny-list still wins', () => {
 
     const res = await signup(email)
     expect(res.status).toBe(403)
-    // The deny-list message, not the policy message — block is checked first.
-    expect(res.body.error).toMatch(/not permitted to register/i)
-    expect(res.body.error).not.toMatch(/invitation only/i)
+    // JL-155: the user sees the same message either way; the reason logged for
+    // admins is what shows the block was checked first.
+    expect(res.body.error).toMatch(/not eligible to register/i)
+    const logged = db.run.mock.calls.findLast(([sql, p]) => /INSERT INTO user_audit_log/.test(sql) && p[1] === email)
+    expect(logged[1][3]).toMatch(/^blocked/)
   })
 
   it('refuses a blocked address that has ACCEPTED its invitation', async () => {
@@ -390,7 +392,7 @@ describe('JL-369 — the JL-325 deny-list still wins', () => {
 
     const res = await signup(email)
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/not permitted to register/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
     expect(db.state.users.some((u) => u.email === email)).toBe(false)
   })
 
@@ -433,7 +435,7 @@ describe('JL-369 — an invitation cannot be redeemed twice', () => {
     // The invitation is spent because the account now exists.
     const second = await signup(email)
     expect(second.status).toBe(409)
-    expect(second.body.error).toMatch(/already registered/i)
+    expect(second.body.error).toMatch(/already exists/i)
     expect(db.state.users.filter((u) => u.email === email)).toHaveLength(1)
   })
 

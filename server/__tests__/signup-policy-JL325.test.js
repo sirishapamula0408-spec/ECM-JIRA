@@ -138,7 +138,7 @@ describe('JL-325 — signup policy', () => {
     const result = await checkSignupAllowed('gone@x.com')
     expect(result.allowed).toBe(false)
     expect(result.status).toBe(403)
-    expect(result.error).toMatch(/not permitted to register/i)
+    expect(result.error).toMatch(/not eligible to register/i)
   })
 
   it('requires a live invitation under invite_only', async () => {
@@ -147,7 +147,8 @@ describe('JL-325 — signup policy', () => {
     const result = await checkSignupAllowed('stranger@x.com')
     expect(result.allowed).toBe(false)
     expect(result.status).toBe(403)
-    expect(result.error).toMatch(/invitation only/i)
+    // JL-155: same message as a blocked address, so the two cannot be told apart
+    expect(result.error).toMatch(/not eligible to register/i)
   })
 
   it('allows an invited address under invite_only', async () => {
@@ -191,7 +192,7 @@ describe('JL-325 — POST /api/auth/signup enforcement', () => {
       .send({ email: 'removed@sedintechnologies.com', password: 'Test1234!' })
 
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/not permitted to register/i)
+    expect(res.body.error).toMatch(/not eligible to register/i)
     // The account must not be created.
     expect(run.mock.calls.some(([sql]) => /INSERT INTO users/.test(sql))).toBe(false)
   })
@@ -225,7 +226,7 @@ describe('JL-325 — POST /api/auth/signup enforcement', () => {
       .send({ email: 'removed@sedintechnologies.com', password: 'x' }) // also too short
 
     expect(res.status).toBe(403)
-    expect(res.body.error).toMatch(/not permitted/i)
+    expect(res.body.error).toMatch(/not eligible/i)
   })
 })
 
