@@ -84,8 +84,10 @@ const LIST_COLUMN_LABELS = Object.fromEntries(
 const LIST_ALL_COLUMN_KEYS = Object.keys(ALL_COLUMNS)
 
 const DEFAULT_WIDTHS = {
-  // work absorbs type+key+summary (90+110+300) plus the two row actions.
-  work: 440, status: 130,
+  // work absorbs type+key+summary plus the two row actions. 300, not 440:
+  // at 440 the default columns summed past a ~1000px content area and the
+  // table scrolled sideways even when empty. Summary ellipsises; drag to widen.
+  work: 300, status: 130,
   comments: 150, sprint: 120, priority: 100,
   assignee: 150, created: 120, label: 100, dueDate: 120,
   reporter: 150, updated: 120, storyPoints: 120,

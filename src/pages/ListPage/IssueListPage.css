@@ -188,7 +188,7 @@
      width (the 1px inset is inside the shell border, so it's invisible). */
   width: calc(100% - 1px);
   max-width: calc(100% - 1px);
-  min-width: 900px;
+  min-width: 860px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -339,7 +339,7 @@ body.col-resizing * {
    Only the TH opts out. The matching td keeps overflow:hidden so a long summary
    still ellipsises. */
 .jira-list-table .col-work {
-  width: 440px;
+  width: 300px;
   position: relative;
   overflow: visible;
 }
