@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "lint:css": "stylelint \"src/**/*.css\"",
-    "typography:baseline": "node scripts/typography-baseline.mjs"
+    "typography:baseline": "node scripts/typography-baseline.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1084.0",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.64.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.7",

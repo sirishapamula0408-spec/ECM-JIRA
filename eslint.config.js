@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'e2e/results']),
   {
     files: ['src/**/*.{js,jsx}'],
     extends: [
@@ -64,6 +64,17 @@ export default defineConfig([
     files: ['server/**/*.test.js', 'server/__tests__/**/*.js', 'server/test/**/*.js'],
     languageOptions: {
       globals: { ...globals.node, ...globals.vitest },
+    },
+  },
+  // JL-157: the Playwright functional suite. Runs in Node; page.evaluate
+  // callbacks run in the browser, hence both global sets.
+  {
+    files: ['e2e/**/*.mjs', 'playwright.config.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.browser },
     },
   },
 ])

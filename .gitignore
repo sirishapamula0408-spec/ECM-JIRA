@@ -57,3 +57,7 @@ server/uploads/
 # beside it was not, and it carries a pg_dump including password hashes.
 backups.zip
 *.dump
+
+# JL-157: functional suite output and saved sessions (hold live JWTs)
+e2e/results/
+e2e/.auth/
