@@ -76,7 +76,7 @@ describe('JL-474 chooseAuth — reads', () => {
 
 describe('JL-474 chooseAuth — writes', () => {
   it('knows which commands write', () => {
-    expect([...WRITE_COMMANDS].sort()).toEqual(['create', 'status'])
+    expect([...WRITE_COMMANDS].sort()).toEqual(['comment', 'create', 'status'])
   })
 
   for (const command of ['create', 'status']) {

@@ -64,7 +64,7 @@ const DEFAULT_STATUS = 'Backlog'
 const DEFAULT_PRIORITY = 'Medium'
 
 /** Commands that write, and therefore cannot be served by an API token. */
-const WRITE_COMMANDS = new Set(['create', 'status'])
+const WRITE_COMMANDS = new Set(['create', 'status', 'comment'])
 
 const USAGE = `ecm-issue — query and create issues on an ECM Project Tracker instance
 
@@ -78,6 +78,7 @@ COMMANDS
   get <id>                    Fetch one issue by numeric id
   create                      Create an issue      (requires credentials, not a token)
   status <id> <status>        Change an issue's status (requires credentials)
+  comment <id>                Add a comment            --text <text> | --file <path>
 
 CREATE OPTIONS
   --title <text>              required
@@ -469,6 +470,27 @@ async function run(argv, env, { fetchImpl } = {}) {
       const issue = normalizeIssue(updated)
       if (flags.json) { json(issue); return EXIT_OK }
       process.stdout.write(`${issue.key || `#${issue.id}`} → ${issue.status}\n`)
+      return EXIT_OK
+    }
+
+    case 'comment': {
+      const id = positional[0]
+      // --file for anything multi-line: a long Markdown report does not
+      // survive shell quoting intact, and never belongs in argv anyway.
+      const text = flags.file
+        ? (await import('node:fs')).readFileSync(String(flags.file), 'utf8')
+        : flags.text
+      if (!id || !text || !String(text).trim()) {
+        process.stderr.write('error: comment requires an issue id and --text <text> or --file <path>\n')
+        return EXIT_FAIL
+      }
+      const created = await request(baseUrl, `/api/issues/${id}/comments`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: { text: String(text) },
+      })
+      if (flags.json) { json(created); return EXIT_OK }
+      process.stdout.write(`Commented on #${id} (comment ${created.id ?? '?'})\n`)
       return EXIT_OK
     }
 
