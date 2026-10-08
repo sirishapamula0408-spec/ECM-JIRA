@@ -844,12 +844,9 @@ export async function initializeDatabase() {
     )
   }
 
-  /* JL-137: the page read path. A page load fetches its children and its
-     linked issues, both by a foreign key that was previously unindexed on
-     the lookup side. */
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_page ON issue_wiki_links(wiki_page_id)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_issue ON issue_wiki_links(issue_id)')
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_page_versions_page ON wiki_page_versions(page_id, version_number DESC)')
+  /* JL-137's page-read-path indexes are created further down, after
+     wiki_page_versions and issue_wiki_links exist (JL-157: here, they ran
+     before those tables on an empty database and aborted the boot). */
 
   /* ============================================================
      JL-125→127 (Confluence Lite) — page templates.
@@ -1222,6 +1219,13 @@ export async function initializeDatabase() {
       UNIQUE(issue_id, wiki_page_id)
     )
   `)
+
+  /* JL-137: the page read path. A page load fetches its children and its
+     linked issues, both by a foreign key that was previously unindexed on
+     the lookup side. Must follow both CREATE TABLEs above (JL-157). */
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_page ON issue_wiki_links(wiki_page_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_wiki_links_issue ON issue_wiki_links(issue_id)')
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_page_versions_page ON wiki_page_versions(page_id, version_number DESC)')
 
   // --- Theme-1 #1: Sub-tasks ---
   // Nullable self-referencing parent; deleting a parent cascades to its sub-tasks.
