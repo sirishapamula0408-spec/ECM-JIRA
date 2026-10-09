@@ -22,6 +22,7 @@ import { initialsFromName } from '../../utils/helpers'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/useConfirm'
 import { issueHref } from '../../utils/issueRef'
+import { sprintsForProject } from '../../utils/sprints'
 
 // JL-234 — client-side backlog sort control
 const SORT_STORAGE_KEY = 'backlogSort'
@@ -138,9 +139,11 @@ export function BacklogPage() {
   usePageTitle('Backlog')
   const { confirm, confirmDialog } = useConfirm()
   const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
-  const { sprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
+  const { sprints: allSprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
   const { profile, members } = useMembers()
   const { projectId } = useParams()
+  // JL-165: only this project's sprints (and shared legacy ones).
+  const sprints = useMemo(() => sprintsForProject(allSprints, projectId), [allSprints, projectId])
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
@@ -366,7 +369,12 @@ export function BacklogPage() {
 
   async function createSprintFromSelection() {
     setBacklogMessage('')
-    const newSprint = await onCreateSprint()
+    // JL-165: a sprint belongs to a project, so there must be one in view.
+    if (!projectId) {
+      setBacklogMessage('Open a project to create a sprint in it.')
+      return
+    }
+    const newSprint = await onCreateSprint({ projectId: Number(projectId) })
     const newSprintId = newSprint?.id
     if (!newSprintId) return
     setPanelExpanded(newSprintId, true); setPanelExpanded('backlog', true)

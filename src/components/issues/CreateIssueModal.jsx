@@ -11,6 +11,7 @@ import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
 import { avatarStyle } from '../../utils/avatarColour'
+import { sprintsForProject } from '../../utils/sprints'
 
 const TYPE_META = {
   Epic:       { icon: '\u{1F3F0}', label: 'Epic' },
@@ -346,7 +347,8 @@ export function CreateIssueModal({ onClose }) {
                 }}
               >
                 <option value="">{form.status === 'Backlog' ? 'N/A (Backlog)' : 'None'}</option>
-                {sprints.map((s) => (
+                {/* JL-165: only the chosen project's sprints. */}
+                {sprintsForProject(sprints, form.projectId).map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>

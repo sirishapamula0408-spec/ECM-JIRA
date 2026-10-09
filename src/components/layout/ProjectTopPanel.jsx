@@ -4,6 +4,7 @@ import { fetchProjectById } from '../../api/projectApi'
 import { useSprints } from '../../context/SprintContext'
 import { TopNavIcon } from '../icons/TopNavIcon'
 import './ProjectTopPanel.css'
+import { sprintsForProject } from '../../utils/sprints'
 
 // Routes with no project context — the project navigation strip is hidden on these.
 // Base entries first, then page routes in alphabetical order.
@@ -51,27 +52,23 @@ export function ProjectTopPanel({ hasProjects }) {
    * sprint to look at. Without one the tab led to ActiveSprintPage's "No active
    * sprints" empty state — a tab promising content its destination cannot give.
    *
-   * The predicate is DELIBERATELY the same one ActiveSprintPage uses
-   * (`sprints.filter((s) => s.isStarted)`, ActiveSprintPage.jsx:33) rather than
-   * the project-scoped one on ProjectSummaryPage (JL-343). Those two disagree:
-   * sprints in this schema are workspace-global with no project_id, and the
-   * page never reads projectId, so it shows started sprints from any project.
-   * Scoping the TAB while the PAGE stays global would hide the tab on a project
-   * whose page would still have rendered content — worse than showing it.
-   *
-   * So the invariant here is "the tab appears exactly when the page has
-   * something to show". That a project-scoped URL renders an unscoped page is a
-   * real bug, but a separate one; fixing it here would half-fix it.
+   * The invariant is "the tab appears exactly when the page has something to
+   * show", so the predicate matches ActiveSprintPage's. JL-165 scoped BOTH to
+   * the project in the URL (sprintsForProject): sprints used to be global, the
+   * page showed started sprints from any project, and this tab followed suit
+   * deliberately rather than disagreeing with the page.
    *
    * Reading from context rather than fetching means the tab reappears the
    * moment a sprint is started, with no reload.
    */
   const { sprints } = useSprints()
-  const hasActiveSprint = Array.isArray(sprints) && sprints.some((s) => s?.isStarted)
 
   // Detect project context from URL
   const projectMatch = matchPath('/projects/:projectId/*', location.pathname)
   const projectId = projectMatch?.params?.projectId
+  // JL-165: "Active sprints" is offered when THIS project has one running,
+  // not when any project in the system does.
+  const hasActiveSprint = sprintsForProject(sprints, projectId).some((s) => s?.isStarted)
 
   // Fetch project name when project context is detected
   useEffect(() => {

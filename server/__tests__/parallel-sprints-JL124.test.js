@@ -95,6 +95,8 @@ describe('GET /api/projects/:id/sprints/active', () => {
 describe('PATCH /api/sprints/:id/start (parallel gating)', () => {
   it('starts the first sprint (no other active) with 200', async () => {
     const app = createApp(sprintRoutes, '/api/sprints')
+    get.mockResolvedValueOnce({ id: 7, project_id: 5 }) // JL-165: the sprint and its project
+    get.mockResolvedValueOnce({ allow_parallel_sprints: false }) // project setting
     get.mockResolvedValueOnce({ count: 0 }) // active-count check
     run.mockResolvedValue({ changes: 1 })
     all.mockResolvedValueOnce([]) // no issues to snapshot
@@ -107,6 +109,7 @@ describe('PATCH /api/sprints/:id/start (parallel gating)', () => {
 
   it('returns 409 when parallel is OFF and another sprint is already active', async () => {
     const app = createApp(sprintRoutes, '/api/sprints')
+    get.mockResolvedValueOnce({ id: 7, project_id: 5 }) // JL-165: the sprint and its project
     get.mockResolvedValueOnce({ allow_parallel_sprints: false }) // project setting
     get.mockResolvedValueOnce({ count: 1 }) // one other active sprint
 
@@ -119,6 +122,7 @@ describe('PATCH /api/sprints/:id/start (parallel gating)', () => {
 
   it('allows a 2nd concurrent sprint (200) when parallel is ON', async () => {
     const app = createApp(sprintRoutes, '/api/sprints')
+    get.mockResolvedValueOnce({ id: 7, project_id: 5 }) // JL-165: the sprint and its project
     get.mockResolvedValueOnce({ allow_parallel_sprints: true }) // project setting
     get.mockResolvedValueOnce({ count: 1 }) // one other active sprint
     run.mockResolvedValue({ changes: 1 })

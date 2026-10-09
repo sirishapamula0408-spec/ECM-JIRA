@@ -41,13 +41,15 @@ export async function addToProject(adminApi, projectId, who, role = 'Member') {
   return res.json()
 }
 
-/** Create a sprint (workspace Admin only). */
-export async function createSprint(api, overrides = {}) {
-  return expectStatus(await api.post('/api/sprints', { data: { name: uniq('Sprint'), ...overrides } }), 201)
+/** Create a sprint in a project (workspace Admin only). JL-165: a sprint
+ *  belongs to a project, so `projectId` is required. */
+export async function createSprint(api, projectId, overrides = {}) {
+  if (projectId == null) throw new Error('createSprint needs a projectId (JL-165)')
+  return expectStatus(await api.post('/api/sprints', { data: { projectId, name: uniq('Sprint'), ...overrides } }), 201)
 }
 
-/** Opt a project into parallel sprints so starting one never collides with
- *  sprints other suites have running (sprints are workspace-global). */
+/** Opt a project into parallel sprints, so a test can run several of its own
+ *  sprints at once. */
 export async function allowParallel(api, projectId, allow = true) {
   return expectStatus(await api.put(`/api/projects/${projectId}/sprints/settings`, { data: { allowParallelSprints: allow } }), 200)
 }

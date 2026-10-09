@@ -14,6 +14,7 @@ import { processMentions } from '../services/mentions.js'
 import { publish } from '../services/realtime.js'
 import { canViewIssue } from '../services/issueSecurity.js'
 import { evaluateApproval, approvalRefusalMessage } from '../services/approvals.js'
+import { sprintFitsProject } from './sprints.js'
 
 const router = Router()
 
@@ -161,10 +162,22 @@ async function validateEpicRef(epicId, issueType) {
   return null
 }
 
-async function getDefaultSprintId() {
-  const sprint = await get('SELECT id FROM sprints ORDER BY id ASC LIMIT 1')
+/*
+ * JL-165: the sprint an issue joins when it leaves Backlog without naming one.
+ * It used to be the first sprint in the whole system, so a new "To Do" issue
+ * in one project landed in another project's sprint. Now it is the issue's
+ * OWN project's first unfinished sprint, or no sprint at all: a shared legacy
+ * sprint is never picked by default. An issue with no project keeps the
+ * legacy behaviour, limited to shared sprints.
+ */
+async function getDefaultSprintId(projectId) {
+  const sprint = projectId != null
+    ? await get('SELECT id FROM sprints WHERE project_id = ? AND completed_at IS NULL ORDER BY id ASC LIMIT 1', [projectId])
+    : await get('SELECT id FROM sprints WHERE project_id IS NULL AND completed_at IS NULL ORDER BY id ASC LIMIT 1')
   return sprint?.id ?? null
 }
+
+const SPRINT_OTHER_PROJECT = 'That sprint belongs to another project'
 
 // JL-92: allocate the next issue-key number for a project using a monotonic
 // per-project counter (never reuses numbers after a delete; concurrency-safe
@@ -482,16 +495,20 @@ router.post('/', requireProjectWrite((req) => {
   let nextSprintId = null
   if (status !== 'Backlog') {
     if (sprintId === undefined || sprintId === null || sprintId === '') {
-      nextSprintId = await getDefaultSprintId()
+      nextSprintId = await getDefaultSprintId(resolvedProjectId)
     } else {
       const parsed = Number(sprintId)
       if (!Number.isInteger(parsed)) {
         res.status(400).json({ error: 'Invalid sprint id' })
         return
       }
-      const sprintRow = await get('SELECT id FROM sprints WHERE id = ?', [parsed])
+      const sprintRow = await get('SELECT id, project_id FROM sprints WHERE id = ?', [parsed])
       if (!sprintRow) {
         res.status(400).json({ error: 'Sprint not found' })
+        return
+      }
+      if (!sprintFitsProject(sprintRow, resolvedProjectId)) {
+        res.status(400).json({ error: SPRINT_OTHER_PROJECT })
         return
       }
       nextSprintId = parsed
@@ -705,9 +722,13 @@ router.patch('/:id', requireProjectWrite(issueParamProject('id')), asyncHandler(
         res.status(400).json({ error: 'Invalid sprint id' })
         return
       }
-      const sprintRow = await get('SELECT id FROM sprints WHERE id = ?', [parsed])
+      const sprintRow = await get('SELECT id, project_id FROM sprints WHERE id = ?', [parsed])
       if (!sprintRow) {
         res.status(400).json({ error: 'Sprint not found' })
+        return
+      }
+      if (!sprintFitsProject(sprintRow, existing.project_id)) {
+        res.status(400).json({ error: SPRINT_OTHER_PROJECT })
         return
       }
       sets.push('sprint_id = ?')
@@ -911,16 +932,20 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   let nextSprintId = null
   if (status !== 'Backlog') {
     if (sprintId === undefined || sprintId === null || sprintId === '') {
-      nextSprintId = existing.sprint_id ?? (await getDefaultSprintId())
+      nextSprintId = existing.sprint_id ?? (await getDefaultSprintId(existing.project_id))
     } else {
       const parsed = Number(sprintId)
       if (!Number.isInteger(parsed)) {
         res.status(400).json({ error: 'Invalid sprint id' })
         return
       }
-      const sprintRow = await get('SELECT id FROM sprints WHERE id = ?', [parsed])
+      const sprintRow = await get('SELECT id, project_id FROM sprints WHERE id = ?', [parsed])
       if (!sprintRow) {
         res.status(400).json({ error: 'Sprint not found' })
+        return
+      }
+      if (!sprintFitsProject(sprintRow, existing.project_id)) {
+        res.status(400).json({ error: SPRINT_OTHER_PROJECT })
         return
       }
       nextSprintId = parsed
@@ -1190,12 +1215,23 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   // Existence validation for value operations that need the db. A failure here
   // becomes a per-issue error (only for the issues whose row would change).
   let sprintError = null
+  let bulkSprint = null
   if (operations.sprintId !== undefined && operations.sprintId !== null && operations.sprintId !== '') {
     const parsed = Number(operations.sprintId)
     if (!Number.isInteger(parsed)) sprintError = 'Invalid sprint id'
     else {
-      const sprintRow = await get('SELECT id FROM sprints WHERE id = ?', [parsed])
-      if (!sprintRow) sprintError = 'Sprint not found'
+      bulkSprint = await get('SELECT id, project_id FROM sprints WHERE id = ?', [parsed])
+      if (!bulkSprint) sprintError = 'Sprint not found'
+    }
+  }
+  // JL-165: a sprint from another project is a per-issue error, so a bulk move
+  // across projects moves only the issues that sprint belongs to.
+  if (bulkSprint) {
+    const projectOf = new Map(issues.map((i) => [i.id, i.projectId ?? null]))
+    for (const item of preview) {
+      if (item.error || !item.willChange) continue
+      if (!item.changes.some((c) => c.field === 'sprintId')) continue
+      if (!sprintFitsProject(bulkSprint, projectOf.get(item.issueId))) item.error = SPRINT_OTHER_PROJECT
     }
   }
   let assigneeError = null

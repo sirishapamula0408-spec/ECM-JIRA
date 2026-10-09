@@ -109,6 +109,23 @@ describe('JL-460 — a started sprint exists', () => {
     renderAt('/projects/6/board')
     expect(activeSprintTab()).toBeInTheDocument()
   })
+
+  it('JL-165: ignores another project\'s started sprint', () => {
+    // Sprints used to be global, so ANY started sprint lit this tab up in
+    // every project.
+    mockSprints = [
+      { id: 1, projectId: 9, name: 'Other team', isStarted: true },
+      { id: 2, projectId: 6, name: 'Ours', isStarted: false },
+    ]
+    renderAt('/projects/6/board')
+    expect(activeSprintTab()).toBeNull()
+  })
+
+  it('JL-165: still counts a shared legacy sprint (no project)', () => {
+    mockSprints = [{ id: 1, projectId: null, name: 'Shared', isStarted: true }]
+    renderAt('/projects/6/board')
+    expect(activeSprintTab()).toBeInTheDocument()
+  })
 })
 
 describe('JL-460 — degrades rather than throwing', () => {

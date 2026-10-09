@@ -18,6 +18,7 @@ import { initialsFromName } from '../../utils/helpers'
 import { avatarStyle } from '../../utils/avatarColour'
 import { createSubtask } from '../../api/issueApi'
 import { issueHref } from '../../utils/issueRef'
+import { sprintsForProject } from '../../utils/sprints'
 
 /* ── Column definitions ── */
 const ALL_COLUMNS = {
@@ -131,10 +132,12 @@ export function IssueListPage() {
   usePageTitle('List')
   const { confirm, confirmDialog } = useConfirm()
   const { issues, handleCreate: onCreateIssue, handleMove, handleUpdate, handleDelete, reloadIssues } = useIssues()
-  const { sprints } = useSprints()
+  const { sprints: allSprints } = useSprints()
   const { authUser: currentUser } = useAuth()
   const { profile } = useMembers()
   const { projectId } = useParams()
+  // JL-165: only this project's sprints (and shared legacy ones).
+  const sprints = useMemo(() => sprintsForProject(allSprints, projectId), [allSprints, projectId])
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
   // JL-294: gate write controls (row selection, bulk actions, inline create) by
   // project-scoped permissions so Viewers get a read-only list, matching the

@@ -158,7 +158,9 @@ describe('Sprints API — start sets start_date + snapshots scope (JL-86)', () =
 
   it('sets start_date=NOW() and inserts a sprint_scope row per current issue', async () => {
     run.mockResolvedValue({ changes: 1 })
-    // JL-124: active-sprint count check runs first (no other active sprint)
+    // JL-165: the sprint is looked up first (a shared legacy sprint here)
+    get.mockResolvedValueOnce({ id: 7, project_id: null })
+    // JL-124: active-sprint count check (no other active sprint)
     get.mockResolvedValueOnce({ count: 0 })
     // current issues in the sprint
     all.mockResolvedValueOnce([

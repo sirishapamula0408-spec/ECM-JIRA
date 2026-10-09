@@ -29,11 +29,12 @@ test.afterAll(async () => {
 test.describe('sprints', () => {
   test('create a sprint with a goal; name falls back when blank', async () => {
     const name = uniq('Sprint')
-    const s = await createSprint(owner, { name, goal: 'Ship it' })
+    const s = await createSprint(owner, project.id, { name, goal: 'Ship it' })
     try {
-      expect(s).toMatchObject({ name, goal: 'Ship it', isStarted: false, dateRange: 'Upcoming' })
-      const blank = await createSprint(owner, { name: '' })
-      expect(blank.name).toMatch(/^SCRUM Sprint \d+$/)
+      expect(s).toMatchObject({ name, goal: 'Ship it', isStarted: false, dateRange: 'Upcoming', projectId: project.id })
+      const blank = await createSprint(owner, project.id, { name: '' })
+      // JL-165: the fallback name is numbered within the project, after its key.
+      expect(blank.name).toMatch(new RegExp(`^${project.key} Sprint \\d+$`))
       await retireSprint(owner, blank.id)
     } finally {
       await retireSprint(owner, s.id)
@@ -41,13 +42,33 @@ test.describe('sprints', () => {
   })
 
   test('sprint name over 120 characters is rejected; a Member cannot create sprints', async () => {
-    const body = await expectStatus(await owner.post('/api/sprints', { data: { name: 'S'.repeat(121) } }), 400)
+    const body = await expectStatus(await owner.post('/api/sprints', { data: { projectId: project.id, name: 'S'.repeat(121) } }), 400)
     expect(body.error).toBe('name must be at most 120 characters')
-    await expectStatus(await member.post('/api/sprints', { data: { name: uniq('nope') } }), 403)
+    await expectStatus(await member.post('/api/sprints', { data: { projectId: project.id, name: uniq('nope') } }), 403)
+  })
+
+  test('JL-165: a sprint must name its project, and lists are scoped by it', async () => {
+    const missing = await expectStatus(await owner.post('/api/sprints', { data: { name: uniq('Orphan') } }), 400)
+    expect(missing.error).toMatch(/projectId is required/)
+    const other = await createProject(owner)
+    const ours = await createSprint(owner, project.id)
+    const theirs = await createSprint(owner, other.id)
+    try {
+      const listed = (await expectStatus(await owner.get(`/api/sprints?projectId=${project.id}`), 200)).map((s) => s.id)
+      expect(listed).toContain(ours.id)
+      expect(listed).not.toContain(theirs.id)
+      // An issue cannot be put in another project's sprint.
+      const issue = await createIssue(owner, project.id, { status: 'Backlog' })
+      const refused = await expectStatus(await owner.patch(`/api/issues/${issue.id}/status`, { data: { status: 'To Do', sprintId: theirs.id } }), 400)
+      expect(refused.error).toBe('That sprint belongs to another project')
+    } finally {
+      await retireSprint(owner, ours.id)
+      await retireSprint(owner, theirs.id)
+    }
   })
 
   test('add issues to a sprint, start it, then complete it: unfinished work returns to the backlog', async () => {
-    const sprint = await createSprint(owner)
+    const sprint = await createSprint(owner, project.id)
     try {
       const open = await createIssue(owner, project.id, { status: 'To Do', sprintId: sprint.id })
       const done = await createIssue(owner, project.id, { status: 'In UAT', sprintId: sprint.id })
@@ -79,8 +100,8 @@ test.describe('sprints', () => {
   test('only one active sprint per project unless parallel sprints are enabled', async () => {
     const p = await createProject(owner)
     await allowParallel(owner, p.id, true)
-    const first = await createSprint(owner)
-    const second = await createSprint(owner)
+    const first = await createSprint(owner, p.id)
+    const second = await createSprint(owner, p.id)
     try {
       await expectStatus(await startSprint(owner, first.id, p.id), 200)
       await allowParallel(owner, p.id, false)
@@ -97,12 +118,11 @@ test.describe('sprints', () => {
   })
 
   test("an active sprint in one project does not block starting a sprint in another", async () => {
-    test.fail(true, 'DEFECT: sprints have no project_id; the single-active check counts every started sprint in the workspace, so project B is blocked by project A')
     const a = await createProject(owner)
     const b = await createProject(owner) // parallel sprints left OFF (the default)
     await allowParallel(owner, a.id, true)
-    const sa = await createSprint(owner)
-    const sb = await createSprint(owner)
+    const sa = await createSprint(owner, a.id)
+    const sb = await createSprint(owner, b.id)
     try {
       await expectStatus(await startSprint(owner, sa.id, a.id), 200)
       const res = await startSprint(owner, sb.id, b.id)
@@ -120,14 +140,14 @@ test.describe('sprints', () => {
   })
 
   test('deleting a sprint returns its issues to the backlog', async () => {
-    const sprint = await createSprint(owner)
+    const sprint = await createSprint(owner, project.id)
     const issue = await createIssue(owner, project.id, { status: 'To Do', sprintId: sprint.id })
     await expectStatus(await owner.delete(`/api/sprints/${sprint.id}`), 200)
     expect(await expectStatus(await owner.get(`/api/issues/${issue.id}`), 200)).toMatchObject({ status: 'Backlog', sprintId: null })
   })
 
   test('a Member cannot start or complete a sprint', async () => {
-    const sprint = await createSprint(owner)
+    const sprint = await createSprint(owner, project.id)
     try {
       await expectStatus(await member.patch(`/api/sprints/${sprint.id}/start`, { data: { projectId: project.id } }), 403)
       await expectStatus(await member.patch(`/api/sprints/${sprint.id}/complete`), 403)
@@ -162,7 +182,7 @@ test.describe('bulk change', () => {
   })
 
   test('bulk move to a sprint and back to no sprint', async () => {
-    const sprint = await createSprint(owner)
+    const sprint = await createSprint(owner, project.id)
     try {
       const a = await createIssue(owner, project.id, { status: 'Backlog' })
       await expectStatus(await owner.post('/api/issues/bulk', { data: { issueIds: [a.id], operations: { sprintId: sprint.id } } }), 200)
@@ -287,7 +307,6 @@ test.describe('import', () => {
   })
 
   test('a row naming a sprint that does not exist is reported as invalid, not a 500', async () => {
-    test.fail(true, 'DEFECT: import never validates sprint_id; the dry run calls the row valid and the commit hits the sprints FK and returns 500')
     const p = await createProject(owner)
     const bad = 'title,sprint_id\nGhost sprint row,99999999'
     const dry = await expectStatus(await owner.post(`/api/projects/${p.id}/import`, { data: { csv: bad } }), 200)

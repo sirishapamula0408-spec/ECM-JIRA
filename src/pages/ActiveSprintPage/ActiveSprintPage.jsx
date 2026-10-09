@@ -10,6 +10,7 @@ import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/useConfirm'
 import { issueHref } from '../../utils/issueRef'
+import { sprintsForProject } from '../../utils/sprints'
 
 const RETRO_COLUMNS = [
   { key: 'well', label: 'What went well' },
@@ -20,9 +21,11 @@ const RETRO_COLUMNS = [
 export function ActiveSprintPage() {
   usePageTitle('Active Sprint')
   const { issues, handleMove, reloadIssues } = useIssues()
-  const { sprints, handleCompleteSprint, handleUpdateSprint } = useSprints()
+  const { sprints: allSprints, handleCompleteSprint, handleUpdateSprint } = useSprints()
   const navigate = useNavigate()
   const { projectId } = useParams()
+  // JL-165: only this project's sprints (and shared legacy ones).
+  const sprints = useMemo(() => sprintsForProject(allSprints, projectId), [allSprints, projectId])
   const { canManageSprints, canEditIssue } = usePermissions(projectId ? Number(projectId) : undefined)
   const scopedIssues = projectId ? issues.filter((i) => i.projectId === Number(projectId)) : issues
   const [dragIssueId, setDragIssueId] = useState(null)

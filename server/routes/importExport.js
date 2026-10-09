@@ -235,6 +235,12 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
   const errors = []
   // JL-451: every value we translated, so the dry-run can show it.
   const warnings = []
+  // JL-165: a row may only name a sprint of THIS project (or a shared legacy
+  // one). Before, any id went straight into the INSERT: another project's
+  // sprint was silently accepted, and an id that did not exist failed the
+  // whole commit on the foreign key.
+  const sprintRows = await all('SELECT id FROM sprints WHERE project_id = ? OR project_id IS NULL', [projectId])
+  const importableSprints = new Set(sprintRows.map((row) => Number(row.id)))
   for (let r = 1; r < grid.length; r++) {
     const row = grid[r]
     const val = (f) => (idx[f] >= 0 ? String(row[idx[f]] ?? '').trim() : '')
@@ -249,6 +255,9 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
     }
     const rowErrors = []
     if (!rec.title) rowErrors.push('title is required')
+    if (rec.sprint_id != null && !importableSprints.has(rec.sprint_id)) {
+      rowErrors.push(`sprint_id ${val('sprint_id')} is not a sprint of this project`)
+    }
     // JL-451: resolve rather than test-and-reject. Case differences are
     // normalised silently; a mapped foreign value is applied AND reported.
     for (const field of ['priority', 'status', 'issue_type']) {

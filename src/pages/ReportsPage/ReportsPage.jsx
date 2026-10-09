@@ -33,6 +33,7 @@ import { downloadCSV } from '../../utils/reportExport'
 import { fetchProjectTimesheet, downloadProjectTimesheetCsv } from '../../api/worklogApi'
 import { SlaPanel } from './SlaPanel'
 import './ReportsPage.css'
+import { sprintsForProject } from '../../utils/sprints'
 
 // Band colours for the CFD, bottom → top (Done on top).
 /*
@@ -64,8 +65,10 @@ function buildHistogram(cycleValues) {
 export function ReportsPage() {
   usePageTitle('Reports')
   const { issues } = useIssues()
-  const { sprints } = useSprints()
+  const { sprints: allSprints } = useSprints()
   const { projectId } = useParams()
+  // JL-165: only this project's sprints (and shared legacy ones).
+  const sprints = useMemo(() => sprintsForProject(allSprints, projectId), [allSprints, projectId])
 
   // JL-87: Sprint Report state
   const sprintOptions = useMemo(() => {

@@ -40,7 +40,8 @@ test.describe('backlog and sprints', () => {
     await page.getByRole('checkbox', { name: `Select ${a.key}` }).check()
     await page.locator('.jira-backlog-row').getByRole('button', { name: 'Create sprint' }).click()
     const message = page.locator('.backlog-message')
-    await expect(message).toHaveText(/^SCRUM Sprint \d+ created with 1 issue\(s\)\.$/)
+    // JL-165: the sprint belongs to this project and is numbered within it.
+    await expect(message).toHaveText(new RegExp(`^${p.key} Sprint 1 created with 1 issue\\(s\\)\\.$`))
     const issue = await expectStatus(await owner.get(`/api/issues/${a.id}`), 200)
     try {
       expect(issue.status).toBe('To Do')
@@ -52,7 +53,7 @@ test.describe('backlog and sprints', () => {
 
   test('start a sprint: the Active sprints tab appears and shows the sprint board; complete it', async ({ page }) => {
     const p = await freshProject()
-    const sprint = await createSprint(owner, { name: uniq('UI Sprint') })
+    const sprint = await createSprint(owner, p.id, { name: uniq('UI Sprint') })
     try {
       const issue = await createIssue(owner, p.id, { status: 'To Do', sprintId: sprint.id, title: uniq('Sprint work') })
       await page.goto(`/projects/${p.id}/backlog`)
@@ -81,10 +82,9 @@ test.describe('backlog and sprints', () => {
   })
 
   test("a project's Backlog does not show another project's sprint", async ({ page }) => {
-    test.fail(true, 'DEFECT: sprints are workspace-global (no project_id); every project Backlog renders every sprint in the workspace')
     const a = await freshProject()
     const b = await freshProject()
-    const sprint = await createSprint(owner, { name: uniq('Project A sprint') })
+    const sprint = await createSprint(owner, a.id, { name: uniq('Project A sprint') })
     try {
       await createIssue(owner, a.id, { status: 'To Do', sprintId: sprint.id })
       await page.goto(`/projects/${b.id}/backlog`)

@@ -48,7 +48,7 @@ A *Defect* row is a test annotated with test.fail(): it asserts the intended beh
 | B-040 | Issues | create › invalid priority, status and type are each rejected | API | Owner | Pass |
 | B-041 | Issues | create › title over 255 characters and negative story points are rejected | API | Owner | Pass |
 | B-042 | Issues | create › a project Viewer cannot create issues; a project Member can | API | Owner, Viewer, Member | Pass |
-| B-043 | Issues | create › an issue created outside Backlog without a sprint is not dropped into an unrelated sprint | API | Owner | Defect: non-Backlog issue auto-placed in first global sprint |
+| B-043 | Issues | create › an issue created outside Backlog without a sprint is not dropped into an unrelated sprint | API | Owner | Pass (JL-165 fixed) |
 | B-044 | Issues | read and edit › the canonical key addresses an issue (any case); bad refs are 400/404 | API | Owner | Pass |
 | B-045 | Issues | read and edit › edit title, priority, assignee and story points; the change is recorded in history | API | Owner | Pass |
 | B-046 | Issues | read and edit › edit validation: empty title, bad priority, bad flag value | API | Owner | Pass |
@@ -98,7 +98,7 @@ A *Defect* row is a test annotated with test.fail(): it asserts the intended beh
 | B-090 | Planning | sprints › sprint name over 120 characters is rejected; a Member cannot create sprints | API | Owner, Member | Pass |
 | B-091 | Planning | sprints › add issues to a sprint, start it, then complete it: unfinished work returns to the backlog | API | Owner | Pass |
 | B-092 | Planning | sprints › only one active sprint per project unless parallel sprints are enabled | API | Owner | Pass |
-| B-093 | Planning | sprints › an active sprint in one project does not block starting a sprint in another | API | Owner | Defect: sprints are global; other project blocks sprint start |
+| B-093 | Planning | sprints › an active sprint in one project does not block starting a sprint in another | API | Owner | Pass (JL-165 fixed) |
 | B-094 | Planning | sprints › starting, completing or deleting an unknown sprint is 404 | API | Owner | Pass |
 | B-095 | Planning | sprints › deleting a sprint returns its issues to the backlog | API | Owner | Pass |
 | B-096 | Planning | sprints › a Member cannot start or complete a sprint | API | Owner, Member | Pass |
@@ -115,11 +115,11 @@ A *Defect* row is a test annotated with test.fail(): it asserts the intended beh
 | B-107 | Planning | import › dry run (the default) previews valid rows, reports invalid rows and alias warnings, writes nothing | API | Owner | Pass |
 | B-108 | Planning | import › commit creates the valid rows with sequential keys and later issues continue the sequence | API | Owner | Pass |
 | B-109 | Planning | import › empty or header-only CSV is rejected; a Viewer cannot import | API | Owner, Viewer | Pass |
-| B-110 | Planning | import › a row naming a sprint that does not exist is reported as invalid, not a 500 | API | Owner | Defect: import with unknown sprint_id returns 500 |
+| B-110 | Planning | import › a row naming a sprint that does not exist is reported as invalid, not a 500 | API | Owner | Pass (JL-172 fixed by JL-165) |
 | B-111 | Planning | backlog and sprints › the Backlog lists the project's backlog issues | UI | Owner | Pass |
 | B-112 | Planning | backlog and sprints › Create sprint moves the selected backlog issue into a new sprint | UI | Owner | Pass |
 | B-113 | Planning / Execution | backlog and sprints › start a sprint: the Active sprints tab appears and shows the sprint board; complete it | UI | Owner | Pass |
-| B-114 | Planning | backlog and sprints › a project's Backlog does not show another project's sprint | UI | Owner | Defect: Backlog shows every project's sprints |
+| B-114 | Planning | backlog and sprints › a project's Backlog does not show another project's sprint | UI | Owner | Pass (JL-165 fixed) |
 | B-115 | Planning | backlog and sprints › the bulk toolbar counts the selection and applies a priority change | UI | Owner | Pass |
 | B-116 | Execution | board › columns render per status and the card sits in its status column | UI | Owner | Pass |
 | B-117 | Execution | board › moving a card with its status menu persists the new status | UI | Owner | Pass |
@@ -128,3 +128,4 @@ A *Defect* row is a test annotated with test.fail(): it asserts the intended beh
 | B-120 | Execution | list view › renders the project issues and sorts by Priority both ways | UI | Owner | Pass |
 | B-121 | Execution | list view › add and remove a column from the + menu | UI | Owner | Pass |
 | B-122 | Execution | list view › an empty project list has no horizontal scrollbar at 1280px | UI | Owner | Pass |
+| B-123 | Planning | sprints › JL-165: a sprint must name its project, and lists are scoped by it | API | Owner | Pass |

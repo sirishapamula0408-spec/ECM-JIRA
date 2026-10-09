@@ -262,9 +262,9 @@ describe('Sprints text length caps (sprints.js)', () => {
   })
 
   it(`POST /api rejects a name over ${SPRINT_NAME_MAX} chars with 400`, async () => {
-    get.mockResolvedValue({ count: '0' })
+    get.mockResolvedValue({ id: 3, key: 'PROJ', count: '0' })
 
-    const res = await request(app).post('/api').send({ name: over(SPRINT_NAME_MAX) })
+    const res = await request(app).post('/api').send({ projectId: 3, name: over(SPRINT_NAME_MAX) })
     expect(res.status).toBe(400)
     expect(res.body.error).toContain('name')
     expect(res.body.error).toContain(String(SPRINT_NAME_MAX))
@@ -272,9 +272,9 @@ describe('Sprints text length caps (sprints.js)', () => {
   })
 
   it(`POST /api rejects a goal over ${SPRINT_GOAL_MAX} chars with 400`, async () => {
-    get.mockResolvedValue({ count: '0' })
+    get.mockResolvedValue({ id: 3, key: 'PROJ', count: '0' })
 
-    const res = await request(app).post('/api').send({ name: 'Sprint 1', goal: over(SPRINT_GOAL_MAX) })
+    const res = await request(app).post('/api').send({ projectId: 3, name: 'Sprint 1', goal: over(SPRINT_GOAL_MAX) })
     expect(res.status).toBe(400)
     expect(res.body.error).toContain('goal')
     expect(res.body.error).toContain(String(SPRINT_GOAL_MAX))
@@ -284,11 +284,13 @@ describe('Sprints text length caps (sprints.js)', () => {
   it('POST /api trims name/goal before the INSERT (trimmed values in params)', async () => {
     get.mockImplementation(async (sql) => {
       if (sql.includes('COUNT(*)')) return { count: '4' }
+      if (sql.includes('FROM projects')) return { id: 3, key: 'PROJ' }
       return { id: 7, name: 'Sprint Alpha', date_range: 'Upcoming', is_started: false, goal: 'Ship the thing' }
     })
     run.mockResolvedValue({ lastID: 7, changes: 1 })
 
     const res = await request(app).post('/api').send({
+      projectId: 3,
       name: '  Sprint Alpha  ',
       goal: '  Ship the thing  ',
     })
@@ -296,8 +298,10 @@ describe('Sprints text length caps (sprints.js)', () => {
 
     const insertCall = run.mock.calls.find(([sql]) => sql.includes('INSERT INTO sprints'))
     expect(insertCall).toBeTruthy()
-    expect(insertCall[1][0]).toBe('Sprint Alpha')     // name (trimmed)
-    expect(insertCall[1][3]).toBe('Ship the thing')   // goal (trimmed)
+    // JL-165: project_id is the first INSERT column now.
+    expect(insertCall[1][0]).toBe(3)                  // project_id
+    expect(insertCall[1][1]).toBe('Sprint Alpha')     // name (trimmed)
+    expect(insertCall[1][4]).toBe('Ship the thing')   // goal (trimmed)
   })
 
   it(`PATCH /api/:id rejects a name over ${SPRINT_NAME_MAX} chars with 400`, async () => {

@@ -47,6 +47,7 @@ describe('Sprints API — goal (JL-127)', () => {
 
   it('accepts goal on create and returns it (mapSprint → goal)', async () => {
     get
+      .mockResolvedValueOnce({ id: 3, key: 'PROJ' }) // JL-165: the sprint's project
       .mockResolvedValueOnce({ count: 0 }) // sprint count
       .mockResolvedValueOnce({
         id: 5,
@@ -61,6 +62,7 @@ describe('Sprints API — goal (JL-127)', () => {
     run.mockResolvedValue({ lastID: 5, changes: 1 })
 
     const res = await request(app).post('/api/sprints').send({
+      projectId: 3,
       name: 'Sprint 5',
       dateRange: 'Upcoming',
       goal: 'Ship the login flow',

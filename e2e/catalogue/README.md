@@ -6,15 +6,15 @@ run on 2026-10-08 against an empty database and the production build.
 | Track | Catalogue | Tests | Pass | Known defect |
 |---|---|---|---|---|
 | A — Authentication, administration, RBAC | [track-a.md](track-a.md) | 112 | 103 | 9 |
-| B — Projects, issues, planning, boards | [track-b.md](track-b.md) | 122 | 111 | 11 |
+| B — Projects, issues, planning, boards | [track-b.md](track-b.md) | 123 | 116 | 7 |
 | C — Tracking, Confluence Lite, every route | [track-c.md](track-c.md) | 198 | 183 | 15 |
 | Harness smoke | `e2e/*/smoke.spec.mjs` | 7 | 7 | 0 |
-| **Total** | | **439** | **404** | **35** |
+| **Total** | | **440** | **409** | **31** |
 
 A known-defect test asserts the correct behaviour and is marked
 `test.fail(true, 'DEFECT: …')`, so the suite stays green while the bug is open
 and turns red when it is fixed — remove the marker then. Some defects are
-covered by more than one test, which is why 35 tests map to 26 open tickets.
+covered by more than one test, which is why 31 tests map to 24 open tickets.
 
 ## Defects filed (projects.fosasoft.com, JIRA Lite)
 
@@ -27,14 +27,14 @@ covered by more than one test, which is why 35 tests map to 26 open tickets.
 | JL-162 | High | Bulk issue update lets a project Viewer edit issues |
 | JL-163 | High | Top-bar '+ Create' button is always disabled in Jira |
 | JL-164 | High | Deleting a project exposes its issues to every member |
-| JL-165 | High | Sprints are not scoped to a project — one project's sprint blocks another |
+| JL-165 | High | ~~Sprints are not scoped to a project — one project's sprint blocks another~~ — **fixed** |
 | JL-166 | High | Wiki pages ignore Space roles — a Space Viewer can edit pages |
 | JL-167 | High | JQL and basic search return issues from projects the user cannot access |
 | JL-168 | Medium | Watcher endpoints have no project-access check |
 | JL-169 | Medium | Bulk status change bypasses workflow transitions |
 | JL-170 | Medium | Duplicate project key returns 500 |
 | JL-171 | Medium | Adding an existing project member returns 500 |
-| JL-172 | Medium | Import: unknown sprint_id passes the dry run, then the commit returns 500 |
+| JL-172 | Medium | ~~Import: unknown sprint_id passes the dry run, then the commit returns 500~~ — **fixed by JL-165** |
 | JL-173 | Medium | Admins opening /members or /users directly are sent to the Dashboard |
 | JL-174 | Medium | /members invite says 'Invitation sent' when no email was sent |
 | JL-175 | Medium | Reports return data for projects the user cannot access |

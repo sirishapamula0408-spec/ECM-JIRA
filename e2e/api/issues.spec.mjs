@@ -87,9 +87,8 @@ test.describe('create', () => {
   })
 
   test('an issue created outside Backlog without a sprint is not dropped into an unrelated sprint', async () => {
-    test.fail(true, 'DEFECT: POST /api/issues puts a non-Backlog issue with no sprintId into the first sprint in the database (getDefaultSprintId), whatever project it belongs to')
-    // A sprint holding nothing from this project.
-    const sprint = await expectStatus(await owner.post('/api/sprints', { data: { name: uniq('Foreign') } }), 201)
+    // A sprint that belongs to a different project (JL-165).
+    const sprint = await expectStatus(await owner.post('/api/sprints', { data: { projectId: project.id, name: uniq('Foreign') } }), 201)
     try {
       const other = await createProject(owner)
       const issue = await createIssue(owner, other.id, { status: 'To Do' })

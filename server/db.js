@@ -2189,6 +2189,43 @@ export async function initializeDatabase() {
   if (!(await columnExists('sprints', 'goal'))) {
     await pool.query('ALTER TABLE sprints ADD COLUMN goal TEXT')
   }
+
+  /*
+     JL-165 (fosasoft) — a sprint belongs to a project.
+
+     Sprints had no project, so every project saw every sprint: one team's
+     sprints filled every other team's backlog and sprint pickers, an issue
+     created as "To Do" was dropped into whichever sprint happened to be first
+     in the whole system, and a single active sprint anywhere blocked starting
+     one everywhere else.
+
+     Backfill is deliberately conservative. A sprint whose issues all belong
+     to ONE project is given that project. A sprint holding issues from
+     several projects, or none, keeps project_id NULL: a "shared" legacy
+     sprint that behaves exactly as before (visible everywhere), so no issue
+     is pulled out of a sprint it is already in. An Admin can assign such a
+     sprint to a project later (PATCH /api/sprints/:id { projectId }).
+     Every NEW sprint must name its project.
+
+     Idempotent: only NULL rows are considered, so a re-run never moves a
+     sprint that has already been placed.
+  */
+  if (!(await columnExists('sprints', 'project_id'))) {
+    await pool.query('ALTER TABLE sprints ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE')
+  }
+  await pool.query(`
+    UPDATE sprints s
+       SET project_id = one_project.project_id
+      FROM (
+        SELECT sprint_id, MIN(project_id) AS project_id
+          FROM issues
+         WHERE sprint_id IS NOT NULL
+         GROUP BY sprint_id
+        HAVING COUNT(DISTINCT project_id) = 1 AND COUNT(*) = COUNT(project_id)
+      ) one_project
+     WHERE s.id = one_project.sprint_id AND s.project_id IS NULL
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_sprints_project ON sprints(project_id)')
   // Retrospective notes: one row per note, categorized well/improve/action.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sprint_retros (

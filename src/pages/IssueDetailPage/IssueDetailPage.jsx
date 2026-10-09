@@ -51,6 +51,7 @@ import './IssueDetailPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { ISSUE_STATUSES, PRIORITIES, ISSUE_TYPES } from '../../constants'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { sprintsForProject } from '../../utils/sprints'
 
 // JL-321: Atlassian-style issue-type icon \u2014 a colored rounded square with a
 // white glyph, using Jira's colour coding (Story green, Task blue, Bug red,
@@ -2340,7 +2341,8 @@ export function IssueDetailPage() {
                   >
                     <select className="id-inline-select" value={issue.sprintId || ''} onChange={onChangeSprint} autoFocus>
                       <option value="">None</option>
-                      {sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {/* JL-165: only this issue's project's sprints. */}
+                      {sprintsForProject(sprints, issue.projectId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </InlineField>
                 </dd>
