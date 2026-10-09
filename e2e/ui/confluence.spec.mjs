@@ -72,13 +72,17 @@ test('create a page in a space; it opens with its title, content and space link'
   const problems = watchPage(page)
   const space = await uiSpace()
   const title = uniq('UI page')
-  await page.goto('/wiki/new')
-  await expect(page.getByRole('heading', { level: 1, name: 'Create page' })).toBeVisible()
-  await page.getByRole('combobox', { name: 'Space' }).click()
-  await page.getByRole('option', { name: space.name, exact: true }).click()
-  await page.getByLabel('Title').fill(title)
-  await page.getByLabel('Content').fill('Hello from the functional suite')
-  await page.getByRole('button', { name: 'Create', exact: true }).click()
+  // JL-187: the Confluence-style editor. Title, body, autosave, then Publish.
+  await page.goto(`/wiki/new?spaceId=${space.id}`)
+  await expect(page.getByText('Untitled')).toBeVisible()
+  await page.getByLabel('Page title').fill(title)
+  await page.getByLabel('Page title').press('Enter')
+  await page.keyboard.type('Hello from the functional suite')
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'Publish…' }).click()
+  const publish = page.getByRole('dialog', { name: 'Publish page' })
+  await expect(publish.getByRole('combobox', { name: 'Space' })).toHaveText(space.name)
+  await publish.getByRole('button', { name: 'Publish', exact: true }).click()
   await expect(page).toHaveURL(/\/wiki\/pages\/\d+$/)
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
   await expect(page.getByText('Hello from the functional suite')).toBeVisible()
@@ -87,12 +91,16 @@ test('create a page in a space; it opens with its title, content and space link'
 })
 
 test('"Create page" inside a space preselects that space', async ({ page }) => {
-  test.fail(true, 'DEFECT: Create page from a Space ignores the Space; the creator defaults to the first of only five sidebar Spaces')
+  // Was a known defect (JL-180); fixed by JL-187's editor, which takes the
+  // Space from the URL and lists every Space, not the sidebar's first five.
   const space = await createSpace(owner) // a "Zz…" space, sorted late
   await page.goto(`/spaces/${space.key}`)
   await page.getByRole('button', { name: 'Create page' }).first().click()
-  await expect(page).toHaveURL(/\/wiki\/new/)
-  await expect(page.getByRole('combobox', { name: 'Space' })).toHaveText(space.name, { timeout: 5_000 })
+  await expect(page).toHaveURL(new RegExp(`/wiki/new\\?spaceId=${space.id}$`))
+  await page.getByLabel('Page title').fill(uniq('In its space'))
+  await page.getByRole('button', { name: 'Publish…' }).click()
+  await expect(page.getByRole('dialog', { name: 'Publish page' }).getByRole('combobox', { name: 'Space' }))
+    .toHaveText(space.name, { timeout: 5_000 })
 })
 
 test('edit a page, then compare and restore versions from history', async ({ page }) => {
@@ -102,15 +110,21 @@ test('edit a page, then compare and restore versions from history', async ({ pag
   await page.goto(`/wiki/pages/${created.id}`)
   await expect(page.getByText('First draft text')).toBeVisible()
 
+  // JL-187: Edit opens the full-page editor; autosave keeps the change in a
+  // draft, and only publishing it makes a new version.
   await page.getByRole('button', { name: 'Edit' }).click()
+  await expect(page).toHaveURL(new RegExp(`/wiki/pages/${created.id}/edit$`))
   const editor = page.locator('.ProseMirror').first()
-  await expect(editor).toBeVisible()
+  await expect(editor).toContainText('First draft text')
   await editor.click()
   await page.keyboard.press('Control+End')
   await page.keyboard.type(' plus an edit made in the browser')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible()
-  await page.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible({ timeout: 10_000 })
+  const before = await expectStatus(await owner.get(`/api/wiki/${created.id}/versions`), 200)
+  expect(before.map((v) => v.version_number)).toEqual([1])
+  await page.getByRole('button', { name: 'Update…' }).click()
+  await page.getByRole('dialog', { name: 'Publish page' }).getByRole('button', { name: 'Publish', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/wiki/pages/${created.id}$`))
   await expect(page.getByText('plus an edit made in the browser')).toBeVisible()
 
   const versions = await expectStatus(await owner.get(`/api/wiki/${created.id}/versions`), 200)

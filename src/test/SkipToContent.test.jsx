@@ -13,7 +13,9 @@ function Shell({ children }) {
       <nav>
         <Link to="/">Home</Link>
         <Link to="/board">Board</Link>
+        <Link to="/board" state={{ keepFocus: true }}>Rename only</Link>
       </nav>
+      <input aria-label="Draft" />
       <main className="content" role="main" id="main-content" tabIndex={-1}>
         {children}
       </main>
@@ -81,5 +83,19 @@ describe('useFocusMainOnRouteChange (JL-220)', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Home' }))
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
     expect(screen.getByRole('main')).toHaveFocus()
+  })
+
+  it('leaves focus alone for a navigation marked keepFocus (JL-187)', () => {
+    // The page editor's first autosave renames /wiki/new to /wiki/pages/:id/edit
+    // while the author is typing; focus must stay where they are typing.
+    renderShell()
+    const draft = screen.getByLabelText('Draft')
+    draft.focus()
+    // fireEvent.click does not move focus in jsdom, so focus is still in the
+    // draft when the route changes — exactly the editor's situation.
+    fireEvent.click(screen.getByRole('link', { name: 'Rename only' }))
+    expect(screen.getByRole('heading', { name: 'Board page' })).toBeInTheDocument()
+    expect(draft).toHaveFocus()
+    expect(screen.getByRole('main')).not.toHaveFocus()
   })
 })

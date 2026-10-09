@@ -197,8 +197,8 @@ describe('sanitizeHtml (JL-91)', () => {
   })
 
   it('escapes disallowed tags into literal text', () => {
-    const out = sanitizeHtml('<div>hello</div>')
-    expect(out).toBe('&lt;div&gt;hello&lt;/div&gt;')
+    const out = sanitizeHtml('<section>hello</section>')
+    expect(out).toBe('&lt;section&gt;hello&lt;/section&gt;')
   })
 
   it('does not treat plain "a < b" text as markup', () => {
@@ -315,7 +315,7 @@ describe('sanitizeHtml (JL-91)', () => {
 
     it('still escapes a class-bearing tag that is NOT allow-listed', () => {
       // `class` being global must not smuggle in the element carrying it.
-      expect(sanitizeHtml('<div class="x">hi</div>')).toBe('&lt;div class=&quot;x&quot;&gt;hi&lt;/div&gt;')
+      expect(sanitizeHtml('<section class="x">hi</section>')).toBe('&lt;section class=&quot;x&quot;&gt;hi&lt;/section&gt;')
     })
 
     it('escapes a class attribute value so it cannot break out of the quotes', () => {
@@ -477,7 +477,7 @@ describe('sanitizeHtml (JL-91)', () => {
       ['plain markup', '<p>Plain</p>'],
       ['entities', '<p>a &amp; b &lt;c&gt; &quot;q&quot;</p>'],
       ['bare comparison text', 'a < b and 2 > 1'],
-      ['escaped disallowed tag', '<div>unwrapped</div>'],
+      ['escaped disallowed tag', '<section>unwrapped</section>'],
       ['escaped img payload', '<img src=x onerror=alert(1)>'],
       ['hardened anchor', '<p><a href="https://e.com">l</a></p>'],
       ['code block with entities', '<pre><code class="language-js">a &amp;&amp; b</code></pre>'],

@@ -7,14 +7,14 @@ run on 2026-10-08 against an empty database and the production build.
 |---|---|---|---|---|
 | A — Authentication, administration, RBAC | [track-a.md](track-a.md) | 112 | 103 | 9 |
 | B — Projects, issues, planning, boards | [track-b.md](track-b.md) | 122 | 111 | 11 |
-| C — Tracking, Confluence Lite, every route | [track-c.md](track-c.md) | 198 | 182 | 16 |
+| C — Tracking, Confluence Lite, every route | [track-c.md](track-c.md) | 198 | 183 | 15 |
 | Harness smoke | `e2e/*/smoke.spec.mjs` | 7 | 7 | 0 |
-| **Total** | | **439** | **403** | **36** |
+| **Total** | | **439** | **404** | **35** |
 
 A known-defect test asserts the correct behaviour and is marked
 `test.fail(true, 'DEFECT: …')`, so the suite stays green while the bug is open
 and turns red when it is fixed — remove the marker then. Some defects are
-covered by more than one test, which is why 36 tests map to 27 tickets.
+covered by more than one test, which is why 35 tests map to 26 open tickets.
 
 ## Defects filed (projects.fosasoft.com, JIRA Lite)
 
@@ -42,7 +42,7 @@ covered by more than one test, which is why 36 tests map to 27 tickets.
 | JL-177 | Medium | Activity feed attributes issue actions to the assignee, not the actor |
 | JL-178 | Medium | Activity type filters (Issues, Comments, Sprints) never match |
 | JL-179 | Medium | 'In-app notifications' preference switch has no effect |
-| JL-180 | Medium | 'Create page' from a Space opens without that Space; picker shows only 5 Spaces |
+| JL-180 | Medium | ~~'Create page' from a Space opens without that Space; picker shows only 5 Spaces~~ — **fixed by JL-187** |
 | JL-181 | Low | Create project modal: default lead is not a valid option |
 | JL-182 | Low | Sign-up password hint says 6 characters; the server requires 8 |
 | JL-183 | Low | JQL 'project = KEY' returns a raw database error |

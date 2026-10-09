@@ -125,7 +125,7 @@ suite red (as an unexpected pass) the day the fix lands, so the annotation can b
 | C-110 | Confluence Lite | create a space from the Spaces page and open it | UI | Owner | Pass |
 | C-111 | Confluence Lite | a duplicate space key shows the server's error in the dialog | UI | Owner | Pass |
 | C-112 | Confluence Lite | create a page in a space; it opens with its title, content and space link | UI | Owner | Pass |
-| C-113 | Confluence Lite | "Create page" inside a space preselects that space | UI | Owner | Defect: Create page from a Space ignores the Space; the creator defaults to the first of only five sidebar Spaces |
+| C-113 | Confluence Lite | "Create page" inside a space preselects that space | UI | Owner | Pass (JL-180 fixed by JL-187) |
 | C-114 | Confluence Lite | edit a page, then compare and restore versions from history | UI | Owner | Pass |
 | C-115 | Confluence Lite | add a comment to a page | UI | Owner | Pass |
 | C-116 | Confluence Lite | search finds a page and highlights the term in its excerpt | UI | Owner | Pass |

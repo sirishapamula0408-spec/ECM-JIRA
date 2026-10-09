@@ -12,6 +12,16 @@ export const createWikiPage = (data) =>
 export const updateWikiPage = (id, data) =>
   api(`/api/wiki/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 
+// JL-187: the page editor. Autosave writes no version; publish writes one.
+export const fetchSpacePages = (spaceId) =>
+  api(`/api/wiki?spaceId=${encodeURIComponent(spaceId)}`)
+
+export const saveWikiDraft = (id, data) =>
+  api(`/api/wiki/${id}/draft`, { method: 'PUT', body: JSON.stringify(data) })
+
+export const publishWikiPage = (id, data = {}) =>
+  api(`/api/wiki/${id}/publish`, { method: 'POST', body: JSON.stringify(data) })
+
 export const deleteWikiPage = (id) =>
   api(`/api/wiki/${id}`, { method: 'DELETE' })
 

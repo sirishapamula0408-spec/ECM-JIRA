@@ -12,7 +12,7 @@ import { Router } from 'express'
  * volume while adding nothing a reader could not already see.
  */
 import { safeAppendAudit } from '../services/auditLog.js'
-import { all, get, run } from '../db.js'
+import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { maxLengthError, WIKI_TITLE_MAX, WIKI_CONTENT_MAX } from '../utils/validation.js'
@@ -129,6 +129,29 @@ function canSeePage(page, user) {
   if (page.status !== 'draft') return true
   const email = String(user?.email || '').toLowerCase()
   return email && String(page.created_by || '').toLowerCase() === email
+}
+
+/*
+ * JL-187 (fosasoft) — the pending draft of a PUBLISHED page.
+ *
+ * Readers keep seeing what was published while an editor works on the next
+ * revision, so draft_title/draft_content go only to people who could open the
+ * editor at all: the workspace roles requireRole('Member') admits. Stated as a
+ * set rather than imported from authorize.js because the route tests mock that
+ * module wholesale; it must stay in step with requireRole('Member').
+ */
+const EDITOR_ROLES = new Set(['Member', 'Admin', 'Owner'])
+const DRAFT_FIELDS = ['draft_title', 'draft_content', 'draft_updated_by', 'draft_updated_at']
+
+function canEditPages(user) {
+  return Boolean(user?.isOwner) || EDITOR_ROLES.has(user?.workspaceRole)
+}
+
+function withoutDraftFor(row, user) {
+  if (!row || canEditPages(user)) return row
+  const copy = { ...row }
+  for (const field of DRAFT_FIELDS) delete copy[field]
+  return copy
 }
 
 // GET /api/wiki?projectId=X | ?spaceId=Y — list live pages
@@ -363,7 +386,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
       ORDER BY iwl.created_at DESC`,
     [row.id],
   )
-  res.json({ ...row, children, linkedIssues, version })
+  res.json({ ...withoutDraftFor(row, req.user), children, linkedIssues, version })
 }))
 
 // GET /api/wiki/:id/versions — get version history
@@ -497,13 +520,16 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
   // life as a draft.
   // JL-125: templateId supplies the starting body when no content is given.
   const { projectId = null, spaceId = null, title, content = '', parentId = null, status, templateId } = req.body
-  if ((!projectId && !spaceId) || !title?.trim()) {
-    res.status(400).json({ error: 'projectId or spaceId, and title, are required' })
-    return
-  }
   const pageStatus = status === undefined ? 'published' : String(status)
   if (!PAGE_STATUSES.includes(pageStatus)) {
     res.status(400).json({ error: `status must be one of: ${PAGE_STATUSES.join(', ')}` })
+    return
+  }
+  // JL-187: the page editor saves a draft before its author has typed a
+  // title ("Untitled"). Only its author can see it, and Publish refuses an
+  // empty title, so an untitled page can never reach a reader.
+  if ((!projectId && !spaceId) || (pageStatus !== 'draft' && !title?.trim())) {
+    res.status(400).json({ error: 'projectId or spaceId, and title, are required' })
     return
   }
   /*
@@ -527,7 +553,7 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     startingContent = template.body || ''
   }
 
-  const trimmedTitle = String(title).trim()
+  const trimmedTitle = String(title ?? '').trim()
   const trimmedContent = String(startingContent ?? '').trim()
 
   // JL-237: server-side length caps (checked after trim)
@@ -544,11 +570,15 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
     'INSERT INTO wiki_pages (project_id, space_id, title, content, parent_id, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [projectId, spaceId, trimmedTitle, trimmedContent, parentId, pageStatus, email, email],
   )
-  // Save initial version
-  await run(
-    'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?)',
-    [result.lastID, 1, trimmedTitle, trimmedContent, email],
-  )
+  // Save initial version. JL-187: not for a draft — its history starts when
+  // it is published, so the first version is what readers first saw rather
+  // than an empty "Untitled" the author was about to type into.
+  if (pageStatus !== 'draft') {
+    await run(
+      'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?)',
+      [result.lastID, 1, trimmedTitle, trimmedContent, email],
+    )
+  }
   safeAppendAudit({
     actor: email,
     action: 'wikipage.created',
@@ -564,7 +594,9 @@ router.post('/', requireRole('Member'), asyncHandler(async (req, res) => {
 router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM wiki_pages WHERE id = ?', [id])
-  if (!existing) {
+  // JL-187: the same visibility rule as GET /:id. Without it, anyone with the
+  // Member role could overwrite another author's unpublished draft by id.
+  if (!existing || !canSeePage(existing, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -676,6 +708,165 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
 
   const row = await get('SELECT * FROM wiki_pages WHERE id = ?', [id])
   res.json(row)
+}))
+
+/* ---------------------------------------------------------------- *
+ * JL-187 (fosasoft) — the page editor: autosave and publish
+ * ---------------------------------------------------------------- */
+
+/**
+ * PUT /api/wiki/:id/draft — autosave. Writes NO version.
+ *
+ * The editor calls this ~1.5s after typing stops; going through PATCH would
+ * add a version row per pause. A draft page saves straight into title and
+ * content (only its author can see it). A published page saves into the
+ * draft_* columns, so readers keep the published text until Publish.
+ */
+router.put('/:id/draft', requireRole('Member'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
+  if (!page || page.deleted_at != null || !canSeePage(page, req.user)) {
+    res.status(404).json({ error: 'Wiki page not found' })
+    return
+  }
+  const { title, content } = req.body
+  if (title === undefined && content === undefined) {
+    res.status(400).json({ error: 'title or content is required' })
+    return
+  }
+  const nextTitle = title !== undefined ? String(title ?? '').trim() : null
+  const nextContent = content !== undefined ? String(content ?? '').trim() : null
+  const lengthErr =
+    (nextTitle !== null ? maxLengthError('title', nextTitle, WIKI_TITLE_MAX) : null) ||
+    (nextContent !== null ? maxLengthError('content', nextContent, WIKI_CONTENT_MAX) : null)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
+  if (page.status === 'draft') {
+    await run(
+      `UPDATE wiki_pages
+          SET title = COALESCE(?, title), content = COALESCE(?, content),
+              updated_by = ?, updated_at = NOW()
+        WHERE id = ?`,
+      [nextTitle, nextContent, req.user.email, id],
+    )
+  } else {
+    // A field the caller did not send starts from the pending draft, or from
+    // the published text if there is no draft yet.
+    await run(
+      `UPDATE wiki_pages
+          SET draft_title = COALESCE(?, draft_title, title),
+              draft_content = COALESCE(?, draft_content, content),
+              draft_updated_by = ?, draft_updated_at = NOW()
+        WHERE id = ?`,
+      [nextTitle, nextContent, req.user.email, id],
+    )
+  }
+  const saved = await get(
+    'SELECT id, status, updated_at, draft_updated_at FROM wiki_pages WHERE id = ?',
+    [id],
+  )
+  res.json({
+    id,
+    status: saved?.status ?? page.status,
+    savedAt: (page.status === 'draft' ? saved?.updated_at : saved?.draft_updated_at) ?? null,
+  })
+}))
+
+/**
+ * POST /api/wiki/:id/publish — make the editor's text what readers see.
+ *
+ * Body (all optional): title, content, spaceId, parentId. Anything not sent
+ * comes from the pending draft, then from the page itself. Publishing always
+ * writes exactly ONE version, and clears the pending draft.
+ */
+router.post('/:id/publish', requireRole('Member'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const existing = await get('SELECT * FROM wiki_pages WHERE id = ?', [id])
+  if (!existing || existing.deleted_at != null || !canSeePage(existing, req.user)) {
+    res.status(404).json({ error: 'Wiki page not found' })
+    return
+  }
+  const { title, content, spaceId, parentId } = req.body
+
+  const finalTitle = String(title ?? existing.draft_title ?? existing.title ?? '').trim()
+  const finalContent = String(content ?? existing.draft_content ?? existing.content ?? '').trim()
+  if (!finalTitle) {
+    res.status(400).json({ error: 'Give the page a title before publishing it' })
+    return
+  }
+  const lengthErr =
+    maxLengthError('title', finalTitle, WIKI_TITLE_MAX) ||
+    maxLengthError('content', finalContent, WIKI_CONTENT_MAX)
+  if (lengthErr) {
+    res.status(400).json({ error: lengthErr })
+    return
+  }
+
+  const targetSpace = spaceId !== undefined
+    ? (spaceId == null ? null : Number(spaceId))
+    : existing.space_id
+  if (targetSpace == null && existing.project_id == null) {
+    res.status(400).json({ error: 'Choose a space to publish the page in' })
+    return
+  }
+  // Moving Spaces detaches the page from a parent left behind, as PATCH does.
+  const spaceChanged = targetSpace !== existing.space_id
+  const targetParent = parentId !== undefined
+    ? (parentId == null || parentId === '' ? null : Number(parentId))
+    : (spaceChanged ? null : existing.parent_id)
+  if (targetParent != null) {
+    const parent = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [targetParent])
+    if (
+      !parent || parent.deleted_at != null || !canSeePage(parent, req.user) ||
+      (targetSpace != null && Number(parent.space_id) !== Number(targetSpace))
+    ) {
+      res.status(400).json({ error: 'The parent must be a page in the same space' })
+      return
+    }
+    if (await wouldCycle(id, targetParent)) {
+      res.status(409).json({ error: 'That move would make the page its own ancestor' })
+      return
+    }
+  }
+
+  const email = req.user.email
+  const version = await withTransaction(async (tx) => {
+    // Serialise concurrent publishes of one page, so two cannot pick the
+    // same version number.
+    await tx.get('SELECT id FROM wiki_pages WHERE id = ? FOR UPDATE', [id])
+    await tx.run(
+      `UPDATE wiki_pages
+          SET title = ?, content = ?, space_id = ?, parent_id = ?, status = 'published',
+              published_at = NOW(), published_by = ?,
+              draft_title = NULL, draft_content = NULL,
+              draft_updated_by = NULL, draft_updated_at = NULL,
+              updated_by = ?, updated_at = NOW()
+        WHERE id = ?`,
+      [finalTitle, finalContent, targetSpace, targetParent, email, email, id],
+    )
+    const last = await tx.get(
+      'SELECT COALESCE(MAX(version_number), 0) AS max_ver FROM wiki_page_versions WHERE page_id = ?',
+      [id],
+    )
+    const next = Number(last?.max_ver || 0) + 1
+    await tx.run(
+      'INSERT INTO wiki_page_versions (page_id, version_number, title, content, edited_by) VALUES (?, ?, ?, ?, ?)',
+      [id, next, finalTitle, finalContent, email],
+    )
+    return next
+  })
+  safeAppendAudit({
+    actor: email,
+    action: 'wikipage.published',
+    target: `wikipage:${id}`,
+    metadata: { title: finalTitle, spaceId: targetSpace, version },
+  })
+
+  const row = await get('SELECT * FROM wiki_pages WHERE id = ?', [id])
+  res.json({ ...row, version })
 }))
 
 // DELETE /api/wiki/:id — delete a wiki page

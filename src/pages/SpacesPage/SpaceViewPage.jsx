@@ -111,7 +111,7 @@ export function SpaceViewPage() {
         {/* Archived Spaces stop accepting new pages (JL-84), so the action
             that would fail is not offered. */}
         {!space.archived && (
-          <Button variant="contained" onClick={() => navigate('/wiki/new')}>
+          <Button variant="contained" onClick={() => navigate(`/wiki/new?spaceId=${space.id}`)}>
             Create page
           </Button>
         )}
@@ -157,7 +157,7 @@ export function SpaceViewPage() {
           title="No pages in this Space yet"
           description={`Pages created in ${space.name} appear here, newest change first.`}
           action={space.archived ? null : (
-            <Button variant="contained" onClick={() => navigate('/wiki/new')}>
+            <Button variant="contained" onClick={() => navigate(`/wiki/new?spaceId=${space.id}`)}>
               Create the first page
             </Button>
           )}

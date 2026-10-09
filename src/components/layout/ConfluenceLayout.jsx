@@ -23,7 +23,7 @@ import { fetchWikiHome } from '../../api/wikiHomeApi'
  * The fragment matters: <WikiSidebar> and <main> must be DIRECT children of
  * the `.workspace` grid in RootLayout, and a fragment adds no DOM node.
  */
-export function ConfluenceLayout({ collapsed }) {
+export function ConfluenceLayout({ collapsed, onToggleSidebar }) {
   const [home, setHome] = useState(null)
   const [homeLoading, setHomeLoading] = useState(true)
   const [homeError, setHomeError] = useState('')
@@ -58,7 +58,8 @@ export function ConfluenceLayout({ collapsed }) {
       />
       <main className="content" role="main" id="main-content" tabIndex={-1}>
         <ErrorBoundary>
-          <Outlet context={{ home, homeLoading, homeError, reloadHome }} />
+          {/* JL-187: the page editor's top bar carries the sidebar toggle. */}
+          <Outlet context={{ home, homeLoading, homeError, reloadHome, onToggleSidebar, sidebarCollapsed: collapsed }} />
         </ErrorBoundary>
       </main>
     </>

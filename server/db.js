@@ -802,6 +802,24 @@ export async function initializeDatabase() {
   await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ')
   await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS deleted_by TEXT')
   await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE')
+  /*
+     JL-187 (fosasoft) — the page editor's pending draft and publish stamp.
+
+     A NEW page is a draft row (status = 'draft') and autosaves straight into
+     title/content. A PUBLISHED page being edited must keep showing readers
+     what was published, so its autosaves land in draft_title/draft_content
+     instead, and Publish copies them over. One shared draft per page, as in
+     Confluence: any editor who opens the page picks it up.
+
+     All nullable with no default, so every existing row reads as "published,
+     no pending draft" and nothing about current pages changes.
+  */
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS draft_title TEXT')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS draft_content TEXT')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS draft_updated_by TEXT')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS draft_updated_at TIMESTAMPTZ')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ')
+  await pool.query('ALTER TABLE wiki_pages ADD COLUMN IF NOT EXISTS published_by TEXT')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_wiki_pages_space ON wiki_pages(space_id)')
   // Partial index: the overwhelmingly common read is "live pages", and a
   // partial index keeps deleted rows out of it entirely.

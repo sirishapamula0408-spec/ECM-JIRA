@@ -55,6 +55,12 @@ const ALLOWED_TAGS = new Set([
   // http:, https: and relative URLs — so a data: URI carrying an SVG, the
   // usual way an <img> becomes a script, does not survive.
   'img',
+  // JL-187 (fosasoft): the Confluence-style page editor. `div` carries the
+  // editor's own blocks (info panel, layout, table of contents, the body of
+  // an expand); details/summary are the expand itself; label/input are a task
+  // list's checkbox, and `input` is admitted only as type="checkbox" (see
+  // CHECKBOX_ONLY below).
+  'div', 'details', 'summary', 'label', 'input',
 ])
 
 // Elements whose entire contents must be discarded, not just the tag.
@@ -75,7 +81,7 @@ const DROPPED_TAGS = new Set(['colgroup', 'col'])
 // Void tags that never have a closing tag. `img` joins them with JL-101 —
 // omitting it here would emit `<img></img>`, which browsers recover from but
 // which is not what the parser was handed.
-const VOID_TAGS = new Set(['br', 'hr', 'img'])
+const VOID_TAGS = new Set(['br', 'hr', 'img', 'input'])
 
 // Per-tag allow-list of attributes. '*' applies to every allowed tag.
 //
@@ -88,17 +94,56 @@ const VOID_TAGS = new Set(['br', 'hr', 'img'])
 // image carries src/alt. All four are inert data attributes — none can
 // execute, and `src` goes through the same scheme check as `href`.
 //
-// `style` is deliberately NOT allowed, on img or anywhere. TipTap's table
+// `style` is NOT allowed on img, nor anywhere as free-form CSS. TipTap's table
 // writes column widths as `<colgroup><col style="width:…">`; colgroup and col
 // are in DROPPED_TAGS, so those are removed and the table renders at its
 // natural widths. Losing a column width is worth more than admitting a style
-// attribute to every element in the document.
+// attribute to every element in the document. JL-187 admits `style` on text
+// blocks, spans and cells only, filtered by sanitizeStyle below.
+//
+// JL-187 (fosasoft): the page editor's blocks are told apart by `data-*`
+// attributes, which are inert. `style` is admitted on text blocks and spans,
+// but only through sanitizeStyle, which keeps `text-align` (four keywords) and
+// `color` (hex or rgb()/rgba() digits) and drops every other declaration — so
+// nothing that can load a URL, position an element over the page, or reach a
+// CSS expression survives.
 const ALLOWED_ATTRS = {
   a: new Set(['href', 'target', 'rel', 'title']),
   img: new Set(['src', 'alt', 'title', 'width', 'height']),
-  td: new Set(['colspan', 'rowspan']),
-  th: new Set(['colspan', 'rowspan', 'scope']),
-  '*': new Set(['class']),
+  td: new Set(['colspan', 'rowspan', 'style']),
+  th: new Set(['colspan', 'rowspan', 'scope', 'style']),
+  li: new Set(['data-checked']),
+  span: new Set(['style', 'data-id', 'data-label', 'data-mention-suggestion-char']),
+  div: new Set(['data-panel-type']),
+  details: new Set(['open']),
+  input: new Set(['type', 'checked', 'disabled']),
+  p: new Set(['style']),
+  h1: new Set(['style']),
+  h2: new Set(['style']),
+  h3: new Set(['style']),
+  h4: new Set(['style']),
+  h5: new Set(['style']),
+  h6: new Set(['style']),
+  '*': new Set(['class', 'data-type']),
+}
+
+// JL-187: the only CSS a page may carry, as property → value pattern.
+const STYLE_RULES = {
+  'text-align': /^(left|center|right|justify)$/,
+  color: /^(#[0-9a-f]{3,8}|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+)\s*)?\))$/,
+}
+
+/** `value` reduced to its allowed declarations, or '' when none survive. */
+function sanitizeStyle(value) {
+  const kept = []
+  for (const decl of String(value).split(';')) {
+    const colon = decl.indexOf(':')
+    if (colon < 0) continue
+    const prop = decl.slice(0, colon).trim().toLowerCase()
+    const val = decl.slice(colon + 1).trim().toLowerCase()
+    if (STYLE_RULES[prop]?.test(val)) kept.push(`${prop}: ${val}`)
+  }
+  return kept.join('; ')
 }
 
 // Attributes that carry a URL and must be scheme-checked.
@@ -291,6 +336,10 @@ function sanitizeAttributes(tagName, attrString) {
         rawValue = rawValue.slice(1, -1)
       }
       if (URL_ATTRS.has(name) && !isSafeUrl(rawValue)) continue
+      if (name === 'style') {
+        rawValue = sanitizeStyle(rawValue)
+        if (!rawValue) continue
+      }
 
       attrs.set(name, rawValue)
     }
@@ -362,7 +411,11 @@ export function sanitizeHtml(dirty) {
          * tag. Dropping attributes is the safe direction to fail, which is why
          * nothing caught it until a void tag needed one.
          */
-        result += `<${name}${sanitizeAttributes(name, attrString)}/>`
+        const attrs = sanitizeAttributes(name, attrString)
+        // JL-187: a task list's checkbox is the only input a page may hold.
+        // A text field or a button rendered into a page is a phishing form.
+        if (name === 'input' && !/ type="checkbox"/i.test(attrs)) continue
+        result += `<${name}${attrs}/>`
       } else {
         result += `<${name}${sanitizeAttributes(name, attrString)}>`
       }

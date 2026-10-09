@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
@@ -44,7 +44,7 @@ import { JiraLayout } from './components/layout/JiraLayout'
 import { ConfluenceLayout } from './components/layout/ConfluenceLayout'
 // JL-152: Confluence Lite pages.
 import { WikiHomePage } from './pages/WikiHomePage/WikiHomePage'
-import { WikiCreatePage } from './pages/WikiHomePage/WikiCreatePage'
+import { LoadingState } from './components/common/LoadingState'
 import { WikiPageViewer } from './pages/WikiHomePage/WikiPageViewer'
 import { WikiListPage } from './pages/WikiHomePage/WikiListPage'
 import { WikiSearchPage } from './pages/WikiHomePage/WikiSearchPage'
@@ -100,6 +100,23 @@ import './styles/layout.css'
 import './styles/shared.css'
 import './styles/interactions.css'
 import './pages/NotFoundPage/NotFoundPage.css'
+
+/*
+ * JL-187 (fosasoft): one editor for creating and editing a page, loaded on
+ * demand — TipTap and its extensions are ~0.5 MB a reader never needs.
+ *
+ * ONE element instance for both routes, so when /wiki/new turns into
+ * /wiki/pages/:id/edit after the first autosave, React keeps the mounted
+ * editor (and the text in it) instead of starting a fresh one.
+ */
+const WikiPageEditor = lazy(() =>
+  import('./pages/WikiHomePage/WikiPageEditor').then((m) => ({ default: m.WikiPageEditor })),
+)
+const PAGE_EDITOR = (
+  <Suspense fallback={<LoadingState label="Loading editor…" variant="skeleton" rows={6} />}>
+    <WikiPageEditor />
+  </Suspense>
+)
 
 function AppContent() {
   const { isAuthenticated } = useAuth()
@@ -218,11 +235,12 @@ function AppContent() {
           {/* ── Confluence Lite ─────────────────────────────────────────
               Declared BEFORE the Jira layout so /wiki/* is claimed by its own
               product rather than falling through to Jira's catch-all. */}
-          <Route path="/wiki" element={<ConfluenceLayout collapsed={isSidebarCollapsed} />}>
+          <Route path="/wiki" element={<ConfluenceLayout collapsed={isSidebarCollapsed} onToggleSidebar={() => setIsSidebarCollapsed((c) => !c)} />}>
             <Route index element={<Navigate to="/wiki/home" replace />} />
             <Route path="home" element={<WikiHomePage />} />
-            <Route path="new" element={<WikiCreatePage />} />
+            <Route path="new" element={PAGE_EDITOR} />
             <Route path="pages/:pageId" element={<WikiPageViewer />} />
+            <Route path="pages/:pageId/edit" element={PAGE_EDITOR} />
             <Route path="recent" element={<WikiListPage />} />
             <Route path="starred" element={<WikiListPage />} />
             <Route path="search" element={<WikiSearchPage />} />
@@ -236,7 +254,7 @@ function AppContent() {
               page that creates Spaces and around every wiki link that
               points at it. Same layout element as /wiki, so moving between
               the two does not remount the shell or refetch the sidebar. */}
-          <Route path="/spaces" element={<ConfluenceLayout collapsed={isSidebarCollapsed} />}>
+          <Route path="/spaces" element={<ConfluenceLayout collapsed={isSidebarCollapsed} onToggleSidebar={() => setIsSidebarCollapsed((c) => !c)} />}>
             <Route index element={<SpacesPage />} />
             {/* JL-162: one Space and the pages in it. Addressed by KEY
                 (/spaces/ENG) because a key is what people say and type —
