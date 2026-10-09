@@ -60,6 +60,18 @@ const ALLOWED_TAGS = new Set([
 // Elements whose entire contents must be discarded, not just the tag.
 const DANGEROUS_TAGS = new Set(['script', 'style', 'iframe'])
 
+// Tags removed silently: not kept, and not escaped into text either.
+//
+// JL-186 (fosasoft): TipTap writes every table as `<table><colgroup><col
+// style="min-width: 25px;">…</colgroup><tbody>…`. These tags fell through to
+// the "escape it" branch below, so the saved page held the colgroup as literal
+// text inside the table, and browsers moved that text out to just above it.
+// colgroup/col carry nothing but column widths, and those widths live in a
+// `style` attribute this module will not admit, so there is nothing to keep.
+// TipTap rebuilds its own colgroup when it loads a table, so dropping them
+// changes nothing in the editor.
+const DROPPED_TAGS = new Set(['colgroup', 'col'])
+
 // Void tags that never have a closing tag. `img` joins them with JL-101 —
 // omitting it here would emit `<img></img>`, which browsers recover from but
 // which is not what the parser was handed.
@@ -78,7 +90,7 @@ const VOID_TAGS = new Set(['br', 'hr', 'img'])
 //
 // `style` is deliberately NOT allowed, on img or anywhere. TipTap's table
 // writes column widths as `<colgroup><col style="width:…">`; colgroup and col
-// are not allow-listed, so those are dropped and the table renders at its
+// are in DROPPED_TAGS, so those are removed and the table renders at its
 // natural widths. Losing a column width is worth more than admitting a style
 // attribute to every element in the document.
 const ALLOWED_ATTRS = {
@@ -331,8 +343,8 @@ export function sanitizeHtml(dirty) {
     const name = m[2].toLowerCase()
     const attrString = m[3] || ''
 
-    if (DANGEROUS_TAGS.has(name)) {
-      // Any leftover dangerous tag → drop entirely.
+    if (DANGEROUS_TAGS.has(name) || DROPPED_TAGS.has(name)) {
+      // Any leftover dangerous tag, or a tag with nothing worth keeping → drop.
       continue
     }
 
