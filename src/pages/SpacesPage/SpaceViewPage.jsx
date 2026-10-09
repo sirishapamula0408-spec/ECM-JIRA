@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { EmptyState } from '../../components/common/EmptyState'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
@@ -8,8 +9,10 @@ import { RelativeTime } from '../../components/common/RelativeTime'
 import { DocumentIcon, SpacesIcon } from '../../components/wiki/WikiIcons'
 import { SpaceAvatar } from '../../components/wiki/WikiSidebar'
 import { SpaceDocuments } from '../../components/documents/SpaceDocuments'
+import { SpaceTrash } from '../../components/wiki/SpaceTrash'
 import { fetchSpace } from '../../api/spaceApi'
 import { fetchWikiList } from '../../api/wikiHomeApi'
+import { restoreWikiPage } from '../../api/wikiApi'
 import './SpaceViewPage.css'
 
 /*
@@ -46,6 +49,18 @@ const PAGE_SIZE = 50
 export function SpaceViewPage() {
   const { spaceKey } = useParams()
   const navigate = useNavigate()
+  /*
+   * JL-188: deleting a page lands here, carrying what was deleted so the
+   * Space can say so and offer Undo. Read once, then cleared from history:
+   * browser history keeps state across a reload, and a refresh of this URL
+   * is not another deletion.
+   */
+  const location = useLocation()
+  const [trashed, setTrashed] = useState(location.state?.trashed ?? null)
+  const arrivedFromDelete = Boolean(location.state?.trashed)
+  useEffect(() => {
+    if (arrivedFromDelete) navigate('.', { replace: true, state: null })
+  }, [arrivedFromDelete, navigate])
 
   const [space, setSpace] = useState(null)
   const [pages, setPages] = useState([])
@@ -85,6 +100,33 @@ export function SpaceViewPage() {
 
   useEffect(() => { load() }, [load])
 
+  /*
+   * JL-188: after a restore, refresh only the page list. load() swaps the
+   * whole Space for a spinner, which unmounted the Trash tab and lost its
+   * "restored" confirmation the moment it appeared.
+   */
+  const refreshPages = useCallback(async () => {
+    if (!space) return
+    try {
+      const list = await fetchWikiList({ kind: 'modified', spaceId: space.id, limit: PAGE_SIZE })
+      setPages(list?.items ?? [])
+      setHasMore(Boolean(list?.hasMore))
+    } catch {
+      /* the list is refreshed again the next time the Space is opened */
+    }
+  }, [space])
+
+  async function undoTrash() {
+    if (!trashed) return
+    try {
+      await restoreWikiPage(trashed.id)
+      setTrashed(null)
+      navigate(`/wiki/pages/${trashed.id}`)
+    } catch (err) {
+      setTrashed({ ...trashed, error: err?.message || 'Could not restore the page.' })
+    }
+  }
+
   if (loading) return <section className="page space-view"><LoadingState label="Loading Space…" /></section>
   if (error) {
     return (
@@ -119,9 +161,20 @@ export function SpaceViewPage() {
 
       {space.description && <p className="space-view-desc">{space.description}</p>}
 
+      {trashed && (
+        <Alert
+          severity={trashed.error ? 'error' : 'success'}
+          className="space-view-notice"
+          onClose={() => setTrashed(null)}
+          action={!trashed.error && <Button size="small" color="inherit" onClick={undoTrash}>Undo</Button>}
+        >
+          {trashed.error || `“${trashed.title || 'Untitled'}” was moved to the trash.`}
+        </Alert>
+      )}
+
       {/* Section 1: every Space has a Documents section beside its Pages. */}
       <div className="space-view-tabs" role="tablist" aria-label="Space sections">
-        {[['pages', 'Pages'], ['documents', 'Documents']].map(([id, label]) => (
+        {[['pages', 'Pages'], ['documents', 'Documents'], ['trash', 'Trash']].map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -145,6 +198,17 @@ export function SpaceViewPage() {
                only govern whether a control that would 403 is offered. */
             canUpload={!space.archived && ['Admin', 'Member'].includes(space.myRole)}
             canManage={space.myRole === 'Admin'}
+          />
+        </div>
+      )}
+
+      {tab === 'trash' && (
+        <div role="tabpanel" id="space-panel-trash" aria-labelledby="space-tab-trash">
+          <SpaceTrash
+            spaceId={space.id}
+            /* The server checks this again; it only decides whether Restore is offered. */
+            canRestore={['Admin', 'Member'].includes(space.myRole)}
+            onRestored={refreshPages}
           />
         </div>
       )}

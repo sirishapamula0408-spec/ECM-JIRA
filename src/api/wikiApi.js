@@ -22,6 +22,13 @@ export const saveWikiDraft = (id, data) =>
 export const publishWikiPage = (id, data = {}) =>
   api(`/api/wiki/${id}/publish`, { method: 'POST', body: JSON.stringify(data) })
 
+// JL-188: the Space's trash, and getting a page back out of it.
+export const fetchWikiTrash = (spaceId) =>
+  api(`/api/wiki/trash?spaceId=${encodeURIComponent(spaceId)}`)
+
+export const restoreWikiPage = (id) =>
+  api(`/api/wiki/${id}/restore`, { method: 'POST' })
+
 export const deleteWikiPage = (id) =>
   api(`/api/wiki/${id}`, { method: 'DELETE' })
 

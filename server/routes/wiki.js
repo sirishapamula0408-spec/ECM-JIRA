@@ -232,7 +232,8 @@ router.get('/trash', asyncHandler(async (req, res) => {
 router.post('/:id/restore', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
-  if (!page) {
+  // JL-188: another author's deleted draft is as private as their live one.
+  if (!page || !canSeePage(page, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -876,7 +877,13 @@ router.post('/:id/publish', requireRole('Member'), asyncHandler(async (req, res)
 router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
-  if (!page) {
+  /*
+   * JL-188: the same visibility rule as every other read and write. Without
+   * it any Member could delete another author's unpublished draft by id.
+   * A page already in the trash is 404 too — deleting it again would only
+   * overwrite who deleted it and when.
+   */
+  if (!page || page.deleted_at != null || !canSeePage(page, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }

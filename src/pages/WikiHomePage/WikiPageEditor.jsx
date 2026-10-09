@@ -9,6 +9,9 @@ import Drawer from '@mui/material/Drawer'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import ListItemText from '@mui/material/ListItemText'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
@@ -29,12 +32,14 @@ import { createSuggestionBridge } from '../../components/editor/suggestionBridge
 import { PAGE_ELEMENTS } from '../../components/editor/pageCommands'
 import { BUILT_IN_TEMPLATES } from '../../components/editor/pageTemplates'
 import { ConfluenceToolbar } from '../../components/editor/ConfluenceToolbar'
+import { TableToolbar } from '../../components/editor/TableToolbar'
 import { SuggestionMenu } from '../../components/editor/SuggestionMenu'
 import { QuickInsertPanel } from '../../components/editor/QuickInsertPanel'
 import { TemplatesDialog } from '../../components/editor/TemplatesDialog'
 import { PublishDialog } from '../../components/wiki/PublishDialog'
 import { PageLinkDialog } from '../../components/wiki/PageLinkDialog'
 import { VersionHistoryPanel } from '../../components/wiki/VersionHistoryPanel'
+import { useTrashPage } from '../../components/wiki/useTrashPage'
 import '../../components/editor/pageContent.css'
 import './WikiPageEditor.css'
 
@@ -109,6 +114,7 @@ export function WikiPageEditor() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [linkDialog, setLinkDialog] = useState(null)
   const [moreAnchor, setMoreAnchor] = useState(null)
+  const [actionsAnchor, setActionsAnchor] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [imageTick, setImageTick] = useState(0)
@@ -238,6 +244,19 @@ export function WikiPageEditor() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [saveState])
+
+  /*
+   * JL-188: Move to trash. Pending autosaves are cancelled and any save in
+   * flight is awaited first, so nothing writes to the page after it is gone.
+   */
+  const { trashPage, trashDialog, trashError, clearTrashError } = useTrashPage({
+    reloadHome,
+    beforeDelete: () => {
+      clearTimeout(timer.current)
+      dirty.current = false
+      return saveChain.current
+    },
+  })
 
   /* ------------------------------ loading ----------------------------- */
 
@@ -450,6 +469,39 @@ export function WikiPageEditor() {
               {isPublished ? 'Update…' : 'Publish…'}
             </Button>
             <Button size="small" onClick={handleClose}>Close</Button>
+            <Tooltip title="More actions" arrow>
+              <span>
+                <button
+                  type="button"
+                  className="pe-icon-btn"
+                  aria-label="More actions"
+                  aria-haspopup="menu"
+                  // A page that was never saved has nothing to delete.
+                  disabled={!page}
+                  onClick={(e) => setActionsAnchor(e.currentTarget)}
+                >
+                  <MoreHorizIcon fontSize="small" />
+                </button>
+              </span>
+            </Tooltip>
+            <Menu anchorEl={actionsAnchor} open={Boolean(actionsAnchor)} onClose={() => setActionsAnchor(null)}>
+              <MenuItem
+                sx={{ color: 'error.main' }}
+                onClick={() => {
+                  setActionsAnchor(null)
+                  const space = spaces.find((sp) => Number(sp.id) === Number(spaceId))
+                  trashPage({
+                    id: pageIdRef.current,
+                    title,
+                    space_key: page?.space_key || space?.key,
+                    children: page?.children,
+                  })
+                }}
+              >
+                <ListItemIcon sx={{ color: 'inherit' }}><DeleteOutlineIcon fontSize="small" /></ListItemIcon>
+                Move to trash
+              </MenuItem>
+            </Menu>
             <Tooltip title="Sharing is coming soon" arrow>
               <span>
                 <Button size="small" variant="outlined" startIcon={<LockOutlinedIcon fontSize="small" />} disabled>Share</Button>
@@ -475,6 +527,7 @@ export function WikiPageEditor() {
 
       <main className="pe-body" ref={bodyRef}>
         {saveError && <Alert severity="error" onClose={() => setSaveError('')} className="pe-alert">{saveError}</Alert>}
+        {trashError && <Alert severity="error" onClose={clearTrashError} className="pe-alert">{trashError}</Alert>}
         {isPublished && page?.draft_updated_at && (
           <Alert severity="info" className="pe-alert">
             This page has unpublished changes{page.draft_updated_by ? ` by ${page.draft_updated_by}` : ''}. Readers see the published version until you publish again.
@@ -497,6 +550,7 @@ export function WikiPageEditor() {
             <span>By {authorName}</span>
           </div>
           <EditorContent editor={editor} className="pe-editor" />
+          <TableToolbar editor={editor} />
         </div>
       </main>
 
@@ -543,6 +597,7 @@ export function WikiPageEditor() {
         )}
       />
 
+      {trashDialog}
       <TemplatesDialog open={templatesOpen} onClose={() => setTemplatesOpen(false)} onPick={insertTemplate} />
       <PublishDialog
         open={publishOpen}

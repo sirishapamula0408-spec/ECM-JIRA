@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useOutletContext } from 'react-router-dom'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import Alert from '@mui/material/Alert'
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePermissions } from '../../hooks/usePermissions'
 import { LoadingState, ErrorState } from '../../components/common/LoadingState'
@@ -14,6 +21,7 @@ import { PageComments } from '../../components/wiki/PageComments'
 import { PageAttachments } from '../../components/wiki/PageAttachments'
 import { useAuthedImages } from '../../hooks/useAuthedImages'
 import { fillTablesOfContents } from '../../utils/tableOfContents'
+import { useTrashPage } from '../../components/wiki/useTrashPage'
 import '../../components/editor/pageContent.css'
 import './WikiPageViewer.css'
 
@@ -50,6 +58,10 @@ export function WikiPageViewer() {
 
   const navigate = useNavigate()
   const [showHistory, setShowHistory] = useState(false)
+  // JL-188: "More actions" → Move to trash.
+  const { reloadHome } = useOutletContext() ?? {}
+  const [moreAnchor, setMoreAnchor] = useState(null)
+  const { trashPage, trashDialog, trashError, clearTrashError } = useTrashPage({ reloadHome })
 
   usePageTitle(page?.title || 'Page')
 
@@ -151,9 +163,31 @@ export function WikiPageViewer() {
                 <Button size="small" onClick={() => setShowHistory((v) => !v)}>
                   {showHistory ? 'Hide history' : 'History'}
                 </Button>
+                <IconButton
+                  size="small"
+                  aria-label="More actions"
+                  aria-haspopup="menu"
+                  onClick={(e) => setMoreAnchor(e.currentTarget)}
+                >
+                  <MoreHorizIcon fontSize="small" />
+                </IconButton>
+                <Menu anchorEl={moreAnchor} open={Boolean(moreAnchor)} onClose={() => setMoreAnchor(null)}>
+                  <MenuItem
+                    onClick={() => { setMoreAnchor(null); trashPage(page) }}
+                    sx={{ color: 'error.main' }}
+                  >
+                    <ListItemIcon sx={{ color: 'inherit' }}><DeleteOutlineIcon fontSize="small" /></ListItemIcon>
+                    Move to trash
+                  </MenuItem>
+                </Menu>
               </div>
             )}
           </header>
+
+          {trashDialog}
+          {trashError && (
+            <Alert severity="error" className="wiki-conflict" onClose={clearTrashError}>{trashError}</Alert>
+          )}
 
           {/* JL-108/JL-109: history is read-only until a Restore, so it is
               available whether or not the reader can edit — the Restore

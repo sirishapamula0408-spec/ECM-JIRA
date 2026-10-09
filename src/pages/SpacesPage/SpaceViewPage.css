@@ -139,3 +139,22 @@
   outline: 2px solid var(--jira-link);
   outline-offset: 2px;
 }
+
+/* JL-188 — the Space's trash. A row is not a link: the page is deleted, so
+   there is nothing to open until it is restored. */
+.space-trash-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+}
+
+.space-trash-item {
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+}
+
+.space-view-notice {
+  margin-bottom: var(--space-4);
+}
