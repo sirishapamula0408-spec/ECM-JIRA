@@ -11,10 +11,10 @@ import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
 import './BacklogPage.css'
 import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
-import { TopNavIcon } from '../../components/icons/TopNavIcon'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
 import { ImportExportModal } from '../../components/issues/ImportExportModal'
 import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
+import { BacklogFilterMenu } from '../../components/issues/BacklogFilterMenu'
 import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -23,6 +23,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/useConfirm'
 import { issueHref } from '../../utils/issueRef'
 import { sprintsForProject } from '../../utils/sprints'
+import { EMPTY_FILTERS, buildFilterOptions, matchesFilters } from '../../utils/backlogFilters'
 
 // JL-234 — client-side backlog sort control
 const SORT_STORAGE_KEY = 'backlogSort'
@@ -165,6 +166,7 @@ export function BacklogPage() {
   const [showBulkWizard, setShowBulkWizard] = useState(false)
   const [dependencies, setDependencies] = useState(null) // JL-128: { byId, edges, cycles, blockedCount }
   const [showMyOpenOnly, setShowMyOpenOnly] = useState(false)
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
   // JL-234: sort field + direction, restored from localStorage on mount ('' = default order)
   const [sortField, setSortField] = useState(() => loadStoredSort().field)
   const [sortDirection, setSortDirection] = useState(() => loadStoredSort().direction)
@@ -179,9 +181,30 @@ export function BacklogPage() {
   const normalizedSearch = searchTerm.trim().toLowerCase()
   // "My open issues" quick filter: only issues assigned to the current user that are not Done
   const currentUserName = profile?.full_name || ''
-  const visibleIssues = showMyOpenOnly
-    ? scopedIssues.filter((issue) => issue.assignee === currentUserName && issue.status !== 'Done')
-    : scopedIssues
+  // Filter menu + avatar quick filters, AND'd with "My open issues".
+  const filterOptions = useMemo(() => buildFilterOptions(scopedIssues), [scopedIssues])
+  const visibleIssues = useMemo(
+    () => scopedIssues.filter((issue) => (
+      (!showMyOpenOnly || (issue.assignee === currentUserName && issue.status !== 'Done'))
+      && matchesFilters(issue, filters)
+    )),
+    [scopedIssues, showMyOpenOnly, currentUserName, filters],
+  )
+
+  // Toolbar avatars toggle an assignee filter. issues.assignee holds either the
+  // member's name or email (both forms occur), so a toggle covers both.
+  const memberAssigneeValues = (member) => [member.name, member.email].filter(Boolean)
+  const isMemberFiltered = (member) => memberAssigneeValues(member).some((value) => filters.assignee.includes(value))
+  function toggleMemberFilter(member) {
+    const values = memberAssigneeValues(member)
+    const selected = isMemberFiltered(member)
+    setFilters((current) => ({
+      ...current,
+      assignee: selected
+        ? current.assignee.filter((value) => !values.includes(value))
+        : [...current.assignee, ...values.filter((value) => !current.assignee.includes(value))],
+    }))
+  }
   // JL-234: client-side sort — when no field is chosen the original ordering is untouched
   const sortedVisibleIssues = useMemo(
     () => sortIssueList(visibleIssues, sortField, sortDirection),
@@ -466,14 +489,21 @@ export function BacklogPage() {
           {members.length > 0 && (
             <div className="backlog-avatars">
               {members.slice(0, 4).map((member) => (
-                <span key={member.id} className="assignee-chip" title={member.name}>{initialsFromName(member.name)}</span>
+                <button
+                  key={member.id}
+                  type="button"
+                  className={`assignee-chip${isMemberFiltered(member) ? ' is-selected' : ''}`}
+                  title={member.name}
+                  aria-label={`Filter by assignee ${member.name}`}
+                  aria-pressed={isMemberFiltered(member)}
+                  onClick={() => toggleMemberFilter(member)}
+                >
+                  {initialsFromName(member.name)}
+                </button>
               ))}
             </div>
           )}
-          <button className="btn btn-ghost backlog-filter-btn" type="button">
-            <span className="filter-glyph" aria-hidden="true"><TopNavIcon name="filter" /></span>
-            Filter
-          </button>
+          <BacklogFilterMenu filters={filters} options={filterOptions} onChange={setFilters} />
           <Chip
             label="My open issues"
             size="small"
