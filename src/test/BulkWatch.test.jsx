@@ -93,7 +93,7 @@ describe('Backlog bulk watch / unwatch (JL-165)', () => {
     expect(watchIssue).toHaveBeenCalledWith(2)
     expect(watchIssue).not.toHaveBeenCalledWith(3)
     expect(unwatchIssue).not.toHaveBeenCalled()
-    expect(await screen.findByText('Now watching 2 issue(s).')).toBeInTheDocument()
+    expect(await screen.findByText('2 work items now watched')).toBeInTheDocument()
   })
 
   it('calls unwatchIssue once per selected issue on bulk Unwatch', async () => {
@@ -106,7 +106,7 @@ describe('Backlog bulk watch / unwatch (JL-165)', () => {
     expect(unwatchIssue).toHaveBeenCalledWith(2)
     expect(unwatchIssue).not.toHaveBeenCalledWith(3)
     expect(watchIssue).not.toHaveBeenCalled()
-    expect(await screen.findByText('Stopped watching 2 issue(s).')).toBeInTheDocument()
+    expect(await screen.findByText('2 work items no longer watched')).toBeInTheDocument()
   })
 
   it('clears the selection after a bulk watch', async () => {

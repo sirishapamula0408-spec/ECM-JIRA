@@ -4,17 +4,23 @@ import Chip from '@mui/material/Chip'
 import Select from '@mui/material/Select'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
+import Snackbar from '@mui/material/Snackbar'
+import Alert from '@mui/material/Alert'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import { useIssues } from '../../context/IssueContext'
 import { useSprints } from '../../context/SprintContext'
 import { useMembers } from '../../context/MemberContext'
 import './BacklogPage.css'
-import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
+import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { BacklogIssueRow } from '../../components/issues/BacklogIssueRow'
 import { ImportExportModal } from '../../components/issues/ImportExportModal'
 import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 import { BacklogFilterMenu } from '../../components/issues/BacklogFilterMenu'
+import { SectionCheckbox } from '../../components/issues/SectionCheckbox'
+import { bulkChangeIssues } from '../../api/issueApi'
+import { fetchProjectStatuses, fetchProjectPriorities } from '../../api/issueConfigApi'
+import { fetchProjectLabels } from '../../api/labelApi'
 import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -24,6 +30,19 @@ import { useConfirm } from '../../components/common/useConfirm'
 import { issueHref } from '../../utils/issueRef'
 import { sprintsForProject } from '../../utils/sprints'
 import { EMPTY_FILTERS, buildFilterOptions, matchesFilters } from '../../utils/backlogFilters'
+import {
+  BACKLOG_VALUE, UNASSIGNED_VALUE, VALUE_FIELDS, bulkOperation, sectionState, setSection, summarizeBulkResult, toggleId,
+} from '../../utils/bulkSelection'
+
+// JL-190: values are names from the project's config; fall back to the
+// built-in lists when there is no project in view or the request fails.
+const namesOf = (rows, fallback) => {
+  const names = Array.isArray(rows) ? rows.map((r) => r?.name).filter(Boolean) : []
+  return names.length ? names : fallback
+}
+const DEFAULT_BULK_CATALOG = { statuses: ISSUE_STATUSES, priorities: PRIORITIES, labels: [] }
+// Sub-task is tied to a parent, so it is never a bulk type target (the server refuses it too).
+const BULK_ISSUE_TYPES = ISSUE_TYPES.filter((type) => type !== 'Sub-task')
 
 // JL-234 — client-side backlog sort control
 const SORT_STORAGE_KEY = 'backlogSort'
@@ -139,7 +158,7 @@ function sortIssueList(list, field, direction) {
 export function BacklogPage() {
   usePageTitle('Backlog')
   const { confirm, confirmDialog } = useConfirm()
-  const { issues, handleMove, handleUpdate, handleDelete, handleCreate: onCreateIssue, reloadIssues } = useIssues()
+  const { issues, handleMove, handleCreate: onCreateIssue, reloadIssues } = useIssues()
   const { sprints: allSprints, handleCreateSprint: onCreateSprint, handleStartSprint: onStartSprint, handleUpdateSprint: onUpdateSprint, handleDeleteSprint: onDeleteSprint } = useSprints()
   const { profile, members } = useMembers()
   const { projectId } = useParams()
@@ -150,8 +169,13 @@ export function BacklogPage() {
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
   const [expandedPanels, setExpandedPanels] = useState({ backlog: true })
   const [selectedIssueIds, setSelectedIssueIds] = useState([])
-  const [bulkAction, setBulkAction] = useState('status')
-  const [bulkValue, setBulkValue] = useState('To Do')
+  // JL-190: '' = nothing chosen yet; Apply needs a field (and, for value
+  // fields, a value) as well as a selection.
+  const [bulkField, setBulkField] = useState('')
+  const [bulkValue, setBulkValue] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkToast, setBulkToast] = useState(null) // { severity, message }
+  const [bulkCatalog, setBulkCatalog] = useState(DEFAULT_BULK_CATALOG)
   const [searchTerm, setSearchTerm] = useState('')
   const [backlogMessage, setBacklogMessage] = useState('')
   const [dragIssueId, setDragIssueId] = useState(null)
@@ -190,6 +214,16 @@ export function BacklogPage() {
     )),
     [scopedIssues, showMyOpenOnly, currentUserName, filters],
   )
+
+  // JL-190: a selection belongs to what was on screen when it was made, so a
+  // new project, search, quick filter or filter starts it over. Adjusted during
+  // render (React's alternative to a state-syncing effect).
+  const selectionScope = JSON.stringify([projectId ?? null, normalizedSearch, showMyOpenOnly, filters])
+  const [selectionScopeSeen, setSelectionScopeSeen] = useState(selectionScope)
+  if (selectionScopeSeen !== selectionScope) {
+    setSelectionScopeSeen(selectionScope)
+    setSelectedIssueIds([])
+  }
 
   // Toolbar avatars toggle an assignee filter. issues.assignee holds either the
   // member's name or email (both forms occur), so a toggle covers both.
@@ -238,6 +272,41 @@ export function BacklogPage() {
     return () => { cancelled = true }
   }, [exportProjectId, issues])
 
+  // JL-190: bulk value lists come from the project's own statuses, priorities
+  // and labels. Each request falls back on its own, so one failure never
+  // empties the other lists.
+  useEffect(() => {
+    let cancelled = false
+    if (!exportProjectId) { setBulkCatalog(DEFAULT_BULK_CATALOG); return undefined }
+    Promise.allSettled([
+      fetchProjectStatuses(exportProjectId),
+      fetchProjectPriorities(exportProjectId),
+      fetchProjectLabels(exportProjectId),
+    ]).then(([statuses, priorities, labels]) => {
+      if (cancelled) return
+      setBulkCatalog({
+        statuses: namesOf(statuses.value, ISSUE_STATUSES),
+        priorities: namesOf(priorities.value, PRIORITIES),
+        labels: namesOf(labels.value, []),
+      })
+    })
+    return () => { cancelled = true }
+  }, [exportProjectId])
+
+  // JL-190: Esc clears the selection — unless it is closing something else
+  // (a menu, the filter popover, a dialog), which owns that keypress.
+  const hasSelection = selectedIssueIds.length > 0
+  useEffect(() => {
+    if (!hasSelection) return undefined
+    function handleKeyDown(event) {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (event.target instanceof Element && event.target.closest('[role="dialog"], [role="presentation"], [role="menu"], [role="listbox"]')) return
+      setSelectedIssueIds([])
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [hasSelection])
+
   const blockedFor = (issueId) => {
     const info = dependencies?.byId.get(issueId)
     return info ? { isBlocked: info.isBlocked, blockedBy: info.blockedBy } : undefined
@@ -254,7 +323,6 @@ export function BacklogPage() {
 
   const backlogItems = allBacklogItems.filter(matchesSearch)
   const backlogIds = backlogItems.map((issue) => issue.id)
-  const selectedCount = selectedIssueIds.length
   const allBacklogIdSet = new Set(allBacklogItems.map((issue) => issue.id))
   const selectedBacklogIds = selectedIssueIds.filter((id) => allBacklogIdSet.has(id))
 
@@ -263,6 +331,12 @@ export function BacklogPage() {
     // JL-353: live To Do / In Progress / Done pill counts (were hardcoded "0").
     return { ...sprint, issues: sprintIssues, issueIds: sprintIssues.map((issue) => issue.id), counts: countByStatusCategory(sprintIssues) }
   })
+
+  // JL-190: only rows actually on screen count as selected, so an issue that
+  // was deleted or moved out of view never inflates "N selected" or gets edited.
+  const renderedIdSet = new Set([...backlogIds, ...sprintPanels.flatMap((panel) => panel.issueIds)])
+  const liveSelectedIds = selectedIssueIds.filter((id) => renderedIdSet.has(id))
+  const selectedCount = liveSelectedIds.length
   // JL-353: backlog panel pills come from backlogItems (all Backlog-status, so
   // they land in the todo bucket) — a different source than the sprint panels.
   const backlogCounts = countByStatusCategory(backlogItems)
@@ -301,16 +375,11 @@ export function BacklogPage() {
   }
 
   function toggleIssueSelection(issueId) {
-    setSelectedIssueIds((current) =>
-      current.includes(issueId) ? current.filter((id) => id !== issueId) : [...current, issueId],
-    )
+    setSelectedIssueIds((current) => toggleId(current, issueId))
   }
 
   function toggleSectionSelection(sectionIds, checked) {
-    setSelectedIssueIds((current) => {
-      if (checked) return Array.from(new Set([...current, ...sectionIds]))
-      return current.filter((id) => !sectionIds.includes(id))
-    })
+    setSelectedIssueIds((current) => setSection(current, sectionIds, checked))
   }
 
   async function handleBacklogMove(issueId, nextStatus, targetSprintId) {
@@ -320,51 +389,60 @@ export function BacklogPage() {
     else setPanelExpanded(targetSprintId || defaultSprintId, true)
   }
 
+  const bulkNeedsValue = VALUE_FIELDS.includes(bulkField)
+  const canApplyBulk = selectedCount > 0 && bulkField !== '' && (!bulkNeedsValue || bulkValue !== '') && !bulkBusy
+
+  // After any bulk write: refresh rows and panel counts in place, keep only the
+  // failed issues selected (so they can be retried), and report the outcome.
+  async function finishBulk(response, verb) {
+    const summary = summarizeBulkResult(response, verb)
+    await reloadIssues()
+    setSelectedIssueIds(summary.failedIds)
+    setBulkToast(summary)
+    return summary
+  }
+
+  // JL-190: one POST /api/issues/bulk for every field edit and for delete. The
+  // server applies each issue through the same rules as a single edit and
+  // reports per-issue results. Watch/Unwatch are per-user subscriptions with no
+  // bulk endpoint, so they still go one request per issue.
   async function applyBulkAction() {
-    if (selectedIssueIds.length === 0) return
-    const ids = [...selectedIssueIds]
+    if (!canApplyBulk) return
+    const ids = [...liveSelectedIds]
 
-    if (bulkAction === 'delete') {
-      if (!(await confirm({
-        title: 'Delete issues?',
-        message: `Delete ${ids.length} issue(s)? This cannot be undone.`,
-        confirmLabel: 'Delete',
-        danger: true,
-      }))) return
-      await Promise.all(ids.map((id) => handleDelete(id)))
-      setSelectedIssueIds([])
-      setBacklogMessage(`Deleted ${ids.length} issue(s).`)
-      return
-    }
+    if (bulkField === 'delete' && !(await confirm({
+      title: 'Delete issues?',
+      message: `Delete ${ids.length} work item${ids.length === 1 ? '' : 's'}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    }))) return
 
-    if (bulkAction === 'watch') {
-      await Promise.all(ids.map((id) => watchIssue(id)))
-      setSelectedIssueIds([])
-      setBacklogMessage(`Now watching ${ids.length} issue(s).`)
-      return
-    }
+    setBulkBusy(true)
+    try {
+      if (bulkField === 'watch' || bulkField === 'unwatch') {
+        const subscribe = bulkField === 'watch' ? watchIssue : unwatchIssue
+        const keyOf = new Map(issues.map((issue) => [issue.id, issue.key]))
+        const settled = await Promise.allSettled(ids.map((id) => subscribe(id)))
+        const results = settled.map((outcome, index) => ({
+          issueId: ids[index],
+          key: keyOf.get(ids[index]),
+          applied: outcome.status === 'fulfilled',
+          error: outcome.status === 'rejected' ? (outcome.reason?.message || 'Request failed') : null,
+        }))
+        await finishBulk({ results }, bulkField === 'watch' ? 'now watched' : 'no longer watched')
+        return
+      }
 
-    if (bulkAction === 'unwatch') {
-      await Promise.all(ids.map((id) => unwatchIssue(id)))
-      setSelectedIssueIds([])
-      setBacklogMessage(`Stopped watching ${ids.length} issue(s).`)
-      return
+      const response = await bulkChangeIssues({ issueIds: ids, operations: bulkOperation(bulkField, bulkValue) })
+      await finishBulk(response, bulkField === 'delete' ? 'deleted' : 'updated')
+      // Show where moved issues landed.
+      if (bulkField === 'sprint') setPanelExpanded(bulkValue === BACKLOG_VALUE ? 'backlog' : Number(bulkValue), true)
+      if (bulkField === 'status' && bulkValue === 'Backlog') setPanelExpanded('backlog', true)
+    } catch (error) {
+      setBulkToast({ severity: 'error', message: error?.message || 'Bulk update failed' })
+    } finally {
+      setBulkBusy(false)
     }
-
-    if (bulkAction === 'status') {
-      await Promise.all(ids.map((id) => handleMove(id, bulkValue, bulkValue === 'Backlog' ? null : defaultSprintId)))
-      setPanelExpanded(bulkValue === 'Backlog' ? 'backlog' : defaultSprintId, true)
-    } else if (bulkAction === 'sprint') {
-      const targetSprintId = bulkValue === '' ? null : Number(bulkValue)
-      await Promise.all(ids.map((id) => handleMove(id, targetSprintId ? 'To Do' : 'Backlog', targetSprintId)))
-      setPanelExpanded(targetSprintId || 'backlog', true)
-    } else if (bulkAction === 'assignee') {
-      await Promise.all(ids.map((id) => handleUpdate(id, { assignee: bulkValue })))
-    } else if (bulkAction === 'priority') {
-      await Promise.all(ids.map((id) => handleUpdate(id, { priority: bulkValue })))
-    }
-    setSelectedIssueIds([])
-    setBacklogMessage(`Updated ${ids.length} issue(s).`)
   }
 
   // JL-234: persist the chosen sort so it survives reloads
@@ -381,14 +459,29 @@ export function BacklogPage() {
   }
 
   // Keep the value control in sync with a sensible default when action changes
-  function changeBulkAction(action) {
-    setBulkAction(action)
-    if (action === 'status') setBulkValue('To Do')
-    else if (action === 'priority') setBulkValue('Medium')
-    else if (action === 'assignee') setBulkValue(members[0]?.name || '')
-    else if (action === 'sprint') setBulkValue(String(defaultSprintId ?? ''))
-    else setBulkValue('')
+  // JL-190: a new field never inherits the previous field's value.
+  function changeBulkField(field) {
+    setBulkField(field)
+    setBulkValue('')
   }
+
+  // Sprints that can still take work: unfinished ones in this project's view.
+  const openSprints = sprints.filter((sprint) => !sprint.completedAt)
+  const bulkValueOptions = {
+    status: bulkCatalog.statuses.map((name) => ({ value: name, label: name })),
+    priority: bulkCatalog.priorities.map((name) => ({ value: name, label: name })),
+    assignee: [
+      { value: UNASSIGNED_VALUE, label: 'Unassigned' },
+      ...members.map((member) => ({ value: member.name, label: member.name })),
+    ],
+    sprint: [
+      { value: BACKLOG_VALUE, label: 'Backlog' },
+      ...openSprints.map((sprint) => ({ value: String(sprint.id), label: sprint.name })),
+    ],
+    issueType: BULK_ISSUE_TYPES.map((type) => ({ value: type, label: type })),
+    labels: bulkCatalog.labels.map((name) => ({ value: name, label: name })),
+  }
+  const BULK_FIELD_LABELS = { status: 'Status', assignee: 'Assignee', priority: 'Priority', sprint: 'Sprint', issueType: 'Issue type', labels: 'Label' }
 
   async function createSprintFromSelection() {
     setBacklogMessage('')
@@ -540,40 +633,46 @@ export function BacklogPage() {
         </div>
         <div className="backlog-toolbar-right">
           {canBulkEdit && (
-          <div className="backlog-bulk">
-            <span className="bulk-count">{selectedCount} selected</span>
-            <select className="bulk-status-select" value={bulkAction} onChange={(event) => changeBulkAction(event.target.value)} disabled={selectedCount === 0} aria-label="Bulk action">
-              <option value="status">Status</option>
-              <option value="assignee">Assignee</option>
-              <option value="priority">Priority</option>
-              <option value="sprint">Sprint</option>
-              <option value="watch">Watch</option>
-              <option value="unwatch">Unwatch</option>
-              {canDeleteIssue && <option value="delete">Delete</option>}
-            </select>
-            {bulkAction === 'status' && (
-              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Status value">
-                {ISSUE_STATUSES.map((status) => (<option key={status} value={status}>{status.toUpperCase()}</option>))}
-              </select>
-            )}
-            {bulkAction === 'priority' && (
-              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Priority value">
-                {PRIORITIES.map((p) => (<option key={p} value={p}>{p}</option>))}
-              </select>
-            )}
-            {bulkAction === 'assignee' && (
-              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Assignee value">
-                {members.map((m) => (<option key={m.id} value={m.name}>{m.name}</option>))}
-              </select>
-            )}
-            {bulkAction === 'sprint' && (
-              <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0} aria-label="Sprint value">
-                <option value="">Backlog</option>
-                {sprints.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-              </select>
-            )}
-            <button className="btn btn-ghost" type="button" onClick={applyBulkAction} disabled={selectedCount === 0}>Apply</button>
-            <button className="btn btn-ghost" type="button" onClick={() => setShowBulkWizard(true)} disabled={selectedCount === 0}>Advanced bulk change</button>
+          <div className="backlog-bulk" role="group" aria-label="Bulk change">
+            <span className="bulk-count" aria-live="polite">{selectedCount} selected</span>
+            {/* JL-190: the controls stay disabled until something is selected;
+                the tooltip says why instead of leaving them silently grey. */}
+            <Tooltip title={selectedCount === 0 ? 'Select work items to bulk edit' : ''}>
+              <span className="bulk-controls">
+                <select className="bulk-status-select" value={bulkField} onChange={(event) => changeBulkField(event.target.value)} disabled={selectedCount === 0 || bulkBusy} aria-label="Bulk action">
+                  <option value="">Field…</option>
+                  {canEditIssue && (
+                    <optgroup label="Change">
+                      <option value="status">Status</option>
+                      <option value="assignee">Assignee</option>
+                      <option value="priority">Priority</option>
+                      <option value="sprint">Sprint</option>
+                      <option value="issueType">Issue type</option>
+                      {bulkCatalog.labels.length > 0 && <option value="labels">Add label</option>}
+                    </optgroup>
+                  )}
+                  <optgroup label="Actions">
+                    <option value="watch">Watch</option>
+                    <option value="unwatch">Unwatch</option>
+                    {canDeleteIssue && <option value="delete">Delete</option>}
+                  </optgroup>
+                </select>
+                {bulkNeedsValue && (
+                  <select className="bulk-status-select" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} disabled={selectedCount === 0 || bulkBusy} aria-label={`${BULK_FIELD_LABELS[bulkField]} value`}>
+                    <option value="">{`Select ${BULK_FIELD_LABELS[bulkField].toLowerCase()}…`}</option>
+                    {bulkValueOptions[bulkField].map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                )}
+                <button className="btn btn-ghost" type="button" onClick={applyBulkAction} disabled={!canApplyBulk} aria-busy={bulkBusy}>
+                  {bulkBusy ? 'Applying…' : 'Apply'}
+                </button>
+                {canEditIssue && (
+                  <button className="btn btn-ghost" type="button" onClick={() => setShowBulkWizard(true)} disabled={selectedCount === 0 || bulkBusy}>Advanced bulk change</button>
+                )}
+              </span>
+            </Tooltip>
           </div>
           )}
           {/* JL-288: Export is a read op — visible to anyone with canExportIssues
@@ -627,11 +726,28 @@ export function BacklogPage() {
       <BulkChangeWizard
         open={showBulkWizard}
         onClose={() => setShowBulkWizard(false)}
-        issueIds={selectedIssueIds}
+        issueIds={liveSelectedIds}
         members={members}
-        sprints={sprints}
-        onApplied={() => { reloadIssues(); setSelectedIssueIds([]); setBacklogMessage('Bulk change applied.') }}
+        sprints={openSprints}
+        statuses={bulkCatalog.statuses}
+        priorities={bulkCatalog.priorities}
+        issueTypes={BULK_ISSUE_TYPES}
+        onApplied={(response) => finishBulk(response, response?.results?.some((r) => r.deleted) ? 'deleted' : 'updated')}
       />
+
+      {/* JL-190: bulk outcome toast — names the failed keys and reasons. */}
+      <Snackbar
+        open={Boolean(bulkToast)}
+        autoHideDuration={bulkToast?.severity === 'success' ? 4000 : 8000}
+        onClose={(_event, reason) => { if (reason !== 'clickaway') setBulkToast(null) }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {bulkToast ? (
+          <Alert severity={bulkToast.severity} variant="filled" onClose={() => setBulkToast(null)} sx={{ maxWidth: 640 }}>
+            {bulkToast.message}
+          </Alert>
+        ) : <span />}
+      </Snackbar>
 
       <article className="panel jira-backlog-panel">
         {sprintPanels.map((sprintPanel) => {
@@ -646,7 +762,12 @@ export function BacklogPage() {
               >
                 <div className="jira-sprint-left">
                   {canBulkEdit && (
-                    <input className="backlog-checkbox" type="checkbox" checked={sprintPanel.issueIds.length > 0 && sprintPanel.issueIds.every((id) => selectedIssueIds.includes(id))} onChange={(event) => toggleSectionSelection(sprintPanel.issueIds, event.target.checked)} aria-label={`Select all ${sprintPanel.name} issues`} />
+                    <SectionCheckbox
+                      state={sectionState(selectedIssueIds, sprintPanel.issueIds)}
+                      onChange={(checked) => toggleSectionSelection(sprintPanel.issueIds, checked)}
+                      label={`Select all ${sprintPanel.name} issues`}
+                      disabled={sprintPanel.issueIds.length === 0}
+                    />
                   )}
                   <button className={`sprint-toggle${isExpanded ? ' expanded' : ''}`} type="button" aria-label={isExpanded ? `Collapse ${sprintPanel.name}` : `Expand ${sprintPanel.name}`} onClick={() => setPanelExpanded(sprintPanel.id, !isExpanded)}>
                     <span className="sprint-caret" aria-hidden="true" />
@@ -717,7 +838,12 @@ export function BacklogPage() {
         <div className={`jira-backlog-row${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           <div className="jira-sprint-left">
             {canBulkEdit && (
-              <input className="backlog-checkbox" type="checkbox" checked={backlogIds.length > 0 && backlogIds.every((id) => selectedIssueIds.includes(id))} onChange={(event) => toggleSectionSelection(backlogIds, event.target.checked)} aria-label="Select all backlog issues" />
+              <SectionCheckbox
+                state={sectionState(selectedIssueIds, backlogIds)}
+                onChange={(checked) => toggleSectionSelection(backlogIds, checked)}
+                label="Select all backlog issues"
+                disabled={backlogIds.length === 0}
+              />
             )}
             <button className={`sprint-toggle${expandedPanels.backlog ? ' expanded' : ''}`} type="button" aria-label={expandedPanels.backlog ? 'Collapse backlog' : 'Expand backlog'} onClick={() => setPanelExpanded('backlog', !expandedPanels.backlog)}>
               <span className="sprint-caret" aria-hidden="true" />

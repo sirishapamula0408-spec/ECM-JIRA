@@ -17,6 +17,18 @@ vi.mock('../services/automation.js', () => ({
 vi.mock('../services/events.js', () => ({
   emitEvent: vi.fn().mockResolvedValue(undefined),
 }))
+// JL-190: bulk status changes go through the shared workflow path. With no
+// transitions configured and no approval rule, every move is allowed — the
+// permissive default these JL-121 cases were written against.
+vi.mock('../services/workflow.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  loadTransitions: vi.fn().mockResolvedValue([]),
+  loadWorkflowMeta: vi.fn().mockResolvedValue(null),
+}))
+vi.mock('../services/approvals.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  evaluateApproval: vi.fn().mockResolvedValue({ required: false }),
+}))
 
 import { run, all, get } from '../db.js'
 import { buildBulkPreview } from '../routes/issues.js'
@@ -93,6 +105,7 @@ describe('JL-121 — POST /api/issues/bulk', () => {
 
   it('dryRun returns a preview and writes nothing', async () => {
     all.mockResolvedValueOnce([row({ id: 1, status: 'To Do' }), row({ id: 2, issue_key: 'PROJ-2', status: 'To Do' })])
+    all.mockResolvedValue([]) // no open sub-tasks
     const res = await request(app)
       .post('/api/issues/bulk')
       .send({ issueIds: [1, 2], operations: { status: 'Done' }, dryRun: true })
@@ -108,6 +121,8 @@ describe('JL-121 — POST /api/issues/bulk', () => {
   it('applies valid issues, reports errors for missing ones, and continues', async () => {
     // ids 1 & 2 exist; 99 is requested but not returned by the SELECT
     all.mockResolvedValueOnce([row({ id: 1, status: 'To Do' }), row({ id: 2, issue_key: 'PROJ-2', status: 'To Do' })])
+    all.mockResolvedValue([]) // no open sub-tasks
+    get.mockImplementation(async (_sql, params) => row({ id: params?.[0], sprint_id: 3 }))
     run.mockResolvedValue({ lastID: 1, changes: 1 })
 
     const res = await request(app)

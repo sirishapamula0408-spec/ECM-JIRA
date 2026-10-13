@@ -23,22 +23,30 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { ISSUE_STATUSES, PRIORITIES } from '../../constants'
+import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES } from '../../constants'
 import { bulkChangeIssues } from '../../api/issueApi'
 
 const STEPS = ['Selection', 'Operations', 'Preview', 'Apply']
 
 const NO_CHANGE = '__no_change__'
+// JL-190: assignee: null unassigns on the server.
+const UNASSIGN = '__unassign__'
 
 // JL-121: multi-step bulk change wizard.
 // Props:
 //   open, onClose, issueIds:[], members:[], sprints:[], onApplied?(summary)
-export function BulkChangeWizard({ open, onClose, issueIds = [], members = [], sprints = [], onApplied }) {
+//   statuses/priorities/issueTypes: value lists (JL-190: the Backlog passes the
+//   project's configured ones; defaults are the built-in lists)
+export function BulkChangeWizard({
+  open, onClose, issueIds = [], members = [], sprints = [], onApplied,
+  statuses = ISSUE_STATUSES, priorities = PRIORITIES, issueTypes = ISSUE_TYPES.filter((t) => t !== 'Sub-task'),
+}) {
   const [activeStep, setActiveStep] = useState(0)
   const [status, setStatus] = useState(NO_CHANGE)
   const [priority, setPriority] = useState(NO_CHANGE)
   const [assignee, setAssignee] = useState(NO_CHANGE)
   const [sprintId, setSprintId] = useState(NO_CHANGE)
+  const [issueType, setIssueType] = useState(NO_CHANGE)
   const [addLabels, setAddLabels] = useState('')
   const [doDelete, setDoDelete] = useState(false)
   const [preview, setPreview] = useState([])
@@ -51,7 +59,8 @@ export function BulkChangeWizard({ open, onClose, issueIds = [], members = [], s
     const ops = {}
     if (status !== NO_CHANGE) ops.status = status
     if (priority !== NO_CHANGE) ops.priority = priority
-    if (assignee !== NO_CHANGE) ops.assignee = assignee
+    if (assignee !== NO_CHANGE) ops.assignee = assignee === UNASSIGN ? null : assignee
+    if (issueType !== NO_CHANGE) ops.issueType = issueType
     if (sprintId !== NO_CHANGE) ops.sprintId = sprintId === '' ? null : Number(sprintId)
     const labels = addLabels.split(',').map((l) => l.trim()).filter(Boolean)
     if (labels.length > 0) ops.addLabels = labels
@@ -67,6 +76,7 @@ export function BulkChangeWizard({ open, onClose, issueIds = [], members = [], s
     setPriority(NO_CHANGE)
     setAssignee(NO_CHANGE)
     setSprintId(NO_CHANGE)
+    setIssueType(NO_CHANGE)
     setAddLabels('')
     setDoDelete(false)
     setPreview([])
@@ -147,20 +157,25 @@ export function BulkChangeWizard({ open, onClose, issueIds = [], members = [], s
               <>
                 <TextField select label="Status" value={status} onChange={(e) => setStatus(e.target.value)} size="small" fullWidth>
                   <MenuItem value={NO_CHANGE}>No change</MenuItem>
-                  {ISSUE_STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  {statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                 </TextField>
                 <TextField select label="Priority" value={priority} onChange={(e) => setPriority(e.target.value)} size="small" fullWidth>
                   <MenuItem value={NO_CHANGE}>No change</MenuItem>
-                  {PRIORITIES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                  {priorities.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                 </TextField>
                 <TextField select label="Assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} size="small" fullWidth>
                   <MenuItem value={NO_CHANGE}>No change</MenuItem>
+                  <MenuItem value={UNASSIGN}>Unassigned</MenuItem>
                   {members.map((m) => <MenuItem key={m.id} value={m.name}>{m.name}</MenuItem>)}
                 </TextField>
                 <TextField select label="Sprint" value={sprintId} onChange={(e) => setSprintId(e.target.value)} size="small" fullWidth>
                   <MenuItem value={NO_CHANGE}>No change</MenuItem>
                   <MenuItem value="">Backlog (no sprint)</MenuItem>
                   {sprints.map((s) => <MenuItem key={s.id} value={String(s.id)}>{s.name}</MenuItem>)}
+                </TextField>
+                <TextField select label="Issue type" value={issueType} onChange={(e) => setIssueType(e.target.value)} size="small" fullWidth>
+                  <MenuItem value={NO_CHANGE}>No change</MenuItem>
+                  {issueTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </TextField>
                 <TextField label="Add labels (comma separated)" value={addLabels} onChange={(e) => setAddLabels(e.target.value)} size="small" fullWidth placeholder="frontend, urgent" />
               </>
@@ -223,7 +238,10 @@ export function BulkChangeWizard({ open, onClose, issueIds = [], members = [], s
                 </TableHead>
                 <TableBody>
                   {summary.errors.map((e) => (
-                    <TableRow key={e.issueId}><TableCell>#{e.issueId}</TableCell><TableCell>{e.error}</TableCell></TableRow>
+                    <TableRow key={e.issueId}>
+                      <TableCell>{summary.results?.find((r) => r.issueId === e.issueId)?.key || `#${e.issueId}`}</TableCell>
+                      <TableCell>{e.error}</TableCell>
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>

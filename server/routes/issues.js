@@ -217,6 +217,7 @@ async function recordHistory(issueId, field, oldValue, newValue, actor) {
 export function buildBulkPreview(issues, operations = {}, options = {}) {
   const allowedStatuses = options.allowedStatuses || validStatuses
   const allowedPriorities = options.allowedPriorities || validPriorities
+  const allowedIssueTypes = options.allowedIssueTypes || validIssueTypes
   const ops = operations || {}
   const isDelete = ops.delete === true
 
@@ -256,6 +257,26 @@ export function buildBulkPreview(issues, operations = {}, options = {}) {
       if ((issue.assignee ?? null) !== target) {
         changes.push({ field: 'assignee', from: issue.assignee ?? null, to: target })
       }
+    } else if (ops.assignee === null && (issue.assignee ?? '') !== '') {
+      // JL-190: an explicit null unassigns (the Backlog toolbar's "Unassigned").
+      changes.push({ field: 'assignee', from: issue.assignee, to: null })
+    }
+
+    // JL-190: Sub-task is tied to a parent, so it can be neither the source nor
+    // the target of a bulk type change; an Epic cannot itself sit in an Epic.
+    if (ops.issueType !== undefined && ops.issueType !== null && ops.issueType !== '') {
+      const currentType = issue.issueType ?? null
+      if (!allowedIssueTypes.includes(ops.issueType)) {
+        error = error || `Invalid issue type "${ops.issueType}"`
+      } else if (currentType !== ops.issueType) {
+        if (ops.issueType === 'Sub-task' || currentType === 'Sub-task') {
+          error = error || 'Sub-task type cannot be changed in bulk'
+        } else if (ops.issueType === 'Epic' && issue.epicId != null) {
+          error = error || 'An Epic cannot belong to another Epic'
+        } else {
+          changes.push({ field: 'issueType', from: currentType, to: ops.issueType })
+        }
+      }
     }
 
     if (ops.sprintId !== undefined) {
@@ -263,6 +284,16 @@ export function buildBulkPreview(issues, operations = {}, options = {}) {
       const current = issue.sprintId ?? null
       if (current !== target) {
         changes.push({ field: 'sprintId', from: current, to: target })
+      }
+      // JL-190: the backlog is the "Backlog" status, not a null sprint (that is
+      // how BacklogPage splits its panels), so a sprint move also moves status
+      // unless the caller set one: into the backlog → Backlog; out of it → To Do.
+      const statusRequested = ops.status !== undefined && ops.status !== null && ops.status !== ''
+      if (!statusRequested) {
+        const impliedStatus = target === null
+          ? (issue.status !== 'Backlog' ? 'Backlog' : null)
+          : (issue.status === 'Backlog' ? 'To Do' : null)
+        if (impliedStatus) changes.push({ field: 'status', from: issue.status ?? null, to: impliedStatus, implied: true })
       }
     }
 
@@ -852,28 +883,18 @@ router.patch('/:id', requireProjectWrite(issueParamProject('id')), asyncHandler(
   res.json(mapIssue(row))
 }))
 
-router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncHandler(async (req, res) => {
-  const id = Number(req.params.id)
-  const { status, sprintId } = req.body
+// JL-190: the single-issue status route and POST /bulk share one transition
+// path, so a bulk status change is held to exactly the same workflow, validator,
+// approval, sub-task and sprint rules — and leaves the same history, activity,
+// automation, webhook and realtime trail. A refusal is returned, not thrown:
+// { httpStatus, error, extra? }.
+const STATUS_ISSUE_COLUMNS = 'id, sprint_id, status, project_id, assignee, priority, resolution, reporter, environment, components'
+const ISSUE_ROW_COLUMNS = 'id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged'
 
-  if (!Number.isInteger(id)) {
-    res.status(400).json({ error: 'Invalid issue id' })
-    return
-  }
-
-  if (!validStatuses.includes(status)) {
-    res.status(400).json({ error: 'Invalid status value' })
-    return
-  }
-
-  const existing = await get(
-    'SELECT id, sprint_id, status, project_id, assignee, priority, resolution, reporter, environment, components FROM issues WHERE id = ?',
-    [id],
-  )
-  if (!existing) {
-    res.status(404).json({ error: 'Issue not found' })
-    return
-  }
+// Read-only half: may `existing` move to `status`? The bulk dry-run calls it
+// directly so its preview reports refusals without writing anything.
+export async function checkStatusTransition(existing, status, body = {}) {
+  if (!validStatuses.includes(status)) return { httpStatus: 400, error: 'Invalid status value' }
 
   // JL-79 / JL-306: enforce the project's configurable workflow. Backward compatible —
   // a project with no transitions configured allows every status change. When a
@@ -883,16 +904,15 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   const workflowMeta = await loadWorkflowMeta(existing.project_id)
   const transitionOptions = cancelOptionsFromMeta(workflowMeta)
   if (!isTransitionAllowed(transitions, existing.status, status, transitionOptions)) {
-    res.status(409).json({
+    return {
+      httpStatus: 409,
       error: `Transition from "${existing.status}" to "${status}" is not allowed by the workflow`,
-    })
-    return
+    }
   }
   const workflowTransition = findTransition(transitions, existing.status, status)
-  const validationErrors = runValidators(workflowTransition, existing, req.body)
+  const validationErrors = runValidators(workflowTransition, existing, body)
   if (validationErrors.length > 0) {
-    res.status(400).json({ error: validationErrors[0], errors: validationErrors })
-    return
+    return { httpStatus: 400, error: validationErrors[0], extra: { errors: validationErrors } }
   }
 
   // JL-360: enforce approval rules. Previously `approval_rules` was written by the
@@ -902,18 +922,20 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   if (existing.status !== status) {
     const approvalState = await evaluateApproval(existing, status)
     if (approvalState.required && !approvalState.satisfied) {
-      res.status(409).json({
+      return {
+        httpStatus: 409,
         error: approvalRefusalMessage(approvalState, existing.status, status),
-        approval: {
-          required: true,
-          approverRole: approvalState.approverRole,
-          requiredApprovals: approvalState.requiredApprovals,
-          approvedCount: approvalState.approvedCount,
-          remaining: approvalState.remaining,
-          rejected: approvalState.rejected,
+        extra: {
+          approval: {
+            required: true,
+            approverRole: approvalState.approverRole,
+            requiredApprovals: approvalState.requiredApprovals,
+            approvedCount: approvalState.approvedCount,
+            remaining: approvalState.remaining,
+            rejected: approvalState.rejected,
+          },
         },
-      })
-      return
+      }
     }
   }
 
@@ -921,13 +943,26 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   if (status === 'Done') {
     const openSubtasks = await all(
       "SELECT id, issue_key, title, status FROM issues WHERE parent_id = ? AND status <> 'Done'",
-      [id],
+      [existing.id],
     )
     if (openSubtasks.length > 0) {
-      res.status(409).json({ error: 'Cannot close issue with open sub-tasks', openSubtasks })
-      return
+      return { httpStatus: 409, error: 'Cannot close issue with open sub-tasks', extra: { openSubtasks } }
     }
   }
+
+  return { workflowTransition }
+}
+
+// Validate and apply. Returns { row } (the re-read issue) or a refusal.
+export async function transitionIssueStatus({ id, status, sprintId, body = {}, actor, workspaceId }) {
+  if (!validStatuses.includes(status)) return { httpStatus: 400, error: 'Invalid status value' }
+
+  const existing = await get(`SELECT ${STATUS_ISSUE_COLUMNS} FROM issues WHERE id = ?`, [id])
+  if (!existing) return { httpStatus: 404, error: 'Issue not found' }
+
+  const check = await checkStatusTransition(existing, status, body)
+  if (check.error) return check
+  const { workflowTransition } = check
 
   let nextSprintId = null
   if (status !== 'Backlog') {
@@ -935,19 +970,10 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
       nextSprintId = existing.sprint_id ?? (await getDefaultSprintId(existing.project_id))
     } else {
       const parsed = Number(sprintId)
-      if (!Number.isInteger(parsed)) {
-        res.status(400).json({ error: 'Invalid sprint id' })
-        return
-      }
+      if (!Number.isInteger(parsed)) return { httpStatus: 400, error: 'Invalid sprint id' }
       const sprintRow = await get('SELECT id, project_id FROM sprints WHERE id = ?', [parsed])
-      if (!sprintRow) {
-        res.status(400).json({ error: 'Sprint not found' })
-        return
-      }
-      if (!sprintFitsProject(sprintRow, existing.project_id)) {
-        res.status(400).json({ error: SPRINT_OTHER_PROJECT })
-        return
-      }
+      if (!sprintRow) return { httpStatus: 400, error: 'Sprint not found' }
+      if (!sprintFitsProject(sprintRow, existing.project_id)) return { httpStatus: 400, error: SPRINT_OTHER_PROJECT }
       nextSprintId = parsed
     }
   }
@@ -955,7 +981,7 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   await run('UPDATE issues SET status = ?, sprint_id = ? WHERE id = ?', [status, nextSprintId, id])
 
   // JL-82: record the status transition in the per-issue audit log
-  await recordHistory(id, 'status', existing.status, status, req.user?.email)
+  await recordHistory(id, 'status', existing.status, status, actor)
 
   // JL-79: apply workflow post-functions directly to the DB (loop-safe — never
   // re-invokes the engine, mirroring the automation.js pattern)
@@ -963,10 +989,7 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
     await applyPostFunctions(workflowTransition, id, { run }).catch(() => {})
   }
 
-  const row = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
-    [id],
-  )
+  const row = await get(`SELECT ${ISSUE_ROW_COLUMNS} FROM issues WHERE id = ?`, [id])
 
   // JL-362: attribute the transition row so it can be tenant-scoped on read.
   await run(
@@ -977,7 +1000,7 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
       'Just now',
       row.project_id ?? null,
       row.id,
-      req.workspaceId ?? null,
+      workspaceId ?? null,
     ],
   )
 
@@ -985,10 +1008,7 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   await runStatusChangeAutomations(row).catch(() => {})
 
   // Re-read in case an automation action mutated the issue (e.g. transition/assign)
-  const finalRow = await get(
-    'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
-    [id],
-  )
+  const finalRow = await get(`SELECT ${ISSUE_ROW_COLUMNS} FROM issues WHERE id = ?`, [id])
 
   // JL-59: emit issue.status_changed event to subscribed webhooks (fire-and-forget)
   emitEvent('issue.status_changed', { ...mapIssue(finalRow), status }, finalRow.project_id ?? null).catch(() => {})
@@ -996,7 +1016,26 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   // JL-136: live-push the status change to viewers of this issue (no-op if realtime off)
   publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'status_changed' })
 
-  res.json(mapIssue(finalRow))
+  return { row: finalRow }
+}
+
+router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const { status, sprintId } = req.body
+
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'Invalid issue id' })
+    return
+  }
+
+  const result = await transitionIssueStatus({
+    id, status, sprintId, body: req.body, actor: req.user?.email, workspaceId: req.workspaceId,
+  })
+  if (result.error) {
+    res.status(result.httpStatus).json({ error: result.error, ...result.extra })
+    return
+  }
+  res.json(mapIssue(result.row))
 }))
 
 // JL-82: GET /api/issues/:id/history — per-issue field change log, newest-first
@@ -1134,12 +1173,18 @@ async function resolveLabelId(projectId, name) {
   return created.lastID
 }
 
-// POST /api/issues/bulk — multi-issue change wizard backend.
-// Body: { issueIds:[], operations:{ status?, assignee?, priority?, sprintId?, addLabels?, delete? }, dryRun?:bool }
+// POST /api/issues/bulk — backs both the Backlog bulk toolbar and the
+// multi-issue change wizard.
+// Body: { issueIds:[], operations:{ status?, assignee? (null = unassign), priority?, issueType?, sprintId?, addLabels?, delete? }, dryRun?:bool }
 // dryRun=true → return a per-issue preview and write nothing.
 // dryRun=false → apply to valid issues, skipping/reporting invalid ones, and
 // return a { updated, skipped, errors, results } summary. Applied sequentially,
 // each guarded so one failure does not abort the batch.
+// JL-190: a status change goes through transitionIssueStatus — the same
+// workflow/approval/sub-task rules and history/activity trail as PATCH
+// /:id/status — and a refusal there becomes that issue's error.
+const BULK_MAX_ISSUES = 500
+
 router.post('/bulk', asyncHandler(async (req, res) => {
   const body = req.body || {}
   const operations = body.operations || {}
@@ -1154,12 +1199,17 @@ router.post('/bulk', asyncHandler(async (req, res) => {
     res.status(400).json({ error: 'issueIds must contain valid integer ids' })
     return
   }
+  if (ids.length > BULK_MAX_ISSUES) {
+    res.status(400).json({ error: `issueIds may contain at most ${BULK_MAX_ISSUES} ids` })
+    return
+  }
 
   const placeholders = ids.map(() => '?').join(', ')
   const rows = await all(
-    `SELECT id, issue_key, title, priority, assignee, status, sprint_id, project_id FROM issues WHERE id IN (${placeholders})`,
+    `SELECT ${STATUS_ISSUE_COLUMNS}, issue_key, title, issue_type, epic_id FROM issues WHERE id IN (${placeholders})`,
     ids,
   )
+  const rowById = new Map(rows.map((r) => [r.id, r]))
   const issues = rows.map((r) => ({
     id: r.id,
     key: r.issue_key,
@@ -1167,6 +1217,8 @@ router.post('/bulk', asyncHandler(async (req, res) => {
     priority: r.priority,
     assignee: r.assignee,
     status: r.status,
+    issueType: r.issue_type ?? null,
+    epicId: r.epic_id ?? null,
     sprintId: r.sprint_id ?? null,
     projectId: r.project_id ?? null,
   }))
@@ -1241,6 +1293,17 @@ router.post('/bulk', asyncHandler(async (req, res) => {
     if (!member) assigneeError = 'Assignee not found'
   }
 
+  // JL-190: check every status change against the workflow before anything is
+  // written, so a refused issue keeps all of its fields (no half-applied row)
+  // and a dry run previews the refusal.
+  for (const item of preview) {
+    if (item.error || !item.willChange) continue
+    const statusChange = item.changes.find((c) => c.field === 'status')
+    if (!statusChange) continue
+    const check = await checkStatusTransition(rowById.get(item.issueId), statusChange.to)
+    if (check.error) item.error = check.error
+  }
+
   if (dryRun) {
     // Surface op-level existence errors in the preview for changed issues.
     for (const item of preview) {
@@ -1254,12 +1317,15 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   }
 
   const isDelete = operations.delete === true
+  // status is absent on purpose: it goes through transitionIssueStatus.
   const columnByField = {
-    status: 'status',
     priority: 'priority',
     assignee: 'assignee',
+    issueType: 'issue_type',
     sprintId: 'sprint_id',
   }
+  // Field names in issue_history, matching what PATCH /:id records.
+  const historyField = { sprintId: 'sprint', issueType: 'type' }
 
   let updated = 0
   let skipped = 0
@@ -1303,14 +1369,36 @@ router.post('/bulk', asyncHandler(async (req, res) => {
         continue
       }
 
+      // Status first: it is the change most likely to be refused (e.g. an
+      // approval granted or revoked since the pre-check), and a refusal here
+      // leaves the issue untouched. The transition also places the sprint.
+      const statusChange = item.changes.find((c) => c.field === 'status')
+      const sprintChange = item.changes.find((c) => c.field === 'sprintId')
+      if (statusChange) {
+        const result = await transitionIssueStatus({
+          id: item.issueId,
+          status: statusChange.to,
+          sprintId: sprintChange ? sprintChange.to : undefined,
+          actor: req.user?.email,
+          workspaceId: req.workspaceId,
+        })
+        if (result.error) {
+          skipped += 1
+          errors.push({ issueId: item.issueId, error: result.error })
+          results.push({ issueId: item.issueId, key: item.key, applied: false, error: result.error })
+          continue
+        }
+      }
+
       const sets = []
       const params = []
       for (const change of item.changes) {
         const column = columnByField[change.field]
         if (!column) continue
+        if (change.field === 'sprintId' && statusChange) continue
         sets.push(`${column} = ?`)
         params.push(change.to)
-        await recordHistory(item.issueId, change.field === 'sprintId' ? 'sprint' : change.field, change.from, change.to, req.user?.email)
+        await recordHistory(item.issueId, historyField[change.field] || change.field, change.from, change.to, req.user?.email)
       }
       if (sets.length > 0) {
         sets.push('updated_at = NOW()')
@@ -1331,6 +1419,13 @@ router.post('/bulk', asyncHandler(async (req, res) => {
             )
           }
         }
+      }
+
+      // Same webhook + realtime trail as a single PATCH /:id edit.
+      if (sets.length > 0 || labelChange) {
+        const updatedRow = await get(`SELECT ${ISSUE_ROW_COLUMNS} FROM issues WHERE id = ?`, [item.issueId])
+        if (updatedRow) emitEvent('issue.updated', mapIssue(updatedRow), updatedRow.project_id ?? null).catch(() => {})
+        publish(`issue:${item.issueId}`, { type: 'update', room: `issue:${item.issueId}`, entity: 'issue', id: item.issueId, action: 'updated' })
       }
 
       updated += 1

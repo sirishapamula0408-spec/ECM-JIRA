@@ -48,6 +48,13 @@
   margin-right: 4px;
 }
 
+/* JL-190: wrapper the disabled-state tooltip anchors to; lays out like .backlog-bulk. */
+.bulk-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .bulk-count {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
