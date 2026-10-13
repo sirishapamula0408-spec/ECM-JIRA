@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { NavLink, useLocation, useNavigate, matchPath } from 'react-router-dom'
+import { Link, NavLink, useLocation, matchPath } from 'react-router-dom'
 import { fetchProjectById } from '../../api/projectApi'
 import { useSprints } from '../../context/SprintContext'
 import { TopNavIcon } from '../icons/TopNavIcon'
 import './ProjectTopPanel.css'
 import { sprintsForProject } from '../../utils/sprints'
+import { projectViewLabel } from '../../utils/projectBreadcrumb'
 
 // Routes with no project context — the project navigation strip is hidden on these.
 // Base entries first, then page routes in alphabetical order.
@@ -23,20 +24,8 @@ const HIDDEN_ROUTES = [
   '/users',
 ]
 
-const VIEW_LABELS = {
-  board: 'Board',
-  backlog: 'Backlog',
-  reports: 'Reports',
-  roadmap: 'Timeline',
-  'active-sprint': 'Active sprints',
-  list: 'List',
-  wiki: 'Wiki',
-  settings: 'Settings',
-}
-
 export function ProjectTopPanel({ hasProjects }) {
   const location = useLocation()
-  const navigate = useNavigate()
   // JL-407: the fetched name is stored *with the id it belongs to*, and the
   // displayed name is derived by matching that id against the current URL. This
   // replaced a bare `projectName` string plus a synchronous `setProjectName('')`
@@ -45,7 +34,10 @@ export function ProjectTopPanel({ hasProjects }) {
   // from project A to project B used to leave A's name in the header until B's
   // request came back, because the clear only ran when projectId went falsy. A
   // name that does not belong to the project in the URL is now simply not shown.
-  const [fetched, setFetched] = useState({ id: null, name: '' })
+  //
+  // JL-191: `failed` records a request that came back with no name, so the
+  // crumb can fall back instead of waiting forever.
+  const [fetched, setFetched] = useState({ id: null, name: '', failed: false })
 
   /*
    * JL-460: the Active sprints tab is only offered when there is a started
@@ -75,18 +67,19 @@ export function ProjectTopPanel({ hasProjects }) {
     if (!projectId) return
     let active = true
     fetchProjectById(projectId)
-      .then((data) => { if (active) setFetched({ id: projectId, name: data?.name || '' }) })
-      .catch(() => { if (active) setFetched({ id: projectId, name: '' }) })
+      .then((data) => { if (active) setFetched({ id: projectId, name: data?.name || '', failed: !data?.name }) })
+      .catch(() => { if (active) setFetched({ id: projectId, name: '', failed: true }) })
     return () => { active = false }
   }, [projectId])
 
-  const projectName = projectId && fetched.id === projectId ? fetched.name : ''
-
-  // Determine current view label from the URL tail
-  const viewSegment = projectId
-    ? location.pathname.replace(`/projects/${projectId}`, '').replace(/^\//, '')
-    : ''
-  const currentViewLabel = VIEW_LABELS[viewSegment] || ''
+  // JL-191: the breadcrumb no longer waits for the name. It used to render only
+  // once the name had arrived, so it popped in late and, if the request failed,
+  // never appeared at all.
+  const fetchedThis = Boolean(projectId) && fetched.id === projectId
+  const projectName = fetchedThis ? fetched.name : ''
+  const projectLoading = Boolean(projectId) && !fetchedThis
+  const projectCrumb = projectName || (projectLoading ? '…' : `Project ${projectId}`)
+  const currentViewLabel = projectViewLabel(location.pathname, projectId)
 
   // Build nav items — prefix with project path when a project is active
   const prefix = projectId ? `/projects/${projectId}` : ''
@@ -94,7 +87,7 @@ export function ProjectTopPanel({ hasProjects }) {
   // JL-456: Timeline and Wiki were removed from this strip to shorten it.
   //
   // Their ROUTES are untouched — /projects/:id/roadmap and /projects/:id/wiki
-  // still render, and VIEW_LABELS below still names them in the breadcrumb, so
+  // still render, and VIEW_LABELS (utils/projectBreadcrumb.js) still names them in the breadcrumb, so
   // a bookmark keeps working. Only the tabs are gone.
   //
   // Both keep a way in from the project pages: Roadmap already had quick-action
@@ -139,16 +132,25 @@ export function ProjectTopPanel({ hasProjects }) {
 
   return (
     <div className="project-top-panel-wrapper">
-      {/* Breadcrumbs — shown when inside a project */}
-      {projectId && projectName && (
+      {/* Breadcrumbs — shown when inside a project. JL-191: real links (so
+          middle-click / open-in-new-tab work), and the last crumb is the
+          current page. */}
+      {projectId && (
         <nav className="project-breadcrumbs" aria-label="Breadcrumb">
-          <button type="button" className="project-breadcrumb-link" onClick={() => navigate('/projects')}>Projects</button>
-          <span className="project-breadcrumb-sep">/</span>
-          <button type="button" className="project-breadcrumb-link" onClick={() => navigate(`/projects/${projectId}`)}>{projectName}</button>
+          <Link className="project-breadcrumb-link" to="/projects">Projects</Link>
+          <span className="project-breadcrumb-sep" aria-hidden="true">/</span>
+          <Link
+            className={`project-breadcrumb-link${projectLoading ? ' is-loading' : ''}`}
+            to={`/projects/${projectId}`}
+            aria-busy={projectLoading || undefined}
+            aria-label={projectLoading ? 'Loading project' : undefined}
+          >
+            {projectCrumb}
+          </Link>
           {currentViewLabel && (
             <>
-              <span className="project-breadcrumb-sep">/</span>
-              <span className="project-breadcrumb-current">{currentViewLabel}</span>
+              <span className="project-breadcrumb-sep" aria-hidden="true">/</span>
+              <span className="project-breadcrumb-current" aria-current="page">{currentViewLabel}</span>
             </>
           )}
         </nav>

@@ -84,8 +84,8 @@ describe('JL-456 — the routes and the breadcrumb are untouched', () => {
   it('keeps the project breadcrumb itself unchanged', async () => {
     renderAt('/projects/6/wiki')
     const crumb = await screen.findByRole('navigation', { name: 'Breadcrumb' })
-    expect(within(crumb).getByRole('button', { name: 'Projects' })).toBeInTheDocument()
-    expect(within(crumb).getByRole('button', { name: 'Verify QW2' })).toBeInTheDocument()
+    expect(within(crumb).getByRole('link', { name: 'Projects' })).toBeInTheDocument()
+    expect(await within(crumb).findByRole('link', { name: 'Verify QW2' })).toBeInTheDocument()
   })
 })
 

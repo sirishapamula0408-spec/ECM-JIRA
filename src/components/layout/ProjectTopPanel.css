@@ -32,6 +32,17 @@
   text-decoration: underline;
 }
 
+.project-breadcrumb-link:focus-visible {
+  outline: 2px solid var(--color-primary, #0c66e4);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* JL-191: placeholder while the project name loads. */
+.project-breadcrumb-link.is-loading {
+  color: #97a0af;
+}
+
 .project-breadcrumb-sep {
   color: #97a0af;
   font-size: var(--font-size-sm);
