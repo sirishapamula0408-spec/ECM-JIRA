@@ -24,6 +24,12 @@ const HIDDEN_ROUTES = [
   '/users',
 ]
 
+// JL-192: hidden on exactly these paths, but NOT on their sub-paths. The
+// Projects list is the parent of every project route, so listing it above
+// (which also hides everything under a route) would strip the tabs from every
+// /projects/:projectId page too.
+const HIDDEN_EXACT_ROUTES = ['/projects']
+
 export function ProjectTopPanel({ hasProjects }) {
   const location = useLocation()
   // JL-407: the fetched name is stored *with the id it belongs to*, and the
@@ -125,7 +131,9 @@ export function ProjectTopPanel({ hasProjects }) {
   }
 
   // Hide the navigation ribbon on pages with no project context
-  const isHiddenRoute = HIDDEN_ROUTES.some(
+  // A trailing slash ("/projects/") is the same page.
+  const normalizedPath = location.pathname.length > 1 ? location.pathname.replace(/\/+$/, '') : location.pathname
+  const isHiddenRoute = HIDDEN_EXACT_ROUTES.includes(normalizedPath) || HIDDEN_ROUTES.some(
     (route) => location.pathname === route || (route !== '/' && location.pathname.startsWith(`${route}/`)),
   )
   if (isHiddenRoute || !hasProjects) return null
