@@ -69,6 +69,22 @@ const ROLE_CHIP_COLOR = {
   Viewer: 'default',
 }
 
+// JL-199: a long address wraps after the '@' ("smoketest@" / "sedintechnologies.com")
+// rather than at whatever character happens to reach the edge. The cell's
+// text is unchanged — <wbr> only marks where a break may go.
+function emailWithBreak(email) {
+  const value = String(email || '')
+  const at = value.indexOf('@')
+  if (at < 0) return value
+  return (
+    <>
+      {value.slice(0, at + 1)}
+      <wbr />
+      {value.slice(at + 1)}
+    </>
+  )
+}
+
 // JL-195: project Admin and Lead can manage that project's people, so their
 // chips are filled to stand out from Member/Viewer.
 const PROJECT_ADMIN_ROLES = new Set(['Admin', 'Lead'])
@@ -82,7 +98,7 @@ function ProjectRolesCell({ user }) {
   const roles = Array.isArray(user.projectRoles) ? user.projectRoles : []
   const systemAdmin = user.is_owner || user.role === 'Admin' || user.role === 'Owner'
   return (
-    <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.5} alignItems="center">
+    <Stack className="user-management-project-roles" direction="row" useFlexGap flexWrap="wrap" spacing={0.5} alignItems="center">
       {roles.map((pr) => {
         const projectAdmin = PROJECT_ADMIN_ROLES.has(pr.role)
         return (
@@ -577,7 +593,7 @@ export function UserManagementPage() {
                           <strong>{user.name}</strong>
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell className="user-management-email-cell">{emailWithBreak(user.email)}</TableCell>
                       <TableCell>
                         {owner ? (
                           <Chip

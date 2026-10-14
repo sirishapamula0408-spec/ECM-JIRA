@@ -84,6 +84,29 @@
   gap: 10px;
 }
 
+/* JL-199: long unbroken names and emails (e.g. authtest_1790311961272@gmail.com)
+   held their columns at full length, so once JL-195 added the Projects & roles
+   column the table outgrew its box at 1400 px and clipped Actions. 'anywhere'
+   (not 'break-word') also lowers the column's minimum width, so the table can
+   shrink to fit; values only break when the column is actually that narrow. */
+.user-management-name-cell strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.user-management-email-cell {
+  overflow-wrap: anywhere;
+  /* Ordinary addresses (sirisha@sedintechnologies.com) stay on one line;
+     without a floor the table shrank Email first and split even short ones. */
+  min-width: 200px;
+}
+
+/* JL-199: the Projects & roles chips wrap onto more lines rather than taking
+   the width the Email column needs. */
+.user-management-project-roles {
+  max-width: 200px;
+}
+
 /* JL-386: the fixed `background: var(--jira-blue)` that used to live here made
    every user's avatar the same blue. The colour now comes from avatarStyle()
    as an inline style derived from the user's identity; this rule keeps only the
@@ -91,6 +114,7 @@
 .user-management-avatar.MuiAvatar-root {
   width: 28px;
   height: 28px;
+  flex-shrink: 0; /* JL-199: keep its size when the name beside it wraps */
   font-size: var(--font-size-sm);
 }
 
