@@ -48,6 +48,7 @@ export function usePermissions(projectId) {
         canAddAttachment: false,
         canLinkIssues: false,
         canManageCrossProjectBoards: false,
+        hasRestrictedNav: false,
       }
     }
 
@@ -88,6 +89,13 @@ export function usePermissions(projectId) {
     // Viewer (no project write role) stays blocked.
     const hasAnyProjectWriteRole = (projectRoles || []).some(
       (pr) => (ROLE_RANK[pr.role] || 0) >= ROLE_RANK.Member,
+    )
+
+    // JL-196: a workspace Member/Viewer who is not Admin or Lead of any project
+    // gets only Dashboard and Projects (src/utils/restrictedNav.js). System
+    // admins and project admins keep the full navigation.
+    const hasAnyProjectAdminRole = (projectRoles || []).some(
+      (pr) => (ROLE_RANK[pr.role] || 0) >= ROLE_RANK.Admin,
     )
 
     return {
@@ -149,6 +157,9 @@ export function usePermissions(projectId) {
       // JL-296: mutating shared cross-project boards requires workspace Member+.
       // Workspace-level capability (not project-scoped) — Viewers are read-only.
       canManageCrossProjectBoards: wsRank >= ROLE_RANK.Member,
+
+      // Navigation (JL-196)
+      hasRestrictedNav: !isAdmin && !hasAnyProjectAdminRole,
     }
   }, [currentMember, projectId])
 }

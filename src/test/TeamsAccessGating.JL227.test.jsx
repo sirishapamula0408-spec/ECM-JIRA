@@ -117,9 +117,16 @@ describe('Sidebar "Members" nav link gating (JL-227)', () => {
     renderSidebar()
     expect(screen.queryByRole('link', { name: 'Members' })).not.toBeInTheDocument()
     expect(screen.queryByText('Members')).not.toBeInTheDocument()
-    // JL-425: a Member SHOULD still see Teams — that is the team directory,
-    // which is open to every workspace member. Only the member directory is
-    // gated. Asserting its presence proves the two are now distinct.
+  })
+
+  it('hides Members but shows Teams for a Member who is a project admin', () => {
+    // JL-425: Teams (the team directory) and Members (the member directory)
+    // are distinct — only Members is admin-gated. JL-196 shows a plain
+    // Member only Dashboard and Projects, so the distinction is asserted on a
+    // project admin, who keeps the full left panel.
+    setupMember({ ...MEMBER, projectRoles: [{ projectId: 4, projectKey: 'OICL', projectName: 'OICL', role: 'Admin' }] })
+    renderSidebar()
+    expect(screen.queryByRole('link', { name: 'Members' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Teams' })).toHaveAttribute('href', '/teams')
   })
 
