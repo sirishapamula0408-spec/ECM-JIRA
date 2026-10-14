@@ -215,6 +215,45 @@ async function withDeliveryStatus(rows) {
   })
 }
 
+/**
+ * JL-195 — each member's projects and their role in each, for the Users page.
+ *
+ * Only a system admin (workspace Owner/Admin) gets this. GET /api/members also
+ * feeds the member pickers every user sees, and which projects other people
+ * belong to is exactly what JL-193 stopped leaking to non-members.
+ *
+ * Same rule as resolveProjectAccess: an explicit project_members role, or
+ * 'Lead' for the project lead (projects.lead_member_id) without one. One query
+ * for the whole page; aliases are quoted because PostgreSQL lower-cases
+ * unquoted ones (JL-194).
+ */
+async function withProjectRoles(rows, user) {
+  const list = Array.isArray(rows) ? rows : []
+  const isSystemAdmin = user?.isOwner || user?.workspaceRole === 'Admin'
+  if (!isSystemAdmin || list.length === 0) return list
+  const ids = list.map((r) => r.id)
+  const placeholders = ids.map(() => '?').join(', ')
+  const roleRows = await all(
+    `SELECT m.id AS "memberId", p.id AS "projectId", p.key AS "projectKey", p.name AS "projectName",
+            COALESCE(pm.role, 'Lead') AS role
+       FROM members m
+       JOIN projects p ON p.lead_member_id = m.id
+         OR EXISTS (SELECT 1 FROM project_members x WHERE x.project_id = p.id AND x.member_id = m.id)
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = m.id
+      WHERE m.id IN (${placeholders})
+      ORDER BY p.name ASC`,
+    ids,
+  )
+  const byMember = new Map()
+  for (const r of roleRows || []) {
+    if (!byMember.has(r.memberId)) byMember.set(r.memberId, [])
+    byMember.get(r.memberId).push({
+      projectId: r.projectId, projectKey: r.projectKey, projectName: r.projectName, role: r.role,
+    })
+  }
+  return list.map((r) => ({ ...r, projectRoles: byMember.get(r.id) || [] }))
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const { search, role, status } = req.query
   const paginated =
@@ -252,7 +291,7 @@ router.get('/', asyncHandler(async (req, res) => {
          FROM members m
          ORDER BY m.id ASC`,
     )
-    res.json(await withDeliveryStatus(rows))
+    res.json(await withProjectRoles(await withDeliveryStatus(rows), req.user))
     return
   }
 
@@ -268,7 +307,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const totalRow = await get(`SELECT COUNT(*)::int AS total FROM members m ${where}`, params)
   const total = Number(totalRow?.total || 0)
 
-  res.json({ items: await withDeliveryStatus(rows), total, limit, offset })
+  res.json({ items: await withProjectRoles(await withDeliveryStatus(rows), req.user), total, limit, offset })
 }))
 
 // JL-192: Admin provisions an account directly. Optionally sets a temporary
