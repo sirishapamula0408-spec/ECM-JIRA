@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { get, run, all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 import {
   ESTIMATION_STATISTICS,
   DEFAULT_ESTIMATION_STATISTIC,
@@ -93,7 +93,7 @@ const CONFIG_COLUMNS =
   'project_id, swimlane_by, wip_limits, quick_filters, estimation_statistic, columns'
 
 // GET the board config for a project (returns defaults when none saved).
-router.get('/projects/:projectId/board-config', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/board-config', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const row = await get(
     `SELECT ${CONFIG_COLUMNS} FROM board_configs WHERE project_id = ?`,
@@ -171,7 +171,7 @@ router.put('/projects/:projectId/board-config', requireRole('Admin'), asyncHandl
 
 // GET estimation totals for a project, grouped by sprint plus the backlog,
 // computed with the board's configured estimation statistic (JL-126).
-router.get('/projects/:projectId/estimation-summary', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/estimation-summary', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
 
   const cfg = await get(

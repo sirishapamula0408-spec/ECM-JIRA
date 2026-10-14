@@ -23,15 +23,22 @@ const db = { run: vi.fn(), get: vi.fn(), all: vi.fn(), tableExists: vi.fn(), col
 vi.mock('../db.js', () => db)
 
 vi.mock('../middleware/authorize.js', () => ({
-  requireRole: () => (req, _res, next) => next(),
-  loadProjectRole: () => (req, _res, next) => next(),
-  requireProjectRole: () => (req, _res, next) => next(),
-  loadUserRoles: (req, _res, next) => next(),
   // The route wraps GET /:id in requireProjectRead(issueParamProject('id')).
   // Stubbed to a pass-through: this suite is about ref RESOLUTION, and the
   // guard's own ref handling is asserted separately below.
   requireProjectRead: () => (req, _res, next) => next(),
   requireProjectWrite: () => (req, _res, next) => next(),
+  // JL-193: project-read helpers, stubbed open — this suite is not about project scoping.
+  requireQueryProjectRead: (req, _res, next) => next(),
+  projectParam: () => () => null,
+  issueProjectParam: () => () => null,
+  canAccessProject: async () => true,
+  accessibleProjectIds: async () => null,
+  projectScope: async () => ({ clause: 'TRUE', params: [] }),
+  requireRole: () => (req, _res, next) => next(),
+  loadProjectRole: () => (req, _res, next) => next(),
+  requireProjectRole: () => (req, _res, next) => next(),
+  loadUserRoles: (req, _res, next) => next(),
   ROLE_RANK: { Viewer: 1, Member: 2, Admin: 3, Owner: 4 },
 }))
 vi.mock('../services/issueSecurity.js', () => ({ canViewIssue: () => true }))

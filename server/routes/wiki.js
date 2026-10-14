@@ -14,7 +14,7 @@ import { Router } from 'express'
 import { safeAppendAudit } from '../services/auditLog.js'
 import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireQueryProjectRead, canAccessProject, accessibleProjectIds } from '../middleware/authorize.js'
 import { maxLengthError, WIKI_TITLE_MAX, WIKI_CONTENT_MAX } from '../utils/validation.js'
 // JL-109: comparing two revisions.
 import { diffLines, contentToLines, summarise } from '../utils/textDiff.js'
@@ -74,7 +74,7 @@ async function currentVersion(pageId) {
  */
 async function loadVisiblePage(id, user) {
   const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
-  if (!page || page.deleted_at != null || !canSeePage(page, user)) return null
+  if (!page || page.deleted_at != null || !await canReadPage(page, user)) return null
   return page
 }
 
@@ -132,6 +132,33 @@ function canSeePage(page, user) {
 }
 
 /*
+ * JL-193 — a project's pages belong to that project's members.
+ *
+ * canSeePage only applies the draft rule, so a page attached to a project
+ * was readable by anyone who knew (or guessed) its id. This adds the same
+ * project check the issue routes use; workspace Owner/Admin pass through
+ * canAccessProject. Project-less pages, including Space pages, keep the
+ * open-read rule Spaces have today (JL-85).
+ */
+async function canReadPage(page, user) {
+  if (!canSeePage(page, user)) return false
+  if (page.project_id == null) return true
+  return canAccessProject(user, page.project_id)
+}
+
+/*
+ * JL-193 — the list form of canReadPage, for the tree/list/trash endpoints:
+ * one project lookup for the whole set instead of one per row.
+ */
+async function filterReadable(rows, user) {
+  const ids = await accessibleProjectIds(user)
+  const readable = ids === null ? null : new Set(ids.map(Number))
+  return rows.filter((row) =>
+    canSeePage(row, user) &&
+    (row.project_id == null || readable === null || readable.has(Number(row.project_id))))
+}
+
+/*
  * JL-187 (fosasoft) — the pending draft of a PUBLISHED page.
  *
  * Readers keep seeing what was published while an editor works on the next
@@ -155,7 +182,7 @@ function withoutDraftFor(row, user) {
 }
 
 // GET /api/wiki?projectId=X | ?spaceId=Y — list live pages
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const projectId = req.query.projectId ? Number(req.query.projectId) : null
   const spaceId = req.query.spaceId ? Number(req.query.spaceId) : null
   if (!projectId && !spaceId) {
@@ -169,13 +196,13 @@ router.get('/', asyncHandler(async (req, res) => {
   )
   // A draft belongs to its author until published; everyone else sees the
   // Space as though it does not exist yet.
-  res.json(rows.filter((row) => canSeePage(row, req.user)))
+  res.json(await filterReadable(rows, req.user))
 }))
 
 /* ---------------------------------------------------------------- *
  * JL-91 — the page tree for a Space
  * ---------------------------------------------------------------- */
-router.get('/tree', asyncHandler(async (req, res) => {
+router.get('/tree', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const spaceId = req.query.spaceId ? Number(req.query.spaceId) : null
   const projectId = req.query.projectId ? Number(req.query.projectId) : null
   if (!spaceId && !projectId) {
@@ -187,7 +214,7 @@ router.get('/tree', asyncHandler(async (req, res) => {
     `SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE ${column} = ? AND ${LIVE} ORDER BY title ASC`,
     [spaceId || projectId],
   )
-  const visible = rows.filter((row) => canSeePage(row, req.user))
+  const visible = await filterReadable(rows, req.user)
 
   /*
    * Built in one pass over a map rather than by recursing with a query per
@@ -212,7 +239,7 @@ router.get('/tree', asyncHandler(async (req, res) => {
 /* ---------------------------------------------------------------- *
  * JL-94 — Trash
  * ---------------------------------------------------------------- */
-router.get('/trash', asyncHandler(async (req, res) => {
+router.get('/trash', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const spaceId = req.query.spaceId ? Number(req.query.spaceId) : null
   const projectId = req.query.projectId ? Number(req.query.projectId) : null
   if (!spaceId && !projectId) {
@@ -226,14 +253,14 @@ router.get('/trash', asyncHandler(async (req, res) => {
   )
   // Deleting a draft does not publish it: it stays the author's alone, so the
   // same visibility rule applies in the trash as in the tree.
-  res.json(rows.filter((row) => canSeePage(row, req.user)))
+  res.json(await filterReadable(rows, req.user))
 }))
 
 router.post('/:id/restore', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
   // JL-188: another author's deleted draft is as private as their live one.
-  if (!page || !canSeePage(page, req.user)) {
+  if (!page || !await canReadPage(page, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -266,7 +293,7 @@ router.post('/:id/restore', requireRole('Member'), asyncHandler(async (req, res)
 }))
 
 // GET /api/wiki/search?projectId=X&q=term — full-text search across wiki pages
-router.get('/search', asyncHandler(async (req, res) => {
+router.get('/search', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const projectId = req.query.projectId ? Number(req.query.projectId) : null
   const query = String(req.query.q || '').trim()
   if (!query) {
@@ -274,8 +301,12 @@ router.get('/search', asyncHandler(async (req, res) => {
     return
   }
   const searchTerm = `%${query}%`
-  let sql = 'SELECT id, project_id, title, created_by, updated_at FROM wiki_pages WHERE (title ILIKE ? OR content ILIKE ?)'
-  const params = [searchTerm, searchTerm]
+  // JL-193: search had no visibility rule at all — it matched other people's
+  // drafts, trashed pages and other projects' pages. Same filter as /by-issue.
+  const vis = await pageVisibilityFilter(req.user, '')
+  let sql = `SELECT id, project_id, title, created_by, updated_at FROM wiki_pages
+    WHERE (title ILIKE ? OR content ILIKE ?) AND ${vis.clause}`
+  const params = [searchTerm, searchTerm, ...vis.params]
   if (projectId) {
     sql += ' AND project_id = ?'
     params.push(projectId)
@@ -350,7 +381,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
    * not on the detail fetch is not enforced at all, since the id is guessable.
    * Both cases are 404, not 403: that a draft exists is itself private.
    */
-  if (!row || row.deleted_at != null || !canSeePage(row, req.user)) {
+  if (!row || row.deleted_at != null || !await canReadPage(row, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -597,7 +628,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
   const existing = await get('SELECT * FROM wiki_pages WHERE id = ?', [id])
   // JL-187: the same visibility rule as GET /:id. Without it, anyone with the
   // Member role could overwrite another author's unpublished draft by id.
-  if (!existing || !canSeePage(existing, req.user)) {
+  if (!existing || !await canReadPage(existing, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -726,7 +757,7 @@ router.patch('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
 router.put('/:id/draft', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const page = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [id])
-  if (!page || page.deleted_at != null || !canSeePage(page, req.user)) {
+  if (!page || page.deleted_at != null || !await canReadPage(page, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -786,7 +817,7 @@ router.put('/:id/draft', requireRole('Member'), asyncHandler(async (req, res) =>
 router.post('/:id/publish', requireRole('Member'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const existing = await get('SELECT * FROM wiki_pages WHERE id = ?', [id])
-  if (!existing || existing.deleted_at != null || !canSeePage(existing, req.user)) {
+  if (!existing || existing.deleted_at != null || !await canReadPage(existing, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }
@@ -821,7 +852,7 @@ router.post('/:id/publish', requireRole('Member'), asyncHandler(async (req, res)
   if (targetParent != null) {
     const parent = await get(`SELECT ${PAGE_COLUMNS} FROM wiki_pages WHERE id = ?`, [targetParent])
     if (
-      !parent || parent.deleted_at != null || !canSeePage(parent, req.user) ||
+      !parent || parent.deleted_at != null || !await canReadPage(parent, req.user) ||
       (targetSpace != null && Number(parent.space_id) !== Number(targetSpace))
     ) {
       res.status(400).json({ error: 'The parent must be a page in the same space' })
@@ -883,7 +914,7 @@ router.delete('/:id', requireRole('Member'), asyncHandler(async (req, res) => {
    * A page already in the trash is 404 too — deleting it again would only
    * overwrite who deleted it and when.
    */
-  if (!page || page.deleted_at != null || !canSeePage(page, req.user)) {
+  if (!page || page.deleted_at != null || !await canReadPage(page, req.user)) {
     res.status(404).json({ error: 'Wiki page not found' })
     return
   }

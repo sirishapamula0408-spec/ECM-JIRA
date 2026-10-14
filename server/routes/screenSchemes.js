@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -197,7 +197,7 @@ router.put('/projects/:projectId/screen-schemes/:issueType', requireRole('Admin'
 // GET /api/projects/:projectId/screen-schemes/:issueType/resolved — the effective
 // ordered field list for an issue type. Falls back to the "all fields" default
 // when no scheme is configured, so existing projects behave exactly as today.
-router.get('/projects/:projectId/screen-schemes/:issueType/resolved', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/screen-schemes/:issueType/resolved', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const issueType = String(req.params.issueType || '').trim()
 

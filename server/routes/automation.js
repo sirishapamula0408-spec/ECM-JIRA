@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 import { TRIGGER_TYPES, ACTION_TYPES } from '../services/automation.js'
 import { safeAppendAudit } from '../services/auditLog.js'
 
@@ -24,7 +24,7 @@ function mapRule(row) {
 }
 
 // GET /api/projects/:projectId/automation-rules
-router.get('/projects/:projectId/automation-rules', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/automation-rules', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const rows = await all('SELECT * FROM automation_rules WHERE project_id = ? ORDER BY id DESC', [Number(req.params.projectId)])
   res.json(rows.map(mapRule))
 }))
@@ -102,7 +102,7 @@ router.delete('/automation-rules/:id', requireRole('Admin'), asyncHandler(async 
 }))
 
 // GET /api/projects/:projectId/automation-logs — recent execution log
-router.get('/projects/:projectId/automation-logs', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/automation-logs', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const rows = await all(
     `SELECT l.id, l.rule_id, l.issue_id, l.status, l.message, l.created_at, r.name AS rule_name
      FROM automation_logs l JOIN automation_rules r ON r.id = l.rule_id

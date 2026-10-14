@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, issueProjectParam } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -74,7 +74,7 @@ router.post('/ci/status', requireRole('Member'), asyncHandler(async (req, res) =
 }))
 
 // GET /api/issues/:id/ci-builds — latest builds for the issue (newest first).
-router.get('/issues/:id/ci-builds', asyncHandler(async (req, res) => {
+router.get('/issues/:id/ci-builds', requireProjectRead(issueProjectParam('id')), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.id)
   const rows = await all(
     `SELECT id, issue_id, pipeline, branch, commit_ref, status, url, duration_seconds, created_at

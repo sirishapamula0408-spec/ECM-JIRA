@@ -11,6 +11,15 @@ import request from 'supertest'
 const db = { run: vi.fn(), get: vi.fn(), all: vi.fn(), tableExists: vi.fn(), columnExists: vi.fn(), withTransaction: vi.fn() }
 vi.mock('../db.js', () => db)
 vi.mock('../middleware/authorize.js', () => ({
+  // JL-193: project-read helpers, stubbed open — this suite is not about project scoping.
+  requireProjectRead: () => (req, _res, next) => next(),
+  requireProjectWrite: () => (req, _res, next) => next(),
+  requireQueryProjectRead: (req, _res, next) => next(),
+  projectParam: () => () => null,
+  issueProjectParam: () => () => null,
+  canAccessProject: async () => true,
+  accessibleProjectIds: async () => null,
+  projectScope: async () => ({ clause: 'TRUE', params: [] }),
   requireRole: () => (req, _res, next) => next(),
   loadProjectRole: () => (req, _res, next) => next(),
   requireProjectRole: () => (req, _res, next) => next(),

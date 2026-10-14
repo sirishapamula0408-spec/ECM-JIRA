@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -77,7 +77,7 @@ export async function materializeProjectPriorities(projectId) {
 /* ================= Priorities ================= */
 
 // GET effective priorities for a project (project overrides or global defaults)
-router.get('/projects/:projectId/priorities', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/priorities', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   res.json(await effectiveList('issue_priorities', projectId))
 }))
@@ -149,7 +149,7 @@ router.delete('/priorities/:id', requireRole('Admin'), asyncHandler(async (req, 
 /* ================= Statuses ================= */
 
 // GET effective statuses for a project (project overrides or global defaults)
-router.get('/projects/:projectId/statuses', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/statuses', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   res.json(await effectiveList('issue_statuses', projectId, ', category'))
 }))

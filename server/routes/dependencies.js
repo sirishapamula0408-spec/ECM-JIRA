@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all } from '../db.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { asyncHandler } from '../middleware/errorHandler.js'import { requireProjectRead, projectParam } from '../middleware/authorize.js'
+
 
 const router = Router()
 
@@ -151,7 +152,7 @@ function detectCycles(byId, adjacency, keyOf) {
 }
 
 // GET /api/projects/:id/dependencies
-router.get('/projects/:id/dependencies', asyncHandler(async (req, res) => {
+router.get('/projects/:id/dependencies', requireProjectRead(projectParam('id')), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
 
   const issues = await all(

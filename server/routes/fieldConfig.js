@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -87,7 +87,7 @@ export async function validateRequiredFields(projectId, issueType, providedField
 }
 
 // GET /api/projects/:id/field-config — list all field configs for a project
-router.get('/projects/:id/field-config', asyncHandler(async (req, res) => {
+router.get('/projects/:id/field-config', requireProjectRead(projectParam('id')), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const rows = await all(
     'SELECT id, project_id, issue_type, field_key, is_required, is_hidden, default_value FROM field_configurations WHERE project_id = ? ORDER BY id ASC',

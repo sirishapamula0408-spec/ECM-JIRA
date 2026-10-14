@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses } from '../middleware/validate.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 import { VALIDATOR_TYPES, POST_FUNCTION_TYPES } from '../services/workflow.js'
 
 const router = Router()
@@ -66,7 +66,7 @@ function validatePostFunctions(list) {
 }
 
 // GET /api/projects/:projectId/workflow-transitions — list transitions for a project
-router.get('/projects/:projectId/workflow-transitions', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/workflow-transitions', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const rows = await all(
     'SELECT * FROM workflow_transitions WHERE project_id = ? ORDER BY id ASC',
     [Number(req.params.projectId)],

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { all, get } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses } from '../middleware/validate.js'
+import { requireProjectRead, projectParam } from '../middleware/authorize.js'
 import {
   aggregateTimeInStatus,
   computeCycleTimeHours,
@@ -81,7 +82,7 @@ async function loadProjectHistory(req, res) {
 // GET /api/projects/:id/reports/time-in-status
 // Per-issue and aggregated milliseconds/hours spent in each status, from the
 // change history.
-router.get('/projects/:id/reports/time-in-status', asyncHandler(async (req, res) => {
+router.get('/projects/:id/reports/time-in-status', requireProjectRead(projectParam('id')), asyncHandler(async (req, res) => {
   const loaded = await loadProjectHistory(req, res)
   if (!loaded) return
 
@@ -97,7 +98,7 @@ router.get('/projects/:id/reports/time-in-status', asyncHandler(async (req, res)
 // GET /api/projects/:id/reports/control-chart?window=7
 // Cycle-time scatter (one point per completed issue) with a trailing rolling
 // mean and standard deviation.
-router.get('/projects/:id/reports/control-chart', asyncHandler(async (req, res) => {
+router.get('/projects/:id/reports/control-chart', requireProjectRead(projectParam('id')), asyncHandler(async (req, res) => {
   const loaded = await loadProjectHistory(req, res)
   if (!loaded) return
 

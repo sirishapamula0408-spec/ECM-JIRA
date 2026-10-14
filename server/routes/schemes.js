@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 
 /**
  * Role hierarchy used to resolve grants. Lead is treated as an Admin-equivalent
@@ -323,7 +323,7 @@ router.put('/projects/:id/notification-scheme', requireRole('Admin'), asyncHandl
 
 // GET /api/projects/:id/effective-permissions — resolve the project's scheme
 // (or the default when unassigned) into a role → capability map.
-router.get('/projects/:id/effective-permissions', asyncHandler(async (req, res) => {
+router.get('/projects/:id/effective-permissions', requireProjectRead(projectParam('id')), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   const project = await get('SELECT id, permission_scheme_id FROM projects WHERE id = ?', [projectId])
   if (!project) {

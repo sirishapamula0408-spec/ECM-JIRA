@@ -1,4 +1,4 @@
-import { get } from '../db.js'
+import { all, get } from '../db.js'
 
 /**
  * Role hierarchy: Owner > Admin > Member > Viewer (workspace),
@@ -252,3 +252,66 @@ export function requireProjectWrite(resolveId) {
     }
   }
 }
+
+/**
+ * JL-193: resolvers for requireProjectRead/Write, shared so each route file does
+ * not restate them. `projectParam` reads a numeric project id from the path;
+ * `issueProjectParam` loads the owning project of the issue in the path. Both
+ * return null for a malformed or unknown target, which lets the request through
+ * to the handler's own 404 / project-less behaviour (see requireProjectRead).
+ */
+export const projectParam = (param = 'projectId') => (req) => {
+  const id = Number(req.params[param])
+  return Number.isInteger(id) ? id : null
+}
+
+export const issueProjectParam = (param = 'issueId') => async (req) => {
+  const id = Number(req.params[param])
+  if (!Number.isInteger(id)) return null
+  const row = await get('SELECT project_id FROM issues WHERE id = ?', [id])
+  return row?.project_id ?? null
+}
+
+/**
+ * JL-193: the project ids this caller may read, or `null` meaning "all"
+ * (workspace Owner/Admin). Same membership rule as resolveProjectAccess: an
+ * explicit project_members row or being the project lead.
+ */
+export async function accessibleProjectIds(user) {
+  if (user?.isOwner || user?.workspaceRole === 'Admin') return null
+  const memberId = user?.memberId ?? null
+  const rows = await all(
+    `SELECT p.id FROM projects p
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
+      WHERE pm.member_id IS NOT NULL OR p.lead_member_id = ?`,
+    [memberId, memberId],
+  )
+  return rows.map((r) => r.id)
+}
+
+/**
+ * JL-193: SQL fragment narrowing a query to the caller's readable projects, for
+ * workspace-wide reads (dashboard metrics, reports without a projectId, the
+ * roadmap). Same rule as the issue list (JL-225): accessible projects plus
+ * project-less (legacy) rows. Returns `{ clause, params }`; `clause` is
+ * parenthesised and ready to AND into a WHERE, and is 'TRUE' for admins.
+ * An empty id list becomes FALSE explicitly — `IN ()` is a syntax error.
+ */
+export async function projectScope(user, column = 'project_id') {
+  const ids = await accessibleProjectIds(user)
+  if (ids === null) return { clause: 'TRUE', params: [] }
+  const inList = ids.length ? `${column} IN (${ids.map(() => '?').join(', ')})` : 'FALSE'
+  return { clause: `(${inList} OR ${column} IS NULL)`, params: ids }
+}
+
+/**
+ * JL-193: read gate for endpoints that take the project as `?projectId=`
+ * (reports, approval rules, wiki search). Without the parameter the request is
+ * a workspace-wide read and the handler must narrow it with projectScope().
+ */
+export const requireQueryProjectRead = requireProjectRead((req) => {
+  const raw = req.query.projectId
+  if (raw === undefined || raw === '') return null
+  const id = Number(raw)
+  return Number.isInteger(id) ? id : null
+})
