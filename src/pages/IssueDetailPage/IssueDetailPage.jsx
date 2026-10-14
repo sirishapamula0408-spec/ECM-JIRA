@@ -2105,16 +2105,23 @@ export function IssueDetailPage() {
                 </dd>
               </div>
 
-              {/* Reporter — read-only (JL-77: from persisted issue.reporter) */}
+              {/* Reporter — read-only (JL-77: from persisted issue.reporter).
+                  JL-197: an issue with no reporter shows None. It used to fall
+                  back to profile.full_name — the VIEWER's own name — so each
+                  person who opened it saw themselves as its reporter. */}
               <div className="id-detail-row">
                 <dt>Reporter</dt>
                 <dd>
-                  <div className="id-detail-user">
-                    <span className="id-detail-avatar" style={avatarStyle(issue.reporter || profile?.full_name)}>
-                      {(issue.reporter || profile?.full_name || 'U').slice(0, 2).toUpperCase()}
-                    </span>
-                    <span>{issue.reporter || profile?.full_name || 'Unknown'}</span>
-                  </div>
+                  {issue.reporter ? (
+                    <div className="id-detail-user">
+                      <span className="id-detail-avatar" style={avatarStyle(issue.reporter)}>
+                        {issue.reporter.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span>{issue.reporter}</span>
+                    </div>
+                  ) : (
+                    <span className="id-empty-value">None</span>
+                  )}
                 </dd>
               </div>
 

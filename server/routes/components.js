@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam, issueProjectParam, requireProjectWrite } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -17,7 +17,7 @@ function mapComponent(row) {
 }
 
 // GET /api/projects/:projectId/components — list components (with issue counts)
-router.get('/projects/:projectId/components', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/components', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const rows = await all(
     `SELECT c.id, c.project_id, c.name, c.description, c.lead,
@@ -110,7 +110,7 @@ router.delete('/projects/:projectId/components/:componentId', requireRole('Admin
 }))
 
 // GET /api/issues/:issueId/components — components assigned to an issue
-router.get('/issues/:issueId/components', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/components', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     `SELECT c.id, c.project_id, c.name, c.description, c.lead
@@ -122,7 +122,7 @@ router.get('/issues/:issueId/components', asyncHandler(async (req, res) => {
 }))
 
 // PUT /api/issues/:issueId/components — replace-all set. Body: { componentIds: [] }
-router.put('/issues/:issueId/components', requireRole('Member'), asyncHandler(async (req, res) => {
+router.put('/issues/:issueId/components', requireProjectWrite(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const componentIds = Array.isArray(req.body?.componentIds)
     ? req.body.componentIds.map(Number).filter(Number.isInteger)

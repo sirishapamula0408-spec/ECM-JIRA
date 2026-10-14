@@ -1,7 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { MobileBottomNav } from '../components/layout/MobileBottomNav'
+
+// JL-196: the bar reads hasRestrictedNav; default to a full-navigation user.
+const { navState } = vi.hoisted(() => ({ navState: { hasRestrictedNav: false } }))
+vi.mock('../hooks/usePermissions', () => ({ usePermissions: () => navState }))
 
 // NOTE: the bar is `display:none` by default (shown only < 768px via a CSS
 // media query), so queries use `{ hidden: true }` to reach the DOM nodes.
@@ -14,6 +18,17 @@ function renderNav(props = {}) {
 }
 
 describe('MobileBottomNav', () => {
+  beforeEach(() => { navState.hasRestrictedNav = false })
+
+  it('JL-196: a restricted user gets Projects instead of the global Board and Backlog', () => {
+    navState.hasRestrictedNav = true
+    renderNav()
+    expect(screen.getByRole('link', { name: 'Projects', hidden: true }).getAttribute('href')).toBe('/projects')
+    expect(screen.queryByRole('link', { name: 'Board', hidden: true })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Backlog', hidden: true })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dashboard', hidden: true })).toBeInTheDocument()
+  })
+
   it('renders the navigation landmark', () => {
     renderNav()
     const nav = screen.getByRole('navigation', { hidden: true })

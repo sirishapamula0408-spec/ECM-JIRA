@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireQueryProjectRead, requireProjectRead, issueProjectParam, projectScope } from '../middleware/authorize.js'
 import { validStatuses } from '../middleware/validate.js'
 import { createNotification } from './notifications.js'
 import {
@@ -17,13 +17,18 @@ const VALID_APPROVER_ROLES = ['Admin', 'Member', 'Lead']
 const router = Router()
 
 // GET /api/approvals/rules?projectId=X — list approval rules
-router.get('/rules', asyncHandler(async (req, res) => {
+router.get('/rules', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const projectId = req.query.projectId ? Number(req.query.projectId) : null
   let sql = 'SELECT id, project_id, from_status, to_status, required_approvals, approver_role, created_at FROM approval_rules'
   const params = []
   if (projectId) {
     sql += ' WHERE project_id = ?'
     params.push(projectId)
+  } else {
+    // JL-193: without a projectId, only rules of projects the caller can read.
+    const scope = await projectScope(req.user)
+    sql += ` WHERE ${scope.clause}`
+    params.push(...scope.params)
   }
   sql += ' ORDER BY id ASC'
   const rows = await all(sql, params)
@@ -60,7 +65,7 @@ router.delete('/rules/:id', requireRole('Admin'), asyncHandler(async (req, res) 
 }))
 
 // GET /api/approvals/issue/:issueId — list approvals for an issue
-router.get('/issue/:issueId', asyncHandler(async (req, res) => {
+router.get('/issue/:issueId', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     'SELECT id, issue_id, from_status, to_status, approver_email, decision, comment, created_at FROM approvals WHERE issue_id = ? ORDER BY created_at DESC',
@@ -70,7 +75,7 @@ router.get('/issue/:issueId', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/approvals/issue/:issueId — submit approval decision
-router.post('/issue/:issueId', asyncHandler(async (req, res) => {
+router.post('/issue/:issueId', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const { fromStatus, toStatus, decision, comment = '' } = req.body
   const approverEmail = req.user.email
@@ -131,7 +136,7 @@ router.post('/issue/:issueId', asyncHandler(async (req, res) => {
 }))
 
 // GET /api/approvals/check/:issueId — check if transition requires approval
-router.get('/check/:issueId', asyncHandler(async (req, res) => {
+router.get('/check/:issueId', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const toStatus = req.query.toStatus
   const issue = await get('SELECT id, status, project_id FROM issues WHERE id = ?', [issueId])

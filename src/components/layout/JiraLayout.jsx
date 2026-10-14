@@ -1,8 +1,10 @@
-import { Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { ProjectTopPanel } from './ProjectTopPanel'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { LoadingSkeleton } from '../LoadingSkeleton'
+import { usePermissions } from '../../hooks/usePermissions'
+import { isPathAllowedForRestrictedNav } from '../../utils/restrictedNav'
 
 /*
  * JL-153 — the JIRA Lite product shell. Level 2, sibling of ConfluenceLayout.
@@ -28,6 +30,14 @@ import { LoadingSkeleton } from '../LoadingSkeleton'
  * `.workspace` grid in RootLayout, and a fragment adds no DOM node.
  */
 export function JiraLayout({ collapsed, onCreateProject, projectRefreshKey, hasProjects, loading, error }) {
+  const { loaded, hasRestrictedNav } = usePermissions()
+  const { pathname } = useLocation()
+  // JL-196: a page hidden from a restricted user's left panel is blocked too,
+  // so typing its URL lands on the Dashboard. Only decided once the user's
+  // permissions have LOADED — deciding earlier would bounce a permitted user
+  // on every page refresh.
+  const blocked = loaded && hasRestrictedNav && !isPathAllowedForRestrictedNav(pathname)
+
   return (
     <>
       <Sidebar
@@ -46,7 +56,7 @@ export function JiraLayout({ collapsed, onCreateProject, projectRefreshKey, hasP
         {loading && <LoadingSkeleton />}
         {!loading && (
           <ErrorBoundary>
-            <Outlet />
+            {blocked ? <Navigate to="/" replace /> : <Outlet />}
           </ErrorBoundary>
         )}
       </main>

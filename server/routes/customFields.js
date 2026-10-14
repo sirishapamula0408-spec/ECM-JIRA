@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole, requireProjectWrite } from '../middleware/authorize.js'
+import { requireRole, requireProjectWrite, requireProjectRead, projectParam, issueProjectParam } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -114,7 +114,7 @@ function evaluateFormula(formula, values) {
 /* ------------------------------ definitions ------------------------------- */
 
 // GET /api/projects/:projectId/custom-fields — list definitions
-router.get('/projects/:projectId/custom-fields', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/custom-fields', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const rows = await all(
     'SELECT * FROM custom_fields WHERE project_id = ? ORDER BY id ASC',
     [Number(req.params.projectId)],
@@ -168,7 +168,7 @@ router.delete('/custom-fields/:id', requireRole('Admin'), asyncHandler(async (re
 /* -------------------------------- values ---------------------------------- */
 
 // GET /api/issues/:issueId/custom-fields — every project field def + this issue's value
-router.get('/issues/:issueId/custom-fields', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/custom-fields', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const issue = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
   if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }

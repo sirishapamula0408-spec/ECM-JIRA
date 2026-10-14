@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 
 // JL-330: Workflow Editor node layout, persisted server-side.
 //
@@ -66,7 +66,7 @@ export function sanitizePositions(raw) {
 // GET /api/projects/:projectId/workflow-layout — the saved node layout.
 // Never 404s: a project without a stored layout simply has no saved
 // coordinates yet, and the client falls back to its auto-layout.
-router.get('/projects/:projectId/workflow-layout', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/workflow-layout', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const row = await get('SELECT positions, updated_at FROM workflow_layouts WHERE project_id = ?', [projectId])
   res.json(mapLayout(projectId, row))

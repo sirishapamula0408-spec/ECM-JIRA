@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 import { listTemplates, getTemplate } from '../services/workflowTemplates.js'
 import { materializeProjectStatuses } from './issueConfig.js'
 
@@ -42,7 +42,7 @@ router.get('/workflow-templates', asyncHandler(async (_req, res) => {
 }))
 
 // GET /api/projects/:projectId/workflow-definitions — this project's named workflows
-router.get('/projects/:projectId/workflow-definitions', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/workflow-definitions', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const rows = await all(
     'SELECT * FROM project_workflows WHERE project_id = ? ORDER BY is_default DESC, id ASC',
     [Number(req.params.projectId)],

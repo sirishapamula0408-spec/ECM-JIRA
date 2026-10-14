@@ -4,6 +4,7 @@ import { SidebarNavIcon } from '../icons/SidebarNavIcon'
 import { fetchProjects } from '../../api/projectApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { usePluginContributions } from '../../hooks/usePluginContributions'
+import { RESTRICTED_NAV_LABELS } from '../../utils/restrictedNav'
 import './Sidebar.css'
 
 // JL-277: launch sidebar shows only these sections; flip LAUNCH_SIDEBAR to false to restore the full nav.
@@ -16,7 +17,10 @@ const LAUNCH_NAV = ['Projects', 'Teams', 'Members', 'Users', 'Filters', 'Activit
 const launchFilter = (item) => !LAUNCH_SIDEBAR || LAUNCH_NAV.includes(item.label)
 
 export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProjects }) {
-  const { canCreateProject, canManageUsers, canManageMembers } = usePermissions()
+  const { canCreateProject, canManageUsers, canManageMembers, hasRestrictedNav } = usePermissions()
+  // JL-196: a Member/Viewer who is not a project admin sees only Dashboard and
+  // Projects; the route guard in JiraLayout blocks the rest by URL too.
+  const navFilter = (item) => !hasRestrictedNav || RESTRICTED_NAV_LABELS.includes(item.label)
   // JL-145: declarative plugin nav-item contributions, rendered as safe links.
   const { contributions: pluginNavItems } = usePluginContributions('nav-item')
   const navigate = useNavigate()
@@ -88,7 +92,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
   const primaryItems = [
     { label: 'Recent', path: '/backlog', icon: 'recent' },
     { label: 'Projects', path: '/projects', icon: 'spaces', hasInlineActions: true },
-  ].filter(launchFilter)
+  ].filter(launchFilter).filter(navFilter)
 
   const productItems = [
     // JL-419/JL-425: the Atlassian-style team directory. Open to every
@@ -125,7 +129,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
     { label: 'Incidents', path: '/incidents', icon: 'workflow' },
     { label: 'Apps', path: '/plugins', icon: 'dashboards' },
     { label: 'BI Export', path: '/bi-export', icon: 'dashboards' },
-  ].filter(launchFilter)
+  ].filter(launchFilter).filter(navFilter)
 
   const utilityItems = [
     { label: 'Filters', path: '/filters', icon: 'filters' },
@@ -135,7 +139,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
     { label: 'Advanced Roadmap', path: '/advanced-roadmap', icon: 'roadmap' },
     { label: 'Shared Dashboards', path: '/shared-dashboards', icon: 'dashboards' },
     { label: 'Cross-Project Boards', path: '/cross-project-boards', icon: 'dashboards' },
-  ].filter(launchFilter)
+  ].filter(launchFilter).filter(navFilter)
 
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
@@ -305,6 +309,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
 
       {primaryItems.length > 0 && <div className="sidebar-divider" />}
 
+      {productItems.length > 0 && (
       <nav aria-label="Workspace tools">
         {productItems.map((item) => {
           const isAllowed = hasProjects || item.label === 'Teams' || item.label === 'Members' || item.label === 'Users'
@@ -330,6 +335,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
           )
         })}
       </nav>
+      )}
 
       <div className="sidebar-box">
         <nav aria-label="Views and dashboards">
@@ -357,7 +363,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
       </div>
 
       {/* JL-145: plugin-contributed nav items (declarative, safe links only) — hidden while LAUNCH_SIDEBAR is on (JL-277) */}
-      {!LAUNCH_SIDEBAR && pluginNavItems.length > 0 && (
+      {!LAUNCH_SIDEBAR && !hasRestrictedNav && pluginNavItems.length > 0 && (
         <>
           <div className="sidebar-divider" />
           <nav aria-label="App navigation">

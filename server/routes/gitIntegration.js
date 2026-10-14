@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses } from '../middleware/validate.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, issueProjectParam, requireProjectWrite } from '../middleware/authorize.js'
 import { parseTimeToMinutes } from './worklogs.js'
 import { safeEqual } from '../utils/safeEqual.js'
 
@@ -139,7 +139,7 @@ export async function applySmartCommit(parsed, actions = {}) {
 }
 
 // GET /api/issues/:issueId/git-links — list all git links for an issue
-router.get('/issues/:issueId/git-links', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/git-links', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     `SELECT id, issue_id, link_type, ref, url, title, author, created_at
@@ -150,7 +150,7 @@ router.get('/issues/:issueId/git-links', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/git-links — manually add a git link
-router.post('/issues/:issueId/git-links', requireRole('Member'), asyncHandler(async (req, res) => {
+router.post('/issues/:issueId/git-links', requireProjectWrite(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const linkType = String(req.body?.linkType || '').trim()
   const ref = String(req.body?.ref || '').trim()
@@ -248,7 +248,7 @@ router.post('/git/ingest', requireRole('Member'), asyncHandler(async (req, res) 
 }))
 
 // GET /api/issues/:issueId/deployments — list deployments recorded for an issue
-router.get('/issues/:issueId/deployments', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/deployments', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     `SELECT id, issue_id, environment, status, version, url, deployed_at, created_at

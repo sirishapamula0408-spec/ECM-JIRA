@@ -69,6 +69,55 @@ const ROLE_CHIP_COLOR = {
   Viewer: 'default',
 }
 
+// JL-199: a long address wraps after the '@' ("smoketest@" / "sedintechnologies.com")
+// rather than at whatever character happens to reach the edge. The cell's
+// text is unchanged — <wbr> only marks where a break may go.
+function emailWithBreak(email) {
+  const value = String(email || '')
+  const at = value.indexOf('@')
+  if (at < 0) return value
+  return (
+    <>
+      {value.slice(0, at + 1)}
+      <wbr />
+      {value.slice(at + 1)}
+    </>
+  )
+}
+
+// JL-195: project Admin and Lead can manage that project's people, so their
+// chips are filled to stand out from Member/Viewer.
+const PROJECT_ADMIN_ROLES = new Set(['Admin', 'Lead'])
+
+/**
+ * JL-195 — the "Projects & roles" cell: one chip per project, e.g. "OICL · Admin".
+ * A system admin (workspace Owner/Admin) can open every project whatever their
+ * memberships, so their row says so rather than looking like a project-less user.
+ */
+function ProjectRolesCell({ user }) {
+  const roles = Array.isArray(user.projectRoles) ? user.projectRoles : []
+  const systemAdmin = user.is_owner || user.role === 'Admin' || user.role === 'Owner'
+  return (
+    <Stack className="user-management-project-roles" direction="row" useFlexGap flexWrap="wrap" spacing={0.5} alignItems="center">
+      {roles.map((pr) => {
+        const projectAdmin = PROJECT_ADMIN_ROLES.has(pr.role)
+        return (
+          <Chip
+            key={pr.projectId}
+            size="small"
+            label={`${pr.projectKey} · ${pr.role}`}
+            title={`${pr.projectName}: ${pr.role}${projectAdmin ? ' (can manage this project)' : ''}`}
+            color={projectAdmin ? 'primary' : 'default'}
+            variant={projectAdmin ? 'filled' : 'outlined'}
+          />
+        )
+      })}
+      {systemAdmin && <span className="muted">All projects (system admin)</span>}
+      {!systemAdmin && roles.length === 0 && <span className="muted">No projects</span>}
+    </Stack>
+  )
+}
+
 function formatLastActivity(value) {
   if (!value) return '—'
   const date = new Date(value)
@@ -510,7 +559,8 @@ export function UserManagementPage() {
                   </TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
-                  <TableCell>Role</TableCell>
+                  <TableCell>System role</TableCell>
+                  <TableCell>Projects &amp; roles</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Invite email</TableCell>
                   {hasLastActivity && <TableCell>Last activity</TableCell>}
@@ -543,7 +593,7 @@ export function UserManagementPage() {
                           <strong>{user.name}</strong>
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
+                      <TableCell className="user-management-email-cell">{emailWithBreak(user.email)}</TableCell>
                       <TableCell>
                         {owner ? (
                           <Chip
@@ -568,6 +618,9 @@ export function UserManagementPage() {
                             ))}
                           </Select>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <ProjectRolesCell user={user} />
                       </TableCell>
                       <TableCell>
                         <Chip

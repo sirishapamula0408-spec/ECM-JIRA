@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { asyncHandler } from '../middleware/errorHandler.js'import { requireProjectRead, issueProjectParam } from '../middleware/authorize.js'
+
 
 const router = Router()
 
 // GET /api/issues/:issueId/watchers — list watchers for an issue
-router.get('/:issueId/watchers', asyncHandler(async (req, res) => {
+router.get('/:issueId/watchers', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   // Join with members table for name/avatar info
   const rows = await all(
@@ -19,7 +20,7 @@ router.get('/:issueId/watchers', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/watchers — watch an issue
-router.post('/:issueId/watchers', asyncHandler(async (req, res) => {
+router.post('/:issueId/watchers', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const email = req.user.email
 

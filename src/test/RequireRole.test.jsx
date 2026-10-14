@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RequireRole } from '../components/auth/RequireRole'
 
 // Mock usePermissions
@@ -142,6 +143,98 @@ describe('RequireRole', () => {
       )
       expect(screen.getByText('Delete')).toBeInTheDocument()
       expect(screen.queryByText('No access')).not.toBeInTheDocument()
+    })
+  })
+
+  /* JL-198: on a fresh page load usePermissions reports loaded:false with every
+     capability false until /api/auth/me returns. Deciding then bounced a system
+     admin off /users and /members on every direct visit or refresh. */
+  describe('before permissions load (JL-198)', () => {
+    const NOT_LOADED = { loaded: false, workspaceRole: null, isOwner: false, isAdmin: false, canManageUsers: false }
+
+    // The App.jsx composition: a route guarded with a redirect fallback.
+    const renderGuardedRoute = () => render(
+      <MemoryRouter initialEntries={['/users']}>
+        <Routes>
+          <Route path="/" element={<h1>Dashboard</h1>} />
+          <Route
+            path="/users"
+            element={(
+              <RequireRole permission="canManageUsers" fallback={<Navigate to="/" replace />}>
+                <h1>User Management</h1>
+              </RequireRole>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    it('does not redirect while permissions are loading', () => {
+      usePermissions.mockReturnValue(NOT_LOADED)
+      renderGuardedRoute()
+      expect(screen.queryByRole('heading', { name: 'Dashboard' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'User Management' })).not.toBeInTheDocument()
+    })
+
+    it("shows the page once a system admin's permissions arrive (refresh sequence)", () => {
+      usePermissions.mockReturnValue(NOT_LOADED)
+      const { rerender } = renderGuardedRoute()
+      setupPermissions({ workspaceRole: 'Admin', isAdmin: true, canManageUsers: true })
+      rerender(
+        <MemoryRouter initialEntries={['/users']}>
+          <Routes>
+            <Route path="/" element={<h1>Dashboard</h1>} />
+            <Route
+              path="/users"
+              element={(
+                <RequireRole permission="canManageUsers" fallback={<Navigate to="/" replace />}>
+                  <h1>User Management</h1>
+                </RequireRole>
+              )}
+            />
+          </Routes>
+        </MemoryRouter>,
+      )
+      expect(screen.getByRole('heading', { name: 'User Management' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Dashboard' })).not.toBeInTheDocument()
+    })
+
+    it('still redirects a user without the permission once loaded', () => {
+      setupPermissions({ workspaceRole: 'Member', canManageUsers: false })
+      renderGuardedRoute()
+      expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'User Management' })).not.toBeInTheDocument()
+    })
+
+    it('renders no inline fallback while loading', () => {
+      usePermissions.mockReturnValue(NOT_LOADED)
+      render(
+        <RequireRole role="Admin" fallback={<span>No access</span>}>
+          <button>Delete</button>
+        </RequireRole>,
+      )
+      expect(screen.queryByText('No access')).not.toBeInTheDocument()
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    })
+
+    it("keeps 'disable' mode showing its children disabled while loading", () => {
+      usePermissions.mockReturnValue(NOT_LOADED)
+      render(
+        <RequireRole permission="canManageUsers" mode="disable">
+          <button>Invite</button>
+        </RequireRole>,
+      )
+      expect(screen.getByText('Invite')).toBeDisabled()
+    })
+
+    it('renders an ungated wrapper (no role or permission) immediately', () => {
+      usePermissions.mockReturnValue(NOT_LOADED)
+      render(
+        <RequireRole>
+          <button>Open</button>
+        </RequireRole>,
+      )
+      expect(screen.getByText('Open')).toBeInTheDocument()
     })
   })
 })

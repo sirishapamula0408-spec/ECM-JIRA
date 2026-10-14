@@ -4,6 +4,8 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
 import AddCircleIcon from '@mui/icons-material/AddCircle'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import PersonIcon from '@mui/icons-material/Person'
+import FolderIcon from '@mui/icons-material/Folder'
+import { usePermissions } from '../../hooks/usePermissions'
 import './MobileBottomNav.css'
 
 /**
@@ -12,8 +14,22 @@ import './MobileBottomNav.css'
  * Provides quick access to the key destinations plus a Create action.
  */
 export function MobileBottomNav({ onCreate }) {
+  // JL-196: the global Board and Backlog are blocked for a restricted user
+  // (Dashboard + Projects only), so they get a Projects entry instead.
+  const { hasRestrictedNav } = usePermissions()
   return (
     <nav className="mobile-bottom-nav" role="navigation" aria-label="Mobile navigation">
+      {hasRestrictedNav ? (
+      <NavLink
+        to="/projects"
+        className={({ isActive }) => (isActive ? 'mobile-bottom-nav-item active' : 'mobile-bottom-nav-item')}
+        aria-label="Projects"
+      >
+        <FolderIcon fontSize="small" />
+        <span className="mobile-bottom-nav-label">Projects</span>
+      </NavLink>
+      ) : (
+      <>
       <NavLink
         to="/board"
         className={({ isActive }) => (isActive ? 'mobile-bottom-nav-item active' : 'mobile-bottom-nav-item')}
@@ -30,6 +46,8 @@ export function MobileBottomNav({ onCreate }) {
         <FormatListBulletedIcon fontSize="small" />
         <span className="mobile-bottom-nav-label">Backlog</span>
       </NavLink>
+      </>
+      )}
       <button
         type="button"
         className="mobile-bottom-nav-item mobile-bottom-nav-create"

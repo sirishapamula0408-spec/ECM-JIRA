@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireProjectWrite } from '../middleware/authorize.js' // JL-286: project-aware write gating
+import { requireProjectWrite, requireProjectRead } from '../middleware/authorize.js' // JL-286: project-aware write gating
 import { sendError } from '../utils/httpError.js' // JL-181: canonical { error } shape
 import { maxLengthError, LABEL_NAME_MAX } from '../utils/validation.js'
 
@@ -20,7 +20,7 @@ const labelIssueProject = async (req) => {
 }
 
 // GET /api/projects/:projectId/labels — list labels (with issue counts); ?search= for autocomplete
-router.get('/projects/:projectId/labels', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/labels', requireProjectRead(labelParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const search = String(req.query.search || '').trim()
   const params = [projectId]
@@ -143,7 +143,7 @@ router.delete('/projects/:projectId/labels/:labelId', requireProjectWrite(labelP
 }))
 
 // GET /api/issues/:issueId/labels — labels assigned to an issue
-router.get('/issues/:issueId/labels', asyncHandler(async (req, res) => {
+router.get('/issues/:issueId/labels', requireProjectRead(labelIssueProject), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     `SELECT l.id, l.project_id, l.name, l.color

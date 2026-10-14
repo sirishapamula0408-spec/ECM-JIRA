@@ -104,8 +104,10 @@ describe('GET effective issue types', () => {
     expect(res.body.fallback).toBe(true)
   })
 
-  it('is readable by a Viewer (GET is not role-gated)', async () => {
+  it('is readable by a project Viewer (GET is not role-gated)', async () => {
     const app = createApp(mod, 'Viewer')
+    // JL-193: the project-read guard runs first — the caller is a Viewer of project 5.
+    get.mockResolvedValueOnce({ id: 5, lead_member_id: null, project_role: 'Viewer' })
     get.mockResolvedValueOnce({ id: 10, project_id: 5, allowed_types: ['Task'], default_type: 'Task' })
     const res = await request(app).get('/api/projects/5/issue-types')
     expect(res.status).toBe(200)

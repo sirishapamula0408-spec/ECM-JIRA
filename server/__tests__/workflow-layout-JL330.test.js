@@ -74,9 +74,13 @@ describe('GET /api/projects/:projectId/workflow-layout', () => {
     )
   })
 
-  it('is readable by a Viewer — the whole canvas already is', async () => {
+  it('is readable by a project Viewer — the whole canvas already is', async () => {
     currentUser = asRole('Viewer')
-    get.mockResolvedValue({ positions: { 'To Do': { x: 20, y: 20 } }, updated_at: null })
+    get.mockImplementation(async (sql) =>
+      // JL-193: the project-read guard — the caller is a Viewer of project 1.
+      /FROM projects p/.test(sql)
+        ? { id: 1, lead_member_id: null, project_role: 'Viewer' }
+        : { positions: { 'To Do': { x: 20, y: 20 } }, updated_at: null })
     const res = await request(app).get('/api/projects/1/workflow-layout')
 
     expect(res.status).toBe(200)

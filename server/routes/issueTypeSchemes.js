@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, projectParam } from '../middleware/authorize.js'
 
 const router = Router()
 
@@ -47,7 +47,7 @@ async function resolveScheme(projectId) {
 
 // GET /api/projects/:projectId/issue-types — effective allowed types for the
 // project (project scheme else global default). Not role-gated (read-only).
-router.get('/projects/:projectId/issue-types', asyncHandler(async (req, res) => {
+router.get('/projects/:projectId/issue-types', requireProjectRead(projectParam()), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const scheme = await resolveScheme(projectId)
   if (!scheme) {

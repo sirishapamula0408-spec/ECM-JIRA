@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, run } from '../db.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { asyncHandler } from '../middleware/errorHandler.js'import { requireProjectRead, projectParam } from '../middleware/authorize.js'
+
 
 const router = Router()
 
@@ -14,7 +15,7 @@ router.get('/favorites', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/projects/:id/favorite — star a project (idempotent)
-router.post('/projects/:id/favorite', asyncHandler(async (req, res) => {
+router.post('/projects/:id/favorite', requireProjectRead(projectParam('id')), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   await run(
     'INSERT INTO project_favorites (project_id, user_email) VALUES (?, ?) ON CONFLICT (project_id, user_email) DO NOTHING',

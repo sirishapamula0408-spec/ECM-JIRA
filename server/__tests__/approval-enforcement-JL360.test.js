@@ -384,14 +384,25 @@ describe('POST /api/issue/:issueId — approver_role enforcement', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
-  it('leaves ungated transitions open to any authenticated user (no rule)', async () => {
-    wireApprovalDb({ rule: null, projectRole: null })
+  it('leaves ungated transitions open to anyone who can read the project (no rule)', async () => {
+    wireApprovalDb({ rule: null, projectRole: 'Viewer' })
     const app = createApp(mod, '/api', { email: 'member@test.com', memberId: 2, workspaceRole: 'Member' })
 
     const res = await request(app).post('/api/issue/1').send({
       fromStatus: 'To Do', toStatus: 'In Progress', decision: 'approved',
     })
     expect(res.status).toBe(201)
+  })
+
+  it('JL-193: refuses a caller who is not a member of the issue project', async () => {
+    wireApprovalDb({ rule: null, projectRole: null })
+    const app = createApp(mod, '/api', { email: 'member@test.com', memberId: 2, workspaceRole: 'Member' })
+
+    const res = await request(app).post('/api/issue/1').send({
+      fromStatus: 'To Do', toStatus: 'In Progress', decision: 'approved',
+    })
+    expect(res.status).toBe(403)
+    expect(run).not.toHaveBeenCalled()
   })
 })
 

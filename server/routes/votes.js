@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { asyncHandler } from '../middleware/errorHandler.js'import { requireProjectRead, issueProjectParam } from '../middleware/authorize.js'
+
 
 const router = Router()
 
@@ -14,7 +15,7 @@ async function getVoteCount(issueId) {
 }
 
 // GET /api/issues/:issueId/votes — vote count, voters, and whether the current user voted
-router.get('/:issueId/votes', asyncHandler(async (req, res) => {
+router.get('/:issueId/votes', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const rows = await all(
     `SELECT v.issue_id, v.user_email, v.created_at, m.name AS voter_name
@@ -27,7 +28,7 @@ router.get('/:issueId/votes', asyncHandler(async (req, res) => {
 }))
 
 // POST /api/issues/:issueId/votes — vote (idempotent via ON CONFLICT DO NOTHING)
-router.post('/:issueId/votes', asyncHandler(async (req, res) => {
+router.post('/:issueId/votes', requireProjectRead(issueProjectParam()), asyncHandler(async (req, res) => {
   const issueId = Number(req.params.issueId)
   const result = await run(
     `INSERT INTO issue_votes (issue_id, user_email) VALUES (?, ?)

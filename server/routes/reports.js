@@ -2,10 +2,33 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses } from '../middleware/validate.js'
-import { requireRole } from '../middleware/authorize.js'
+import {
+  requireRole,
+  requireProjectRead,
+  requireProjectWrite,
+  requireQueryProjectRead,
+  projectScope,
+} from '../middleware/authorize.js'
 import { toCsv } from '../utils/tabular.js'
 
 const router = Router()
+
+// JL-193: every report reads one project's issues or one sprint's. A
+// ?projectId= the caller cannot read is refused (requireQueryProjectRead), and
+// a report run without one is narrowed to the caller's projects plus
+// project-less issues (projectScope) — before this, both forms answered for
+// every project in the workspace.
+//
+// Sprint-keyed reports are gated on the sprint's project. A shared legacy
+// sprint (project_id NULL) resolves to null and stays readable, as it does in
+// the sprint list (JL-165).
+const sprintProject = (pick) => async (req) => {
+  const id = Number(pick(req))
+  if (!Number.isInteger(id)) return null
+  const row = await get('SELECT project_id FROM sprints WHERE id = ?', [id])
+  return row?.project_id ?? null
+}
+const querySprintProject = sprintProject((req) => req.query.sprintId)
 
 // JL-235: CSV export helpers. When a report endpoint is called with
 // ?format=csv we stream a flat CSV download (Content-Type text/csv +
@@ -195,7 +218,7 @@ function summarize(values) {
 //   LEAD  time = issue created_at → reaching 'Done'
 // Only issues that reached 'Done' (via issue_history) are counted. Optional
 // filters: issueType, priority, assignee. All SQL is parameterized.
-router.get('/cycle-time', asyncHandler(async (req, res) => {
+router.get('/cycle-time', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const rawProjectId = req.query.projectId
   const projectId = rawProjectId && Number.isFinite(Number(rawProjectId)) ? Number(rawProjectId) : null
   const { issueType, priority, assignee } = req.query
@@ -205,6 +228,10 @@ router.get('/cycle-time', asyncHandler(async (req, res) => {
   if (projectId) {
     conditions.push('project_id = ?')
     params.push(projectId)
+  } else {
+    const scope = await projectScope(req.user)
+    conditions.push(scope.clause)
+    params.push(...scope.params)
   }
   if (issueType) {
     conditions.push('issue_type = ?')
@@ -315,13 +342,14 @@ const dayKey = (value) => {
   return d.toISOString().slice(0, 10)
 }
 
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const rawProjectId = req.query.projectId
   const projectId = rawProjectId && Number.isFinite(Number(rawProjectId)) ? Number(rawProjectId) : null
+  const scope = projectId ? null : await projectScope(req.user)
   const baseQuery = projectId
     ? 'SELECT priority, status, issue_type, sprint_id, story_points FROM issues WHERE project_id = ?'
-    : 'SELECT priority, status, issue_type, sprint_id, story_points FROM issues'
-  const params = projectId ? [projectId] : []
+    : `SELECT priority, status, issue_type, sprint_id, story_points FROM issues WHERE ${scope.clause}`
+  const params = projectId ? [projectId] : scope.params
   const rows = await all(baseQuery, params)
 
   const total = rows.length || 1
@@ -371,7 +399,7 @@ router.get('/', asyncHandler(async (req, res) => {
 // Per-day REMAINING = committed baseline (scope at sprint start) minus the
 // points/issues completed (reached 'Done') by the end of that day. The ideal
 // line is a straight descent from the committed total to zero.
-router.get('/burndown', asyncHandler(async (req, res) => {
+router.get('/burndown', requireProjectRead(querySprintProject), asyncHandler(async (req, res) => {
   const loaded = await loadSprintSeries(req, res)
   if (!loaded) return
   const { sprint, unit, rows, start, end } = loaded
@@ -421,7 +449,7 @@ router.get('/burndown', asyncHandler(async (req, res) => {
 // GET /api/reports/burnup?sprintId=&unit=points|count
 // Per-day SCOPE = committed points/issues in the sprint at that day (honouring
 // sprint_scope adds/removes) and COMPLETED = points/issues Done by that day.
-router.get('/burnup', asyncHandler(async (req, res) => {
+router.get('/burnup', requireProjectRead(querySprintProject), asyncHandler(async (req, res) => {
   const loaded = await loadSprintSeries(req, res)
   if (!loaded) return
   const { sprint, unit, rows, start, end } = loaded
@@ -483,7 +511,7 @@ const endOfDayUTC = (date) => {
 // YYYY-MM-DD label for a Date, in UTC.
 const isoDate = (date) => new Date(date).toISOString().slice(0, 10)
 
-router.get('/cfd', asyncHandler(async (req, res) => {
+router.get('/cfd', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const rawProjectId = req.query.projectId
   const projectId = rawProjectId && Number.isFinite(Number(rawProjectId)) ? Number(rawProjectId) : null
 
@@ -494,20 +522,22 @@ router.get('/cfd', asyncHandler(async (req, res) => {
   const step = granularity === 'weekly' ? 7 : 1
 
   // Fetch issues (current status + creation time) and their status history.
+  const scope = projectId ? null : await projectScope(req.user, 'i.project_id')
   const issueQuery = projectId
     ? 'SELECT id, status, created_at FROM issues WHERE project_id = ?'
-    : 'SELECT id, status, created_at FROM issues'
+    : `SELECT i.id, i.status, i.created_at FROM issues i WHERE ${scope.clause}`
   const historyQuery = projectId
     ? `SELECT h.issue_id, h.old_value, h.new_value, h.changed_at
          FROM issue_history h
          JOIN issues i ON i.id = h.issue_id
         WHERE h.field = 'status' AND i.project_id = ?
         ORDER BY h.changed_at ASC, h.id ASC`
-    : `SELECT issue_id, old_value, new_value, changed_at
-         FROM issue_history
-        WHERE field = 'status'
-        ORDER BY changed_at ASC, id ASC`
-  const params = projectId ? [projectId] : []
+    : `SELECT h.issue_id, h.old_value, h.new_value, h.changed_at
+         FROM issue_history h
+         JOIN issues i ON i.id = h.issue_id
+        WHERE h.field = 'status' AND ${scope.clause}
+        ORDER BY h.changed_at ASC, h.id ASC`
+  const params = projectId ? [projectId] : scope.params
 
   const [issues, history] = await Promise.all([
     all(issueQuery, params),
@@ -610,7 +640,7 @@ router.get('/cfd', asyncHandler(async (req, res) => {
    snapshot but no longer part of the sprint). Reports committed vs
    completed points plus the scope change after start.
    ================================================================ */
-router.get('/sprint/:id', asyncHandler(async (req, res) => {
+router.get('/sprint/:id', requireProjectRead(sprintProject((req) => req.params.id)), asyncHandler(async (req, res) => {
   const sprintId = Number(req.params.id)
   if (!Number.isInteger(sprintId) || sprintId <= 0) {
     return res.status(400).json({ error: 'Invalid sprint id' })
@@ -754,7 +784,7 @@ router.get('/sprint/:id', asyncHandler(async (req, res) => {
    (first transition to 'Done' in issue_history), over the last N
    days, plus running cumulative totals.
    ================================================================ */
-router.get('/created-resolved', asyncHandler(async (req, res) => {
+router.get('/created-resolved', requireQueryProjectRead, asyncHandler(async (req, res) => {
   const rawProjectId = req.query.projectId
   const projectId = rawProjectId && Number.isFinite(Number(rawProjectId)) ? Number(rawProjectId) : null
 
@@ -768,11 +798,12 @@ router.get('/created-resolved', asyncHandler(async (req, res) => {
   const cutoffMs = todayMs - (days - 1) * MS_PER_DAY
   const cutoffISO = new Date(cutoffMs).toISOString()
 
+  const scope = projectId ? null : await projectScope(req.user, 'i.project_id')
   const createdRows = await all(
     projectId
       ? 'SELECT created_at FROM issues WHERE created_at IS NOT NULL AND created_at >= ? AND project_id = ?'
-      : 'SELECT created_at FROM issues WHERE created_at IS NOT NULL AND created_at >= ?',
-    projectId ? [cutoffISO, projectId] : [cutoffISO],
+      : `SELECT i.created_at FROM issues i WHERE i.created_at IS NOT NULL AND i.created_at >= ? AND ${scope.clause}`,
+    projectId ? [cutoffISO, projectId] : [cutoffISO, ...scope.params],
   )
 
   // First-Done timestamp per issue: MIN(changed_at) over status→Done rows.
@@ -786,10 +817,11 @@ router.get('/created-resolved', asyncHandler(async (req, res) => {
          HAVING MIN(h.changed_at) >= ?`
       : `SELECT MIN(h.changed_at) AS done_at
          FROM issue_history h
-         WHERE h.field = ? AND h.new_value = ?
+         JOIN issues i ON i.id = h.issue_id
+         WHERE h.field = ? AND h.new_value = ? AND ${scope.clause}
          GROUP BY h.issue_id
          HAVING MIN(h.changed_at) >= ?`,
-    projectId ? ['status', 'Done', projectId, cutoffISO] : ['status', 'Done', cutoffISO],
+    projectId ? ['status', 'Done', projectId, cutoffISO] : ['status', 'Done', ...scope.params, cutoffISO],
   )
 
   const createdByDay = new Map()
@@ -849,7 +881,7 @@ const parseSprintId = (raw) =>
     : null
 
 // GET /api/reports/capacity?sprintId=
-router.get('/capacity', asyncHandler(async (req, res) => {
+router.get('/capacity', requireProjectRead(querySprintProject), asyncHandler(async (req, res) => {
   const sprintId = parseSprintId(req.query.sprintId)
   if (sprintId === null) {
     res.status(400).json({ error: 'sprintId is required' })
@@ -936,7 +968,7 @@ router.get('/capacity', asyncHandler(async (req, res) => {
 
 // PUT /api/reports/capacity — set an assignee's capacity for a sprint.
 // Body: { sprintId, assignee, capacityPoints }. Member+ (workspace) gated.
-router.put('/capacity', requireRole('Member', 'Admin'), asyncHandler(async (req, res) => {
+router.put('/capacity', requireRole('Member', 'Admin'), requireProjectWrite(sprintProject((req) => req.body?.sprintId)), asyncHandler(async (req, res) => {
   const sprintId = parseSprintId(req.body?.sprintId)
   const assignee = typeof req.body?.assignee === 'string' ? req.body.assignee.trim() : ''
   const capacityRaw = req.body?.capacityPoints

@@ -506,15 +506,22 @@ router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
     [id],
   )
 
-  // Fetch all project roles for this user
+  // Fetch all project roles for this user.
+  // JL-194: the aliases MUST be quoted. PostgreSQL folds an unquoted alias to
+  // lower case, so this returned `projectid`/`projectkey`/`projectname`, and
+  // usePermissions — which looks up `pr.projectId` — never found a project role
+  // for anyone: a project Admin got read-only Project Settings with no Access
+  // section. The rule also mirrors resolveProjectAccess: the project lead
+  // (projects.lead_member_id) holds 'Lead' even without a project_members row.
   const projectRoles = memberId
     ? await all(
-        `SELECT pm.project_id AS projectId, p.key AS projectKey, p.name AS projectName, pm.role
-         FROM project_members pm
-         JOIN projects p ON p.id = pm.project_id
-         WHERE pm.member_id = ?
+        `SELECT p.id AS "projectId", p.key AS "projectKey", p.name AS "projectName",
+                COALESCE(pm.role, 'Lead') AS role
+         FROM projects p
+         LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
+         WHERE pm.member_id IS NOT NULL OR p.lead_member_id = ?
          ORDER BY p.name ASC`,
-        [memberId],
+        [memberId, memberId],
       )
     : []
 

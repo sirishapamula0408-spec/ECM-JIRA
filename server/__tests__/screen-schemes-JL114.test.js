@@ -164,7 +164,11 @@ describe('PUT screen-schemes/:issueType (replace ordered field list)', () => {
    ================================================================ */
 describe('GET screen-schemes/:issueType/resolved', () => {
   it('returns configured fields in position order', async () => {
-    get.mockResolvedValue({ id: 10 }) // scheme exists
+    get.mockImplementation(async (sql) =>
+      // JL-193: the project-read guard — the caller is a Member of project 3.
+      /FROM projects p/.test(sql)
+        ? { id: 3, lead_member_id: null, project_role: 'Member' }
+        : { id: 10 }) // scheme exists
     all.mockImplementation((sql) => {
       if (sql.includes('FROM screen_scheme_fields')) {
         return Promise.resolve([

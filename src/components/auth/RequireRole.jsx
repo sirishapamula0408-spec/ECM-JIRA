@@ -64,6 +64,16 @@ export function RequireRole({
     return children
   }
 
+  // JL-198: before the user's permissions load, every capability reads false.
+  // Rendering the fallback then is a decision made on no information — with a
+  // route guard's fallback={<Navigate to="/" />} it bounced a system admin off
+  // /users and /members on every direct visit or refresh. Render nothing until
+  // the answer is known. 'disable' mode keeps showing its children disabled,
+  // which is already the safe state.
+  if (!permissions.loaded && mode !== 'disable') {
+    return null
+  }
+
   if (mode === 'disable') {
     // Clone children with disabled prop and wrap in tooltip
     return Children.map(children, (child) => {
