@@ -89,7 +89,9 @@ describe('the page editor’s blocks survive a save and a reopen', () => {
     expand: [(e) => e.chain().focus().insertContent('Body').setDetails().run(),
       ['<details', '<summary', 'data-type="detailsContent"', 'Body']],
     table: [(e) => e.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run(),
-      ['<table>', '<th colspan="1" rowspan="1">']],
+      // JL-200: TipTap 3.32 omits the default colspan/rowspan of 1, so the
+      // header-row marker is the <th> itself; real spans are checked below.
+      ['<table>', '<th>']],
   }
 
   /*
@@ -109,6 +111,13 @@ describe('the page editor’s blocks survive a save and a reopen', () => {
       expect(second).toBe(first)
     })
   }
+
+  it('a merged table cell keeps its span through save and reopen (JL-200)', () => {
+    const html = '<table><tbody><tr><th colspan="2"><p>Both</p></th></tr><tr><td><p>a</p></td><td><p>b</p></td></tr></tbody></table>'
+    const { first, second } = roundTrip(makeEditor(html))
+    expect(first).toContain('colspan="2"')
+    expect(second).toBe(first)
+  })
 
   it('a stored mention reopens as a mention', () => {
     const html = '<p>Hi <span data-type="mention" class="mention" data-id="a@x.com" data-label="Ann">@Ann</span></p>'

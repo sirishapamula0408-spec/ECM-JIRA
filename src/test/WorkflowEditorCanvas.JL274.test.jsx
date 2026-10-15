@@ -75,7 +75,12 @@ describe('JL-274 — canvas renders real project statuses', () => {
 describe('JL-274 — Add Status / Add Transition hit the API', () => {
   it('Add Status calls createStatus and refetches', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Add status/ }))
+    // JL-200: Add status stays disabled until the project list loads (projectId).
+    // Clicking it as soon as it appears did nothing on a slow CI runner, so the
+    // dialog never opened — wait for it to be enabled, as Add Transition does.
+    const addStatus = await screen.findByRole('button', { name: /Add status/ })
+    await waitFor(() => expect(addStatus).toBeEnabled())
+    fireEvent.click(addStatus)
 
     const dialog = await screen.findByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Status name'), { target: { value: 'QA Testing' } })
@@ -137,7 +142,12 @@ describe('JL-274 — deleting a node/arrow calls the API after confirm', () => {
 describe('JL-273 — modal accessibility', () => {
   it('Add Status dialog closes on Escape', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Add status/ }))
+    // JL-200: Add status stays disabled until the project list loads (projectId).
+    // Clicking it as soon as it appears did nothing on a slow CI runner, so the
+    // dialog never opened — wait for it to be enabled, as Add Transition does.
+    const addStatus = await screen.findByRole('button', { name: /Add status/ })
+    await waitFor(() => expect(addStatus).toBeEnabled())
+    fireEvent.click(addStatus)
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     fireEvent.keyDown(dialog, { key: 'Escape' })

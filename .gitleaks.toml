@@ -29,4 +29,8 @@ regexes = [
   '''replace-with-a-long-random-secret''',
   '''your-app-password''',
   '''your-smtp-password''',
+  # JL-200: fake credentials used only by test fixtures (mirrors scan-secrets.mjs).
+  '''Reset-Pass-9876!''',
+  '''a-strong-random-secret''',
+  '''YetAnotherPass1!''',
 ]

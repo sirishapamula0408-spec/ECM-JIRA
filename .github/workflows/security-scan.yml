@@ -32,8 +32,12 @@ jobs:
 
       # Fail the job on High/Critical advisories. Uses the lockfile only, no
       # install, so it stays fast and does not run project code.
+      # JL-200: npm audit at high severity via scripts/audit-deps.mjs, which
+      # accepts only advisories with no published fix that reach dev tooling
+      # alone (listed, with reasons, in that file) and fails again as soon as
+      # npm can fix one. The script has no dependencies of its own.
       - name: Run npm audit (high severity and above)
-        run: npm audit --audit-level=high
+        run: node scripts/audit-deps.mjs
 
   secret-scan:
     name: Secret scan
