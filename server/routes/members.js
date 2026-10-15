@@ -144,11 +144,31 @@ router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
     params.push(action)
   }
 
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+
+  // JL-204: page through the whole trail. Asked for with offset or page, it
+  // answers { items, total, limit, offset } like GET /api/members; it used to
+  // return only the newest entries, so anything older than the limit could not
+  // be seen at all. A call without offset/page keeps the plain newest-first list.
+  if (req.query.offset !== undefined || req.query.page !== undefined) {
+    const { limit, offset } = parsePagination(req.query, { defaultLimit: 25, maxLimit: 200 })
+    const items = await all(
+      `SELECT id, actor, target_member_id, target_email, action, before_value, after_value, created_at
+         FROM user_audit_log
+         ${where}
+         ORDER BY id DESC
+         LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    )
+    const totalRow = await get(`SELECT COUNT(*)::int AS total FROM user_audit_log ${where}`, params)
+    res.json({ items, total: Number(totalRow?.total || 0), limit, offset })
+    return
+  }
+
   let limit = Number(req.query.limit)
   if (!Number.isInteger(limit) || limit <= 0) limit = 100
   if (limit > 500) limit = 500
 
-  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
   const rows = await all(
     `SELECT id, actor, target_member_id, target_email, action, before_value, after_value, created_at
        FROM user_audit_log

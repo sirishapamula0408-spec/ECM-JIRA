@@ -40,11 +40,14 @@ export function resendMemberInvite(id) {
 
 // JL-197: fetch the user-administration audit trail (Admin only).
 // Optional filters: { target, action, limit }.
-export function fetchUserAuditLog({ target, action, limit } = {}) {
+// JL-204: pass `offset` to page through the trail — the response is then
+// { items, total, limit, offset }. Without it, the newest entries as a list.
+export function fetchUserAuditLog({ target, action, limit, offset } = {}) {
   const params = new URLSearchParams()
   if (target) params.set('target', target)
   if (action) params.set('action', action)
   if (limit) params.set('limit', String(limit))
+  if (offset !== undefined) params.set('offset', String(offset))
   const qs = params.toString()
   return api(`/api/members/audit${qs ? `?${qs}` : ''}`)
 }
