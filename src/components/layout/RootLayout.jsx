@@ -39,7 +39,7 @@ import './RootLayout.css'
  * ProjectTopPanel or anywhere else. One list, one rule; adding a product means
  * adding one entry.
  */
-export function RootLayout({ collapsed, onToggleSidebar }) {
+export function RootLayout({ collapsed, onToggleSidebar, onCreate, hasProjects }) {
   const { pathname } = useLocation()
   const product = productForPath(pathname)
 
@@ -47,7 +47,11 @@ export function RootLayout({ collapsed, onToggleSidebar }) {
     <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
       <SkipToContent />
       <ProductProvider product={product}>
-        <Topbar collapsed={collapsed} onToggleSidebar={onToggleSidebar} />
+        {/* JL-205: the top bar needs onCreate and hasProjects for its "+ Create"
+            button. Without them hasProjects was always undefined, so the button
+            was disabled for EVERY user ("No project access") and its click had
+            nothing to call: the full Create form could not be opened at all. */}
+        <Topbar collapsed={collapsed} onToggleSidebar={onToggleSidebar} onCreate={onCreate} hasProjects={hasProjects} />
         {/* `.workspace` keeps its existing two-column grid, so every
             `.workspace.sidebar-collapsed .sidebar` rule in the stylesheet goes
             on working untouched. The product layout below renders the sidebar

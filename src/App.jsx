@@ -229,6 +229,8 @@ function AppContent() {
             <RootLayout
               collapsed={isSidebarCollapsed}
               onToggleSidebar={() => setIsSidebarCollapsed((c) => !c)}
+              onCreate={() => setShowCreate(true)}
+              hasProjects={hasProjects}
             />
           )}
         >
