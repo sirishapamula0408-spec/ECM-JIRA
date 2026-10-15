@@ -140,6 +140,15 @@ describe('JL-298 Topbar actions', () => {
     expect(mockHandleLogout).toHaveBeenCalledTimes(1)
   })
 
+  it('(4b) JL-201: Log out returns to the home address, so the next login lands on Projects', () => {
+    renderTopbar()
+    expect(screen.getByTestId('location')).toHaveTextContent('/board')
+    openUserMenu()
+    fireEvent.click(screen.getByText('Log out'))
+    expect(mockHandleLogout).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
+  })
+
   // JL-459 INVERTED this assertion. It used to check that "Open Quickstart"
   // routed to /knowledge-base rather than /dashboard — JL-298's fix for a button
   // pointing somewhere unrelated to its label.

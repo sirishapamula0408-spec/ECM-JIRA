@@ -433,7 +433,10 @@ export function Topbar({ onCreate, hasProjects, collapsed, onToggleSidebar }) {
                   deceptive — this app has no multi-account switching. It was
                   removed rather than silently logging the user out. Log out below
                   is the only session-ending action. */}
-              <button className="topbar-user-item" type="button" onClick={handleLogout}>
+              {/* JL-201: log out to the home address. Logout used to leave the URL
+                  as it was, so the next login happened on that page and could
+                  never land on the Projects list. */}
+              <button className="topbar-user-item" type="button" onClick={() => { setIsUserMenuOpen(false); handleLogout(); navigate('/', { replace: true }) }}>
                 <span className="topbar-user-item-icon"><HeaderPanelIcon name="logout" /></span>
                 Log out
               </button>

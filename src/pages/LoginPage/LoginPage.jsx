@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { forgotPassword, resetPassword, fetchSsoStatus, startOidcLogin, startSamlLogin } from '../../api/authApi'
 import sedinLogo from '../../assets/sedin-logo.svg'
 import './LoginPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { postLoginLanding } from '../../utils/postLoginLanding'
 
 export function LoginPage() {
   const { handleAuth } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [mode, setMode] = useState('login')
   const [form, setForm] = useState({
     email: '',
@@ -257,6 +261,10 @@ export function LoginPage() {
       // Include the MFA code once the field is shown.
       if (mfaRequired && mfaCode.trim()) credentials.mfaCode = mfaCode.trim()
       await handleAuth(mode, credentials)
+      // JL-201: a login from the home page lands on the Projects list; one that
+      // began on a specific page (an emailed issue link) stays on it.
+      const landing = postLoginLanding(location.pathname)
+      if (landing) navigate(landing, { replace: true })
       // Success — reset any MFA prompt / lockout state.
       setMfaRequired(false)
       setMfaCode('')
