@@ -256,7 +256,19 @@ async function acceptUpload({ space, file, currentBytes }) {
   const key = `doc-${space.id}-${randomUUID()}.${ext}`
   const storage = getStorage()
   if (typeof storage.putStream === 'function') {
-    await storage.putStream(key, createReadStream(file.path), file.mimetype, file.size)
+    // JL-200: a backend that fails before reading the stream (an S3 client
+    // that cannot start) leaves it unread. The temp file is removed right
+    // after, the stream's own open then fails with ENOENT, and an 'error'
+    // event with no listener is an uncaught exception — it took the API
+    // process down. Once storage is done either way, release the stream and
+    // ignore anything it reports late; storage's own errors still propagate.
+    const stream = createReadStream(file.path)
+    try {
+      await storage.putStream(key, stream, file.mimetype, file.size)
+    } finally {
+      stream.on('error', () => {})
+      stream.destroy()
+    }
   } else {
     // A backend without streaming support still works, at the cost of the heap.
     await storage.put(key, await fsp.readFile(file.path), file.mimetype)

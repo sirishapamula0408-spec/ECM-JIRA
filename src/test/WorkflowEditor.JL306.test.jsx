@@ -130,7 +130,11 @@ describe('JL-306 — QA Lifecycle in the Workflow Editor', () => {
 
   it('applies the QA Lifecycle template from the toolbar (api mocked)', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Apply QA Lifecycle template/ }))
+    // JL-200: the template button is disabled until the project loads; a click
+    // before that did nothing on a slow CI runner and the confirm never opened.
+    const applyTemplate = await screen.findByRole('button', { name: /Apply QA Lifecycle template/ })
+    await waitFor(() => expect(applyTemplate).toBeEnabled())
+    fireEvent.click(applyTemplate)
 
     // Confirm the action in the dialog.
     const confirmBtn = await screen.findByRole('button', { name: /Apply workflow/ })
@@ -204,7 +208,11 @@ describe('JL-306 — Publish persists a custom named workflow (regression)', () 
 
   it('shows a success confirmation after applying the QA Lifecycle template', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Apply QA Lifecycle template/ }))
+    // JL-200: the template button is disabled until the project loads; a click
+    // before that did nothing on a slow CI runner and the confirm never opened.
+    const applyTemplate = await screen.findByRole('button', { name: /Apply QA Lifecycle template/ })
+    await waitFor(() => expect(applyTemplate).toBeEnabled())
+    fireEvent.click(applyTemplate)
 
     const confirmBtn = await screen.findByRole('button', { name: /Apply workflow/ })
     fireEvent.click(confirmBtn)
