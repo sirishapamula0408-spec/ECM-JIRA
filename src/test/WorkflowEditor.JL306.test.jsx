@@ -94,7 +94,12 @@ describe('JL-306 — QA Lifecycle in the Workflow Editor', () => {
 
   it('adds a new state via the Add status dialog (api mocked)', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Add status/ }))
+    // JL-200: Add status stays disabled until the project list loads (projectId).
+    // Clicking it as soon as it appears did nothing on a slow CI runner, so the
+    // dialog never opened — wait for it to be enabled, as Add Transition does.
+    const addStatus = await screen.findByRole('button', { name: /Add status/ })
+    await waitFor(() => expect(addStatus).toBeEnabled())
+    fireEvent.click(addStatus)
 
     const dialog = await screen.findByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Status name'), { target: { value: 'In Staging' } })
@@ -125,7 +130,11 @@ describe('JL-306 — QA Lifecycle in the Workflow Editor', () => {
 
   it('applies the QA Lifecycle template from the toolbar (api mocked)', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Apply QA Lifecycle template/ }))
+    // JL-200: the template button is disabled until the project loads; a click
+    // before that did nothing on a slow CI runner and the confirm never opened.
+    const applyTemplate = await screen.findByRole('button', { name: /Apply QA Lifecycle template/ })
+    await waitFor(() => expect(applyTemplate).toBeEnabled())
+    fireEvent.click(applyTemplate)
 
     // Confirm the action in the dialog.
     const confirmBtn = await screen.findByRole('button', { name: /Apply workflow/ })
@@ -199,7 +208,11 @@ describe('JL-306 — Publish persists a custom named workflow (regression)', () 
 
   it('shows a success confirmation after applying the QA Lifecycle template', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Apply QA Lifecycle template/ }))
+    // JL-200: the template button is disabled until the project loads; a click
+    // before that did nothing on a slow CI runner and the confirm never opened.
+    const applyTemplate = await screen.findByRole('button', { name: /Apply QA Lifecycle template/ })
+    await waitFor(() => expect(applyTemplate).toBeEnabled())
+    fireEvent.click(applyTemplate)
 
     const confirmBtn = await screen.findByRole('button', { name: /Apply workflow/ })
     fireEvent.click(confirmBtn)

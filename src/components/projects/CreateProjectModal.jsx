@@ -76,6 +76,11 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
         key: form.key,
         type: form.type,
         lead: form.lead,
+        // JL-202: link the chosen lead's member — the server used to link the
+        // creator instead. 'current-user' (not yet a member) sends no id.
+        leadMemberId: Number.isInteger(leadOptions.find((m) => m.name === form.lead)?.id)
+          ? leadOptions.find((m) => m.name === form.lead).id
+          : undefined,
       })
       if (onProjectCreated) onProjectCreated()
       onClose()

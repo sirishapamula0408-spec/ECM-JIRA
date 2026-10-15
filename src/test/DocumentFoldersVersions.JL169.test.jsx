@@ -212,7 +212,12 @@ describe('JL-169 version history', () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: `Actions for ${DOC.file_name}` }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Version history' }))
-    return screen.findByRole('dialog')
+    const dialog = await screen.findByRole('dialog')
+    // JL-200: the dialog opens before its version list has loaded. Every test
+    // below queries the rows synchronously, so wait for the list itself (the
+    // Current marker renders with it) — on a slow CI runner they looked too early.
+    await within(dialog).findByText('Current')
+    return dialog
   }
 
   it('lists every version, newest first, and marks the current one', async () => {
@@ -266,6 +271,9 @@ describe('JL-169 version history', () => {
     fireEvent.click(await screen.findByRole('button', { name: `Actions for ${DOC.file_name}` }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Version history' }))
     const dialog = await screen.findByRole('dialog')
+    // JL-200: wait for the version list — before it loads there are no Restore
+    // buttons for anyone, so the assertion below would pass for the wrong reason.
+    await within(dialog).findByText('Current')
     expect(within(dialog).queryByRole('button', { name: /^Restore version/ })).not.toBeInTheDocument()
     // Downloading an old version stays available — Viewers may read.
     expect(within(dialog).getByRole('button', { name: 'Download version 2' })).toBeInTheDocument()

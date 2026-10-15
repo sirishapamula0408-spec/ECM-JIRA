@@ -66,6 +66,40 @@ async function enforceProjectCreationPolicy(req, res, next) {
   }
 }
 
+/*
+ * JL-202 — a project's lead is ONE fact: the lead member (lead_member_id).
+ *
+ * projects.lead (a name) predates it and is kept only as the display name of
+ * an older lead who is not a workspace member. The Projects list showed that
+ * name while access rules used the member, and Project Settings' dropdown
+ * could not show a non-member at all, so the two pages disagreed.
+ */
+
+// The lead name both pages show: the member's current name when one is
+// linked, else the stored name. One query for the whole list.
+async function withLeadNames(rows) {
+  const list = Array.isArray(rows) ? rows : []
+  const ids = [...new Set(list.map((r) => r.lead_member_id).filter((id) => id != null))]
+  if (ids.length === 0) return list
+  const members = await all(`SELECT id, name FROM members WHERE id IN (${ids.map(() => '?').join(', ')})`, ids)
+  const names = new Map((members || []).map((m) => [Number(m.id), m.name]))
+  return list.map((r) => (names.has(Number(r.lead_member_id)) ? { ...r, lead: names.get(Number(r.lead_member_id)) } : r))
+}
+
+// The member a create/update names as lead: an explicit leadMemberId wins;
+// otherwise the one member with that name (a name shared by several members
+// is ambiguous, so it links nobody). Returns null when nothing matches.
+async function resolveLeadMember({ leadMemberId, lead } = {}) {
+  const id = Number(leadMemberId)
+  if (leadMemberId != null && leadMemberId !== '' && Number.isInteger(id)) {
+    return get('SELECT id, name FROM members WHERE id = ?', [id])
+  }
+  const name = String(lead || '').trim()
+  if (!name) return null
+  const matches = await all('SELECT id, name FROM members WHERE LOWER(name) = LOWER(?)', [name])
+  return matches && matches.length === 1 ? matches[0] : null
+}
+
 router.get('/', asyncHandler(async (req, res) => {
   const userEmail = req.user?.email
   if (!userEmail) {
@@ -109,12 +143,14 @@ router.get('/', asyncHandler(async (req, res) => {
     )
   } else if (member) {
     const archivedClause = includeArchived ? '' : ' AND p.archived_at IS NULL'
-    const params = [member.id, member.name]
+    // JL-202: the lead is matched by member, as resolveProjectAccess does — a
+    // name match listed projects to anyone who merely shared the lead's name.
+    const params = [member.id, member.id]
     if (workspaceId != null) params.push(workspaceId)
     rows = await all(
       `SELECT DISTINCT p.*, (p.archived_at IS NOT NULL) AS archived FROM projects p
        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
-       WHERE (pm.member_id IS NOT NULL OR LOWER(p.lead) = LOWER(?))${wsClause}${archivedClause}
+       WHERE (pm.member_id IS NOT NULL OR p.lead_member_id = ?)${wsClause}${archivedClause}
        ORDER BY p.id ASC`,
       params,
     )
@@ -130,7 +166,7 @@ router.get('/', asyncHandler(async (req, res) => {
     )
   }
 
-  res.json(rows)
+  res.json(await withLeadNames(rows))
 }))
 
 // JL-225: gate project detail reads. Member/Viewer may only read projects they
@@ -142,11 +178,12 @@ router.get('/:id', requireProjectRead((req) => Number(req.params.id)), asyncHand
     res.status(404).json({ error: 'Project not found' })
     return
   }
-  res.json(row)
+  const [withName] = await withLeadNames([row])
+  res.json(withName)
 }))
 
 router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => {
-  const { name, key, type, lead } = req.body
+  const { name, key, type, lead, leadMemberId: requestedLeadId } = req.body
   const trimmedName = String(name || '').trim()
   const trimmedKey = String(key || '').trim()
   const trimmedType = String(type || 'Scrum').trim()
@@ -166,16 +203,21 @@ router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => 
     return
   }
 
-  // Resolve lead to member_id
+  // The creator (auto-added below as a project Lead).
   const userEmail = req.user?.email
   const member = userEmail
     ? await get('SELECT id FROM members WHERE LOWER(email) = LOWER(?)', [userEmail])
     : null
-  const leadMemberId = member?.id || null
+
+  // JL-202: link the lead the form CHOSE. This used to be the creator, so
+  // choosing someone else stored their name against the creator's member.
+  const chosenLead = await resolveLeadMember({ leadMemberId: requestedLeadId, lead: trimmedLead })
+  const leadMemberId = chosenLead?.id ?? null
+  const leadName = chosenLead?.name || trimmedLead
 
   const result = await run(
     'INSERT INTO projects (name, key, type, lead, lead_member_id) VALUES (?, ?, ?, ?, ?)',
-    [trimmedName, trimmedKey, trimmedType, trimmedLead, leadMemberId],
+    [trimmedName, trimmedKey, trimmedType, leadName, leadMemberId],
   )
   const projectId = result.lastID
 
@@ -202,7 +244,7 @@ router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => 
     name: trimmedName,
     key: trimmedKey,
     type: trimmedType,
-    lead: trimmedLead,
+    lead: leadName,
     lead_member_id: leadMemberId,
     avatar_color: '#0052cc',
   })
@@ -221,11 +263,11 @@ router.put('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(as
     return
   }
 
-  const { name, key, type, lead } = req.body
+  const { name, key, type, lead, leadMemberId } = req.body
   const updatedName = name !== undefined ? String(name).trim() : project.name
   const updatedKey = key !== undefined ? String(key).trim() : project.key
   const updatedType = type !== undefined ? String(type).trim() : project.type
-  const updatedLead = lead !== undefined ? String(lead).trim() : project.lead
+  let updatedLead = lead !== undefined ? String(lead).trim() : project.lead
 
   // JL-204: length caps — only validate fields the caller actually sent, so a
   // legacy over-cap row can still be updated on unrelated fields.
@@ -237,11 +279,17 @@ router.put('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(as
     return
   }
 
-  // Resolve lead_member_id when lead changes
+  // Re-link the lead only when the caller changes it (JL-202): by member id
+  // from Project Settings, or by name from older API callers.
   let updatedLeadMemberId = project.lead_member_id
-  if (lead !== undefined) {
-    const leadMember = await get('SELECT id FROM members WHERE LOWER(name) = LOWER(?)', [updatedLead])
-    updatedLeadMemberId = leadMember?.id || null
+  if (leadMemberId !== undefined || lead !== undefined) {
+    const leadMember = await resolveLeadMember({ leadMemberId, lead: updatedLead })
+    if (leadMemberId !== undefined && leadMemberId !== null && leadMemberId !== '' && !leadMember) {
+      res.status(400).json({ error: 'Project lead must be a workspace member' })
+      return
+    }
+    updatedLeadMemberId = leadMember?.id ?? null
+    if (leadMember) updatedLead = leadMember.name
   }
 
   await run(
@@ -250,7 +298,8 @@ router.put('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(as
   )
 
   const updated = await get('SELECT * FROM projects WHERE id = ?', [id])
-  res.json(updated)
+  const [withName] = await withLeadNames([updated])
+  res.json(withName)
 }))
 
 router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {

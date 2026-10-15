@@ -8,7 +8,7 @@ import { errorHandler } from '../middleware/errorHandler.js'
 let app
 
 beforeAll(async () => {
-  process.env.DB_PATH = ':memory:'
+  // JL-200: the database comes from src/test/setup.env.js (DATABASE_URL -> test db).
   await initializeDatabase()
   app = express()
   app.use(express.json())

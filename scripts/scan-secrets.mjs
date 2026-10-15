@@ -60,6 +60,12 @@ const KNOWN_SAFE_VALUES = new Set([
   'ecm-jira-dev-secret-change-in-production',
   'jira_lite_dev',
   'replace-with-a-long-random-secret',
+  // JL-200: fake credentials used only by test fixtures (auth.spec.mjs,
+  // env-validation-JL90, invite-provisions-login-JL371). Exact values, so a
+  // real secret elsewhere is still caught.
+  'Reset-Pass-9876!',
+  'a-strong-random-secret',
+  'YetAnotherPass1!',
 ])
 
 function looksLikePlaceholder(captured) {

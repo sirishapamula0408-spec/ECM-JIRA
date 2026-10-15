@@ -47,6 +47,12 @@ const CONFIGURABLE_FIELDS = [
   { key: 'resolution', label: 'Resolution' },
 ]
 
+// JL-202: the Lead dropdown's value for a project — its lead member's id, or
+// '' when the lead is a name with no member behind it.
+function leadKeyOf(project) {
+  return project?.lead_member_id != null ? String(project.lead_member_id) : ''
+}
+
 export function ProjectSettingsPage() {
   usePageTitle('Project Settings')
   const { confirm, confirmDialog } = useConfirm()
@@ -180,7 +186,7 @@ export function ProjectSettingsPage() {
     fetchProjectById(projectId)
       .then((data) => {
         setProject(data)
-        setForm({ name: data.name, key: data.key, type: data.type, lead: data.lead })
+        setForm({ name: data.name, key: data.key, type: data.type, leadKey: leadKeyOf(data) })
       })
       .catch(() => setBanner({ type: 'error', message: 'Failed to load project.' }))
       .finally(() => setLoading(false))
@@ -227,7 +233,7 @@ export function ProjectSettingsPage() {
     Boolean(form) &&
     (form.name !== project.name ||
       form.type !== project.type ||
-      form.lead !== project.lead)
+      form.leadKey !== leadKeyOf(project))
 
   // JL-242: warn on tab close/refresh while there are unsaved detail edits.
   // Kept with the other hooks (before the early returns) for Rules of Hooks.
@@ -240,13 +246,13 @@ export function ProjectSettingsPage() {
     setSaving(true)
     setBanner({ type: '', message: '' })
     try {
-      const updated = await updateProject(projectId, {
-        name: form.name,
-        type: form.type,
-        lead: form.lead,
-      })
+      // JL-202: send the lead only when it changed, and as a member id —
+      // re-sending the displayed name could relink or blank a lead untouched.
+      const payload = { name: form.name, type: form.type }
+      if (form.leadKey !== leadKeyOf(project) && form.leadKey) payload.leadMemberId = Number(form.leadKey)
+      const updated = await updateProject(projectId, payload)
       setProject(updated)
-      setForm({ name: updated.name, key: updated.key, type: updated.type, lead: updated.lead })
+      setForm({ name: updated.name, key: updated.key, type: updated.type, leadKey: leadKeyOf(updated) })
       setBanner({ type: 'success', message: 'Project details saved.' })
     } catch (err) {
       setBanner({ type: 'error', message: err.message || 'Failed to save.' })
@@ -256,7 +262,7 @@ export function ProjectSettingsPage() {
   }
 
   function handleDiscard() {
-    setForm({ name: project.name, key: project.key, type: project.type, lead: project.lead })
+    setForm({ name: project.name, key: project.key, type: project.type, leadKey: leadKeyOf(project) })
     setBanner({ type: '', message: '' })
   }
 
@@ -331,7 +337,10 @@ export function ProjectSettingsPage() {
     setAccessBusy(false)
   }
 
-  const isLead = (memberName) => project && memberName === project.lead
+  // JL-202: the lead member when one is linked; the stored name otherwise.
+  const isLead = (pm) => Boolean(project) && (project.lead_member_id != null
+    ? Number(pm.id) === Number(project.lead_member_id)
+    : pm.name === project.lead)
 
   async function handleAddPriority() {
     const name = newPriority.name.trim()
@@ -768,18 +777,23 @@ export function ProjectSettingsPage() {
 
                 <label>
                   Project Lead
+                  {/* JL-202: options are members by id. A lead who is not a
+                      member gets an option of their own — without it no option
+                      matched, the browser showed the FIRST member instead, and
+                      Save would have replaced the real lead. */}
                   <select
-                    value={form.lead}
-                    onChange={(e) => setForm((c) => ({ ...c, lead: e.target.value }))}
+                    value={form.leadKey}
+                    onChange={(e) => setForm((c) => ({ ...c, leadKey: e.target.value }))}
                     disabled={!canManageProjectSettings}
                   >
-                    {members.length > 0 ? (
-                      members.map((m) => (
-                        <option key={m.id} value={m.name}>{m.name}</option>
-                      ))
-                    ) : (
-                      <option value={form.lead}>{form.lead}</option>
+                    {!members.some((m) => String(m.id) === leadKeyOf(project)) && (
+                      <option value={leadKeyOf(project)}>
+                        {project.lead_member_id == null ? `${project.lead} (not a member)` : project.lead}
+                      </option>
                     )}
+                    {members.map((m) => (
+                      <option key={m.id} value={String(m.id)}>{m.name}</option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -889,7 +903,7 @@ export function ProjectSettingsPage() {
                           <span className="member-avatar" style={avatarStyle(pm)}>{pm.name.slice(0, 2).toUpperCase()}</span>
                           <div>
                             <strong>{pm.name}</strong>
-                            {isLead(pm.name) && <span className="ps-lead-badge">Lead</span>}
+                            {isLead(pm) && <span className="ps-lead-badge">Lead</span>}
                             <small>{pm.email}</small>
                           </div>
                         </div>

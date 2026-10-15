@@ -5,7 +5,7 @@
 //  - JL-276: Add Status dialog exposes a preset quick-picker that pre-fills the
 //    status name + category + color (all still editable).
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 
 // ── Permission mock ──
 vi.mock('../hooks/usePermissions', () => ({
@@ -74,7 +74,12 @@ describe('JL-275 — two-column layout', () => {
 describe('JL-276 — Add Status preset quick-picker', () => {
   it('exposes a preset picker that pre-fills name + category when "In Code Review" is chosen', async () => {
     render(<WorkflowEditorPage />)
-    fireEvent.click(await screen.findByRole('button', { name: /Add status/ }))
+    // JL-200: Add status stays disabled until the project list loads (projectId).
+    // Clicking it as soon as it appears did nothing on a slow CI runner, so the
+    // dialog never opened — wait for it to be enabled, as Add Transition does.
+    const addStatus = await screen.findByRole('button', { name: /Add status/ })
+    await waitFor(() => expect(addStatus).toBeEnabled())
+    fireEvent.click(addStatus)
 
     const dialog = await screen.findByRole('dialog')
     const preset = within(dialog).getByLabelText('Preset (optional)')

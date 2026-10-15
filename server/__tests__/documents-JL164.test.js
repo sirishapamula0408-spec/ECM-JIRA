@@ -269,6 +269,25 @@ describe('JL-164 the temp file never leaks', () => {
     expect(await tempCount()).toBe(0)
   })
 
+  // JL-200: a stream storage never read was left open; once the temp file was
+  // removed its open failed with ENOENT and nothing was listening — an
+  // uncaught exception in the API (17 of them in one CI run).
+  it.each([
+    ['storage stores without reading the stream', () => store.putStream.mockResolvedValue(undefined)],
+    ['storage fails before reading the stream', () => store.putStream.mockRejectedValue(new Error('S3 unavailable'))],
+  ])('releases the upload stream when %s', async (_label, arrange) => {
+    wire()
+    arrange()
+    await request(await buildApp(as(OWNER)))
+      .post('/spaces/7/documents')
+      .attach('file', bodyFor('ok.pdf'), 'ok.pdf')
+      .catch(() => {})
+    const [, stream] = store.putStream.mock.calls[0]
+    expect(stream.destroyed).toBe(true)
+    expect(stream.listenerCount('error')).toBeGreaterThan(0)
+    expect(await tempCount()).toBe(0)
+  })
+
   it('is cleaned up when permission is refused', async () => {
     wire({ role: 'Viewer' })
     await request(await buildApp(as(MEMBER)))
