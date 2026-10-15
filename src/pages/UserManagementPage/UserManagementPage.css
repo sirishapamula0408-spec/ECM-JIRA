@@ -89,9 +89,22 @@
    column the table outgrew its box at 1400 px and clipped Actions. 'anywhere'
    (not 'break-word') also lowers the column's minimum width, so the table can
    shrink to fit; values only break when the column is actually that narrow. */
-.user-management-name-cell strong {
+/* JL-203: the name stays on ONE line (JL-199 let it wrap anywhere).
+   The Name column takes only the width the other columns leave: max-width: 0
+   lets the cell shrink below its text, and width claims the spare space. A
+   name shows in full whenever it fits and ends in "…" only when the window is
+   too narrow (full name on hover), so the table stays inside its box at any
+   width — the reason JL-199 let names wrap at all. */
+.user-management-name-td {
+  width: 20%;
+  max-width: 0;
+}
+
+.user-management-name-cell strong.user-management-name {
   min-width: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-management-email-cell {
@@ -99,12 +112,6 @@
   /* Ordinary addresses (sirisha@sedintechnologies.com) stay on one line;
      without a floor the table shrank Email first and split even short ones. */
   min-width: 200px;
-}
-
-/* JL-199: the Projects & roles chips wrap onto more lines rather than taking
-   the width the Email column needs. */
-.user-management-project-roles {
-  max-width: 200px;
 }
 
 /* JL-386: the fixed `background: var(--jira-blue)` that used to live here made

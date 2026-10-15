@@ -67,12 +67,6 @@ describe('UserManagementPage — table width (JL-199)', () => {
     expect(cell.querySelector('wbr')).toBeNull()
   })
 
-  it('bounds the Projects & roles column so its chips wrap', async () => {
-    renderPage()
-    await screen.findByText(LONG_EMAIL)
-    expect(document.querySelectorAll('.user-management-project-roles')).toHaveLength(2)
-  })
-
   it('declares the wrap rules the layout depends on', () => {
     const here = path.dirname(fileURLToPath(import.meta.url))
     const css = fs.readFileSync(path.join(here, '../pages/UserManagementPage/UserManagementPage.css'), 'utf8')
@@ -82,9 +76,12 @@ describe('UserManagementPage — table width (JL-199)', () => {
     }
     // 'anywhere', not 'break-word': only 'anywhere' lowers the column's
     // minimum width, which is what lets the table shrink to fit.
-    expect(rule('.user-management-name-cell strong')).toMatch(/overflow-wrap:\s*anywhere/)
     expect(rule('.user-management-email-cell')).toMatch(/overflow-wrap:\s*anywhere/)
     expect(rule('.user-management-email-cell')).toMatch(/min-width:\s*200px/)
-    expect(rule('.user-management-project-roles')).toMatch(/max-width:\s*200px/)
+    // JL-203: names no longer wrap — one line, ending in an ellipsis only when
+    // the Name column (which takes the leftover width) is too narrow.
+    expect(rule('.user-management-name-cell strong.user-management-name')).toMatch(/white-space:\s*nowrap/)
+    expect(rule('.user-management-name-cell strong.user-management-name')).toMatch(/text-overflow:\s*ellipsis/)
+    expect(rule('.user-management-name-td')).toMatch(/max-width:\s*0/)
   })
 })

@@ -24,6 +24,8 @@ import DialogContentText from '@mui/material/DialogContentText'
 import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import Tooltip from '@mui/material/Tooltip'
+import IconButton from '@mui/material/IconButton'
 import Accordion from '@mui/material/Accordion'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import AccordionDetails from '@mui/material/AccordionDetails'
@@ -32,6 +34,10 @@ import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline'
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt'
 import HistoryIcon from '@mui/icons-material/History'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
+import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import ForwardToInboxOutlinedIcon from '@mui/icons-material/ForwardToInboxOutlined'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
 import {
@@ -42,6 +48,7 @@ import {
   bulkDeleteMembers,
   deactivateMember,
   reactivateMember,
+  resendMemberInvite,
 } from '../../api/memberApi'
 import { EmptyState } from '../../components/common/EmptyState'
 import { InviteDeliveryBadge } from '../../components/common/InviteDeliveryBadge'
@@ -82,39 +89,6 @@ function emailWithBreak(email) {
       <wbr />
       {value.slice(at + 1)}
     </>
-  )
-}
-
-// JL-195: project Admin and Lead can manage that project's people, so their
-// chips are filled to stand out from Member/Viewer.
-const PROJECT_ADMIN_ROLES = new Set(['Admin', 'Lead'])
-
-/**
- * JL-195 — the "Projects & roles" cell: one chip per project, e.g. "OICL · Admin".
- * A system admin (workspace Owner/Admin) can open every project whatever their
- * memberships, so their row says so rather than looking like a project-less user.
- */
-function ProjectRolesCell({ user }) {
-  const roles = Array.isArray(user.projectRoles) ? user.projectRoles : []
-  const systemAdmin = user.is_owner || user.role === 'Admin' || user.role === 'Owner'
-  return (
-    <Stack className="user-management-project-roles" direction="row" useFlexGap flexWrap="wrap" spacing={0.5} alignItems="center">
-      {roles.map((pr) => {
-        const projectAdmin = PROJECT_ADMIN_ROLES.has(pr.role)
-        return (
-          <Chip
-            key={pr.projectId}
-            size="small"
-            label={`${pr.projectKey} · ${pr.role}`}
-            title={`${pr.projectName}: ${pr.role}${projectAdmin ? ' (can manage this project)' : ''}`}
-            color={projectAdmin ? 'primary' : 'default'}
-            variant={projectAdmin ? 'filled' : 'outlined'}
-          />
-        )
-      })}
-      {systemAdmin && <span className="muted">All projects (system admin)</span>}
-      {!systemAdmin && roles.length === 0 && <span className="muted">No projects</span>}
-    </Stack>
   )
 }
 
@@ -172,6 +146,8 @@ export function UserManagementPage() {
   // JL-195/JL-197: the audit trail is only surfaced to workspace Admins/Owners.
   const { canManageUsers } = usePermissions()
 
+  // JL-203: the row whose invitation is being resent (its icon is disabled meanwhile).
+  const [resendingId, setResendingId] = useState(null)
   const showToast = (message, severity = 'success') =>
     setToast({ open: true, message, severity })
   const closeToast = () => setToast((prev) => ({ ...prev, open: false }))
@@ -358,6 +334,26 @@ export function UserManagementPage() {
   }
 
   // --- Delete / deactivate / reactivate ------------------------------------
+  // JL-203: Resend invite, for Invited rows. Reports what actually happened to
+  // the email (JL-473) and refreshes the row's Invite email badge.
+  async function handleResend(user) {
+    setResendingId(user.id)
+    try {
+      const result = await resendMemberInvite(user.id)
+      setUsers((current) => current.map((u) => (u.id === user.id
+        ? { ...u, email_status: result?.email_status || 'unknown', email_error: result?.email_error || null, email_sent_at: new Date().toISOString() }
+        : u)))
+      const who = user.name || user.email
+      if (result?.email_status === 'sent') showToast(`Invitation resent to ${who}.`)
+      else if (result?.email_status === 'skipped') showToast(`No invitation email was sent to ${who}: email delivery is not configured on the server.`, 'warning')
+      else showToast(`The invitation to ${who} could not be sent${result?.email_error ? `: ${result.email_error}` : '.'}`, 'error')
+    } catch (err) {
+      showToast(err?.message || 'Failed to resend the invitation.', 'error')
+    } finally {
+      setResendingId(null)
+    }
+  }
+
   function requestAction(type, user) {
     setConfirm({ type, user })
   }
@@ -560,7 +556,6 @@ export function UserManagementPage() {
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>System role</TableCell>
-                  <TableCell>Projects &amp; roles</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Invite email</TableCell>
                   {hasLastActivity && <TableCell>Last activity</TableCell>}
@@ -585,12 +580,13 @@ export function UserManagementPage() {
                           inputProps={{ 'aria-label': `Select ${user.name}` }}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="user-management-name-td">
                         <div className="user-management-name-cell">
                           <Avatar className="user-management-avatar" style={avatarStyle(user)}>
                             {(user.name || '?').slice(0, 2).toUpperCase()}
                           </Avatar>
-                          <strong>{user.name}</strong>
+                          {/* JL-203: one line; a long name ends in "…" (full name on hover). */}
+                          <strong className="user-management-name" title={user.name}>{user.name}</strong>
                         </div>
                       </TableCell>
                       <TableCell className="user-management-email-cell">{emailWithBreak(user.email)}</TableCell>
@@ -620,9 +616,6 @@ export function UserManagementPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <ProjectRolesCell user={user} />
-                      </TableCell>
-                      <TableCell>
                         <Chip
                           size="small"
                           label={user.status || 'Unknown'}
@@ -649,38 +642,64 @@ export function UserManagementPage() {
                       {hasLastActivity && (
                         <TableCell>{formatLastActivity(user.last_activity_at || user.last_active_at)}</TableCell>
                       )}
+                      {/* JL-203: only the actions that apply to this user, as icons:
+                          Active: Deactivate, Delete. Deactivated: Reactivate, Delete.
+                          Invited: Resend invite, Delete. Owner: none — the Owner can be
+                          neither deactivated nor deleted, so no greyed-out buttons. */}
                       <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          {deactivated ? (
-                            <Button
-                              size="small"
-                              color="primary"
-                              onClick={() => requestAction('reactivate', user)}
-                              aria-label={`Reactivate ${user.name}`}
-                            >
-                              Reactivate
-                            </Button>
-                          ) : (
-                            <Button
-                              size="small"
-                              color="warning"
-                              disabled={owner}
-                              onClick={() => requestAction('deactivate', user)}
-                              aria-label={`Deactivate ${user.name}`}
-                            >
-                              Deactivate
-                            </Button>
-                          )}
-                          <Button
-                            size="small"
-                            color="error"
-                            disabled={owner}
-                            onClick={() => requestAction('delete', user)}
-                            aria-label={`Delete ${user.name}`}
-                          >
-                            Delete
-                          </Button>
-                        </Stack>
+                        {!owner && (
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            {user.status === 'Invited' && (
+                              <Tooltip title="Resend invite">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    disabled={resendingId === user.id}
+                                    onClick={() => handleResend(user)}
+                                    aria-label={`Resend invite to ${user.name}`}
+                                  >
+                                    <ForwardToInboxOutlinedIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
+                            {deactivated && (
+                              <Tooltip title="Reactivate">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => requestAction('reactivate', user)}
+                                  aria-label={`Reactivate ${user.name}`}
+                                >
+                                  <RestoreOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {user.status === 'Active' && (
+                              <Tooltip title="Deactivate">
+                                <IconButton
+                                  size="small"
+                                  color="warning"
+                                  onClick={() => requestAction('deactivate', user)}
+                                  aria-label={`Deactivate ${user.name}`}
+                                >
+                                  <BlockOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => requestAction('delete', user)}
+                                aria-label={`Delete ${user.name}`}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
