@@ -181,7 +181,8 @@ describe('GET /api/projects workspace scoping (JL-96)', () => {
     expect(res.body).toHaveLength(1)
     const [sql, params] = all.mock.calls[0]
     expect(sql).not.toMatch(/workspace_id/)
-    expect(params).toEqual([12, 'Legacy Name'])
+    // JL-202: the lead is matched by member id (lead_member_id), not by name.
+    expect(params).toEqual([12, 12])
   })
 })
 
