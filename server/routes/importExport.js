@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { all, get, run } from '../db.js'
+import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
@@ -12,10 +12,61 @@ const router = Router()
 const importExportProject = (req) => Number(req.params.projectId)
 
 const EXPORT_FIELDS = ['issue_key', 'title', 'description', 'priority', 'assignee', 'status', 'issue_type', 'sprint_id']
-// What the importer reads: everything exported except the key. The target
-// project generates its own from projects.issue_counter, so an incoming
-// issue_key could never be honoured.
+// What the importer reads by default: everything exported except the key. The
+// target project mints its own from projects.issue_counter. The key is read
+// only when the caller opts in with `preserveKeys` (see below).
 const IMPORT_FIELDS = EXPORT_FIELDS.filter((f) => f !== 'issue_key')
+
+/*
+ * Atlassian Jira's CSV export names its columns for people, not machines:
+ * "Summary", "Issue key", "Issue Type". Without these aliases a Jira export
+ * fails every row with "title is required" unless the caller sends a mapping.
+ * An explicit `mapping` entry always wins, and a field's own name is tried
+ * before any alias, so this app's own export is unaffected.
+ */
+// Source header (lower-case) → the field it fills.
+const HEADER_ALIASES = {
+  summary: 'title',
+  'issue key': 'issue_key',
+  key: 'issue_key',
+  'issue type': 'issue_type',
+  issuetype: 'issue_type',
+}
+const aliasesOf = (field) => Object.keys(HEADER_ALIASES).filter((h) => HEADER_ALIASES[h] === field)
+
+/*
+ * Preserving Atlassian keys (opt-in, `preserveKeys: true`).
+ *
+ * Migrating from Jira Cloud, people need ECM-1042 to stay ECM-1042 — links in
+ * commits, wiki pages and email all point at it. So the incoming key is kept,
+ * subject to rules that keep the key space sound:
+ *   - it must look like KEY-123 and its prefix must equal THIS project's key
+ *     (rename the project key first if it differs — keys are editable);
+ *   - it may not repeat inside the file or match an issue that already exists
+ *     (idx_issues_issue_key is unique across ALL projects);
+ *   - every valid row must carry one — minting some keys and keeping others in
+ *     one import would interleave the two numbering schemes unpredictably.
+ * On commit, projects.issue_counter is raised to the highest imported number
+ * (never lowered), so the next issue created normally gets the number after it.
+ */
+const ISSUE_KEY_RE = /^([A-Za-z][A-Za-z0-9_]*)-(\d+)$/
+const MAX_KEY_NUMBER = 2147483647 // projects.issue_counter is INTEGER
+
+function parseIssueKey(raw, projectKey) {
+  const m = ISSUE_KEY_RE.exec(raw)
+  if (!m) return { error: `issue key "${raw}" is not in the form ${projectKey}-123` }
+  if (m[1].toUpperCase() !== String(projectKey).toUpperCase()) {
+    return { error: `issue key "${raw}" belongs to project "${m[1]}", not "${projectKey}" — change this project's key to ${m[1]} to keep it` }
+  }
+  const number = Number(m[2])
+  if (!Number.isSafeInteger(number) || number < 1 || number > MAX_KEY_NUMBER) {
+    return { error: `issue key "${raw}" has an out-of-range number` }
+  }
+  // Canonical form: the project's own spelling, no leading zeros.
+  return { key: `${projectKey}-${number}`, number }
+}
+
+class KeyConflictError extends Error {}
 
 // JL-450: matches MAX_CSV_BYTES in src/api/importExportApi.js. Characters
 // rather than bytes — this is a JS string by the time it reaches here — which
@@ -193,7 +244,7 @@ router.get('/projects/:projectId/export', requireProjectRead(importExportProject
 }))
 
 /* ---------- Import ---------- */
-// POST /api/projects/:projectId/import  { csv, mapping?, dryRun? }
+// POST /api/projects/:projectId/import  { csv, mapping?, dryRun?, preserveKeys? }
 // mapping maps target field -> source header (defaults to identity where headers match field names)
 router.post('/projects/:projectId/import', requireProjectWrite(importExportProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
@@ -203,6 +254,7 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
   const csv = String(req.body?.csv || '')
   const mapping = req.body?.mapping && typeof req.body.mapping === 'object' ? req.body.mapping : null
   const dryRun = req.body?.dryRun !== false // default to dry-run for safety
+  const preserveKeys = req.body?.preserveKeys === true
   if (!csv.trim()) { res.status(400).json({ error: 'csv content is required' }); return }
   // JL-450: the client caps the file it reads, but that check is advisory —
   // this endpoint takes a JSON string and anything can post to it. The limit is
@@ -222,14 +274,28 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
   if (grid.length < 2) { res.status(400).json({ error: 'CSV must have a header row and at least one data row' }); return }
   const headers = grid[0].map((h) => h.trim())
   const colOf = (field) => {
-    const source = mapping?.[field] || field
-    return headers.findIndex((h) => h.toLowerCase() === String(source).toLowerCase())
+    const find = (name) => headers.findIndex((h) => h.toLowerCase() === String(name).toLowerCase())
+    if (mapping?.[field]) return find(mapping[field])
+    for (const name of [field, ...aliasesOf(field)]) {
+      const i = find(name)
+      if (i >= 0) return i
+    }
+    return -1
   }
   // JL-448: derived from EXPORT_FIELDS rather than retyped, so export and
-  // import cannot claim different field sets. `issue_key` is the one exception
-  // and it is dropped deliberately: the target project mints its own key from
-  // projects.issue_counter, so an incoming key would be ignored anyway.
+  // import cannot claim different field sets. `issue_key` is the one exception:
+  // by default the target project mints its own key from
+  // projects.issue_counter, and the incoming key is read only with preserveKeys.
   const idx = Object.fromEntries(IMPORT_FIELDS.map((f) => [f, colOf(f)]))
+  if (preserveKeys) {
+    idx.issue_key = colOf('issue_key')
+    if (idx.issue_key < 0) {
+      res.status(400).json({ error: 'Keeping original issue keys needs an "Issue key" (or issue_key) column in the CSV' })
+      return
+    }
+  }
+  // Keys already claimed by an earlier row of this file (preserveKeys only).
+  const seenKeys = new Map()
 
   const parsed = []
   const errors = []
@@ -268,15 +334,48 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
         if (r2.from) warnings.push({ row: r + 1, field, from: r2.from, to: r2.value })
       }
     }
+    if (preserveKeys) {
+      const rawKey = val('issue_key')
+      if (!rawKey) rowErrors.push('issue key is missing (required when keeping original keys)')
+      else {
+        const k = parseIssueKey(rawKey, project.key)
+        if (k.error) rowErrors.push(k.error)
+        else if (seenKeys.has(k.key)) rowErrors.push(`issue key ${k.key} repeats row ${seenKeys.get(k.key)}`)
+        else {
+          seenKeys.set(k.key, r + 1)
+          rec.issue_key = k.key
+          rec.key_number = k.number
+        }
+      }
+    }
     if (rowErrors.length) errors.push({ row: r + 1, errors: rowErrors })
-    else parsed.push(rec)
+    else parsed.push({ rec, row: r + 1 })
   }
+
+  // preserveKeys: a key already in use anywhere (the unique index spans every
+  // project) fails its row here, in the preview, rather than as a 500 on commit.
+  if (preserveKeys && parsed.length > 0) {
+    const existing = await all(
+      'SELECT issue_key FROM issues WHERE issue_key = ANY(?)',
+      [parsed.map((p) => p.rec.issue_key)],
+    )
+    const taken = new Set(existing.map((x) => x.issue_key))
+    for (let i = parsed.length - 1; i >= 0; i--) {
+      const { rec, row } = parsed[i]
+      if (taken.has(rec.issue_key)) {
+        errors.push({ row, errors: [`issue key ${rec.issue_key} already exists`] })
+        parsed.splice(i, 1)
+      }
+    }
+    errors.sort((a, b) => a.row - b.row)
+  }
+  const records = parsed.map((p) => p.rec)
 
   if (dryRun) {
     res.json({
       dryRun: true,
       totalRows: grid.length - 1,
-      valid: parsed.length,
+      valid: records.length,
       invalid: errors.length,
       errors: errors.slice(0, 50),
       // JL-451: what was TRANSLATED rather than rejected. Surfaced so the
@@ -284,7 +383,70 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
       // be worse than the rejection it replaces.
       warnings: warnings.slice(0, 50),
       warningCount: warnings.length,
-      preview: parsed.slice(0, 10),
+      preview: records.slice(0, 10).map(({ key_number: _n, ...rec }) => rec),
+      preserveKeys,
+    })
+    return
+  }
+
+  if (preserveKeys) {
+    if (records.length === 0) {
+      res.status(201).json({ dryRun: false, created: 0, keys: [], invalid: errors.length, errors: errors.slice(0, 50) })
+      return
+    }
+    // One transaction, with the project row locked FOR UPDATE: nextIssueKey()
+    // (a plain UPDATE of the same row) waits until we commit, so no issue can be
+    // minted into the middle of the import. The existence check is repeated
+    // under the lock because rows may have appeared since the dry-run.
+    //
+    // Residual window: a create that bumped the counter just BEFORE the lock
+    // but has not inserted yet. If its number is one we are importing, one of
+    // the two inserts hits idx_issues_issue_key — when it is ours, the whole
+    // import rolls back and is reported as 409 below, so nothing is half-written.
+    const maxNumber = Math.max(...records.map((r) => r.key_number))
+    let result
+    try {
+      result = await withTransaction(async (tx) => {
+        await tx.get('SELECT id FROM projects WHERE id = ? FOR UPDATE', [projectId])
+        const clash = await tx.all(
+          'SELECT issue_key FROM issues WHERE issue_key = ANY(?)',
+          [records.map((r) => r.issue_key)],
+        )
+        if (clash.length) {
+          const list = clash.map((c) => c.issue_key).slice(0, 10).join(', ')
+          throw new KeyConflictError(`Issue key(s) already exist: ${list}. Nothing was imported — run the preview again.`)
+        }
+        const created = []
+        for (const rec of records) {
+          const ins = await tx.run(
+            'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [rec.issue_key, rec.title, rec.description, rec.priority, rec.assignee, rec.status, rec.issue_type, rec.sprint_id, projectId],
+          )
+          created.push({ id: ins.lastID, issue_key: rec.issue_key })
+        }
+        // Raise, never lower: importing ECM-3 into a project already at 50 must
+        // not make the next create reuse ECM-4..50.
+        const counter = await tx.get(
+          'UPDATE projects SET issue_counter = GREATEST(issue_counter, ?) WHERE id = ? RETURNING issue_counter',
+          [maxNumber, projectId],
+        )
+        return { created, nextKey: `${project.key}-${Number(counter.issue_counter) + 1}` }
+      })
+    } catch (err) {
+      if (err instanceof KeyConflictError) { res.status(409).json({ error: err.message }); return }
+      if (err?.code === '23505') {
+        res.status(409).json({ error: 'An issue key in this import was taken while it ran. Nothing was imported — run the preview again.' })
+        return
+      }
+      throw err
+    }
+    res.status(201).json({
+      dryRun: false,
+      created: result.created.length,
+      keys: result.created,
+      nextKey: result.nextKey,
+      invalid: errors.length,
+      errors: errors.slice(0, 50),
     })
     return
   }
@@ -315,19 +477,19 @@ router.post('/projects/:projectId/import', requireProjectWrite(importExportProje
   // nothing will ever hand them out again. Collisions are the failure mode we
   // must avoid, not gaps.
   const created = []
-  if (parsed.length > 0) {
+  if (records.length > 0) {
     const reservation = await get(
       'UPDATE projects SET issue_counter = issue_counter + ? WHERE id = ? RETURNING issue_counter',
-      [parsed.length, projectId],
+      [records.length, projectId],
     )
     // RETURNING yields the counter *after* the bump, i.e. the LAST number of
     // the reserved block. Reserving N from a counter at C gives C + N, so the
     // reserved numbers are [C + 1 .. C + N] = [end - N + 1 .. end].
     // `base` is the number immediately before the block, so row i (0-based)
     // gets base + i + 1 — first key base+1 == C+1, last key base+N == end.
-    const base = Number(reservation.issue_counter) - parsed.length
-    for (let i = 0; i < parsed.length; i++) {
-      const rec = parsed[i]
+    const base = Number(reservation.issue_counter) - records.length
+    for (let i = 0; i < records.length; i++) {
+      const rec = records[i]
       const issueKey = `${project.key}-${base + i + 1}`
       const ins = await run(
         'INSERT INTO issues (issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',

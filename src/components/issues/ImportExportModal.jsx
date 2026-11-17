@@ -21,6 +21,10 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
   const dragDepth = useRef(0)
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
+  // Keep each row's original key (ECM-1042 stays ECM-1042) — for migrating
+  // from Atlassian Jira. Changing it invalidates the preview, which was
+  // validated under the other rule.
+  const [preserveKeys, setPreserveKeys] = useState(false)
 
   async function handleExport(format) {
     setError('')
@@ -82,7 +86,7 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
   async function handlePreview() {
     setError(''); setDone(''); setBusy(true)
     try {
-      const result = await importIssues(projectId, { csv, dryRun: true })
+      const result = await importIssues(projectId, { csv, dryRun: true, preserveKeys })
       setPreview(result)
     } catch (e) {
       setError(e?.message || 'Preview failed')
@@ -94,8 +98,11 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
   async function handleCommit() {
     setError(''); setBusy(true)
     try {
-      const result = await importIssues(projectId, { csv, dryRun: false })
-      setDone(`Imported ${result.created} issue(s).`)
+      const result = await importIssues(projectId, { csv, dryRun: false, preserveKeys })
+      setDone(
+        `Imported ${result.created} issue(s).`
+        + (result.nextKey ? ` Original keys kept; the next new issue will be ${result.nextKey}.` : ''),
+      )
       setPreview(null)
       setCsv('')
       setFileName('')
@@ -134,8 +141,20 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
         {canImport && tab === 'import' && (
           <div className="ie-body" {...dropZoneProps}>
             <p className="ie-hint">
-              Upload a CSV, or paste one below. Needs a header row. Recognized columns: <code>title, description, priority, assignee, status, issue_type, sprint_id</code>. Only <code>title</code> is required.
+              Upload a CSV, or paste one below. Needs a header row. Recognized columns: <code>title, description, priority, assignee, status, issue_type, sprint_id, issue_key</code>. Only <code>title</code> is required. A Jira CSV export works as-is (<code>Summary</code>, <code>Issue key</code>, <code>Issue Type</code> are recognized).
             </p>
+
+            <label className="ie-option">
+              <input
+                type="checkbox"
+                checked={preserveKeys}
+                disabled={busy}
+                onChange={(e) => { setPreserveKeys(e.target.checked); setPreview(null) }}
+              />
+              <span>
+                Keep original issue keys (e.g. ECM-1042 from Atlassian Jira). Each key&apos;s prefix must match this project&apos;s key.
+              </span>
+            </label>
 
             {/* JL-450: the file route. Hidden input driven by a visible button,
                 matching the attach control on the issue-detail page — a bare
@@ -175,6 +194,12 @@ export function ImportExportModal({ projectId, onClose, onImported, canImport = 
                   <strong>{preview.valid}</strong> valid · <strong>{preview.invalid}</strong> invalid of {preview.totalRows} rows
                   {preview.warningCount > 0 && <> · <strong>{preview.warningCount}</strong> translated</>}
                 </p>
+                {preview.preserveKeys && preview.preview?.length > 0 && (
+                  <p className="ie-keys">
+                    Keys kept as-is: {preview.preview.map((p) => p.issue_key).join(', ')}
+                    {preview.valid > preview.preview.length && `, … (${preview.valid} in all)`}
+                  </p>
+                )}
                 {/* JL-451: values that were MAPPED rather than rejected —
                     "In Prod" → "Done", "Highest" → "High". Shown before the
                     commit button so the translation is approved, not

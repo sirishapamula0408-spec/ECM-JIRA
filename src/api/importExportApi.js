@@ -28,10 +28,12 @@ export async function downloadProjectExport(projectId, format = 'csv') {
 }
 
 // CSV import — dryRun returns a validation preview; dryRun:false commits.
-export const importIssues = (projectId, { csv, mapping, dryRun }) =>
+// preserveKeys keeps each row's original issue key (e.g. from Atlassian Jira)
+// instead of minting a new one.
+export const importIssues = (projectId, { csv, mapping, dryRun, preserveKeys = false }) =>
   api(`/api/projects/${projectId}/import`, {
     method: 'POST',
-    body: JSON.stringify({ csv, mapping, dryRun }),
+    body: JSON.stringify({ csv, mapping, dryRun, preserveKeys }),
   })
 
 /*
