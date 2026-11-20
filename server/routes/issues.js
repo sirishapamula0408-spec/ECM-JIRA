@@ -510,18 +510,20 @@ router.post('/', requireProjectWrite((req) => {
     return
   }
 
-  // Validate project
-  let projectKey = 'PROJ'
-  let resolvedProjectId = null
-  if (projectId) {
-    const project = await get('SELECT id, key FROM projects WHERE id = ?', [projectId])
-    if (!project) {
-      res.status(400).json({ error: 'Project not found' })
-      return
-    }
-    projectKey = project.key
-    resolvedProjectId = project.id
+  // Every issue belongs to a project. A create without one used to produce a
+  // project-less PROJ-n issue that skipped every project permission check and
+  // was readable and editable by any workspace member.
+  if (!projectId) {
+    res.status(400).json({ error: 'projectId is required — choose a project for the issue' })
+    return
   }
+  const project = await get('SELECT id, key FROM projects WHERE id = ?', [projectId])
+  if (!project) {
+    res.status(400).json({ error: 'Project not found' })
+    return
+  }
+  const projectKey = project.key
+  const resolvedProjectId = project.id
 
   let nextSprintId = null
   if (status !== 'Backlog') {

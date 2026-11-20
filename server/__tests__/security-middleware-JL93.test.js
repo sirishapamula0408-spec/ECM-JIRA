@@ -214,12 +214,29 @@ describe('corsAllowList middleware', () => {
     expect(mw.isAllowed('https://evil.example.com')).toBe(false)
   })
 
-  it('is permissive when the allow-list is empty (reflects any origin)', () => {
-    const mw = corsAllowList({ allowedOrigins: [] })
+  // An empty allow-list used to be PERMISSIVE: any website got its Origin
+  // reflected with Allow-Credentials. The deploy box runs `npm run dev`, so the
+  // production-only config check never fired and that was the live behaviour.
+  it('allows NO cross-origin caller when the allow-list is empty', () => {
+    for (const allowedOrigins of [[], '', undefined]) {
+      const mw = corsAllowList({ allowedOrigins })
+      expect(mw.permissive).toBe(false)
+      const { res, nextCalled } = invoke(mw, makeReq({ headers: { origin: 'https://evil.example.com' } }))
+      expect(nextCalled).toBe(true)
+      expect(res.getHeader('Access-Control-Allow-Origin')).toBeUndefined()
+      expect(res.getHeader('Access-Control-Allow-Credentials')).toBeUndefined()
+      // No Origin (curl, server-to-server, same-origin GET) → no CORS headers needed.
+      const { res: res2, nextCalled: next2 } = invoke(mw, makeReq({ headers: {} }))
+      expect(next2).toBe(true)
+      expect(res2.getHeader('Access-Control-Allow-Origin')).toBeUndefined()
+    }
+  })
+
+  it("is permissive only on an explicit '*'", () => {
+    const mw = corsAllowList({ allowedOrigins: '*' })
     expect(mw.permissive).toBe(true)
     const { res } = invoke(mw, makeReq({ headers: { origin: 'http://localhost:5173' } }))
     expect(res.getHeader('Access-Control-Allow-Origin')).toBe('http://localhost:5173')
-    // No Origin header → wildcard fallback preserves prior open behaviour.
     const { res: res2 } = invoke(mw, makeReq({ headers: {} }))
     expect(res2.getHeader('Access-Control-Allow-Origin')).toBe('*')
   })

@@ -1,12 +1,19 @@
 // JL-93: In-house, dependency-free strict CORS allow-list.
 //
 // Replaces the open `cors()` call. Behaviour:
-//  - When the allow-list is EMPTY/unset → permissive mode: reflect whatever
-//    Origin is presented (or `*` when none), preserving prior dev behaviour and
-//    keeping the Vite dev proxy / same-origin requests and existing tests working.
-//  - When the allow-list is NON-EMPTY → strict mode: only reflect an Origin that
-//    is explicitly listed. Disallowed origins get NO `Access-Control-Allow-Origin`
-//    header, so browsers block the cross-origin response.
+//  - EMPTY/unset allow-list → NO cross-origin access. No Origin is reflected, so
+//    a browser blocks every cross-origin response. The SPA is unaffected: it
+//    calls a relative /api, which is same-origin (Vite proxies it in dev,
+//    serveStatic serves both in production), and browsers do not apply CORS to
+//    same-origin requests. Non-browser clients (curl, server-to-server, API
+//    tokens) send no Origin and are unaffected too.
+//    This used to be PERMISSIVE — reflect ANY Origin, with credentials. The
+//    production config check (JL-435) required an allow-list, but the deploy
+//    box runs `npm run dev`, so that check never fired and every website was
+//    allowed to call the API.
+//  - NON-EMPTY allow-list → only reflect an Origin that is explicitly listed.
+//  - `*` → permissive (reflect any Origin): an explicit opt-in for local
+//    experiments only. validateConfig refuses it in production.
 //
 // Scope note: this ticket is rate limiting / lockout / CORS only. Security headers
 // (CSP, X-Frame-Options, etc.) are handled separately by JL-91 — not set here.
@@ -34,7 +41,7 @@ export function corsAllowList({
     .map((s) => s.trim())
     .filter(Boolean)
 
-  const permissive = list.length === 0
+  const permissive = list.includes('*')
 
   function isAllowed(origin) {
     return permissive || list.includes(origin)
@@ -50,11 +57,10 @@ export function corsAllowList({
       res.setHeader('Vary', 'Origin')
       if (credentials) res.setHeader('Access-Control-Allow-Credentials', 'true')
     } else if (!origin && permissive) {
-      // No Origin header (e.g. curl, same-origin, server-to-server) in permissive
-      // mode: keep the historically-open default.
+      // No Origin header (e.g. curl, server-to-server) in explicit '*' mode.
       res.setHeader('Access-Control-Allow-Origin', '*')
     }
-    // Disallowed origin in strict mode → intentionally no ACAO header (blocked).
+    // Any other origin → intentionally no ACAO header (the browser blocks it).
 
     res.setHeader('Access-Control-Allow-Methods', methods)
     res.setHeader('Access-Control-Allow-Headers', allowedHeaders)

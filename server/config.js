@@ -83,9 +83,9 @@ export function isOAuthConfigured(name) {
 }
 
 // --- JL-93: Auth abuse protection (rate limiting, login lockout, strict CORS) ---
-// Comma-separated allow-list of browser origins. EMPTY/unset → permissive CORS
-// (reflect any origin) so local dev and existing tests keep working. Set it in
-// production to lock cross-origin access down to known frontends.
+// Comma-separated allow-list of browser origins that may call the API
+// cross-origin. EMPTY/unset → none may (the SPA itself is same-origin and needs
+// no entry). '*' → any origin, for local experiments only; refused in production.
 export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 
 // --- JL-133: IP allowlisting ---
@@ -365,6 +365,13 @@ export function validateConfig(env = process.env) {
     }
 
     // --- CORS allow-list (JL-435) ---
+    // An empty allow-list is now deny-all, so requiring one is about being
+    // explicit; '*' is the setting that is actually dangerous, and is refused.
+    if (String(env.CORS_ALLOWED_ORIGINS || '').split(',').some((o) => o.trim() === '*')) {
+      errors.push(
+        "CORS_ALLOWED_ORIGINS contains '*', which is permissive: it reflects any Origin and — with credentials enabled — allows authenticated cross-origin requests from any site. List the exact origins instead.",
+      )
+    }
     // corsAllowList treats an EMPTY allow-list as PERMISSIVE: it reflects
     // whatever Origin is presented. That is deliberate for dev (it keeps the
     // Vite proxy and the suites working) and dangerous in production, where
@@ -376,7 +383,7 @@ export function validateConfig(env = process.env) {
     // strictly better, and matches how JWT_SECRET and DATABASE_URL behave.
     if (!env.CORS_ALLOWED_ORIGINS || String(env.CORS_ALLOWED_ORIGINS).trim().length === 0) {
       errors.push(
-        'CORS_ALLOWED_ORIGINS is required in production but is not set. An empty allow-list puts corsAllowList into permissive mode, which reflects any Origin and — with credentials enabled — allows authenticated cross-origin requests from any site. Set a comma-separated list, e.g. https://app.example.com',
+        "CORS_ALLOWED_ORIGINS is required in production but is not set. List the browser origins that may call the API, e.g. https://app.example.com. (An empty list allows no cross-origin callers; '*' would be permissive — credentialed access from any site — and is refused.)",
       )
     }
   } else {

@@ -121,7 +121,7 @@ app.use(requestLogger)
 // mounted before routes so it also covers auth and error responses.
 app.use(securityHeaders)
 
-// JL-93: strict, dependency-free CORS. Empty allow-list → permissive (dev default).
+// JL-93: strict, dependency-free CORS. Empty allow-list → no cross-origin callers.
 app.use(corsAllowList({ allowedOrigins: CORS_ALLOWED_ORIGINS, credentials: true }))
 
 // JL-133: IP allow-listing, mounted early (before routes). No-op when

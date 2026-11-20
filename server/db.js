@@ -2903,6 +2903,18 @@ export async function initializeDatabase() {
   } catch (err) {
     console.error(`[db] Invitation reconciliation failed: ${err.message}`)
   }
+
+  // --- Project-less issues are no longer public: move any that exist (old
+  // PROJ-n tickets, issues of deleted projects) into the admin-only holding
+  // project. Runs after the demo seed so seeded orphans are adopted too. See
+  // services/holdingProject.js. Idempotent; a no-op when there are none.
+  try {
+    const { adoptProjectlessIssues } = await import('./services/holdingProject.js')
+    const moved = await adoptProjectlessIssues()
+    if (moved) console.log(`[db] Moved ${moved} project-less issue(s) into the admin-only holding project`)
+  } catch (err) {
+    console.error(`[db] Project-less issue migration failed: ${err.message}`)
+  }
 }
 
 /**

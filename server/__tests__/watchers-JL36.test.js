@@ -182,11 +182,12 @@ describe('JL-36 Issues route watcher integration', () => {
 
   it('POST /api/issues auto-watches the creator', async () => {
     get
-      .mockResolvedValueOnce({ count: 0 }) // key count
+      .mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+      .mockResolvedValueOnce({ issue_counter: 1 }) // key counter
       .mockResolvedValueOnce({ id: 9, issue_key: 'TP-1', title: 'New', description: 'desc', priority: 'Medium', assignee: 'Creator', status: 'Backlog', issue_type: 'Task', sprint_id: null, project_id: null, parent_id: null, created_at: 'now' })
     run.mockResolvedValue({ lastID: 9 })
 
-    const res = await request(app).post('/api/issues').send({
+    const res = await request(app).post('/api/issues').send({ projectId: 1,
       title: 'New', description: 'desc', assignee: 'Creator',
       priority: 'Medium', status: 'Backlog', issueType: 'Task',
     })

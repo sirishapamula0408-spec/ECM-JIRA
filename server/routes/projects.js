@@ -5,6 +5,7 @@ import { loadProjectRole, requireProjectRole, requireProjectRead } from '../midd
 import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/validation.js'
 import { getProjectCreationPolicy } from './workspaceSettings.js'
 import { seedDefaultWorkflow } from '../services/workflowSeed.js'
+import { ensureHoldingProject, isHoldingProject } from '../services/holdingProject.js'
 
 const router = Router()
 
@@ -315,7 +316,22 @@ router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler
     return
   }
 
-  await run('UPDATE issues SET project_id = NULL WHERE project_id = ?', [id])
+  // The project's issues go to the admin-only holding project. They used to be
+  // set to project_id NULL, which made every one of them readable and editable
+  // by any workspace member — deleting a private project published it.
+  if (await isHoldingProject(id)) {
+    const held = await get('SELECT COUNT(*) AS n FROM issues WHERE project_id = ?', [id])
+    if (Number(held?.n) > 0) {
+      res.status(409).json({ error: 'This project holds issues that have no other project. Move them to a project before deleting it.' })
+      return
+    }
+  } else {
+    const hasIssues = await get('SELECT 1 AS x FROM issues WHERE project_id = ? LIMIT 1', [id])
+    if (hasIssues) {
+      const holdingId = await ensureHoldingProject()
+      await run('UPDATE issues SET project_id = ? WHERE project_id = ?', [holdingId, id])
+    }
+  }
   await run('DELETE FROM project_members WHERE project_id = ?', [id])
   await run('DELETE FROM projects WHERE id = ?', [id])
   res.json({ ok: true })

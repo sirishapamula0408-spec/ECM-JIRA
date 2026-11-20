@@ -91,13 +91,14 @@ describe('JL-77 — mapIssue returns expanded fields', () => {
 describe('JL-77 — POST create accepts & persists expanded fields', () => {
   it('inserts the new columns and defaults reporter from req.user when omitted', async () => {
     // getDefaultSprintId not needed (status Backlog). get calls: count, then re-read row.
-    get.mockResolvedValueOnce({ count: 0 }) // COUNT(*)
+    get.mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+    get.mockResolvedValueOnce({ issue_counter: 1 }) // key counter
     get.mockResolvedValueOnce(issueRow()) // re-read of created row
     run.mockResolvedValue({ lastID: 1, changes: 1 })
 
     const res = await request(app)
       .post('/api/issues')
-      .send({
+      .send({ projectId: 1,
         title: 'Sample',
         description: 'Desc',
         assignee: 'Alice',
@@ -138,13 +139,14 @@ describe('JL-77 — POST create accepts & persists expanded fields', () => {
   })
 
   it('accepts an explicit reporter override', async () => {
-    get.mockResolvedValueOnce({ count: 0 })
+    get.mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+    get.mockResolvedValueOnce({ issue_counter: 1 }) // key counter
     get.mockResolvedValueOnce(issueRow({ reporter: 'boss@test.com' }))
     run.mockResolvedValue({ lastID: 1, changes: 1 })
 
     const res = await request(app)
       .post('/api/issues')
-      .send({
+      .send({ projectId: 1,
         title: 'Sample',
         description: 'Desc',
         assignee: 'Alice',

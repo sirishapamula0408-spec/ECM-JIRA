@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole } from '../middleware/authorize.js'
 import { INBOUND_EMAIL_TOKEN } from '../config.js'
 import { safeEqual } from '../utils/safeEqual.js'
+import { ensureHoldingProject } from '../services/holdingProject.js'
 
 /**
  * JL-148 — Inbound email → issue creation.
@@ -144,25 +145,21 @@ webhookRouter.post('/', asyncHandler(async (req, res) => {
     return
   }
 
-  let projectKey = 'PROJ'
-  const resolvedProjectId = setting.project_id ?? null
-  if (resolvedProjectId) {
-    const project = await get('SELECT key FROM projects WHERE id = ?', [resolvedProjectId])
-    if (project?.key) projectKey = project.key
-  }
+  // A mailbox with no project (or whose project was deleted) files into the
+  // admin-only holding project. It used to create a project-less PROJ-n issue,
+  // readable and editable by every workspace member.
+  let project = setting.project_id
+    ? await get('SELECT id, key FROM projects WHERE id = ?', [setting.project_id])
+    : null
+  if (!project) project = await get('SELECT id, key FROM projects WHERE id = ?', [await ensureHoldingProject()])
+  const resolvedProjectId = project.id
 
   // Allocate a monotonic issue key (mirrors issues.js key generation).
-  let newKey
-  if (resolvedProjectId) {
-    const counterRow = await get(
-      'UPDATE projects SET issue_counter = issue_counter + 1 WHERE id = ? RETURNING issue_counter',
-      [resolvedProjectId],
-    )
-    newKey = `${projectKey}-${counterRow.issue_counter}`
-  } else {
-    const countRow = await get('SELECT COUNT(*) AS count FROM issues')
-    newKey = `${projectKey}-${Number(countRow.count) + 1}`
-  }
+  const counterRow = await get(
+    'UPDATE projects SET issue_counter = issue_counter + 1 WHERE id = ? RETURNING issue_counter',
+    [resolvedProjectId],
+  )
+  const newKey = `${project.key}-${counterRow.issue_counter}`
 
   const title = email.subject || '(no subject)'
   const description = email.body || email.subject || '(no body)'

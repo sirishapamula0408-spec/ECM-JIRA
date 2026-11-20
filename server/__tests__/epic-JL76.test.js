@@ -80,11 +80,12 @@ function issueRow(overrides = {}) {
 describe('JL-76 — Epic issue type & hierarchy', () => {
   it('creates an Epic issue (top-level, no epic_id)', async () => {
     // get() call order: COUNT, then final row SELECT
-    get.mockResolvedValueOnce({ count: 0 }) // COUNT for issue key
+    get.mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+    get.mockResolvedValueOnce({ issue_counter: 1 }) // key counter
     get.mockResolvedValueOnce(issueRow({ id: 10, issue_key: 'PROJ-1', issue_type: 'Epic', title: 'Big Epic' }))
     run.mockResolvedValue({ lastID: 10, changes: 1 })
 
-    const res = await request(app).post('/api/issues').send({
+    const res = await request(app).post('/api/issues').send({ projectId: 1,
       title: 'Big Epic',
       description: 'An epic',
       assignee: 'Alice',
@@ -100,12 +101,13 @@ describe('JL-76 — Epic issue type & hierarchy', () => {
 
   it('assigns a Story to an epic via epic_id on create', async () => {
     // get() order: COUNT, epic ref lookup, final row
-    get.mockResolvedValueOnce({ count: 3 }) // COUNT
+    get.mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+    get.mockResolvedValueOnce({ issue_counter: 4 }) // key counter
     get.mockResolvedValueOnce({ id: 5, issue_type: 'Epic' }) // validateEpicRef
     get.mockResolvedValueOnce(issueRow({ id: 11, issue_key: 'PROJ-4', issue_type: 'Story', epic_id: 5 }))
     run.mockResolvedValue({ lastID: 11, changes: 1 })
 
-    const res = await request(app).post('/api/issues').send({
+    const res = await request(app).post('/api/issues').send({ projectId: 1,
       title: 'Story under epic',
       description: 'child',
       assignee: 'Bob',
@@ -124,9 +126,10 @@ describe('JL-76 — Epic issue type & hierarchy', () => {
   })
 
   it('rejects epic_id set on an Epic issue', async () => {
-    get.mockResolvedValueOnce({ count: 0 }) // COUNT
+    get.mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+    get.mockResolvedValueOnce({ issue_counter: 1 }) // key counter
 
-    const res = await request(app).post('/api/issues').send({
+    const res = await request(app).post('/api/issues').send({ projectId: 1,
       title: 'Nested epic',
       description: 'bad',
       assignee: 'Alice',
@@ -143,10 +146,11 @@ describe('JL-76 — Epic issue type & hierarchy', () => {
   })
 
   it('rejects epic_id referencing a non-Epic issue', async () => {
-    get.mockResolvedValueOnce({ count: 0 }) // COUNT
+    get.mockResolvedValueOnce({ id: 1, key: 'PROJ' }) // project lookup
+    get.mockResolvedValueOnce({ issue_counter: 1 }) // key counter
     get.mockResolvedValueOnce({ id: 9, issue_type: 'Story' }) // ref is not an Epic
 
-    const res = await request(app).post('/api/issues').send({
+    const res = await request(app).post('/api/issues').send({ projectId: 1,
       title: 'Story',
       description: 'x',
       assignee: 'Alice',

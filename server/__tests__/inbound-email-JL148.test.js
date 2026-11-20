@@ -14,6 +14,9 @@ vi.mock('../db.js', () => ({
   tableExists: vi.fn(),
 }))
 
+// A mailbox with no project files into the admin-only holding project.
+vi.mock('../services/holdingProject.js', () => ({ ensureHoldingProject: vi.fn().mockResolvedValue(77) }))
+
 // Preserve the real config but override INBOUND_EMAIL_TOKEN with a live getter
 // so a test can enable the token gate at will.
 vi.mock('../config.js', async (importOriginal) => {
@@ -131,7 +134,7 @@ describe('JL-148 — POST /api/inbound-email', () => {
   it('creates a new issue when the subject has no key, mapping mailbox → project', async () => {
     get
       .mockResolvedValueOnce({ id: 1, project_id: 2, default_issue_type: 'Bug' }) // mailbox mapping
-      .mockResolvedValueOnce({ key: 'SUP' }) // project key
+      .mockResolvedValueOnce({ id: 2, key: 'SUP' }) // project
       .mockResolvedValueOnce({ issue_counter: 8 }) // atomic counter bump
     run.mockResolvedValue({ lastID: 99, changes: 1 })
 
@@ -151,6 +154,24 @@ describe('JL-148 — POST /api/inbound-email', () => {
     expect(params[0]).toBe('SUP-8') // issue_key
     expect(params[1]).toBe('Cannot upload files') // title
     expect(params).toContain('Bug') // default_issue_type from the mapping
+  })
+
+  it('a mailbox with no project files the issue into the holding project, not a public project-less one', async () => {
+    get
+      .mockResolvedValueOnce({ id: 1, project_id: null, default_issue_type: 'Task' }) // mapping, no project
+      .mockResolvedValueOnce({ id: 77, key: 'ORPHAN' }) // holding project
+      .mockResolvedValueOnce({ issue_counter: 1 }) // counter bump
+    run.mockResolvedValue({ lastID: 100, changes: 1 })
+
+    const res = await request(app).post('/api/inbound-email').send({
+      to: 'support@ecm.io', from: 'dave@corp.com', subject: 'Help', text: 'please',
+    })
+
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({ action: 'created', issueKey: 'ORPHAN-1' })
+    const insert = run.mock.calls.find((c) => /INSERT INTO issues/i.test(c[0]))
+    expect(insert[1][7]).toBe(77) // project_id — never NULL
+    expect(get.mock.calls.some((c) => String(c[0]).includes('COUNT(*)'))).toBe(false)
   })
 
   it('returns 404 when no mailbox mapping matches and no key is present', async () => {

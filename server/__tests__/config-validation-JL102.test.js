@@ -186,10 +186,11 @@ describe('JL-102 scan-secrets matcher', () => {
 
 describe('JL-435 — CORS allow-list must be explicit in production', () => {
   const silentLogger = { warn() {}, error() {} }
-  // corsAllowList treats an empty allow-list as PERMISSIVE (reflect any Origin).
-  // With credentials: true that is authenticated cross-origin access from any
-  // site. Production shipped that way because docker-compose.prod.yml set
-  // CORS_ORIGIN, a name no code reads, so CORS_ALLOWED_ORIGINS was always empty.
+  // corsAllowList USED to treat an empty allow-list as PERMISSIVE (reflect any
+  // Origin, with credentials). Production shipped that way because
+  // docker-compose.prod.yml set CORS_ORIGIN, a name no code reads. Empty is now
+  // deny-all; the requirement stays so production config is explicit, and '*'
+  // (the genuinely permissive setting) is refused.
   const PROD = {
     NODE_ENV: 'production',
     DATABASE_URL: 'postgresql://user:pass@host:5432/db',
@@ -239,6 +240,14 @@ describe('JL-435 — CORS allow-list must be explicit in production', () => {
         res.errors.some((e) => /CORS_ALLOWED_ORIGINS/.test(e)),
         `NODE_ENV=${NODE_ENV} must not be fatal`,
       ).toBe(false)
+    }
+  })
+
+  it("refuses '*' in production, alone or in a list", () => {
+    for (const CORS_ALLOWED_ORIGINS of ['*', 'https://app.example.com, *']) {
+      const res = validateConfig({ ...PROD, CORS_ALLOWED_ORIGINS })
+      expect(res.ok).toBe(false)
+      expect(res.errors.some((e) => /CORS_ALLOWED_ORIGINS contains '\*'/.test(e))).toBe(true)
     }
   })
 
