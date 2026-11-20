@@ -644,57 +644,14 @@ button.assignee-chip:focus-visible {
   padding: 6px 12px 8px;
 }
 
-.sprint-menu-wrap {
-  position: relative;
-}
-
-.sprint-menu-trigger {
-  min-width: 28px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-}
-
-.sprint-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 30;
-  min-width: 180px;
-  background: #ffffff;
-  border: 1px solid #dfe1e6;
+/* The sprint "…" button. The menu itself is an MUI Menu portalled to <body>
+   (JL-483 fix): the old in-panel dropdown was clipped by .jira-backlog-panel's
+   overflow: hidden, hiding "Delete sprint". */
+.sprint-menu-trigger.sprint-menu-trigger {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border, #dcdfe4);
   border-radius: 4px;
-  box-shadow: 0 8px 16px rgba(9, 30, 66, 0.15);
-  padding: 4px 0;
-}
-
-.sprint-menu-item {
-  width: 100%;
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 8px 12px;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: #172b4d;
-  cursor: pointer;
-}
-
-.sprint-menu-item:hover {
-  background: #f4f5f7;
-}
-
-.sprint-menu-item:disabled {
-  color: #97a0af;
-  cursor: not-allowed;
-}
-
-.sprint-menu-item:disabled:hover {
-  background: transparent;
-}
-
-.sprint-menu-danger {
-  color: #de350b;
 }
 
 .issue-row {

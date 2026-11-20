@@ -150,6 +150,27 @@ describe('Edit sprint', () => {
   })
 })
 
+describe('the sprint "…" menu', () => {
+  it('renders outside the backlog panel, so overflow: hidden cannot clip "Delete sprint"', () => {
+    // Regression: the old dropdown was absolutely positioned inside
+    // .jira-backlog-panel (overflow: hidden); with few rows below a sprint its
+    // lower items were cut off and Delete sprint could not be reached.
+    const { container } = renderBacklog()
+    fireEvent.click(screen.getByLabelText('Sprint actions'))
+    const menu = screen.getByRole('menu')
+    expect(container.querySelector('.jira-backlog-panel').contains(menu)).toBe(false)
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent))
+      .toEqual(['Start sprint', 'Edit sprint', 'Move all to backlog', 'Delete sprint'])
+  })
+
+  it('closes on Escape', async () => {
+    renderBacklog()
+    fireEvent.click(screen.getByLabelText('Sprint actions'))
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+})
+
 describe('Delete sprint', () => {
   it('says how many work items will move to the backlog, then deletes', async () => {
     handleDeleteSprint.mockResolvedValue({})

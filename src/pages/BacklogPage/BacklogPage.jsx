@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Chip from '@mui/material/Chip'
 import Select from '@mui/material/Select'
 import IconButton from '@mui/material/IconButton'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import Tooltip from '@mui/material/Tooltip'
 import Snackbar from '@mui/material/Snackbar'
 import Alert from '@mui/material/Alert'
@@ -186,6 +189,8 @@ export function BacklogPage() {
   const [quickCreateBusyBySprint, setQuickCreateBusyBySprint] = useState({})
   const [quickCreateErrorBySprint, setQuickCreateErrorBySprint] = useState({})
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
+  // The "…" button the open sprint menu hangs from (MUI Menu anchor).
+  const [sprintMenuAnchor, setSprintMenuAnchor] = useState(null)
   // JL-483: { mode: 'create' } or { mode: 'edit', sprint } while the Create / Edit sprint dialog is open.
   const [sprintDialog, setSprintDialog] = useState(null)
   const [showImportExport, setShowImportExport] = useState(false)
@@ -817,17 +822,36 @@ export function BacklogPage() {
                   </button>
                   )}
                   {canManageThisSprint && (
-                  <div className="sprint-menu-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpenSprintMenuId(null) }}>
-                    <button className="icon-btn sprint-menu-trigger" type="button" aria-label="Sprint actions" onClick={() => setOpenSprintMenuId((current) => (current === sprintPanel.id ? null : sprintPanel.id))}>...</button>
-                    {openSprintMenuId === sprintPanel.id && (
-                      <div className="sprint-menu" role="menu">
-                        <button className="sprint-menu-item" type="button" onClick={async () => { await handleStartSprintAction(sprintPanel.id); setOpenSprintMenuId(null) }} disabled={isStarted || sprintPanel.issues.length === 0}>Start sprint</button>
-                        <button className="sprint-menu-item" type="button" onClick={() => { setSprintDialog({ mode: 'edit', sprint: sprintPanel }); setOpenSprintMenuId(null) }}>Edit sprint</button>
-                        <button className="sprint-menu-item" type="button" onClick={async () => { await handleMoveSprintIssuesToBacklog(sprintPanel); setOpenSprintMenuId(null) }} disabled={sprintPanel.issueIds.length === 0}>Move all to backlog</button>
-                        <button className="sprint-menu-item sprint-menu-danger" type="button" onClick={async () => { await handleDeleteSprintPanel(sprintPanel); setOpenSprintMenuId(null) }}>Delete sprint</button>
-                      </div>
-                    )}
-                  </div>
+                  <>
+                    {/* JL-483 fix: an MUI Menu, portalled to <body>. The old
+                        hand-made dropdown was absolutely positioned INSIDE
+                        .jira-backlog-panel, which has overflow: hidden, so with
+                        few rows below a sprint its lower items — "Delete
+                        sprint" — were clipped away. A portal cannot be clipped,
+                        flips up near the window edge, and is keyboard-navigable. */}
+                    <IconButton
+                      className="sprint-menu-trigger"
+                      size="small"
+                      aria-label="Sprint actions"
+                      aria-haspopup="menu"
+                      aria-expanded={openSprintMenuId === sprintPanel.id ? 'true' : undefined}
+                      onClick={(event) => { setSprintMenuAnchor(event.currentTarget); setOpenSprintMenuId(sprintPanel.id) }}
+                    >
+                      <MoreHorizIcon fontSize="small" />
+                    </IconButton>
+                    <Menu
+                      anchorEl={sprintMenuAnchor}
+                      open={openSprintMenuId === sprintPanel.id}
+                      onClose={() => setOpenSprintMenuId(null)}
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    >
+                      <MenuItem disabled={isStarted || sprintPanel.issues.length === 0} onClick={async () => { setOpenSprintMenuId(null); await handleStartSprintAction(sprintPanel.id) }}>Start sprint</MenuItem>
+                      <MenuItem onClick={() => { setOpenSprintMenuId(null); setSprintDialog({ mode: 'edit', sprint: sprintPanel }) }}>Edit sprint</MenuItem>
+                      <MenuItem disabled={sprintPanel.issueIds.length === 0} onClick={async () => { setOpenSprintMenuId(null); await handleMoveSprintIssuesToBacklog(sprintPanel) }}>Move all to backlog</MenuItem>
+                      <MenuItem sx={{ color: 'error.main' }} onClick={async () => { setOpenSprintMenuId(null); await handleDeleteSprintPanel(sprintPanel) }}>Delete sprint</MenuItem>
+                    </Menu>
+                  </>
                   )}
                 </div>
               </div>
