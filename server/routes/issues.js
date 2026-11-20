@@ -15,6 +15,7 @@ import { publish } from '../services/realtime.js'
 import { canViewIssue } from '../services/issueSecurity.js'
 import { evaluateApproval, approvalRefusalMessage } from '../services/approvals.js'
 import { sprintFitsProject } from './sprints.js'
+import { notifyIssueCreated, notifyIssueAssigned, notifyStatusChanged, notifyBulkChanges } from '../services/issueNotifications.js'
 
 const router = Router()
 
@@ -651,6 +652,10 @@ router.post('/', requireProjectWrite((req) => {
   // JL-59: emit issue.created event to subscribed webhooks (fire-and-forget)
   emitEvent('issue.created', mapIssue(row), resolvedProjectId).catch(() => {})
 
+  // Tell the assignee (and a reporter other than the creator), in-app and by
+  // email. Fire-and-forget: never delays or fails the create.
+  void notifyIssueCreated({ issueId: row.id, actorEmail: req.user?.email })
+
   res.status(201).json(mapIssue(row))
 }))
 
@@ -882,6 +887,12 @@ router.patch('/:id', requireProjectWrite(issueParamProject('id')), asyncHandler(
   // JL-136: live-push the change to viewers of this issue (no-op if realtime off)
   publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'updated' })
 
+  // Tell the new assignee. The service stays silent when the value still names
+  // the same person (e.g. an email replaced by that member's name).
+  if (newAssignee && newAssignee !== existing.assignee) {
+    void notifyIssueAssigned({ issueId: id, previousAssignee: existing.assignee, actorEmail: req.user?.email })
+  }
+
   res.json(mapIssue(row))
 }))
 
@@ -956,7 +967,9 @@ export async function checkStatusTransition(existing, status, body = {}) {
 }
 
 // Validate and apply. Returns { row } (the re-read issue) or a refusal.
-export async function transitionIssueStatus({ id, status, sprintId, body = {}, actor, workspaceId }) {
+// `notify: false` lets POST /bulk send one summary per recipient instead of one
+// message per issue.
+export async function transitionIssueStatus({ id, status, sprintId, body = {}, actor, workspaceId, notify = true }) {
   if (!validStatuses.includes(status)) return { httpStatus: 400, error: 'Invalid status value' }
 
   const existing = await get(`SELECT ${STATUS_ISSUE_COLUMNS} FROM issues WHERE id = ?`, [id])
@@ -1017,6 +1030,11 @@ export async function transitionIssueStatus({ id, status, sprintId, body = {}, a
 
   // JL-136: live-push the status change to viewers of this issue (no-op if realtime off)
   publish(`issue:${id}`, { type: 'update', room: `issue:${id}`, entity: 'issue', id, action: 'status_changed' })
+
+  // Tell the assignee, reporter and watchers (fire-and-forget).
+  if (notify && existing.status !== status) {
+    void notifyStatusChanged({ issueId: id, fromStatus: existing.status, toStatus: status, actorEmail: actor })
+  }
 
   return { row: finalRow }
 }
@@ -1157,6 +1175,7 @@ router.post('/:parentId/subtasks', requireProjectWrite(issueParamProject('parent
     'SELECT id, issue_key, title, description, priority, assignee, status, issue_type, sprint_id, project_id, parent_id, epic_id, story_points, created_at, reporter, due_date, start_date, resolution, environment, components, updated_at, flagged FROM issues WHERE id = ?',
     [created.lastID],
   )
+  void notifyIssueCreated({ issueId: row.id, actorEmail: req.user?.email })
   res.status(201).json(mapIssue(row))
 }))
 
@@ -1333,6 +1352,9 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   let skipped = 0
   const errors = []
   const results = []
+  // Applied assignee/status changes, notified together after the loop so each
+  // recipient gets one summary rather than one email per issue.
+  const notifyChanges = []
 
   for (const item of preview) {
     if (item.error) {
@@ -1383,6 +1405,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
           sprintId: sprintChange ? sprintChange.to : undefined,
           actor: req.user?.email,
           workspaceId: req.workspaceId,
+          notify: false,
         })
         if (result.error) {
           skipped += 1
@@ -1430,6 +1453,15 @@ router.post('/bulk', asyncHandler(async (req, res) => {
         publish(`issue:${item.issueId}`, { type: 'update', room: `issue:${item.issueId}`, entity: 'issue', id: item.issueId, action: 'updated' })
       }
 
+      const assigneeChange = item.changes.find((c) => c.field === 'assignee')
+      if (statusChange || assigneeChange) {
+        notifyChanges.push({
+          issueId: item.issueId,
+          status: statusChange ? { from: statusChange.from, to: statusChange.to } : undefined,
+          assignee: assigneeChange ? { from: assigneeChange.from } : undefined,
+        })
+      }
+
       updated += 1
       results.push({ issueId: item.issueId, key: item.key, applied: true })
     } catch (err) {
@@ -1438,6 +1470,8 @@ router.post('/bulk', asyncHandler(async (req, res) => {
       results.push({ issueId: item.issueId, key: item.key, applied: false, error: err.message })
     }
   }
+
+  if (notifyChanges.length > 0) void notifyBulkChanges({ changes: notifyChanges, actorEmail: req.user?.email })
 
   res.json({ updated, skipped, errors, results })
 }))
@@ -1549,6 +1583,8 @@ router.post('/:id/clone', requireProjectWrite(issueParamProject('id')), asyncHan
   )
 
   emitEvent('issue.created', mapIssue(row), source.project_id ?? null).catch(() => {})
+
+  void notifyIssueCreated({ issueId: row.id, actorEmail: req.user?.email })
 
   res.status(201).json(mapIssue(row))
 }))

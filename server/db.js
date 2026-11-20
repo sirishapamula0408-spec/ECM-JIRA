@@ -1198,7 +1198,7 @@ export async function initializeDatabase() {
       id SERIAL PRIMARY KEY,
       user_email TEXT NOT NULL UNIQUE,
       in_app BOOLEAN NOT NULL DEFAULT TRUE,
-      email_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
       email_digest TEXT NOT NULL DEFAULT 'off',
       muted_types JSONB NOT NULL DEFAULT '[]',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -2915,7 +2915,28 @@ export async function initializeDatabase() {
   } catch (err) {
     console.error(`[db] Project-less issue migration failed: ${err.message}`)
   }
+
+  // --- Issue email notifications: email is ON by default, as in Jira ---
+  // email_enabled used to default to FALSE, and a user with no preferences row
+  // was treated as off, so almost nobody received an email. New rows now default
+  // to TRUE. Existing rows are switched on ONCE: the old UI saved
+  // email_enabled=false whenever any other preference was touched, so a stored
+  // FALSE does not mean the user chose it. The settings flag makes this a one-time
+  // step, so a user who switches email off afterwards stays off.
+  try {
+    await pool.query('ALTER TABLE notification_preferences ALTER COLUMN email_enabled SET DEFAULT TRUE')
+    if (!(await getSetting(EMAIL_DEFAULT_ON_SETTING))) {
+      const flipped = await run('UPDATE notification_preferences SET email_enabled = TRUE WHERE email_enabled = FALSE')
+      await setSetting(EMAIL_DEFAULT_ON_SETTING, new Date().toISOString())
+      if (flipped.changes) console.log(`[db] Turned on email notifications for ${flipped.changes} user(s) (one-time default change)`)
+    }
+  } catch (err) {
+    console.error(`[db] Email-notification default migration failed: ${err.message}`)
+  }
 }
+
+/** workspace_settings key recording that the one-time email opt-in has run. */
+export const EMAIL_DEFAULT_ON_SETTING = 'notification_email_default_on'
 
 /**
  * Gracefully close the connection pool.

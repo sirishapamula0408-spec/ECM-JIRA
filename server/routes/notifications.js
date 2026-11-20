@@ -121,16 +121,20 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 router.get('/preferences', asyncHandler(async (req, res) => {
   let prefs = await get('SELECT * FROM notification_preferences WHERE user_email = ?', [req.user.email])
   if (!prefs) {
-    prefs = { user_email: req.user.email, in_app: true, email_enabled: false, email_digest: 'off', muted_types: [] }
+    prefs = { user_email: req.user.email, in_app: true, email_enabled: EMAIL_ENABLED_BY_DEFAULT, email_digest: 'off', muted_types: [] }
   }
   res.json(prefs)
 }))
 
 // PUT /api/notifications/preferences — update notification preferences
 router.put('/preferences', asyncHandler(async (req, res) => {
-  const { inApp = true, emailEnabled = false, emailDigest = 'off', mutedTypes = [] } = req.body
+  const { inApp = true, emailEnabled = EMAIL_ENABLED_BY_DEFAULT, emailDigest = 'off', mutedTypes = [] } = req.body
   if (!['off', 'daily', 'weekly'].includes(emailDigest)) {
     res.status(400).json({ error: 'emailDigest must be off, daily, or weekly' })
+    return
+  }
+  if (!Array.isArray(mutedTypes) || mutedTypes.length > 50 || !mutedTypes.every((t) => typeof t === 'string' && t.length <= 50)) {
+    res.status(400).json({ error: 'mutedTypes must be an array of notification type names' })
     return
   }
   const existing = await get('SELECT id FROM notification_preferences WHERE user_email = ?', [req.user.email])
@@ -180,19 +184,29 @@ router.get('/stream', (req, res) => {
 export default router
 
 /**
+ * Email is ON unless the user switched it off, as in Jira. Applies to a user
+ * with no preferences row; the column default and a one-time migration in
+ * db.js cover existing rows.
+ */
+export const EMAIL_ENABLED_BY_DEFAULT = true
+
+const sameEmail = (a, b) => Boolean(a) && Boolean(b) && String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
+
+/**
  * Helper to create a notification (used by other routes).
  * Respects user preferences — skips if the type is muted.
+ * `link` is an app-relative path (e.g. /browse/PROJ-12) for the email's button.
  */
-export async function createNotification({ recipientEmail, type, title, message = '', issueId = null, projectId = null, actorEmail = null }) {
-  if (recipientEmail === actorEmail) return null
+export async function createNotification({ recipientEmail, type, title, message = '', issueId = null, projectId = null, actorEmail = null, link = null }) {
+  if (!recipientEmail || sameEmail(recipientEmail, actorEmail)) return null
   const result = await run(
     'INSERT INTO notifications (recipient_email, type, title, message, issue_id, project_id, actor_email) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [recipientEmail, type, title, message, issueId, projectId, actorEmail],
   )
 
   // Best-effort email delivery — fire-and-forget so it never blocks or breaks
-  // the caller. Send only when the recipient opts in (see maybeSendNotificationEmail).
-  maybeSendNotificationEmail({ recipientEmail, type, title, message, actorEmail }).catch((err) => {
+  // the caller. Gated on the recipient's preferences (see maybeSendNotificationEmail).
+  maybeSendNotificationEmail({ recipientEmail, type, title, message, link }).catch((err) => {
     console.error(`[notifications] email delivery failed: ${err.message}`)
   })
 
@@ -203,18 +217,17 @@ export async function createNotification({ recipientEmail, type, title, message 
  * Send an immediate notification email if the recipient's preferences opt in.
  * Gated on: email_enabled = TRUE, the notification type is NOT muted, and the
  * digest mode is 'off' (or absent). Daily/weekly digests are batched separately
- * (JL-303), so we never send an immediate email for those. If the user has no
- * preferences row, email is treated as OFF (the schema default).
+ * (JL-303), so we never send an immediate email for those. A user with no
+ * preferences row gets email (EMAIL_ENABLED_BY_DEFAULT).
  *
  * Never throws — resolves quietly on any error or when email is disabled/muted.
  */
-async function maybeSendNotificationEmail({ recipientEmail, type, title, message, actorEmail = null }) {
-  const prefs = await get(
-    'SELECT email_enabled, email_digest, muted_types FROM notification_preferences WHERE user_email = ?',
+async function maybeSendNotificationEmail({ recipientEmail, type, title, message, link = null }) {
+  const prefs = (await get(
+    'SELECT email_enabled, email_digest, muted_types FROM notification_preferences WHERE LOWER(user_email) = LOWER(?)',
     [recipientEmail],
-  )
-  // No prefs row → default OFF. Also require email to be enabled.
-  if (!prefs || !prefs.email_enabled) return
+  )) || { email_enabled: EMAIL_ENABLED_BY_DEFAULT, email_digest: 'off', muted_types: [] }
+  if (!prefs.email_enabled) return
 
   // Immediate email only when digest is 'off' (or unset). Daily/weekly are
   // handled by the digest job (JL-303) — do not send an immediate email.
@@ -227,6 +240,7 @@ async function maybeSendNotificationEmail({ recipientEmail, type, title, message
   }
   if (Array.isArray(muted) && muted.includes(type)) return
 
-  const { subject, html, text } = buildNotificationEmail({ title, message, type, actorEmail })
-  await sendMail({ to: recipientEmail, subject, html, text, type: 'notification' })
+  // Plain text only — no HTML part (see buildNotificationEmail).
+  const { subject, text } = buildNotificationEmail({ title, message, link })
+  await sendMail({ to: recipientEmail, subject, text, type: 'notification', relatedEntity: link || null })
 }

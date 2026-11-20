@@ -10,6 +10,18 @@ const DIGEST_OPTIONS = [
   { value: 'weekly', label: 'Weekly' },
 ]
 
+// Per-event email switches. Each one is stored inverted, as an entry in
+// `mutedTypes`; the type names are the ones createNotification() is called with
+// (server/services/issueNotifications.js, routes/comments.js, services/mentions.js).
+// Muting affects email only — the in-app notification is still recorded.
+const EMAIL_EVENT_OPTIONS = [
+  { type: 'issue_assigned', label: 'An issue is assigned to me' },
+  { type: 'issue_created', label: 'An issue I reported is created' },
+  { type: 'status_changed', label: 'An issue I am assigned, reported or watch changes status' },
+  { type: 'comment', label: 'Someone comments on an issue I watch' },
+  { type: 'mention', label: 'Someone @mentions me' },
+]
+
 /**
  * Notification Preferences section (JL-200), mounted on ProfilePage.
  * Loads the user's preferences on mount (GET /api/notifications/preferences)
@@ -31,7 +43,8 @@ export function NotificationPreferencesSection() {
         // GET returns the DB row in snake_case; normalize to the PUT shape.
         setPrefs({
           inApp: res.in_app !== false,
-          emailEnabled: Boolean(res.email_enabled),
+          // Email is on unless switched off (matches the server default).
+          emailEnabled: res.email_enabled !== false,
           emailDigest: res.email_digest || 'off',
           mutedTypes: Array.isArray(res.muted_types) ? res.muted_types : [],
         })
@@ -89,6 +102,31 @@ export function NotificationPreferencesSection() {
             }
             label="Email notifications"
           />
+          <fieldset
+            disabled={saving || !prefs.emailEnabled}
+            style={{ border: 'none', margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column' }}
+          >
+            <legend style={{ padding: 0, color: 'var(--text-subtle, #6b778c)' }}>Email me when…</legend>
+            {EMAIL_EVENT_OPTIONS.map((option) => (
+              <FormControlLabel
+                key={option.type}
+                control={
+                  <Switch
+                    size="small"
+                    checked={prefs.emailEnabled && !prefs.mutedTypes.includes(option.type)}
+                    onChange={(event) => save({
+                      ...prefs,
+                      mutedTypes: event.target.checked
+                        ? prefs.mutedTypes.filter((t) => t !== option.type)
+                        : [...prefs.mutedTypes, option.type],
+                    })}
+                    disabled={saving || !prefs.emailEnabled}
+                  />
+                }
+                label={option.label}
+              />
+            ))}
+          </fieldset>
           <TextField
             select
             size="small"

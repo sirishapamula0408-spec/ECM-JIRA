@@ -51,7 +51,8 @@ describe('JL-302 — pref-gated notification email delivery', () => {
     const arg = sendMail.mock.calls[0][0]
     expect(arg.to).toBe('recipient@test.com')
     expect(arg.subject).toContain('New comment on JL-1')
-    expect(arg.html).toContain('New comment on JL-1')
+    expect(arg.text).toContain('New comment on JL-1')
+    expect(arg.html).toBeUndefined() // plain text only
   })
 
   it('treats missing muted_types digest default as off (null digest still sends)', async () => {
@@ -91,14 +92,37 @@ describe('JL-302 — pref-gated notification email delivery', () => {
     expect(sendMail).not.toHaveBeenCalled()
   })
 
-  it('does NOT send when the user has no preferences row (default off)', async () => {
+  // Changed with issue email notifications: email is ON by default, as in Jira.
+  // It used to be off, so almost nobody received a notification email.
+  it('sends when the user has no preferences row (email is on by default)', async () => {
     get.mockResolvedValue(null)
 
     await createNotification({ ...base })
     await flush()
 
-    expect(run).toHaveBeenCalledTimes(1) // still inserted
-    expect(sendMail).not.toHaveBeenCalled()
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(sendMail).toHaveBeenCalledTimes(1)
+    expect(sendMail.mock.calls[0][0].to).toBe('recipient@test.com')
+  })
+
+  it('skips self-notifications regardless of letter case', async () => {
+    get.mockResolvedValue(null)
+
+    const id = await createNotification({ ...base, recipientEmail: 'Actor@Test.com' })
+    await flush()
+
+    expect(id).toBeNull()
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('points the email button at the issue when a link is given', async () => {
+    get.mockResolvedValue(null)
+
+    await createNotification({ ...base, link: '/browse/JL-1' })
+    await flush()
+
+    const arg = sendMail.mock.calls[0][0]
+    expect(arg.text).toContain('/browse/JL-1')
   })
 
   it('does NOT send an immediate email when digest is daily (handled by JL-303)', async () => {
@@ -144,19 +168,49 @@ describe('JL-302 — pref-gated notification email delivery', () => {
 })
 
 describe('JL-302 — buildNotificationEmail template', () => {
-  it('produces subject/html/text with the title, message and actor', () => {
+  it('is plain text only — no HTML part, so no styling', () => {
     const out = buildNotificationEmail({
-      title: 'Assigned to you',
-      message: 'JL-9 was assigned',
-      type: 'assignment',
-      actorEmail: 'boss@test.com',
+      title: 'PROJ-9 assigned to you: Login fails',
+      message: 'Alice assigned this bug to you.\nStatus: To Do · Priority: High',
       appUrl: 'https://example.test',
+      link: '/browse/PROJ-9',
     })
-    expect(out.subject).toContain('Assigned to you')
-    expect(out.html).toContain('Assigned to you')
-    expect(out.html).toContain('JL-9 was assigned')
-    expect(out.html).toContain('boss@test.com')
-    expect(out.html).toContain('https://example.test')
-    expect(out.text).toContain('Assigned to you')
+    expect(out.html).toBeUndefined()
+    expect(Object.keys(out).sort()).toEqual(['subject', 'text'])
+    expect(out.subject).toBe('PROJ-9 assigned to you: Login fails')
+    expect(out.text).toBe([
+      'PROJ-9 assigned to you: Login fails',
+      '',
+      'Alice assigned this bug to you.',
+      'Status: To Do · Priority: High',
+      '',
+      'View issue: https://example.test/browse/PROJ-9',
+      '',
+      '--',
+      "You're receiving this because email notifications are on. Change them in your profile: https://example.test/profile",
+    ].join('\n'))
+  })
+
+  it('carries user-typed text verbatim — plain text cannot render markup', () => {
+    const out = buildNotificationEmail({ title: 'PROJ-1: <img src=x onerror=alert(1)>', appUrl: 'https://example.test' })
+    expect(out.text).toContain('<img src=x onerror=alert(1)>')
+    expect(out.subject).toBe('PROJ-1: <img src=x onerror=alert(1)>')
+  })
+
+  it('links to the issue, and only ever to a path inside the app', () => {
+    const issue = buildNotificationEmail({ title: 't', appUrl: 'https://example.test/', link: '/browse/PROJ-12' })
+    expect(issue.text).toContain('View issue: https://example.test/browse/PROJ-12')
+
+    for (const link of ['https://evil.example/x', '//evil.example/x', 'javascript:alert(1)']) {
+      const out = buildNotificationEmail({ title: 't', appUrl: 'https://example.test', link })
+      expect(out.text).toContain('Open ECM-JIRA: https://example.test\n')
+      expect(out.text).not.toContain('evil.example')
+      expect(out.text).not.toContain('javascript:')
+    }
+  })
+
+  it('keeps line breaks out of the subject header', () => {
+    const out = buildNotificationEmail({ title: 'a\r\nBcc: x@evil.example' })
+    expect(out.subject).not.toMatch(/[\r\n]/)
   })
 })
