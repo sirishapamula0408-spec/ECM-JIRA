@@ -165,7 +165,12 @@ export async function resolveProjectAccess(user, projectId) {
 
   const isLead =
     row.lead_member_id != null && Number(row.lead_member_id) === Number(user?.memberId)
-  const projectRole = row.project_role || (isLead ? 'Lead' : null)
+  // JL-481: the designated lead (projects.lead_member_id) IS the project Lead,
+  // even when an older project_members row gives them a lower role. Before,
+  // the row won, so naming a project Member as lead in Project Settings left
+  // them a Member. The same rule is applied in /api/auth/me, the member list
+  // (routes/members.js) and bulk edit (routes/issues.js).
+  const projectRole = isLead ? 'Lead' : (row.project_role || null)
   const projRank = ROLE_RANK[projectRole] || 0
 
   return {
@@ -245,6 +250,40 @@ export function requireProjectWrite(resolveId) {
       }
 
       if (access.hasAccess && access.effectiveRank >= ROLE_RANK.Member) return next()
+
+      res.status(403).json({ error: 'Insufficient project permissions' })
+    } catch (err) {
+      next(err)
+    }
+  }
+}
+
+/**
+ * JL-481: project-ADMIN gating middleware factory (sprint management).
+ *
+ * Passes workspace Owner/Admin, and anyone whose role on the target project
+ * is Admin or Lead. That is `isProjectAdmin` in src/hooks/usePermissions.js
+ * (exposed as canManageSprints); keep the two in step.
+ *
+ * `resolveId(req)` decides what is gated:
+ *   - a project id   → the caller needs project Admin/Lead on it. An unknown
+ *                      project is a 403: nobody but an Admin administers it.
+ *   - null           → the target has no project (a shared legacy sprint):
+ *                      workspace Admin only.
+ *   - undefined      → nothing to gate yet (malformed or missing target): the
+ *                      handler answers with its own 400/404.
+ */
+export function requireProjectAdmin(resolveId) {
+  return async (req, res, next) => {
+    try {
+      if (req.user?.isOwner || req.user?.workspaceRole === 'Admin') return next()
+
+      const projectId = await resolveId(req)
+      if (projectId === undefined) return next()
+      if (projectId === null) return res.status(403).json({ error: 'Insufficient permissions' })
+
+      const access = await resolveProjectAccess(req.user, projectId)
+      if (access.projectExists && access.hasAccess && (ROLE_RANK[access.projectRole] || 0) >= ROLE_RANK.Admin) return next()
 
       res.status(403).json({ error: 'Insufficient project permissions' })
     } catch (err) {

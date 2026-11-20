@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { get, run, all } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole } from '../middleware/authorize.js'
+import { requireRole, requireProjectAdmin, projectParam } from '../middleware/authorize.js'
 import { emitEvent } from '../services/events.js'
 import { maxLengthError, SPRINT_NAME_MAX, SPRINT_GOAL_MAX } from '../utils/validation.js'
 
@@ -49,6 +49,28 @@ export function canStartSprint({ activeCount, allowParallel } = {}) {
   return active < 1
 }
 
+/*
+ * JL-481: sprint management (create, start, edit, complete, delete, the
+ * parallel-sprints setting, create-from-template) is a PROJECT-admin action:
+ * workspace Owner/Admin, or the project's Lead or Admin. It used to be
+ * requireRole('Admin'), a workspace gate, so a project Lead who is a workspace
+ * Member saw "Create sprint" (canManageSprints) and got a 403. The resolvers
+ * below follow requireProjectAdmin's contract: a project id gates on that
+ * project, null (a shared legacy sprint) means workspace Admin only, and
+ * undefined lets the handler answer its own 400/404.
+ */
+function bodyProject(req) {
+  return parseProjectId(req.body?.projectId) ?? undefined
+}
+
+async function sprintProject(req) {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) return undefined
+  const sprint = await get('SELECT project_id FROM sprints WHERE id = ?', [id])
+  if (!sprint) return undefined
+  return sprint.project_id ?? null
+}
+
 function mapSprint(row) {
   return {
     id: row.id,
@@ -87,7 +109,7 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(rows.map(mapSprint))
 }))
 
-router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.post('/', requireProjectAdmin(bodyProject), asyncHandler(async (req, res) => {
   const { name, dateRange, goal } = req.body || {}
 
   // JL-165: a new sprint must belong to a project.
@@ -131,7 +153,7 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.status(201).json(mapSprint(row))
 }))
 
-router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.patch('/:id/start', requireProjectAdmin(sprintProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
@@ -193,7 +215,7 @@ router.patch('/:id/start', requireRole('Admin'), asyncHandler(async (req, res) =
   res.json(mapSprint(row))
 }))
 
-router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.patch('/:id', requireProjectAdmin(sprintProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   const body = req.body || {}
   const { name, dateRange } = body
@@ -276,7 +298,7 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(mapSprint(row))
 }))
 
-router.patch('/:id/complete', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.patch('/:id/complete', requireProjectAdmin(sprintProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
@@ -301,7 +323,7 @@ router.patch('/:id/complete', requireRole('Admin'), asyncHandler(async (req, res
   res.json(mapSprint(row))
 }))
 
-router.delete('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.delete('/:id', requireProjectAdmin(sprintProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid sprint id' })
@@ -352,8 +374,8 @@ projectSprintRouter.get('/projects/:id/sprints/settings', asyncHandler(async (re
   res.json({ allowParallelSprints: Boolean(proj.allow_parallel_sprints) })
 }))
 
-// PUT /api/projects/:id/sprints/settings (Admin) → toggle parallel sprints.
-projectSprintRouter.put('/projects/:id/sprints/settings', requireRole('Admin'), asyncHandler(async (req, res) => {
+// PUT /api/projects/:id/sprints/settings (project Admin/Lead) → toggle parallel sprints.
+projectSprintRouter.put('/projects/:id/sprints/settings', requireProjectAdmin(projectParam('id')), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id)
   if (!Number.isInteger(projectId)) {
     res.status(400).json({ error: 'Invalid project id' })
@@ -491,7 +513,7 @@ templatesRouter.post('/', requireRole('Admin'), asyncHandler(async (req, res) =>
 }))
 
 // Create a new sprint from a template (name/date_range/goal seeded from template).
-templatesRouter.post('/:id/create-sprint', requireRole('Admin'), asyncHandler(async (req, res) => {
+templatesRouter.post('/:id/create-sprint', requireProjectAdmin(bodyProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'Invalid template id' })

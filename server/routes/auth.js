@@ -524,15 +524,16 @@ router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
   // for anyone: a project Admin got read-only Project Settings with no Access
   // section. The rule also mirrors resolveProjectAccess: the project lead
   // (projects.lead_member_id) holds 'Lead' even without a project_members row.
+  // JL-481: and even WITH one that says less — the designated lead is the Lead.
   const projectRoles = memberId
     ? await all(
         `SELECT p.id AS "projectId", p.key AS "projectKey", p.name AS "projectName",
-                COALESCE(pm.role, 'Lead') AS role
+                CASE WHEN p.lead_member_id = ? THEN 'Lead' ELSE pm.role END AS role
          FROM projects p
          LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.member_id = ?
          WHERE pm.member_id IS NOT NULL OR p.lead_member_id = ?
          ORDER BY p.name ASC`,
-        [memberId, memberId],
+        [memberId, memberId, memberId],
       )
     : []
 

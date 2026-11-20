@@ -1271,7 +1271,8 @@ router.post('/bulk', asyncHandler(async (req, res) => {
     )
     const writable = new Set()
     for (const r of accessRows) {
-      const role = r.project_role || (Number(r.lead_member_id) === Number(req.user?.memberId) ? 'Lead' : null)
+      // JL-481: the designated lead is the Lead, whatever their project_members row says.
+      const role = Number(r.lead_member_id) === Number(req.user?.memberId) ? 'Lead' : r.project_role
       const rank = ROLE_RANK[role] || 0
       if (Math.max(wsRank, rank) >= ROLE_RANK.Member) writable.add(Number(r.id))
     }

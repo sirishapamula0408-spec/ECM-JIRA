@@ -255,7 +255,7 @@ async function withProjectRoles(rows, user) {
   const placeholders = ids.map(() => '?').join(', ')
   const roleRows = await all(
     `SELECT m.id AS "memberId", p.id AS "projectId", p.key AS "projectKey", p.name AS "projectName",
-            COALESCE(pm.role, 'Lead') AS role
+            CASE WHEN p.lead_member_id = m.id THEN 'Lead' ELSE pm.role END AS role
        FROM members m
        JOIN projects p ON p.lead_member_id = m.id
          OR EXISTS (SELECT 1 FROM project_members x WHERE x.project_id = p.id AND x.member_id = m.id)

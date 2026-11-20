@@ -28,6 +28,8 @@ vi.mock('../middleware/authorize.js', () => ({
   // guard's own ref handling is asserted separately below.
   requireProjectRead: () => (req, _res, next) => next(),
   requireProjectWrite: () => (req, _res, next) => next(),
+  // JL-481: the sprint routes' project-admin gate, stubbed open like the rest.
+  requireProjectAdmin: () => (req, _res, next) => next(),
   // JL-193: project-read helpers, stubbed open — this suite is not about project scoping.
   requireQueryProjectRead: (req, _res, next) => next(),
   projectParam: () => () => null,

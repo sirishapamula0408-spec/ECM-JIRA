@@ -86,6 +86,17 @@ describe('GET /api/auth/me — projectRoles (JL-194)', () => {
     expect(led).toEqual(expect.objectContaining({ projectName: 'Led Project', role: 'Lead' }))
   })
 
+  // JL-481: naming a project Member as lead must make them the Lead — the
+  // stale project_members row used to win, so the UI and API kept them a Member.
+  it('reports the designated lead as Lead even over a lower project_members row', async () => {
+    await holder.db.run('UPDATE projects SET lead_member_id = 3 WHERE id = 1')
+    const res = await request(createApp())
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${tokenFor(3, 'member@test.com')}`)
+
+    expect(res.body.projectRoles).toEqual([expect.objectContaining({ projectId: 1, role: 'Lead' })])
+  })
+
   it('lists only the caller’s own projects', async () => {
     await holder.db.run("INSERT INTO projects (name, key, type, lead) VALUES ('Other', 'OT', 'Scrum', 'x')")
     const res = await request(createApp())
