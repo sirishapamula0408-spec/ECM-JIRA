@@ -212,6 +212,122 @@
   border-color: #2c333a;
 }
 
+/* ── JL-485: Backlog sprint / backlog panels and the sidebar utility card ──
+   BacklogPage.css and Sidebar.css hardcode light surfaces (#f8f8f8 panel bars,
+   #ffffff rows, #172b4d titles, --jira-surface card), which stayed white in
+   dark mode. Same dark palette as the Active Sprint rules above. */
+.app-theme-dark .jira-sprint-row,
+.app-theme-dark .jira-backlog-row {
+  background: var(--jira-dark-surface);
+}
+
+.app-theme-dark .sprint-issues.expanded,
+.app-theme-dark .backlog-issue-row {
+  background: var(--jira-dark-surface-sunken);
+  border-color: var(--jira-dark-border);
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .backlog-issue-row:hover {
+  background: var(--jira-dark-hover);
+}
+
+.app-theme-dark .backlog-issue-row.selected,
+.app-theme-dark .jira-backlog-row.drop-target-active,
+.app-theme-dark .sprint-issues.drop-target-active {
+  background: #1c2b41;
+}
+
+.app-theme-dark .jira-sprint-title strong,
+.app-theme-dark .sprint-toggle,
+.app-theme-dark .sprint-toggle:hover {
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .jira-sprint-title span {
+  color: var(--jira-dark-text-muted);
+}
+
+.app-theme-dark .metric-pill {
+  background: #2c333a;
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .metric-pill-blue {
+  background: #1c2b41;
+  color: #85b8ff;
+}
+
+.app-theme-dark .metric-pill-green {
+  background: #1c3329;
+  color: #7ee2b8;
+}
+
+/* The sprint "…" (JL-483) and row "…" (JL-484) icon buttons were dark-on-dark. */
+.app-theme-dark .sprint-menu-trigger,
+.app-theme-dark .backlog-row-more {
+  color: var(--jira-dark-text);
+  border-color: #454f59;
+}
+
+.app-theme-dark .sidebar-box {
+  background: var(--jira-dark-surface);
+  border-color: var(--jira-dark-border);
+}
+
+/* Sidebar links and project names used the light-theme text colour
+   (--jira-text, #172b4d): dark navy on the dark sidebar. */
+.app-theme-dark .sidebar .nav,
+.app-theme-dark .sidebar-project-item,
+.app-theme-dark .sidebar-project-name {
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .sidebar .nav:hover,
+.app-theme-dark .sidebar-project-item:hover {
+  background: var(--jira-dark-hover);
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .sidebar-project-key {
+  color: var(--jira-dark-text-muted);
+}
+
+/* The selected link / project: a dark selected fill with the dark-theme link
+   blue, instead of the light-theme pale-blue highlight (which the light text
+   above would sit on unreadably). */
+.app-theme-dark .sidebar .nav.active,
+.app-theme-dark .sidebar-project-item--active,
+.app-theme-dark .sidebar-project-item--active:hover {
+  background: #1c2b41;
+  color: #579dff;
+}
+
+.app-theme-dark .sidebar-project-item--active .sidebar-project-name {
+  color: #579dff;
+}
+
+/* Start sprint / Create sprint: .btn.sprint-action-btn (shared.css) forces a
+   white --jira-surface background over the dark .btn-ghost rule. */
+.app-theme-dark .btn.sprint-action-btn {
+  background: var(--jira-dark-surface);
+  color: var(--jira-dark-text);
+  border-color: #454f59;
+}
+
+.app-theme-dark .btn.sprint-action-btn:disabled {
+  color: #738496;
+}
+
+/* Issue titles in Backlog rows were the light-theme link navy. */
+.app-theme-dark .backlog-issue-link strong {
+  color: #579dff;
+}
+
+.app-theme-dark .backlog-issue-link small {
+  color: var(--jira-dark-text-muted);
+}
+
 /* Create Issue Modal — dark theme */
 .app-theme-dark .create-issue-modal {
   background: #1d2125;

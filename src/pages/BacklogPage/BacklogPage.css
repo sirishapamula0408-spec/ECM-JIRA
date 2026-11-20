@@ -215,7 +215,9 @@ button.assignee-chip:focus-visible {
 .jira-sprint-row,
 .jira-backlog-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* JL-485: minmax(0, 1fr), not 1fr — a 1fr track never shrinks below its
+     content, so a long sprint name pushed the title over the count pills. */
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
@@ -290,14 +292,25 @@ button.assignee-chip:focus-visible {
   align-items: baseline;
   gap: 6px;
   min-width: 0;
+  overflow: hidden;
 }
 
+/* JL-485: a long sprint name gives way first — cut with an ellipsis (full
+   name in the title tooltip) — so the dates and the count stay readable. */
 .jira-sprint-title strong {
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   color: #172b4d;
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 4em;
+  flex: 0 1 auto;
+}
+
+.jira-sprint-title .jira-sprint-meta {
+  flex: none;
 }
 
 .jira-sprint-title span {
@@ -310,6 +323,8 @@ button.assignee-chip:focus-visible {
 /* JL-483: the sprint goal after the dates, cut short on one line (full text on hover). */
 .jira-sprint-title .jira-sprint-goal {
   max-width: 320px;
+  min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: italic;
@@ -320,6 +335,7 @@ button.assignee-chip:focus-visible {
   align-items: center;
   gap: 8px;
   justify-self: end;
+  flex-shrink: 0;
 }
 
 .metric-pill {

@@ -167,7 +167,14 @@ export function BacklogPage() {
   const { profile, members } = useMembers()
   const { projectId } = useParams()
   // JL-165: only this project's sprints (and shared legacy ones).
-  const sprints = useMemo(() => sprintsForProject(allSprints, projectId), [allSprints, projectId])
+  // JL-485: and only OPEN ones. A completed sprint used to stay on the Backlog
+  // as a panel with a "Start sprint" button — and, as sprints[0], could even be
+  // the default target for a drop. As in Jira, its issues live in the sprint
+  // report, not the Backlog.
+  const sprints = useMemo(
+    () => sprintsForProject(allSprints, projectId).filter((sprint) => !sprint.completedAt),
+    [allSprints, projectId],
+  )
   const defaultAssignee = profile?.full_name || 'Alex Rivera'
   const navigate = useNavigate()
   const scopedIssues = projectId ? issues.filter((issue) => issue.projectId === Number(projectId)) : issues
@@ -514,7 +521,7 @@ export function BacklogPage() {
   }
 
   // Sprints that can still take work: unfinished ones in this project's view.
-  const openSprints = sprints.filter((sprint) => !sprint.completedAt)
+  const openSprints = sprints // already open-only (JL-485)
   const bulkValueOptions = {
     status: bulkCatalog.statuses.map((name) => ({ value: name, label: name })),
     priority: bulkCatalog.priorities.map((name) => ({ value: name, label: name })),
@@ -855,8 +862,8 @@ export function BacklogPage() {
                     <span className="sprint-caret" aria-hidden="true" />
                   </button>
                   <div className="jira-sprint-title">
-                    <strong>{sprintPanel.name}</strong>
-                    <span>{sprintPanel.dateRange} ({sprintPanel.issues.length} work items)</span>
+                    <strong title={sprintPanel.name}>{sprintPanel.name}</strong>
+                    <span className="jira-sprint-meta">{sprintPanel.dateRange} ({sprintPanel.issues.length} work items)</span>
                     {sprintPanel.goal && <span className="jira-sprint-goal" title={sprintPanel.goal}>{sprintPanel.goal}</span>}
                   </div>
                 </div>
