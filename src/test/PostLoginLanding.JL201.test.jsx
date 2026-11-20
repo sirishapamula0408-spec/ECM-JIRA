@@ -16,11 +16,13 @@ vi.mock('../api/authApi', () => ({
   loginWithEmail: vi.fn(),
   forgotPassword: vi.fn(),
   resetPassword: vi.fn(),
+  logout: vi.fn(() => Promise.resolve({ success: true })),
+  fetchCurrentUser: vi.fn(),
   fetchSsoStatus: vi.fn(() => Promise.resolve({ oidc: false, saml: false })),
   startOidcLogin: vi.fn(),
   startSamlLogin: vi.fn(),
 }))
-vi.mock('../api/client', () => ({ setToken: vi.fn() }))
+vi.mock('../api/client', () => ({ clearLegacyAuthStorage: vi.fn(() => false), SESSION_EXPIRED_EVENT: 'auth-session-expired' }))
 
 import { AuthProvider } from '../context/AuthProvider'
 import { LoginPage } from '../pages/LoginPage/LoginPage'

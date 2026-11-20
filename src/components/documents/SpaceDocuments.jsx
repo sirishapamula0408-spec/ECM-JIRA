@@ -21,6 +21,7 @@ import {
   fetchDocuments, fetchFolders, deleteDocument, updateDocument,
   documentDownloadUrl, documentPreviewUrl, formatBytes,
 } from '../../api/documentApi'
+import { sessionHeaders } from '../../api/client'
 import './SpaceDocuments.css'
 
 /*
@@ -207,9 +208,8 @@ export function SpaceDocuments({ spaceKey, canUpload, canManage }) {
   async function openWithAuth(url, { download, filename } = {}) {
     setActionError('')
     try {
-      const token = window.localStorage.getItem('jira_auth_token')
-        || window.sessionStorage.getItem('jira_auth_token')
-      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      // JL-480: the session cookie goes with the fetch; no token is handled here.
+      const res = await fetch(url, { headers: sessionHeaders() })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
         throw new Error(body?.error || `Request failed (${res.status})`)

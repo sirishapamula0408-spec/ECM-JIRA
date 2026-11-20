@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { sessionHeaders } from '../api/client'
 
 /*
  * JL-101 — make <img> tags that point at an authenticated endpoint render.
@@ -30,19 +31,8 @@ import { useEffect } from 'react'
  * swapped, and so the canonical URL is never lost from the DOM.
  */
 
-const TOKEN_KEY = 'jira_auth_token'
 /** Only our own API is hydrated. An external https:// image already works. */
 const AUTHED_PREFIX = '/api/wiki/'
-
-function authHeader() {
-  try {
-    const token = window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY)
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  } catch {
-    // Storage throws outright in some contexts (private windows, blocked data).
-    return {}
-  }
-}
 
 /**
  * Hydrate authenticated <img> tags inside `ref`.
@@ -69,7 +59,7 @@ export function useAuthedImages(ref, deps = []) {
       // Keep the canonical URL on the element so it survives the swap.
       img.setAttribute('data-src', src)
 
-      fetch(src, { headers: authHeader() })
+      fetch(src, { headers: sessionHeaders() })
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => {
           if (cancelled || !blob) return

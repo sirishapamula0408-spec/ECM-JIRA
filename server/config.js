@@ -88,6 +88,18 @@ export function isOAuthConfigured(name) {
 // no entry). '*' → any origin, for local experiments only; refused in production.
 export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 
+// --- JL-480: session cookie ---
+// The browser session rides on an httpOnly cookie. `Secure` (HTTPS-only) is on
+// whenever the app is served over HTTPS (APP_URL starts with https:), and can be
+// forced with COOKIE_SECURE=true|false. Plain-HTTP deployments (the deploy box
+// runs `npm run dev` on http://) need it off, or the browser drops the cookie.
+export function cookieSecure(env = process.env) {
+  const flag = String(env.COOKIE_SECURE ?? '').trim().toLowerCase()
+  if (flag === 'true' || flag === '1') return true
+  if (flag === 'false' || flag === '0') return false
+  return String(env.APP_URL || '').toLowerCase().startsWith('https:')
+}
+
 // --- JL-133: IP allowlisting ---
 // Comma-separated allow-list of client IPs / CIDR ranges permitted to reach the
 // API (e.g. "10.0.0.0/8, 203.0.113.5"). EMPTY/unset → allow ALL, so local dev

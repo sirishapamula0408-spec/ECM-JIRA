@@ -1,4 +1,6 @@
-import { api } from './client.js'
+// JL-480: the session cookie is sent automatically; sessionHeaders() adds the
+// CSRF token and workspace header, the same ones api() sends.
+import { api, sessionHeaders } from './client.js'
 
 export const fetchWorklogs = (issueId) =>
   api(`/api/issues/${issueId}/worklogs`)
@@ -21,15 +23,6 @@ export const fetchProjectTimesheet = (projectId, { from, to } = {}) => {
   return api(`/api/projects/${projectId}/worklogs${qs ? `?${qs}` : ''}`)
 }
 
-const TOKEN_KEY = 'jira_auth_token'
-function getToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY) || ''
-  } catch {
-    return ''
-  }
-}
-
 // JL-240: CSV download via raw fetch + Bearer — the shared api() client always
 // parses JSON, which would corrupt the CSV payload.
 export async function downloadProjectTimesheetCsv(projectId, { from, to } = {}) {
@@ -37,7 +30,7 @@ export async function downloadProjectTimesheetCsv(projectId, { from, to } = {}) 
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   const res = await fetch(`/api/projects/${projectId}/worklogs?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: sessionHeaders(),
   })
   if (!res.ok) throw new Error('Timesheet export failed')
   const blob = await res.blob()

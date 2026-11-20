@@ -17,6 +17,7 @@ vi.mock('../api/authApi', () => ({
   loginWithEmail: vi.fn(),
   forgotPassword: vi.fn(),
   resetPassword: vi.fn(),
+  logout: vi.fn(() => Promise.resolve({ success: true })),
   fetchCurrentUser: vi.fn(),
   changePassword: vi.fn(),
   // SSO discovery is fired by LoginPage on mount — resolve as disabled.

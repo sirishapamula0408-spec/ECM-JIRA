@@ -51,7 +51,9 @@ class FakeXHR {
 beforeEach(() => {
   FakeXHR.instances = []
   vi.stubGlobal('XMLHttpRequest', FakeXHR)
-  window.localStorage.setItem('jira_auth_token', 'tok')
+  // JL-480: the session cookie goes with the XHR by itself; the CSRF token
+  // (readable cookie) must be echoed in a header.
+  document.cookie = 'jira_csrf=csrf-tok'
 })
 
 import { DocumentUploadDialog } from '../components/documents/DocumentUploadDialog'
@@ -89,7 +91,8 @@ describe('JL-164 uploads are multipart', () => {
     uploadDocument('ENG', file())
     const xhr = FakeXHR.instances[0]
     expect(Object.keys(xhr.headers)).not.toContain('Content-Type')
-    expect(xhr.headers.Authorization).toBe('Bearer tok')
+    expect(xhr.headers['X-CSRF-Token']).toBe('csrf-tok')
+    expect(xhr.headers.Authorization).toBeUndefined() // JL-480: no token in page scripts
   })
 
   it('posts to the Space document endpoint', () => {

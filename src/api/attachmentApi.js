@@ -1,13 +1,6 @@
-import { api } from './client.js'
-
-const TOKEN_KEY = 'jira_auth_token'
-function getToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY) || ''
-  } catch {
-    return ''
-  }
-}
+// JL-480: the session cookie is sent automatically; sessionHeaders() adds the
+// CSRF token and workspace header, the same ones api() sends.
+import { api, sessionHeaders } from './client.js'
 
 export const fetchAttachments = (issueId) =>
   api(`/api/issues/${issueId}/attachments`)
@@ -34,7 +27,7 @@ export const deleteAttachment = (attachmentId) =>
 // Download via authenticated fetch → blob (a plain href can't send the auth header)
 export async function downloadAttachment(attachment) {
   const res = await fetch(`/api/attachments/${attachment.id}/download`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: sessionHeaders(),
   })
   if (!res.ok) throw new Error('Download failed')
   const blob = await res.blob()

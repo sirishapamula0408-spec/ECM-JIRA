@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, sessionHeaders } from './client'
 
 /*
  * JL-164 — the Space Document Store client.
@@ -17,17 +17,10 @@ import { api } from './client'
  * and 403 handling behave exactly as they do everywhere else.
  */
 
-const TOKEN_KEY = 'jira_auth_token'
-
-function authHeader() {
-  try {
-    return window.localStorage.getItem(TOKEN_KEY)
-      || window.sessionStorage.getItem(TOKEN_KEY)
-      || ''
-  } catch {
-    // Storage throws outright in some contexts (private windows, blocked data).
-    return ''
-  }
+// JL-480: XHR sends the session cookie by itself (same origin). It must still
+// carry the CSRF token and workspace header that api() adds.
+function setSessionHeaders(xhr) {
+  for (const [name, value] of Object.entries(sessionHeaders())) xhr.setRequestHeader(name, value)
 }
 
 /* ---------------------------------------------------------------- *
@@ -130,8 +123,7 @@ export function uploadDocument(spaceIdOrKey, file, {
 
   const promise = new Promise((resolve, reject) => {
     xhr.open('POST', `/api/spaces/${encodeURIComponent(spaceIdOrKey)}/documents`)
-    const token = authHeader()
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    setSessionHeaders(xhr)
     /*
      * Content-Type is NOT set by hand. The browser has to generate the
      * multipart boundary and put it in the header; setting the header
@@ -183,8 +175,7 @@ export function replaceDocument(documentId, file, { changeComment = '', onProgre
 
   const promise = new Promise((resolve, reject) => {
     xhr.open('POST', `/api/documents/${encodeURIComponent(documentId)}/versions`)
-    const token = authHeader()
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    setSessionHeaders(xhr)
     if (onProgress) {
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {

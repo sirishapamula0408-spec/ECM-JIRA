@@ -1,13 +1,6 @@
-import { api } from './client.js'
-
-const TOKEN_KEY = 'jira_auth_token'
-function getToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY) || ''
-  } catch {
-    return ''
-  }
-}
+// JL-480: the session cookie is sent automatically; sessionHeaders() adds the
+// CSRF token and workspace header, the same ones api() sends.
+import { api, sessionHeaders } from './client.js'
 
 // JL-235: trigger a CSV download for a report endpoint. Uses a raw fetch with
 // the Bearer header because the shared api() client always parses JSON, which
@@ -15,7 +8,7 @@ function getToken() {
 export async function downloadReportCsv(path, filename) {
   const sep = path.includes('?') ? '&' : '?'
   const res = await fetch(`${path}${sep}format=csv`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: sessionHeaders(),
   })
   if (!res.ok) throw new Error('CSV export failed')
   const blob = await res.blob()

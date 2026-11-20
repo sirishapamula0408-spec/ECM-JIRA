@@ -10,6 +10,7 @@ import {
   isOidcConfigured,
   getSamlConfig,
   isSamlConfigured,
+  JWT_SECRET,
 } from '../config.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { getProjectCreationPolicy } from './workspaceSettings.js'
@@ -25,9 +26,10 @@ import { validatePassword, isPasswordExpired } from '../services/passwordPolicy.
 import { getSecurityPolicy } from './securityPolicy.js'
 import { checkSignupAllowed } from '../services/signupPolicy.js'
 import { classifyExistingLogin, logSignupRejection, SIGNUP_ERRORS } from '../services/reRegistration.js'
-// JL-371: issueToken now lives in its own module so the invitation-accept route
-// can issue an identical session without importing this router.
-import { issueToken } from '../utils/authToken.js'
+import jwt from 'jsonwebtoken'
+// JL-480: every sign-in path (here and the invitation-accept route) starts a
+// cookie session through startSession, which mints the JWT with issueToken.
+import { startSession, clearSessionCookies, readSessionToken } from '../utils/session.js'
 
 // The brute-force lockout tracker used by the login route. Defaults to the
 // shared, process-wide singleton. It is intentionally swappable so tests can
@@ -236,7 +238,9 @@ router.post('/signup', asyncHandler(async (req, res) => {
     console.error(`[auth] workspace bootstrap skipped: ${err.message}`)
   }
 
-  const token = issueToken(user, '7d')
+  // JL-480: session cookie (browser-session lifetime, 7-day JWT as before). The
+  // token is still returned for non-browser clients; the SPA ignores it.
+  const token = await startSession(req, res, user, { expiresIn: '7d' })
   // JL-280: mirror new-account signups into the tamper-evident audit log.
   safeAppendAudit({ actor: email, action: 'auth.signup', target: email, metadata: { userId: user.id } })
   res.status(201).json({ user, token })
@@ -326,28 +330,11 @@ router.post('/login', asyncHandler(async (req, res) => {
   // Successful authentication — clear any recorded failures for this identity+IP.
   loginLockout.reset(lockKey)
 
-  // "Keep me signed in" → 30 day token; otherwise → 1 day
-  const expiresIn = remember ? '30d' : '1d'
-
-  // --- JL-133: session/device tracking ---
-  // Generate a token id (jti) and record a session row so this login can later
-  // be listed / revoked. Best-effort: never block login if the insert fails.
-  const jti = crypto.randomUUID()
-  try {
-    await run(
-      'INSERT INTO user_sessions (user_email, jti, user_agent, ip) VALUES (?, ?, ?, ?)',
-      [
-        user.email,
-        jti,
-        req.headers?.['user-agent'] || null,
-        req.ip || req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || null,
-      ],
-    )
-  } catch (err) {
-    console.error(`[auth] Failed to record session for ${user.email}: ${err.message}`)
-  }
-
-  const token = issueToken(user, expiresIn, { jti })
+  // "Keep me signed in" → 30 day token and a 30-day cookie; otherwise a 1-day
+  // token in a browser-session cookie. JL-133: startSession records the session
+  // row (jti) so this login can be listed / revoked. JL-480: the token goes into
+  // an httpOnly cookie; it is still in the body for non-browser clients (the CLI).
+  const token = await startSession(req, res, user, { remember })
   // JL-132: record successful logins in the tamper-evident audit log.
   safeAppendAudit({ actor: user.email, action: 'login', target: user.email, metadata: { remember: Boolean(remember) } })
 
@@ -497,6 +484,30 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
 }))
 
 // --- Get current user info with roles ---
+// --- JL-480: sign out ---
+// Revokes this session server-side (its user_sessions row, so the JWT stops
+// working everywhere, not just in this browser) and clears the cookies.
+// Deliberately NOT behind authGuard: an expired or revoked session must still be
+// able to clear its cookies. No CSRF token required either — the worst a forged
+// request can do is sign someone out, and a user whose CSRF cookie went missing
+// must still be able to sign out.
+router.post('/logout', asyncHandler(async (req, res) => {
+  const presented = readSessionToken(req)
+  if (presented) {
+    try {
+      const payload = jwt.verify(presented.token, JWT_SECRET, { ignoreExpiration: true })
+      if (payload?.jti) {
+        await run('UPDATE user_sessions SET revoked = TRUE WHERE jti = ?', [payload.jti])
+      }
+      if (payload?.email) safeAppendAudit({ actor: payload.email, action: 'logout', target: payload.email })
+    } catch {
+      // A forged or garbled token revokes nothing; the cookies are cleared anyway.
+    }
+  }
+  clearSessionCookies(res)
+  res.json({ success: true })
+}))
+
 router.get('/me', authGuard, loadUserRoles, asyncHandler(async (req, res) => {
   const { id, email, memberId, workspaceRole, isOwner } = req.user
 
@@ -861,9 +872,10 @@ router.get('/sso/oidc/callback', asyncHandler(async (req, res) => {
     { get, run },
   )
 
-  // Redirect back to the SPA with the app JWT (matches JL-81 callback intent).
-  const token = issueToken(user, '7d')
-  res.redirect(`${APP_URL}/?sso_token=${encodeURIComponent(token)}`)
+  // JL-480: sign in with a cookie and redirect back. The JWT used to ride in the
+  // redirect URL (?sso_token=), which put it in browser history and server logs.
+  await startSession(req, res, user, { expiresIn: '7d' })
+  res.redirect(`${APP_URL}/?sso=1`)
 }))
 
 // --- SAML step 1: redirect to the IdP with a signed/authn request URL ---
@@ -921,8 +933,9 @@ router.post('/sso/saml/callback', asyncHandler(async (req, res) => {
     { get, run },
   )
 
-  const token = issueToken(user, '7d')
-  res.redirect(`${APP_URL}/?sso_token=${encodeURIComponent(token)}`)
+  // JL-480: cookie session, no token in the redirect URL (see the OIDC callback).
+  await startSession(req, res, user, { expiresIn: '7d' })
+  res.redirect(`${APP_URL}/?sso=1`)
 }))
 
 export default router

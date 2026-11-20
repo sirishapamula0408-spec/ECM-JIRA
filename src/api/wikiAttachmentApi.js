@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, sessionHeaders } from './client'
 
 /*
  * JL-120→124 — attachments on a Confluence Lite page.
@@ -7,21 +7,10 @@ import { api } from './client'
  * why express.json carries a 25mb limit. No multer, no second upload path.
  *
  * Downloads deliberately do NOT go through api(): that helper always parses
- * JSON, and these are bytes. A raw fetch with the Bearer header is the same
- * approach the CSV export and issue attachment download already take.
+ * JSON, and these are bytes. A raw fetch (the session cookie goes with it, and
+ * sessionHeaders() adds what api() adds) is the same approach the CSV export and
+ * issue attachment download already take.
  */
-
-const TOKEN_KEY = 'jira_auth_token'
-
-function authHeader() {
-  try {
-    const token = window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY)
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  } catch {
-    // Storage can throw outright (private windows, blocked site data).
-    return {}
-  }
-}
 
 export const fetchPageAttachments = (pageId) =>
   api(`/api/wiki/${pageId}/attachments`)
@@ -49,7 +38,7 @@ export const attachmentDownloadUrl = (pageId, attachmentId) =>
  * because the endpoint needs the Bearer header, which an <a href> cannot send.
  */
 export async function downloadPageAttachment(pageId, attachmentId, filename) {
-  const res = await fetch(attachmentDownloadUrl(pageId, attachmentId), { headers: authHeader() })
+  const res = await fetch(attachmentDownloadUrl(pageId, attachmentId), { headers: sessionHeaders() })
   if (!res.ok) {
     const payload = await res.json().catch(() => null)
     throw new Error(payload?.error || 'Could not download that file')

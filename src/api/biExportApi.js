@@ -1,13 +1,6 @@
-import { api } from './client.js'
-
-const TOKEN_KEY = 'jira_auth_token'
-function getToken() {
-  try {
-    return window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY) || ''
-  } catch {
-    return ''
-  }
-}
+// JL-480: the session cookie is sent automatically; sessionHeaders() adds the
+// CSRF token and workspace header, the same ones api() sends.
+import { api, sessionHeaders } from './client.js'
 
 // Schema/metadata is small JSON — safe to use the shared client.
 export const fetchBiSchema = () => api('/api/bi/schema')
@@ -16,7 +9,7 @@ export const fetchBiSchema = () => api('/api/bi/schema')
 // parses JSON, which would corrupt CSV/NDJSON payloads, so we use raw fetch here
 // (per CLAUDE.md note) and stream the response into a Blob download.
 async function download(url, filename) {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } })
+  const res = await fetch(url, { headers: sessionHeaders() })
   if (!res.ok) throw new Error('Export failed')
   const blob = await res.blob()
   const objectUrl = URL.createObjectURL(blob)

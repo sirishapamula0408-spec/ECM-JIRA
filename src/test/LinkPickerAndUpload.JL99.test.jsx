@@ -110,7 +110,7 @@ describe('JL-101 authenticated images are hydrated for display', () => {
   const originalFetch = global.fetch
 
   beforeEach(() => {
-    window.localStorage.setItem('jira_auth_token', 'tok')
+    document.cookie = 'jira_csrf=csrf-tok'
     global.URL.createObjectURL = vi.fn(() => 'blob:fake')
     global.URL.revokeObjectURL = vi.fn()
     global.fetch = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['x']) })
@@ -133,13 +133,14 @@ describe('JL-101 authenticated images are hydrated for display', () => {
     return { host, unmount }
   }
 
-  it('fetches our API images WITH the bearer header', async () => {
-    // An <img src> cannot send one, which is the whole reason this exists.
+  it('fetches our API images with the session headers, and no token', async () => {
+    // JL-480: the session cookie travels with the fetch; the page holds no token.
     const { host } = hydrate('<img src="/api/wiki/1/attachments/3/download">')
     await waitFor(() => expect(global.fetch).toHaveBeenCalled())
     const [url, opts] = global.fetch.mock.calls[0]
     expect(url).toBe('/api/wiki/1/attachments/3/download')
-    expect(opts.headers.Authorization).toBe('Bearer tok')
+    expect(opts.headers['X-CSRF-Token']).toBe('csrf-tok')
+    expect(opts.headers.Authorization).toBeUndefined()
     expect(host).toBeTruthy()
   })
 

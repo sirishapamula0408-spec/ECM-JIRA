@@ -22,6 +22,7 @@ import { avatarStyle } from '../../utils/avatarColour'
 import { isSafeUrl } from '../../utils/sanitizeHtml'
 import { MEMBERSHIP_OPTIONS, teamInitials, memberCountLabel } from '../../utils/teamDisplay'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { sessionHeaders } from '../../api/client'
 import './TeamProfilePage.css'
 
 // Atlassian's documented per-team link limit. The SERVER is the limit (JL-429);
@@ -117,12 +118,8 @@ export function TeamProfilePage() {
     if (!avatarNeedsFetch) return undefined
     let objectUrl = null
     let cancelled = false
-    let token = ''
-    try {
-      token = window.localStorage.getItem('jira_auth_token')
-        || window.sessionStorage.getItem('jira_auth_token') || ''
-    } catch { token = '' }
-    fetch(storedAvatar, { headers: { Authorization: `Bearer ${token}` } })
+    // JL-480: the session cookie goes with the fetch; no token is handled here.
+    fetch(storedAvatar, { headers: sessionHeaders() })
       .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('no photo'))))
       .then((blob) => {
         if (cancelled) return

@@ -32,6 +32,12 @@ export function fetchCurrentUser() {
   return api('/api/auth/me')
 }
 
+// JL-480: revoke the session server-side and clear the httpOnly cookie, which
+// page scripts cannot delete themselves.
+export function logout() {
+  return api('/api/auth/logout', { method: 'POST' })
+}
+
 // --- JL-198: Change password for the signed-in user ---
 export function changePassword(currentPassword, newPassword) {
   return api('/api/auth/change-password', {

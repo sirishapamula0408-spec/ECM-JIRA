@@ -11,7 +11,7 @@ import { unblockSignup, checkSignupAllowed } from '../services/signupPolicy.js'
 import { hashPassword } from '../middleware/validate.js'
 import { validatePassword } from '../services/passwordPolicy.js'
 import { getSecurityPolicy } from './securityPolicy.js'
-import { issueToken } from '../utils/authToken.js'
+import { startSession } from '../utils/session.js'
 import { safeAppendAudit } from '../services/auditLog.js'
 // JL-329: issuing a pending invitation now lives in one service, shared with
 // POST /api/members, so both entry points write the same row with the same
@@ -429,7 +429,9 @@ publicRouter.post('/:token/accept', asyncHandler(async (req, res) => {
   // so bouncing the invitee to a login screen to retype the password they just
   // chose would reintroduce exactly the extra step this ticket removes. The
   // token is scoped like signup's (7d) rather than login's remember-me choice.
-  body.token = issueToken(user, '7d')
+  // JL-480: a cookie session, like every other sign-in path. The token stays in
+  // the body for non-browser callers; the SPA no longer stores it.
+  body.token = await startSession(req, res, user, { expiresIn: '7d' })
 
   // Mirror the account creation into the tamper-evident audit log, as signup does.
   safeAppendAudit({

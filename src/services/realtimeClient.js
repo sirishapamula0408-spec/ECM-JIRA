@@ -1,30 +1,17 @@
 // JL-136: Minimal browser WebSocket client for real-time collaboration.
 //
-// Connects to the backend `/ws` endpoint with the auth token as a query param,
-// auto-reconnects with exponential backoff, lets callers join/leave rooms and
-// subscribe to server messages. Designed to degrade gracefully: if the socket
-// can't be created or drops, the app keeps working — callbacks simply stop
-// firing until the connection recovers.
-
-const TOKEN_KEY = 'jira_auth_token'
-
-function getToken() {
-  try {
-    return (
-      window.localStorage.getItem(TOKEN_KEY) ||
-      window.sessionStorage.getItem(TOKEN_KEY) ||
-      null
-    )
-  } catch {
-    return null
-  }
-}
+// Connects to the backend `/ws` endpoint, auto-reconnects with exponential
+// backoff, lets callers join/leave rooms and subscribe to server messages.
+// Designed to degrade gracefully: if the socket can't be created or drops, the
+// app keeps working — callbacks simply stop firing until the connection recovers.
+//
+// JL-480: the browser sends the httpOnly session cookie on the WebSocket
+// handshake, so no token goes in the URL (it used to: ?token=<JWT>, which put
+// the credential in server and proxy logs).
 
 function buildUrl() {
-  const token = getToken()
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const base = `${proto}//${window.location.host}/ws`
-  return token ? `${base}?token=${encodeURIComponent(token)}` : base
+  return `${proto}//${window.location.host}/ws`
 }
 
 export class RealtimeClient {

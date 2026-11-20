@@ -1,13 +1,6 @@
-import { api } from './client.js'
-
-const TOKEN_KEY = 'jira_auth_token'
-function authHeader() {
-  let token = null
-  try {
-    token = window.localStorage.getItem(TOKEN_KEY) || window.sessionStorage.getItem(TOKEN_KEY) || null
-  } catch { token = null }
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+// JL-480: the session cookie is sent automatically; sessionHeaders() adds the
+// CSRF token and workspace header, the same ones api() sends.
+import { api, sessionHeaders } from './client.js'
 
 export const fetchAuditLog = (filters = {}) => {
   const params = new URLSearchParams()
@@ -29,7 +22,7 @@ export async function downloadAuditExport(format = 'csv', filters = {}) {
   Object.entries(filters).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') params.set(k, v)
   })
-  const res = await fetch(`/api/audit-log/export?${params.toString()}`, { headers: { ...authHeader() } })
+  const res = await fetch(`/api/audit-log/export?${params.toString()}`, { headers: sessionHeaders() })
   if (!res.ok) throw new Error(`Export failed (${res.status})`)
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)

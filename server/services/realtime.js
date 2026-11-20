@@ -1,6 +1,8 @@
 import { WebSocketServer } from 'ws'
 import jwt from 'jsonwebtoken'
-import { JWT_SECRET } from '../config.js'
+import { JWT_SECRET, CORS_ALLOWED_ORIGINS } from '../config.js'
+import { get } from '../db.js'
+import { parseCookies, SESSION_COOKIE } from '../utils/session.js'
 
 /**
  * JL-136: Real-time collaboration hub.
@@ -116,35 +118,60 @@ function sendToSocket(client, message) {
 
 /**
  * Attach a `WebSocketServer` to an existing HTTP server and wire it to a
- * `RoomHub`. Authentication uses the same JWT secret/logic as `authGuard`,
- * read from a `?token=<JWT>` query param; invalid tokens are closed with 4401.
+ * `RoomHub`. Authentication uses the same JWT secret/logic as `authGuard`.
+ *
+ * JL-480: a browser authenticates with its httpOnly session cookie, which it
+ * sends on the WebSocket handshake. The JWT used to travel in the URL
+ * (`?token=`), which lands in server and proxy logs; a `?token=` is still
+ * accepted for non-browser clients. Because a cookie is sent automatically, a
+ * socket opened by ANOTHER site's page (cross-site WebSocket hijacking) is
+ * refused: the Origin must be this host or an allow-listed origin. Revoked
+ * sessions are refused too. Failures close with 4401.
  *
  * @param {import('http').Server} httpServer
  * @param {{ path?: string }} [opts]
  * @returns {{ wss: WebSocketServer, hub: RoomHub }}
  */
+/** Origins allowed to open a socket: this host, plus the CORS allow-list. */
+export function socketOriginAllowed(req, allowList = CORS_ALLOWED_ORIGINS) {
+  const origin = req.headers?.origin
+  if (!origin) return true // not a browser (browsers always send Origin on a WS handshake)
+  let host
+  try { host = new URL(origin).host } catch { return false }
+  if (host && host === req.headers?.host) return true
+  const allowed = String(allowList || '').split(',').map((o) => o.trim()).filter(Boolean)
+  return allowed.includes(origin)
+}
+
+/** Resolve the socket's user from its cookie (or ?token=), or null. */
+export async function authenticateSocket(req) {
+  try {
+    if (!socketOriginAllowed(req)) return null
+    const url = new URL(req.url, 'http://localhost')
+    const token = parseCookies(req.headers?.cookie)[SESSION_COOKIE] || url.searchParams.get('token')
+    if (!token) return null
+    const payload = jwt.verify(token, JWT_SECRET)
+    if (payload.jti) {
+      const session = await get('SELECT revoked FROM user_sessions WHERE jti = ?', [payload.jti]).catch(() => null)
+      if (session && session.revoked) return null
+    }
+    return { id: payload.sub, email: payload.email }
+  } catch {
+    return null
+  }
+}
+
 export function createRealtimeServer(httpServer, { path = '/ws' } = {}) {
   const wss = new WebSocketServer({ server: httpServer, path })
   hub = new RoomHub({ send: sendToSocket })
 
-  wss.on('connection', (ws, req) => {
-    let user
-    try {
-      const url = new URL(req.url, 'http://localhost')
-      const token = url.searchParams.get('token')
-      if (!token) throw new Error('missing token')
-      const payload = jwt.verify(token, JWT_SECRET)
-      user = { id: payload.sub, email: payload.email }
-    } catch {
-      // 4401: application-level "Unauthorized" close code (4000–4999 reserved for apps).
-      ws.close(4401, 'Unauthorized')
-      return
-    }
-
-    ws.user = user
-    ws.rooms = new Set()
-
-    ws.on('message', (data) => {
+  wss.on('connection', async (ws, req) => {
+    // Authentication checks the session table, so it is asynchronous. Listen
+    // straight away and hold any message (a 'join' sent the moment the socket
+    // opens) until the user is known, so nothing is dropped.
+    const pending = []
+    let ready = false
+    const handle = (data) => {
       let msg
       try {
         msg = JSON.parse(data.toString())
@@ -154,14 +181,26 @@ export function createRealtimeServer(httpServer, { path = '/ws' } = {}) {
       if (!msg || typeof msg !== 'object') return
       if (msg.type === 'join') hub.join(ws, msg.room)
       else if (msg.type === 'leave') hub.leave(ws, msg.room)
-    })
-
+    }
+    ws.on('message', (data) => (ready ? handle(data) : pending.push(data)))
     ws.on('close', () => {
-      if (hub) hub.leaveAll(ws)
+      if (hub && ws.user) hub.leaveAll(ws)
     })
     ws.on('error', () => {
       // Ignore socket-level errors; 'close' handles cleanup.
     })
+
+    const user = await authenticateSocket(req)
+    if (!user) {
+      // 4401: application-level "Unauthorized" close code (4000–4999 reserved for apps).
+      ws.close(4401, 'Unauthorized')
+      return
+    }
+
+    ws.user = user
+    ws.rooms = new Set()
+    ready = true
+    for (const data of pending.splice(0)) handle(data)
 
     sendToSocket(ws, { type: 'connected' })
   })

@@ -131,7 +131,11 @@ describe('AcceptInvitePage — the returned session (JL-371)', () => {
     fireEvent.click(screen.getByRole('button', { name: /accept invitation/i }))
 
     expect(await screen.findByText(/you're signed in/i)).toBeInTheDocument()
-    expect(window.sessionStorage.getItem('jira_auth_token')).toBe('jwt-from-accept')
+    // JL-480: the session is the httpOnly cookie the accept response set. The
+    // token in the body is NOT stored anywhere a page script could read it.
+    expect(window.sessionStorage.getItem('jira_auth_token')).toBeNull()
+    expect(window.localStorage.getItem('jira_auth_token')).toBeNull()
+    expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain('jwt-from-accept')
     expect(JSON.parse(window.sessionStorage.getItem('jira_auth_user'))).toEqual(user)
     // No detour via the sign-up screen — that instruction is what JL-371 removes.
     expect(screen.queryByText(/sign-up screen/i)).not.toBeInTheDocument()
@@ -155,8 +159,8 @@ describe('AcceptInvitePage — the returned session (JL-371)', () => {
 
     expect(await screen.findByText(/already exists/i)).toBeInTheDocument()
     expect(screen.getByText(/existing password/i)).toBeInTheDocument()
-    expect(window.sessionStorage.getItem('jira_auth_token')).toBeNull()
-    expect(window.localStorage.getItem('jira_auth_token')).toBeNull()
+    expect(window.sessionStorage.getItem('jira_auth_user')).toBeNull()
+    expect(window.localStorage.getItem('jira_auth_user')).toBeNull()
     expect(screen.getByRole('button', { name: /continue to sign in/i })).toBeInTheDocument()
   })
 })

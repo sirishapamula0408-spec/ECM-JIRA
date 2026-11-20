@@ -13,6 +13,8 @@ vi.mock('../api/authApi', () => ({
   loginWithEmail: vi.fn(),
   forgotPassword: vi.fn(),
   resetPassword: vi.fn(),
+  logout: vi.fn(() => Promise.resolve({ success: true })),
+  fetchCurrentUser: vi.fn(),
   // JL-129: SSO discovery — resolve as disabled so no SSO buttons render.
   fetchSsoStatus: vi.fn(() => Promise.resolve({ oidc: false, saml: false })),
   startOidcLogin: vi.fn(),
@@ -20,7 +22,8 @@ vi.mock('../api/authApi', () => ({
 }))
 
 vi.mock('../api/client', () => ({
-  setToken: vi.fn(),
+  clearLegacyAuthStorage: vi.fn(() => false),
+  SESSION_EXPIRED_EVENT: 'auth-session-expired',
 }))
 
 describe('JL-233 — per-page browser tab titles', () => {
