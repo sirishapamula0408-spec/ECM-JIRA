@@ -371,15 +371,22 @@ export function BacklogPage() {
     if (!issue) { setDropPanelId(''); setDragIssueId(null); return }
 
     const currentSprintId = issue.sprintId
-    if (panelId === 'backlog') {
-      if (issue.status !== 'Backlog') await handleBacklogMove(issue.id, 'Backlog')
-    } else {
-      const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status
-      if (currentSprintId !== targetSprintId || issue.status === 'Backlog') {
-        await handleBacklogMove(issue.id, nextStatus, targetSprintId)
+    try {
+      if (panelId === 'backlog') {
+        if (issue.status !== 'Backlog') await handleBacklogMove(issue.id, 'Backlog')
+      } else {
+        const nextStatus = issue.status === 'Backlog' ? 'To Do' : issue.status
+        if (currentSprintId !== targetSprintId || issue.status === 'Backlog') {
+          await handleBacklogMove(issue.id, nextStatus, targetSprintId)
+        }
       }
+    } catch (err) {
+      // JL-484: a refused drop (e.g. a Done issue onto the Backlog) used to throw
+      // uncaught and leave the row where it was with no explanation.
+      reportMoveRefused(issue, err)
+    } finally {
+      setDropPanelId(''); setDragIssueId(null)
     }
-    setDropPanelId(''); setDragIssueId(null)
   }
 
   function toggleIssueSelection(issueId) {
@@ -419,9 +426,15 @@ export function BacklogPage() {
       await handleBacklogMove(issue.id, issue.status === 'Backlog' ? 'To Do' : issue.status, target.id)
       setBacklogMessage(`${issue.key} moved to ${target.label}.`)
     } catch (err) {
-      // e.g. a Done issue cannot go back to the backlog — say why, don't fail silently.
-      setBacklogMessage(`${issue.key} was not moved: ${err?.message || 'the move was refused'}`)
+      reportMoveRefused(issue, err)
     }
+  }
+
+  // A refused move (e.g. a Done issue cannot go back to the backlog) is shown in
+  // the fixed-position toast: the inline message sits at the top of the page and
+  // was hidden under the sticky header when the backlog was scrolled.
+  function reportMoveRefused(issue, err) {
+    setBulkToast({ severity: 'error', message: `${issue.key} was not moved: ${err?.message || 'the move was refused'}` })
   }
 
   const bulkNeedsValue = VALUE_FIELDS.includes(bulkField)

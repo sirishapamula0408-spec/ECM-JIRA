@@ -109,6 +109,16 @@ describe('on the Backlog page', () => {
     await waitFor(() => expect(handleMove).toHaveBeenCalledWith(1, 'To Do', 10))
   })
 
+  it('a refused move is explained in the toast (visible even when scrolled)', async () => {
+    handleMove.mockRejectedValueOnce(new Error('A "Done" issue is finished and cannot be moved back to the backlog'))
+    renderBacklog()
+    expandSprint1()
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for TP-2' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Backlog' }))
+    const toast = await screen.findByRole('alert')
+    expect(toast).toHaveTextContent('TP-2 was not moved: A "Done" issue is finished and cannot be moved back to the backlog')
+  })
+
   it('a Viewer gets no Move to menu', () => {
     mockPerms = { ...EDITOR, canEditIssue: false, canCreateIssue: false }
     renderBacklog()

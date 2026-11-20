@@ -228,7 +228,8 @@ router.patch('/:id/start', requireProjectAdmin(sprintProject), asyncHandler(asyn
     return
   }
 
-  const target = await get('SELECT id, project_id FROM sprints WHERE id = ?', [id])
+  // end_date is read here (not in a second query) for the JL-483 range update below.
+  const target = await get('SELECT id, project_id, end_date FROM sprints WHERE id = ?', [id])
   if (!target) {
     res.status(404).json({ error: 'Sprint not found' })
     return
@@ -262,9 +263,16 @@ router.patch('/:id/start', requireProjectAdmin(sprintProject), asyncHandler(asyn
   // JL-483: the display range is derived from the dates, so re-derive it from
   // the new start (today) and the planned end — otherwise the row kept saying
   // the planned "7 Dec - 21 Dec" while Edit sprint showed today as the start.
-  const planned = await get('SELECT end_date FROM sprints WHERE id = ?', [id])
-  const startedRange = formatSprintRange(new Date().toISOString().slice(0, 10), toDay(planned?.end_date))
-  const update = await run('UPDATE sprints SET is_started = TRUE, start_date = NOW(), date_range = ? WHERE id = ?', [startedRange, id])
+  // A planned end already in the past cannot follow a start of today; drop it
+  // rather than show a backwards range like "20 Nov - 14 Oct". It can be set
+  // again with Edit sprint.
+  const today = new Date().toISOString().slice(0, 10)
+  const plannedEnd = toDay(target.end_date)
+  const keepEnd = plannedEnd && plannedEnd >= today
+  const startedRange = formatSprintRange(today, keepEnd ? plannedEnd : null)
+  const update = keepEnd || !plannedEnd
+    ? await run('UPDATE sprints SET is_started = TRUE, start_date = NOW(), date_range = ? WHERE id = ?', [startedRange, id])
+    : await run('UPDATE sprints SET is_started = TRUE, start_date = NOW(), end_date = NULL, date_range = ? WHERE id = ?', [startedRange, id])
   if (update.changes === 0) {
     res.status(404).json({ error: 'Sprint not found' })
     return

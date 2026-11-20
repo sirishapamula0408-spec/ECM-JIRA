@@ -96,6 +96,9 @@ describe('PATCH /api/sprints/:id/start', () => {
   it('re-derives the range from the new start (today) and the planned end', async () => {
     // Verification found the row kept "7 Dec - 21 Dec" after starting on 20 Nov,
     // while Edit sprint showed 20 Nov as the start.
+    // (This used to expect "20 Nov - 2 Feb" from a stored end of 2 Feb 2026 —
+    // a backwards range; the planned end must be in the future to be kept.)
+    stored.end_date = new Date('2026-12-04T00:00:00Z')
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-11-20T10:00:00Z'))
     try {
@@ -103,7 +106,23 @@ describe('PATCH /api/sprints/:id/start', () => {
       expect(res.status).toBe(200)
       const start = run.mock.calls.find(([sql]) => /SET is_started = TRUE/.test(sql))
       expect(start[0]).toMatch(/start_date = NOW\(\), date_range = \?/)
-      expect(start[1]).toEqual(['20 Nov - 2 Feb', 11])
+      expect(start[0]).not.toMatch(/end_date = NULL/)
+      expect(start[1]).toEqual(['20 Nov - 4 Dec', 11])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('drops a planned end that is already past instead of showing a backwards range', async () => {
+    // Verification found "20 Nov - 14 Oct" after starting a sprint planned to end 14 Oct.
+    stored.end_date = new Date('2026-10-14T00:00:00Z')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-20T10:00:00Z'))
+    try {
+      expect((await request(app()).patch('/api/sprints/11/start').send({})).status).toBe(200)
+      const start = run.mock.calls.find(([sql]) => /SET is_started = TRUE/.test(sql))
+      expect(start[0]).toMatch(/end_date = NULL/)
+      expect(start[1]).toEqual(['From 20 Nov', 11])
     } finally {
       vi.useRealTimers()
     }
