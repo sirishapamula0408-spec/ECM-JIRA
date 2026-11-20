@@ -1,3 +1,9 @@
+import { useState } from 'react'
+import IconButton from '@mui/material/IconButton'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import ListSubheader from '@mui/material/ListSubheader'
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import { DueDateBadge } from './DueDateBadge'
 import { ImpedimentFlagIndicator, ImpedimentFlagToggle } from './ImpedimentFlag'
 import { CopyButton } from '../common/CopyButton'
@@ -21,10 +27,19 @@ function storyPointValue(storyPoints) {
   return Number.isNaN(points) ? null : points
 }
 
-export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true }) {
+/**
+ * @param {Array<{ id: 'backlog'|number, label: string }>} [props.moveTargets]
+ *   JL-484: where this row can be moved — the Backlog and/or the project's
+ *   other sprints. With targets and onMoveTo, the row gets a "…" menu with a
+ *   Jira-style "Move to" section.
+ * @param {Function} [props.onMoveTo] (issue, target) => void
+ */
+export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSelect, onDragStart, onDragEnd, blocked, canEdit = true, moveTargets = [], onMoveTo }) {
   const isBlocked = !!blocked?.isBlocked
   const blockers = blocked?.blockedBy || []
   const points = storyPointValue(issue.storyPoints)
+  const [menuAnchor, setMenuAnchor] = useState(null)
+  const showMoveMenu = canEdit && typeof onMoveTo === 'function' && moveTargets.length > 0
 
   return (
     <div
@@ -100,6 +115,39 @@ export function BacklogIssueRow({ issue, onMove, onOpen, isSelected, onToggleSel
           <ImpedimentFlagToggle issue={issue} compact />
         </span>
         <span className="member-avatar" style={avatarStyle(issue.assignee)}>{issue.assignee.slice(0, 2).toUpperCase()}</span>
+        {showMoveMenu && (
+          <>
+            <IconButton
+              className="backlog-row-more"
+              size="small"
+              aria-label={`More actions for ${issue.key}`}
+              aria-haspopup="menu"
+              aria-expanded={menuAnchor ? 'true' : undefined}
+              onClick={(event) => { event.stopPropagation(); setMenuAnchor(event.currentTarget) }}
+            >
+              <MoreHorizIcon fontSize="small" />
+            </IconButton>
+            {/* Portalled MUI Menu: cannot be clipped by the panel (see JL-483 fix). */}
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{ list: { 'aria-label': `Move ${issue.key} to` } }}
+            >
+              <ListSubheader disableSticky sx={{ lineHeight: '32px' }}>Move to</ListSubheader>
+              {moveTargets.map((target) => (
+                <MenuItem
+                  key={target.id}
+                  onClick={() => { setMenuAnchor(null); onMoveTo(issue, target) }}
+                >
+                  {target.label}
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
       </div>
     </div>
   )

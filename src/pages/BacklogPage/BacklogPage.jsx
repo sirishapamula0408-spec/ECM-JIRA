@@ -397,6 +397,28 @@ export function BacklogPage() {
     else setPanelExpanded(targetSprintId || defaultSprintId, true)
   }
 
+  // JL-484: the row "…" → Move to menu. Where a row can go: from a sprint, the
+  // Backlog or any other open sprint; from the backlog, any open sprint.
+  function moveTargetsFor(currentSprintId) {
+    const sprintTargets = sprintPanels
+      .filter((panel) => panel.id !== currentSprintId && !panel.completedAt)
+      .map((panel) => ({ id: panel.id, label: panel.name }))
+    return currentSprintId == null ? sprintTargets : [{ id: 'backlog', label: 'Backlog' }, ...sprintTargets]
+  }
+
+  // Same effect as dropping the row on that panel (handlePanelDrop): to the
+  // backlog = status Backlog, no sprint; into a sprint = Backlog becomes To Do,
+  // any other status is kept.
+  async function handleMoveTo(issue, target) {
+    if (target.id === 'backlog') {
+      await handleBacklogMove(issue.id, 'Backlog')
+      setBacklogMessage(`${issue.key} moved to the backlog.`)
+      return
+    }
+    await handleBacklogMove(issue.id, issue.status === 'Backlog' ? 'To Do' : issue.status, target.id)
+    setBacklogMessage(`${issue.key} moved to ${target.label}.`)
+  }
+
   const bulkNeedsValue = VALUE_FIELDS.includes(bulkField)
   const canApplyBulk = selectedCount > 0 && bulkField !== '' && (!bulkNeedsValue || bulkValue !== '') && !bulkBusy
 
@@ -864,7 +886,7 @@ export function BacklogPage() {
                 {isExpanded && (
                   <>
                     {sprintPanel.issues.map((issue) => (
-                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} onOpen={() => navigate(issueHref(issue))} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+                      <BacklogIssueRow key={`${sprintPanel.id}-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={(id, status) => handleBacklogMove(id, status, sprintPanel.id)} moveTargets={moveTargetsFor(sprintPanel.id)} onMoveTo={handleMoveTo} onOpen={() => navigate(issueHref(issue))} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
                     ))}
                     {canCreateIssue && quickCreateBySprint[sprintPanel.id] && (
                       <div className="quick-create-row">
@@ -916,7 +938,7 @@ export function BacklogPage() {
 
         <div className={`sprint-issues${expandedPanels.backlog ? ' expanded' : ''}${dropPanelId === 'backlog' ? ' drop-target-active' : ''}`} onDragOver={(event) => handlePanelDragOver(event, 'backlog')} onDrop={(event) => handlePanelDrop(event, 'backlog')}>
           {expandedPanels.backlog && backlogItems.map((issue) => (
-            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={handleBacklogMove} onOpen={() => navigate(issueHref(issue))} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
+            <BacklogIssueRow key={`backlog-${issue.id}`} issue={issue} blocked={blockedFor(issue.id)} canEdit={canEditIssue} onMove={handleBacklogMove} moveTargets={moveTargetsFor(null)} onMoveTo={handleMoveTo} onOpen={() => navigate(issueHref(issue))} isSelected={selectedIssueIds.includes(issue.id)} onToggleSelect={toggleIssueSelection} onDragStart={handleIssueDragStart} onDragEnd={handleIssueDragEnd} />
           ))}
         </div>
       </article>
