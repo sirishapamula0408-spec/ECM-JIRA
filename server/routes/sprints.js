@@ -16,6 +16,65 @@ export const projectSprintRouter = Router()
 
 const SPRINT_COLUMNS = 'id, project_id, name, date_range, is_started, start_date, end_date, completed_at, goal'
 
+/*
+ * JL-483: a sprint's planned dates, set from the Create / Edit sprint dialog.
+ * Dates travel as calendar days (YYYY-MM-DD) and are stored as UTC midnight in
+ * start_date / end_date, which the burndown and sprint reports already read.
+ * The display string (date_range, e.g. "19 Jan - 2 Feb") is derived from them,
+ * so the two can never disagree.
+ */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** A YYYY-MM-DD string that is a real calendar day → that string; '' or null → null; anything else → undefined. */
+export function parseSprintDay(value) {
+  if (value == null || value === '') return null
+  const text = String(value).trim()
+  if (!ISO_DAY.test(text)) return undefined
+  const date = new Date(`${text}T00:00:00Z`)
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text ? undefined : text
+}
+
+/** "19 Jan - 2 Feb" from two YYYY-MM-DD days (either may be missing). */
+export function formatSprintRange(startDay, endDay) {
+  const label = (day) => {
+    const [, m, d] = day.split('-').map(Number)
+    return `${d} ${MONTHS[m - 1]}`
+  }
+  if (startDay && endDay) return `${label(startDay)} - ${label(endDay)}`
+  if (startDay) return `From ${label(startDay)}`
+  if (endDay) return `Until ${label(endDay)}`
+  return null
+}
+
+/**
+ * Read startDate / endDate from a request body. Only keys that are present are
+ * returned, so a PATCH that omits them leaves the stored dates alone.
+ * Returns { error } on a bad date or an end before the start.
+ */
+export function readSprintDates(body, current = {}) {
+  const out = {}
+  for (const [key, column] of [['startDate', 'start_date'], ['endDate', 'end_date']]) {
+    if (!Object.prototype.hasOwnProperty.call(body || {}, key)) continue
+    const day = parseSprintDay(body[key])
+    if (day === undefined) return { error: `${key} must be a date (YYYY-MM-DD)` }
+    out[column] = day
+  }
+  const start = 'start_date' in out ? out.start_date : current.start_date
+  const end = 'end_date' in out ? out.end_date : current.end_date
+  if (start && end && end < start) return { error: 'The end date must be on or after the start date' }
+  return { dates: out, start, end }
+}
+
+/** A stored timestamp → its UTC calendar day, or null. */
+function toDay(value) {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
+}
+
+const dayToTimestamp = (day) => (day ? `${day}T00:00:00Z` : null)
+
 /**
  * JL-165 — may an issue in `issueProjectId` be put in `sprint`?
  * Yes when the sprint is that project's own, or a shared legacy sprint, or the
@@ -129,8 +188,15 @@ router.post('/', requireProjectAdmin(bodyProject), asyncHandler(async (req, res)
   const count = await get('SELECT COUNT(*) AS count FROM sprints WHERE project_id = ?', [projectId])
   const fallbackName = `${project.key} Sprint ${Number(count.count) + 1}`
   const nextName = String(name || '').trim() || fallbackName
-  const nextDateRange = String(dateRange || '').trim() || 'Upcoming'
   const nextGoal = goal == null ? null : String(goal).trim() || null
+
+  // JL-483: planned dates from the Create sprint dialog (optional).
+  const planned = readSprintDates(req.body)
+  if (planned.error) {
+    res.status(400).json({ error: planned.error })
+    return
+  }
+  const nextDateRange = formatSprintRange(planned.start, planned.end) || String(dateRange || '').trim() || 'Upcoming'
 
   // JL-204: server-side length caps (checked after trim)
   const lengthErr =
@@ -141,12 +207,14 @@ router.post('/', requireProjectAdmin(bodyProject), asyncHandler(async (req, res)
     return
   }
 
-  const created = await run('INSERT INTO sprints (project_id, name, date_range, is_started, goal) VALUES (?, ?, ?, ?, ?)', [
+  const created = await run('INSERT INTO sprints (project_id, name, date_range, is_started, goal, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?)', [
     projectId,
     nextName,
     nextDateRange,
     false,
     nextGoal,
+    dayToTimestamp(planned.start),
+    dayToTimestamp(planned.end),
   ])
 
   const row = await get(`SELECT ${SPRINT_COLUMNS} FROM sprints WHERE id = ?`, [created.lastID])
@@ -242,6 +310,27 @@ router.patch('/:id', requireProjectAdmin(sprintProject), asyncHandler(async (req
   // JL-127: goal is optional on patch — only update it when the key is present.
   const setClauses = ['name = ?', 'date_range = ?']
   const params = [nextName, nextDateRange || 'Upcoming']
+
+  // JL-483: planned dates from the Edit sprint dialog. Only keys present in the
+  // body change; when either does, the display range is re-derived from the
+  // resulting pair so it can never contradict the stored dates.
+  if (Object.prototype.hasOwnProperty.call(body, 'startDate') || Object.prototype.hasOwnProperty.call(body, 'endDate')) {
+    const stored = await get('SELECT start_date, end_date FROM sprints WHERE id = ?', [id])
+    if (!stored) {
+      res.status(404).json({ error: 'Sprint not found' })
+      return
+    }
+    const planned = readSprintDates(body, { start_date: toDay(stored.start_date), end_date: toDay(stored.end_date) })
+    if (planned.error) {
+      res.status(400).json({ error: planned.error })
+      return
+    }
+    for (const [column, day] of Object.entries(planned.dates)) {
+      setClauses.push(`${column} = ?`)
+      params.push(dayToTimestamp(day))
+    }
+    params[1] = formatSprintRange(planned.start, planned.end) || nextDateRange || 'Upcoming'
+  }
 
   /*
    * JL-165: `projectId` assigns a shared legacy sprint to a project. A sprint

@@ -84,6 +84,7 @@ const MEMBER_PERMS = {
 
 const ADMIN_PERMS = {
   loaded: true,
+  isAdmin: true, // workspace Admin: may manage any sprint, incl. this unassigned one (JL-483)
   canCreateIssue: true,
   canEditIssue: true,
   canDeleteIssue: true,
@@ -240,7 +241,7 @@ describe('JL-230 — Admin sees delete and sprint management controls', () => {
     expect(screen.getByText('Start sprint')).toBeInTheDocument()
     expect(screen.getByLabelText('Sprint actions')).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Sprint actions'))
-    expect(screen.getByText('Rename sprint')).toBeInTheDocument()
+    expect(screen.getByText('Edit sprint')).toBeInTheDocument() // JL-483: replaced the prompt-based Rename
     expect(screen.getByText('Delete sprint')).toBeInTheDocument()
   })
 })

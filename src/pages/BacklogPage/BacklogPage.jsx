@@ -18,6 +18,7 @@ import { ImportExportModal } from '../../components/issues/ImportExportModal'
 import { BulkChangeWizard } from '../../components/issues/BulkChangeWizard'
 import { BacklogFilterMenu } from '../../components/issues/BacklogFilterMenu'
 import { SectionCheckbox } from '../../components/issues/SectionCheckbox'
+import { SprintDialog } from '../../components/issues/SprintDialog'
 import { bulkChangeIssues } from '../../api/issueApi'
 import { fetchProjectStatuses, fetchProjectPriorities } from '../../api/issueConfigApi'
 import { fetchProjectLabels } from '../../api/labelApi'
@@ -185,6 +186,8 @@ export function BacklogPage() {
   const [quickCreateBusyBySprint, setQuickCreateBusyBySprint] = useState({})
   const [quickCreateErrorBySprint, setQuickCreateErrorBySprint] = useState({})
   const [openSprintMenuId, setOpenSprintMenuId] = useState(null)
+  // JL-483: { mode: 'create' } or { mode: 'edit', sprint } while the Create / Edit sprint dialog is open.
+  const [sprintDialog, setSprintDialog] = useState(null)
   const [showImportExport, setShowImportExport] = useState(false)
   const [importExportTab, setImportExportTab] = useState('export')
   const [showBulkWizard, setShowBulkWizard] = useState(false)
@@ -199,7 +202,7 @@ export function BacklogPage() {
   const exportProjectId = projectId ? Number(projectId) : (scopedIssues[0]?.projectId ?? null)
 
   // JL-230: Viewers get a read-only backlog — gate every mutating affordance.
-  const { canCreateIssue, canEditIssue, canDeleteIssue, canManageSprints, canExportIssues } = usePermissions(exportProjectId ?? undefined)
+  const { canCreateIssue, canEditIssue, canDeleteIssue, canManageSprints, canExportIssues, isAdmin: isWorkspaceAdmin } = usePermissions(exportProjectId ?? undefined)
   const canBulkEdit = canEditIssue || canDeleteIssue
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -483,14 +486,29 @@ export function BacklogPage() {
   }
   const BULK_FIELD_LABELS = { status: 'Status', assignee: 'Assignee', priority: 'Priority', sprint: 'Sprint', issueType: 'Issue type', labels: 'Label' }
 
-  async function createSprintFromSelection() {
+  // JL-483: the name Jira would suggest, "KEY Sprint N". The key comes from this
+  // project's issue keys; with no issues yet the name is left blank and the
+  // server numbers it the same way.
+  function suggestedSprintName() {
+    const key = String(scopedIssues.find((issue) => issue.key)?.key || '').split('-')[0]
+    if (!key) return ''
+    const count = (allSprints || []).filter((s) => s && Number(s.projectId) === Number(projectId)).length
+    return `${key} Sprint ${count + 1}`
+  }
+
+  function openCreateSprint() {
     setBacklogMessage('')
     // JL-165: a sprint belongs to a project, so there must be one in view.
     if (!projectId) {
       setBacklogMessage('Open a project to create a sprint in it.')
       return
     }
-    const newSprint = await onCreateSprint({ projectId: Number(projectId) })
+    setSprintDialog({ mode: 'create' })
+  }
+
+  // Called by the dialog. Errors propagate so the dialog stays open and shows them.
+  async function createSprintFromSelection({ name, startDate, endDate, goal } = {}) {
+    const newSprint = await onCreateSprint({ projectId: Number(projectId), name: name || undefined, startDate, endDate, goal })
     const newSprintId = newSprint?.id
     if (!newSprintId) return
     setPanelExpanded(newSprintId, true); setPanelExpanded('backlog', true)
@@ -514,13 +532,10 @@ export function BacklogPage() {
     }
   }
 
-  async function handleRenameSprint(sprintPanel) {
-    const nextName = window.prompt('Sprint name', sprintPanel.name)
-    if (!nextName) return
-    const trimmed = nextName.trim()
-    if (!trimmed || trimmed === sprintPanel.name) return
-    await onUpdateSprint(sprintPanel.id, { name: trimmed, dateRange: sprintPanel.dateRange })
-    setBacklogMessage(`Renamed to ${trimmed}.`)
+  // JL-483: Edit sprint (name, dates, goal) — replaces the window.prompt rename.
+  async function saveSprintEdit(sprint, { name, startDate, endDate, goal }) {
+    await onUpdateSprint(sprint.id, { name, startDate, endDate, goal, dateRange: sprint.dateRange })
+    setBacklogMessage(`${name} updated.`)
   }
 
   async function handleMoveSprintIssuesToBacklog(sprintPanel) {
@@ -530,10 +545,14 @@ export function BacklogPage() {
   }
 
   async function handleDeleteSprintPanel(sprintPanel) {
+    // JL-483: count every item in the sprint, not just the ones the search shows.
+    const itemCount = allSprintItems.filter((issue) => issue.sprintId === sprintPanel.id).length
     const confirmed = await confirm({
-      title: 'Delete sprint?',
-      message: `Delete ${sprintPanel.name}? Issues will be moved to backlog.`,
-      confirmLabel: 'Delete',
+      title: `Delete sprint ${sprintPanel.name}?`,
+      message: itemCount === 0
+        ? 'This sprint has no work items. Deleting it cannot be undone.'
+        : `Its ${itemCount} work item${itemCount === 1 ? '' : 's'} will be moved to the backlog. Deleting the sprint cannot be undone.`,
+      confirmLabel: 'Delete sprint',
       danger: true,
     })
     if (!confirmed) return
@@ -753,6 +772,15 @@ export function BacklogPage() {
         {sprintPanels.map((sprintPanel) => {
           const isExpanded = Boolean(expandedPanels[sprintPanel.id])
           const isStarted = Boolean(sprintPanel.isStarted)
+          // JL-483 (JL-481 follow-up): the server lets a project Lead/Admin manage
+          // only THIS project's sprints. A shared legacy sprint (no project), or
+          // one from another project on a cross-project view, gets no controls
+          // rather than buttons that would be refused. A workspace Admin/Owner
+          // may manage any sprint.
+          const canManageThisSprint = canManageSprints && (
+            isWorkspaceAdmin
+            || (sprintPanel.projectId != null && projectId != null && Number(sprintPanel.projectId) === Number(projectId))
+          )
           return (
             <div key={sprintPanel.id} className="sprint-panel-wrap">
               <div
@@ -775,6 +803,7 @@ export function BacklogPage() {
                   <div className="jira-sprint-title">
                     <strong>{sprintPanel.name}</strong>
                     <span>{sprintPanel.dateRange} ({sprintPanel.issues.length} work items)</span>
+                    {sprintPanel.goal && <span className="jira-sprint-goal" title={sprintPanel.goal}>{sprintPanel.goal}</span>}
                   </div>
                 </div>
                 <div className="jira-sprint-metrics">
@@ -782,18 +811,18 @@ export function BacklogPage() {
                   <span className="metric-pill" title="To Do issues">{sprintPanel.counts.todo}</span>
                   <span className="metric-pill metric-pill-blue" title="In-progress issues">{sprintPanel.counts.inprogress}</span>
                   <span className="metric-pill metric-pill-green" title="Done issues">{sprintPanel.counts.done}</span>
-                  {canManageSprints && (
+                  {canManageThisSprint && (
                   <button className="btn btn-ghost sprint-action-btn" type="button" onClick={() => handleStartSprintAction(sprintPanel.id)} disabled={isStarted || sprintPanel.issues.length === 0}>
                     {isStarted ? 'Sprint started' : 'Start sprint'}
                   </button>
                   )}
-                  {canManageSprints && (
+                  {canManageThisSprint && (
                   <div className="sprint-menu-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpenSprintMenuId(null) }}>
                     <button className="icon-btn sprint-menu-trigger" type="button" aria-label="Sprint actions" onClick={() => setOpenSprintMenuId((current) => (current === sprintPanel.id ? null : sprintPanel.id))}>...</button>
                     {openSprintMenuId === sprintPanel.id && (
                       <div className="sprint-menu" role="menu">
                         <button className="sprint-menu-item" type="button" onClick={async () => { await handleStartSprintAction(sprintPanel.id); setOpenSprintMenuId(null) }} disabled={isStarted || sprintPanel.issues.length === 0}>Start sprint</button>
-                        <button className="sprint-menu-item" type="button" onClick={async () => { await handleRenameSprint(sprintPanel); setOpenSprintMenuId(null) }}>Rename sprint</button>
+                        <button className="sprint-menu-item" type="button" onClick={() => { setSprintDialog({ mode: 'edit', sprint: sprintPanel }); setOpenSprintMenuId(null) }}>Edit sprint</button>
                         <button className="sprint-menu-item" type="button" onClick={async () => { await handleMoveSprintIssuesToBacklog(sprintPanel); setOpenSprintMenuId(null) }} disabled={sprintPanel.issueIds.length === 0}>Move all to backlog</button>
                         <button className="sprint-menu-item sprint-menu-danger" type="button" onClick={async () => { await handleDeleteSprintPanel(sprintPanel); setOpenSprintMenuId(null) }}>Delete sprint</button>
                       </div>
@@ -856,7 +885,7 @@ export function BacklogPage() {
             <span className="metric-pill metric-pill-blue" title="In-progress issues">{backlogCounts.inprogress}</span>
             <span className="metric-pill metric-pill-green" title="Done issues">{backlogCounts.done}</span>
             {canManageSprints && (
-              <button className="btn btn-ghost sprint-action-btn" type="button" onClick={createSprintFromSelection}>Create sprint</button>
+              <button className="btn btn-ghost sprint-action-btn" type="button" onClick={openCreateSprint}>Create sprint</button>
             )}
           </div>
         </div>
@@ -868,6 +897,16 @@ export function BacklogPage() {
         </div>
       </article>
       {confirmDialog}
+      {sprintDialog && (
+        <SprintDialog
+          key={sprintDialog.mode === 'edit' ? `edit-${sprintDialog.sprint.id}` : 'create'}
+          mode={sprintDialog.mode}
+          sprint={sprintDialog.sprint}
+          suggestedName={sprintDialog.mode === 'create' ? suggestedSprintName() : ''}
+          onSubmit={(values) => (sprintDialog.mode === 'edit' ? saveSprintEdit(sprintDialog.sprint, values) : createSprintFromSelection(values))}
+          onClose={() => setSprintDialog(null)}
+        />
+      )}
     </section>
   )
 }
