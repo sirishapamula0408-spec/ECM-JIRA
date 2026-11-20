@@ -212,6 +212,90 @@
   border-color: #2c333a;
 }
 
+/* ── JL-486: dark-mode polish (shared chrome) ─────────────────────────────── */
+
+/* 5. Let the browser draw its own controls (checkboxes, native selects,
+   scrollbars) for a dark page; color-scheme stayed "normal", so checkboxes were
+   white boxes. Set on <html>, which carries .app-theme-dark. */
+.app-theme-dark {
+  color-scheme: dark;
+}
+
+/* 1. Backlog search and the bulk toolbar selects were white boxes. */
+.app-theme-dark .backlog-search-input,
+.app-theme-dark .bulk-status-select {
+  background: var(--jira-dark-surface);
+  color: var(--jira-dark-text);
+  border-color: #454f59;
+}
+
+.app-theme-dark .backlog-search-input::placeholder {
+  color: var(--jira-dark-text-muted);
+}
+
+.app-theme-dark .bulk-status-select:disabled {
+  color: #738496;
+}
+
+/* 2. Project tabs: inactive 2.05:1, active 2.37:1. */
+.app-theme-dark .backlog-top-item {
+  color: var(--jira-dark-text-muted);
+}
+
+.app-theme-dark .backlog-top-item:hover {
+  background: var(--jira-dark-hover);
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .backlog-top-item.active {
+  color: #579dff;
+  box-shadow: inset 0 -2px 0 #579dff;
+}
+
+/* 3. The breadcrumb strip above the tabs stayed white. */
+.app-theme-dark .project-top-panel-wrapper {
+  background: var(--jira-dark-surface-sunken);
+}
+
+.app-theme-dark .project-breadcrumb-link,
+.app-theme-dark .project-breadcrumb-sep {
+  color: var(--jira-dark-text-muted);
+}
+
+.app-theme-dark .project-breadcrumb-link:hover {
+  color: #579dff;
+}
+
+.app-theme-dark .project-breadcrumb-current {
+  color: var(--jira-dark-text);
+}
+
+/* 4. Top bar: product name and clock were dark text on the dark bar. */
+.app-theme-dark .topbar-brand,
+.app-theme-dark .topbar-brand-name,
+.app-theme-dark .topbar-clock-time {
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .topbar-clock-date {
+  color: var(--jira-dark-text-muted);
+}
+
+/* 6. The sidebar's Projects "…" menu (Manage projects / Hide from sidebar). */
+.app-theme-dark .spaces-menu {
+  background: var(--jira-menu-bg);
+  border-color: var(--jira-dark-border);
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .spaces-menu-item {
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .spaces-menu-item:hover {
+  background: var(--jira-menu-hover);
+}
+
 /* ── JL-485: Backlog sprint / backlog panels and the sidebar utility card ──
    BacklogPage.css and Sidebar.css hardcode light surfaces (#f8f8f8 panel bars,
    #ffffff rows, #172b4d titles, --jira-surface card), which stayed white in

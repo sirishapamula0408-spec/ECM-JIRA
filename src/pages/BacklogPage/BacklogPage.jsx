@@ -29,6 +29,7 @@ import { fetchProjectDependencies } from '../../api/dependencyApi'
 import { watchIssue, unwatchIssue } from '../../api/watcherApi'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { initialsFromName } from '../../utils/helpers'
+import { avatarStyle } from '../../utils/avatarColour'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/useConfirm'
 import { issueHref } from '../../utils/issueRef'
@@ -84,6 +85,11 @@ const STATUS_CATEGORY = {
   'In UAT': 'inprogress',
   Done: 'done',
   Cancelled: 'done',
+}
+
+// JL-486: "1 work item", not "1 work items".
+function workItemCount(n) {
+  return `${n} work item${n === 1 ? '' : 's'}`
 }
 
 function countByStatusCategory(issueList) {
@@ -666,6 +672,7 @@ export function BacklogPage() {
                   key={member.id}
                   type="button"
                   className={`assignee-chip${isMemberFiltered(member) ? ' is-selected' : ''}`}
+                  style={avatarStyle(member.name)}
                   title={member.name}
                   aria-label={`Filter by assignee ${member.name}`}
                   aria-pressed={isMemberFiltered(member)}
@@ -867,7 +874,7 @@ export function BacklogPage() {
                         count, never inside "(N work items)". */}
                     <span className="jira-sprint-meta">
                       <span className="jira-sprint-dates">{sprintPanel.dateRange}</span>{' '}
-                      <span className="jira-sprint-count">({sprintPanel.issues.length} work items)</span>
+                      <span className="jira-sprint-count">({workItemCount(sprintPanel.issues.length)})</span>
                     </span>
                     {sprintPanel.goal && <span className="jira-sprint-goal" title={sprintPanel.goal}>{sprintPanel.goal}</span>}
                   </div>
@@ -962,7 +969,7 @@ export function BacklogPage() {
             <button className={`sprint-toggle${expandedPanels.backlog ? ' expanded' : ''}`} type="button" aria-label={expandedPanels.backlog ? 'Collapse backlog' : 'Expand backlog'} onClick={() => setPanelExpanded('backlog', !expandedPanels.backlog)}>
               <span className="sprint-caret" aria-hidden="true" />
             </button>
-            <div className="jira-sprint-title"><strong>Backlog</strong><span>({backlogItems.length} work items)</span></div>
+            <div className="jira-sprint-title"><strong>Backlog</strong><span>({workItemCount(backlogItems.length)})</span></div>
           </div>
           <div className="jira-sprint-metrics">
             {/* JL-353: live status-category counts (were hardcoded "0"). */}

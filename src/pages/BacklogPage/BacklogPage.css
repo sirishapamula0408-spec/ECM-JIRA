@@ -41,6 +41,16 @@
   gap: 8px;
 }
 
+/* JL-486: at ~768px the left group could not wrap, so its items shrank and the
+   Sort select was squeezed until its label ("Sort: Default") disappeared. */
+.backlog-toolbar-left {
+  flex-wrap: wrap;
+}
+
+.backlog-toolbar-left .backlog-sort-select {
+  flex-shrink: 0;
+}
+
 .backlog-bulk {
   display: inline-flex;
   align-items: center;
@@ -108,18 +118,10 @@
   justify-content: center;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  color: #ffffff;
+  /* JL-486: colours come from avatarStyle(member.name) (JL-386 palette), set
+     inline. They used to be by POSITION (2nd chip orange, 3rd blue…), so a
+     person's colour changed with the list, and white-on-orange was 2.35:1. */
 }
-
-.assignee-chip:nth-child(1) {
-  background: #f4f5f7;
-  color: #42526e;
-}
-
-.assignee-chip:nth-child(2) { background: #ff8b00; }
-.assignee-chip:nth-child(3) { background: #0052cc; }
-.assignee-chip:nth-child(4) { background: #0065ff; }
-.assignee-chip:nth-child(5) { background: #00875a; }
 
 /* Avatars double as assignee quick filters. */
 button.assignee-chip {
@@ -478,6 +480,10 @@ button.assignee-chip:focus-visible {
   color: #42526e;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
+  /* JL-486: the key wrapped at 1024px and below ("VQ239-" / "8"); the title
+     next to it is the part that truncates. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .backlog-issue-main strong {

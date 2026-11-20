@@ -154,7 +154,8 @@
 .inline-action-btn {
   border: none;
   background: transparent;
-  color: #6b778c;
+  /* JL-486: #6b778c was 3.76:1 on the selected row's highlight. */
+  color: #44546f;
   font-size: var(--font-size-base);
   line-height: 1;
   padding: 2px 4px;
@@ -175,7 +176,10 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 220px;
+  /* JL-486: was 220px. With the Projects "…" button back inside the sidebar
+     (its right edge ~200px), a 220px menu ran off the window's left edge, and
+     the sidebar clips anything past its own right edge. Its two items fit. */
+  min-width: 176px;
   background: #ffffff;
   border: 1px solid #dfe1e6;
   border-radius: 8px;
@@ -238,6 +242,13 @@
 .sidebar-projects-section {
   display: flex;
   flex-direction: column;
+  /* JL-486: this section is a grid item of the sidebar <nav>, whose auto track
+     grew to the section's min-content width: the full width of the longest
+     project name ("Unassigned issues (admins only)"), even though the name
+     itself truncates. The sidebar then scrolled sideways (content ~328px in a
+     240px sidebar) and the Projects row's hover "+" / "…" sat off-screen.
+     min-width: 0 lets the track stay the sidebar's width, so names ellipsize. */
+  min-width: 0;
 }
 
 .sidebar-projects-section > .nav {
@@ -394,7 +405,8 @@
 }
 
 .sidebar-project-key {
-  color: var(--jira-text-muted);
+  /* JL-486: --jira-text-muted was 4.41:1 on the hover/selected highlight. */
+  color: #505f79;
   font-size: var(--font-size-sm);
   flex-shrink: 0;
 }
