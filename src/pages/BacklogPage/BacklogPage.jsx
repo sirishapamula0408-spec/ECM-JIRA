@@ -410,13 +410,18 @@ export function BacklogPage() {
   // backlog = status Backlog, no sprint; into a sprint = Backlog becomes To Do,
   // any other status is kept.
   async function handleMoveTo(issue, target) {
-    if (target.id === 'backlog') {
-      await handleBacklogMove(issue.id, 'Backlog')
-      setBacklogMessage(`${issue.key} moved to the backlog.`)
-      return
+    try {
+      if (target.id === 'backlog') {
+        await handleBacklogMove(issue.id, 'Backlog')
+        setBacklogMessage(`${issue.key} moved to the backlog.`)
+        return
+      }
+      await handleBacklogMove(issue.id, issue.status === 'Backlog' ? 'To Do' : issue.status, target.id)
+      setBacklogMessage(`${issue.key} moved to ${target.label}.`)
+    } catch (err) {
+      // e.g. a Done issue cannot go back to the backlog — say why, don't fail silently.
+      setBacklogMessage(`${issue.key} was not moved: ${err?.message || 'the move was refused'}`)
     }
-    await handleBacklogMove(issue.id, issue.status === 'Backlog' ? 'To Do' : issue.status, target.id)
-    setBacklogMessage(`${issue.key} moved to ${target.label}.`)
   }
 
   const bulkNeedsValue = VALUE_FIELDS.includes(bulkField)

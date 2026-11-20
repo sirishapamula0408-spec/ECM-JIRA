@@ -916,6 +916,24 @@ export async function checkStatusTransition(existing, status, body = {}) {
   const transitions = await loadTransitions(existing.project_id)
   const workflowMeta = await loadWorkflowMeta(existing.project_id)
   const transitionOptions = cancelOptionsFromMeta(workflowMeta)
+
+  // JL-484: moving an issue to the BACKLOG is a planning action (take it out of
+  // its sprint), not a workflow step — as in Atlassian Jira, where workflows
+  // never govern backlog/sprint moves. No seeded workflow has a "-> Backlog"
+  // transition, so "Move to backlog", dragging a row onto the Backlog panel and
+  // the bulk sprint change were all refused in every project. Only the
+  // workflow's terminal states (e.g. Done) still block it: checking against an
+  // empty transition list allows every move except out of a terminal state.
+  if (status === 'Backlog' && existing.status !== 'Backlog') {
+    if (!isTransitionAllowed([], existing.status, status, transitionOptions)) {
+      return {
+        httpStatus: 409,
+        error: `A "${existing.status}" issue is finished and cannot be moved back to the backlog`,
+      }
+    }
+    return { workflowTransition: null }
+  }
+
   if (!isTransitionAllowed(transitions, existing.status, status, transitionOptions)) {
     return {
       httpStatus: 409,
