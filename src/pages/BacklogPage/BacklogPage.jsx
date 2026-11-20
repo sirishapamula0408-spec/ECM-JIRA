@@ -863,7 +863,12 @@ export function BacklogPage() {
                   </button>
                   <div className="jira-sprint-title">
                     <strong title={sprintPanel.name}>{sprintPanel.name}</strong>
-                    <span className="jira-sprint-meta">{sprintPanel.dateRange} ({sprintPanel.issues.length} work items)</span>
+                    {/* Two pieces so a narrow header breaks BETWEEN the dates and the
+                        count, never inside "(N work items)". */}
+                    <span className="jira-sprint-meta">
+                      <span className="jira-sprint-dates">{sprintPanel.dateRange}</span>{' '}
+                      <span className="jira-sprint-count">({sprintPanel.issues.length} work items)</span>
+                    </span>
                     {sprintPanel.goal && <span className="jira-sprint-goal" title={sprintPanel.goal}>{sprintPanel.goal}</span>}
                   </div>
                 </div>

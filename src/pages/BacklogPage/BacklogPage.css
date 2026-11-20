@@ -318,12 +318,15 @@ button.assignee-chip:focus-visible {
    "(N work items)" text — flex: none inside overflow: hidden — was clipped to
    "(3 w". When the column itself is narrow (a container query, so the
    sidebar's width counts too), the title wraps: the name on one line, the
-   dates/count on the next, the goal after that. */
+   dates/count on the next, the goal after that.
+   Re-verification: between 420 and ~560px the title stayed on one line and the
+   name was squeezed to 12-25 characters while the goal kept more room. The
+   wrap point is now 560px, and on one line the goal gives way first. */
 .jira-sprint-row .jira-sprint-left {
   container-type: inline-size;
 }
 
-@container (max-width: 420px) {
+@container (max-width: 560px) {
   .jira-sprint-title {
     flex-wrap: wrap;
     row-gap: 0;
@@ -334,8 +337,8 @@ button.assignee-chip:focus-visible {
     max-width: 100%;
   }
 
-  /* Dates + count may break at a space ("7 Dec - 21 Dec" / "(3 work items)")
-     rather than lose the end of the count when even one line is too narrow. */
+  /* Dates + count may break between "7 Dec - 21 Dec" and "(3 work items)"
+     (each piece is nowrap) rather than lose the end of the count. */
   .jira-sprint-title .jira-sprint-meta {
     flex: 0 1 auto;
     min-width: 0;
@@ -351,10 +354,12 @@ button.assignee-chip:focus-visible {
 }
 
 /* JL-483: the sprint goal after the dates, cut short on one line (full text on hover). */
+/* flex-shrink 1000 against the name's 1: when the line is short, the goal
+   gives way almost entirely before the name loses a character. */
 .jira-sprint-title .jira-sprint-goal {
   max-width: 320px;
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 0 1000 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: italic;

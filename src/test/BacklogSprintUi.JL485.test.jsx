@@ -81,7 +81,20 @@ describe('2. long sprint names', () => {
     // Verification found "(3 w" at 768px: the count was flex: none inside overflow: hidden.
     const css = readFileSync(resolve(__dirname, '../pages/BacklogPage/BacklogPage.css'), 'utf8')
     expect(css).toMatch(/\.jira-sprint-row \.jira-sprint-left\s*\{[^}]*container-type:\s*inline-size/)
-    expect(css).toMatch(/@container \(max-width: 420px\)\s*\{[\s\S]*?\.jira-sprint-title\s*\{[^}]*flex-wrap:\s*wrap/)
+    // Re-verification: at 420px the name was squeezed to 12-25 chars on one line; wrap sooner.
+    expect(css).toMatch(/@container \(max-width: 560px\)\s*\{[\s\S]*?\.jira-sprint-title\s*\{[^}]*flex-wrap:\s*wrap/)
+  })
+
+  it('on one line the goal gives way before the name', () => {
+    const css = readFileSync(resolve(__dirname, '../pages/BacklogPage/BacklogPage.css'), 'utf8')
+    expect(css).toMatch(/\.jira-sprint-title \.jira-sprint-goal\s*\{[^}]*flex:\s*0 1000 auto/)
+    expect(css).toMatch(/\.jira-sprint-title strong\s*\{[^}]*flex:\s*0 1 auto/)
+  })
+
+  it('dates and count are separate pieces, so a wrap never splits "(N work items)"', () => {
+    renderBacklog()
+    const count = screen.getByText('(0 work items)', { selector: '.jira-sprint-count' })
+    expect(count.closest('.jira-sprint-meta').querySelector('.jira-sprint-dates')).toHaveTextContent('7 Dec - 21 Dec')
   })
 
   it('"Delete sprint" carries a class the dark theme can recolour', () => {
