@@ -258,8 +258,13 @@ router.patch('/:id/start', requireProjectAdmin(sprintProject), asyncHandler(asyn
     return
   }
 
-  // JL-86: record the real start timestamp when the sprint begins
-  const update = await run('UPDATE sprints SET is_started = TRUE, start_date = NOW() WHERE id = ?', [id])
+  // JL-86: record the real start timestamp when the sprint begins.
+  // JL-483: the display range is derived from the dates, so re-derive it from
+  // the new start (today) and the planned end — otherwise the row kept saying
+  // the planned "7 Dec - 21 Dec" while Edit sprint showed today as the start.
+  const planned = await get('SELECT end_date FROM sprints WHERE id = ?', [id])
+  const startedRange = formatSprintRange(new Date().toISOString().slice(0, 10), toDay(planned?.end_date))
+  const update = await run('UPDATE sprints SET is_started = TRUE, start_date = NOW(), date_range = ? WHERE id = ?', [startedRange, id])
   if (update.changes === 0) {
     res.status(404).json({ error: 'Sprint not found' })
     return
@@ -308,8 +313,15 @@ router.patch('/:id', requireProjectAdmin(sprintProject), asyncHandler(async (req
   }
 
   // JL-127: goal is optional on patch — only update it when the key is present.
-  const setClauses = ['name = ?', 'date_range = ?']
-  const params = [nextName, nextDateRange || 'Upcoming']
+  // JL-483: so is the display range. A PATCH that sends neither dateRange nor
+  // dates (e.g. just a rename) used to reset it to "Upcoming" while the stored
+  // dates stayed, so the row and the dates disagreed.
+  const setClauses = ['name = ?']
+  const params = [nextName]
+  if (Object.prototype.hasOwnProperty.call(body, 'dateRange')) {
+    setClauses.push('date_range = ?')
+    params.push(nextDateRange || 'Upcoming')
+  }
 
   // JL-483: planned dates from the Edit sprint dialog. Only keys present in the
   // body change; when either does, the display range is re-derived from the
@@ -329,7 +341,10 @@ router.patch('/:id', requireProjectAdmin(sprintProject), asyncHandler(async (req
       setClauses.push(`${column} = ?`)
       params.push(dayToTimestamp(day))
     }
-    params[1] = formatSprintRange(planned.start, planned.end) || nextDateRange || 'Upcoming'
+    const derived = formatSprintRange(planned.start, planned.end) || nextDateRange || 'Upcoming'
+    const at = setClauses.indexOf('date_range = ?')
+    if (at >= 0) params[at] = derived
+    else { setClauses.push('date_range = ?'); params.push(derived) }
   }
 
   /*

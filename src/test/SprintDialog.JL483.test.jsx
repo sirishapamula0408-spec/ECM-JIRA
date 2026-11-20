@@ -11,6 +11,7 @@ vi.mock('../hooks/usePermissions', () => ({ usePermissions: () => mockPerms }))
 const handleCreateSprint = vi.fn()
 const handleUpdateSprint = vi.fn()
 const handleDeleteSprint = vi.fn()
+const reloadIssues = vi.fn()
 let mockSprints
 vi.mock('../context/SprintContext', () => ({
   useSprints: () => ({
@@ -27,7 +28,7 @@ const ISSUES = [
   { id: 3, key: 'TP-3', title: 'Another', status: 'In Progress', priority: 'High', issueType: 'Task', assignee: 'Bob', sprintId: 10, projectId: 1 },
 ]
 vi.mock('../context/IssueContext', () => ({
-  useIssues: () => ({ issues: ISSUES, handleMove: vi.fn(), handleCreate: vi.fn(), reloadIssues: vi.fn() }),
+  useIssues: () => ({ issues: ISSUES, handleMove: vi.fn(), handleCreate: vi.fn(), reloadIssues }),
 }))
 vi.mock('../context/MemberContext', () => ({ useMembers: () => ({ profile: { full_name: 'Lee' }, members: [] }) }))
 vi.mock('../api/issueConfigApi', () => ({ fetchProjectStatuses: vi.fn(async () => []), fetchProjectPriorities: vi.fn(async () => []) }))
@@ -73,9 +74,9 @@ describe('Create sprint', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create sprint' }))
     const dialog = screen.getByRole('dialog', { name: 'Create sprint' })
     expect(within(dialog).getByLabelText('Sprint name')).toHaveValue('TP Sprint 2')
-    const start = within(dialog).getByLabelText('Start date').value
-    expect(within(dialog).getByLabelText('End date')).toHaveValue(addDays(start, 14))
-    expect(within(dialog).getByLabelText('End date')).toBeDisabled() // set by the duration
+    const start = within(dialog).getByLabelText(/Start date/).value
+    expect(within(dialog).getByLabelText(/End date/)).toHaveValue(addDays(start, 14))
+    expect(within(dialog).getByLabelText(/End date/)).toBeDisabled() // set by the duration
     expect(within(dialog).getByLabelText('Sprint goal')).toHaveValue('')
   })
 
@@ -84,7 +85,7 @@ describe('Create sprint', () => {
     renderBacklog()
     fireEvent.click(screen.getByRole('button', { name: 'Create sprint' }))
     const dialog = screen.getByRole('dialog')
-    fireEvent.change(within(dialog).getByLabelText('Start date'), { target: { value: '2026-03-02' } })
+    fireEvent.change(within(dialog).getByLabelText(/Start date/), { target: { value: '2026-03-02' } })
     fireEvent.change(within(dialog).getByLabelText('Sprint goal'), { target: { value: 'Payments MVP' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
 
@@ -100,11 +101,22 @@ describe('Create sprint', () => {
     const dialog = screen.getByRole('dialog')
     fireEvent.mouseDown(within(dialog).getByLabelText('Duration'))
     fireEvent.click(screen.getByRole('option', { name: 'Custom' }))
-    const end = within(dialog).getByLabelText('End date')
+    const end = within(dialog).getByLabelText(/End date/)
     expect(end).toBeEnabled()
-    fireEvent.change(within(dialog).getByLabelText('Start date'), { target: { value: '2026-03-10' } })
+    fireEvent.change(within(dialog).getByLabelText(/Start date/), { target: { value: '2026-03-10' } })
     fireEvent.change(end, { target: { value: '2026-03-01' } })
     expect(within(dialog).getByText('The end date must be on or after the start date')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Create' })).toBeDisabled()
+  })
+
+  it('needs both dates, as Jira does: an empty Custom end date blocks Create', () => {
+    renderBacklog()
+    fireEvent.click(screen.getByRole('button', { name: 'Create sprint' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.mouseDown(within(dialog).getByLabelText('Duration'))
+    fireEvent.click(screen.getByRole('option', { name: 'Custom' }))
+    fireEvent.change(within(dialog).getByLabelText(/End date/), { target: { value: '' } })
+    expect(within(dialog).getByText('Choose an end date')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Create' })).toBeDisabled()
   })
 
@@ -129,8 +141,8 @@ describe('Edit sprint', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Edit sprint: TP Sprint 1' })
     expect(within(dialog).getByLabelText(/Sprint name/)).toHaveValue('TP Sprint 1')
-    expect(within(dialog).getByLabelText('Start date')).toHaveValue('2026-01-19')
-    expect(within(dialog).getByLabelText('End date')).toHaveValue('2026-02-02')
+    expect(within(dialog).getByLabelText(/Start date/)).toHaveValue('2026-01-19')
+    expect(within(dialog).getByLabelText(/End date/)).toHaveValue('2026-02-02')
     expect(within(dialog).getByLabelText('Sprint goal')).toHaveValue('Ship login')
 
     fireEvent.change(within(dialog).getByLabelText(/Sprint name/), { target: { value: 'TP Sprint 1 (login)' } })
@@ -180,6 +192,19 @@ describe('Delete sprint', () => {
     expect(await screen.findByText('Its 2 work items will be moved to the backlog. Deleting the sprint cannot be undone.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Delete sprint' }))
     await waitFor(() => expect(handleDeleteSprint).toHaveBeenCalledWith(10))
+    // The moved items are re-fetched (they used to vanish until a page reload).
+    await waitFor(() => expect(reloadIssues).toHaveBeenCalled())
+    expect(await screen.findByText('TP Sprint 1 deleted. 2 work items moved to the backlog.')).toBeInTheDocument()
+  })
+
+  it('counts every item in the sprint even when a filter hides them', async () => {
+    // Verification found: with "My open issues" on, a 3-item sprint said "no
+    // work items" — and deleting still moved all 3.
+    renderBacklog()
+    fireEvent.click(screen.getByText('My open issues')) // TP-2 / TP-3 are Bob's, so both are hidden
+    fireEvent.click(screen.getByLabelText('Sprint actions'))
+    fireEvent.click(screen.getByText('Delete sprint'))
+    expect(await screen.findByText('Its 2 work items will be moved to the backlog. Deleting the sprint cannot be undone.')).toBeInTheDocument()
   })
 })
 

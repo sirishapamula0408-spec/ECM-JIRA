@@ -572,8 +572,11 @@ export function BacklogPage() {
   }
 
   async function handleDeleteSprintPanel(sprintPanel) {
-    // JL-483: count every item in the sprint, not just the ones the search shows.
-    const itemCount = allSprintItems.filter((issue) => issue.sprintId === sprintPanel.id).length
+    // JL-483: count EVERY item the delete will move — the server moves all of
+    // the sprint's issues, so filters ("My open issues", avatars, the Filter
+    // menu) and the search box must not shrink the number. (allSprintItems is
+    // the filtered view and said "no work items" for a sprint that had three.)
+    const itemCount = issues.filter((issue) => issue.sprintId === sprintPanel.id).length
     const confirmed = await confirm({
       title: `Delete sprint ${sprintPanel.name}?`,
       message: itemCount === 0
@@ -584,8 +587,14 @@ export function BacklogPage() {
     })
     if (!confirmed) return
     await onDeleteSprint(sprintPanel.id)
+    // The server moved the sprint's issues to the backlog; refresh them, or they
+    // vanish from both panels until the page is reloaded.
+    await reloadIssues()
     setPanelExpanded(sprintPanel.id, false)
-    setBacklogMessage(`${sprintPanel.name} deleted.`)
+    setPanelExpanded('backlog', true)
+    setBacklogMessage(itemCount > 0
+      ? `${sprintPanel.name} deleted. ${itemCount} work item${itemCount === 1 ? '' : 's'} moved to the backlog.`
+      : `${sprintPanel.name} deleted.`)
   }
 
   function openQuickCreate(sprintId) {

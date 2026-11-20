@@ -45,6 +45,11 @@ export function SprintDialog({ mode = 'create', sprint = null, suggestedName = '
   const isCustom = duration === 'custom'
   const endBeforeStart = Boolean(startDate && endDate && endDate < startDate)
   const nameMissing = editing && !name.trim()
+  // As in Jira, a sprint needs both dates. (An empty Custom end date used to
+  // create an open-ended "From 20 Nov" sprint.)
+  const startMissing = !startDate
+  const endMissing = !endDate
+  const invalid = endBeforeStart || nameMissing || startMissing || endMissing
 
   function changeDuration(next) {
     setDuration(next)
@@ -58,7 +63,7 @@ export function SprintDialog({ mode = 'create', sprint = null, suggestedName = '
 
   async function handleSubmit(event) {
     event.preventDefault()
-    if (endBeforeStart || nameMissing) return
+    if (invalid) return
     setError('')
     setSaving(true)
     try {
@@ -99,13 +104,17 @@ export function SprintDialog({ mode = 'create', sprint = null, suggestedName = '
           >
             {SPRINT_DURATIONS.map((d) => <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>)}
           </TextField>
-          <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+          {/* Wraps onto two rows on a narrow screen instead of squeezing the dates unreadable. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 16 }}>
             <TextField
               type="date"
               label="Start date"
               value={startDate}
               onChange={(e) => changeStart(e.target.value)}
-              fullWidth
+              required
+              error={startMissing}
+              helperText={startMissing ? 'Choose a start date' : ' '}
+              sx={{ flex: '1 1 180px' }}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
@@ -114,9 +123,12 @@ export function SprintDialog({ mode = 'create', sprint = null, suggestedName = '
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               disabled={!isCustom}
-              error={endBeforeStart}
-              helperText={endBeforeStart ? 'The end date must be on or after the start date' : (isCustom ? ' ' : 'Set by the duration')}
-              fullWidth
+              required
+              error={endBeforeStart || endMissing}
+              helperText={endBeforeStart
+                ? 'The end date must be on or after the start date'
+                : endMissing ? 'Choose an end date' : (isCustom ? ' ' : 'Set by the duration')}
+              sx={{ flex: '1 1 180px' }}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </div>
@@ -132,7 +144,7 @@ export function SprintDialog({ mode = 'create', sprint = null, suggestedName = '
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={saving || endBeforeStart || nameMissing}>
+          <Button type="submit" variant="contained" disabled={saving || invalid}>
             {saving ? 'Saving…' : (editing ? 'Update' : 'Create')}
           </Button>
         </DialogActions>

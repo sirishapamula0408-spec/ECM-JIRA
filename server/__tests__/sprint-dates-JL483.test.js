@@ -12,7 +12,7 @@ vi.mock('../db.js', () => ({
 }))
 vi.mock('../services/events.js', () => ({ emitEvent: vi.fn().mockResolvedValue(undefined) }))
 
-import { run, get } from '../db.js'
+import { run, get, all } from '../db.js'
 import { errorHandler } from '../middleware/errorHandler.js'
 import sprintRoutes, { parseSprintDay, formatSprintRange, readSprintDates } from '../routes/sprints.js'
 
@@ -24,6 +24,7 @@ beforeEach(() => {
   stored = { id: 11, project_id: 4, name: 'ECM Sprint 1', date_range: '19 Jan - 2 Feb', is_started: false, start_date: new Date('2026-01-19T00:00:00Z'), end_date: new Date('2026-02-02T00:00:00Z'), goal: null }
   get.mockImplementation(async (sql, params = []) => {
     if (/SELECT id, key FROM projects/.test(sql)) return { id: 4, key: 'ECM' }
+    if (/is_started = TRUE AND id/.test(sql)) return { count: 0 } // no other active sprint
     if (/COUNT\(\*\)/.test(sql)) return { count: 1 }
     if (/SELECT project_id FROM sprints WHERE id/.test(sql)) return { project_id: 4 }
     if (/SELECT start_date, end_date FROM sprints/.test(sql)) return { start_date: stored.start_date, end_date: stored.end_date }
@@ -31,6 +32,7 @@ beforeEach(() => {
     return undefined
   })
   run.mockResolvedValue({ lastID: 12, changes: 1 })
+  all.mockResolvedValue([])
 })
 
 function app() {
@@ -90,6 +92,24 @@ describe('POST /api/sprints', () => {
   })
 })
 
+describe('PATCH /api/sprints/:id/start', () => {
+  it('re-derives the range from the new start (today) and the planned end', async () => {
+    // Verification found the row kept "7 Dec - 21 Dec" after starting on 20 Nov,
+    // while Edit sprint showed 20 Nov as the start.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-20T10:00:00Z'))
+    try {
+      const res = await request(app()).patch('/api/sprints/11/start').send({})
+      expect(res.status).toBe(200)
+      const start = run.mock.calls.find(([sql]) => /SET is_started = TRUE/.test(sql))
+      expect(start[0]).toMatch(/start_date = NOW\(\), date_range = \?/)
+      expect(start[1]).toEqual(['20 Nov - 2 Feb', 11])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('PATCH /api/sprints/:id', () => {
   it('updates dates and re-derives the range from them', async () => {
     const res = await request(app()).patch('/api/sprints/11').send({ name: 'ECM Sprint 1', dateRange: '19 Jan - 2 Feb', startDate: '2026-01-19', endDate: '2026-02-09', goal: 'Login' })
@@ -104,6 +124,21 @@ describe('PATCH /api/sprints/:id', () => {
     const [sql, params] = update()
     expect(sql).not.toMatch(/start_date|end_date/)
     expect(params).toEqual(['Renamed', '19 Jan - 2 Feb', 11])
+  })
+
+  it('a rename-only PATCH (no dateRange, no dates) keeps the stored range', async () => {
+    // Verification found it reset to "Upcoming" while the stored dates stayed.
+    await request(app()).patch('/api/sprints/11').send({ name: 'Just renamed' })
+    const [sql, params] = update()
+    expect(sql).not.toMatch(/date_range/)
+    expect(params).toEqual(['Just renamed', 11])
+  })
+
+  it('changing only the dates (no dateRange sent) still updates the range', async () => {
+    await request(app()).patch('/api/sprints/11').send({ name: 'ECM Sprint 1', endDate: '2026-02-09' })
+    const [sql, params] = update()
+    expect(sql).toMatch(/end_date = \?, date_range = \?/)
+    expect(params).toEqual(['ECM Sprint 1', '2026-02-09T00:00:00Z', '19 Jan - 9 Feb', 11])
   })
 
   it('refuses an end date before the stored start', async () => {
