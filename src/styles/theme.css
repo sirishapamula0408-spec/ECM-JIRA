@@ -234,8 +234,39 @@
 
 .app-theme-dark .backlog-issue-row.selected,
 .app-theme-dark .jira-backlog-row.drop-target-active,
+.app-theme-dark .jira-sprint-row.drop-target-active,
 .app-theme-dark .sprint-issues.drop-target-active {
   background: #1c2b41;
+}
+
+/* JL-485 follow-up (verification): text still below 4.5:1 in dark mode.
+   "+ Create" under a sprint (#44546f, 2.1:1), "N selected" (3.1:1), the
+   sidebar's "More projects…" (#0052cc, 2.4:1), "Delete sprint" (#de350b on
+   the menu, 3.3:1) and the sidebar's hover "+" / "…" buttons (3.2:1). */
+.app-theme-dark .sprint-inline-create,
+.app-theme-dark .bulk-count {
+  color: var(--jira-dark-text-muted);
+}
+
+.app-theme-dark .sprint-inline-create:hover {
+  color: var(--jira-dark-text);
+}
+
+.app-theme-dark .sidebar-project-list-more {
+  color: #579dff;
+}
+
+.app-theme-dark .sprint-menu-danger {
+  color: #f87168;
+}
+
+.app-theme-dark .inline-action-btn {
+  color: var(--jira-dark-text-muted);
+}
+
+.app-theme-dark .inline-action-btn:hover {
+  background: var(--jira-dark-hover);
+  color: var(--jira-dark-text);
 }
 
 .app-theme-dark .jira-sprint-title strong,

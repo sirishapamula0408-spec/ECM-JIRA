@@ -905,7 +905,7 @@ export function BacklogPage() {
                       <MenuItem disabled={isStarted || sprintPanel.issues.length === 0} onClick={async () => { setOpenSprintMenuId(null); await handleStartSprintAction(sprintPanel.id) }}>Start sprint</MenuItem>
                       <MenuItem onClick={() => { setOpenSprintMenuId(null); setSprintDialog({ mode: 'edit', sprint: sprintPanel }) }}>Edit sprint</MenuItem>
                       <MenuItem disabled={sprintPanel.issueIds.length === 0} onClick={async () => { setOpenSprintMenuId(null); await handleMoveSprintIssuesToBacklog(sprintPanel) }}>Move all to backlog</MenuItem>
-                      <MenuItem sx={{ color: 'error.main' }} onClick={async () => { setOpenSprintMenuId(null); await handleDeleteSprintPanel(sprintPanel) }}>Delete sprint</MenuItem>
+                      <MenuItem className="sprint-menu-danger" sx={{ color: 'error.main' }} onClick={async () => { setOpenSprintMenuId(null); await handleDeleteSprintPanel(sprintPanel) }}>Delete sprint</MenuItem>
                     </Menu>
                   </>
                   )}

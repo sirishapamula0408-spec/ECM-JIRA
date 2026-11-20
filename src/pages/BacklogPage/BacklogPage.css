@@ -313,6 +313,36 @@ button.assignee-chip:focus-visible {
   flex: none;
 }
 
+/* JL-485 follow-up (verification): at ~768px the left column is ~200px wide, so
+   on one line the name shrank to "VERIF…", the goal vanished, and the
+   "(N work items)" text — flex: none inside overflow: hidden — was clipped to
+   "(3 w". When the column itself is narrow (a container query, so the
+   sidebar's width counts too), the title wraps: the name on one line, the
+   dates/count on the next, the goal after that. */
+.jira-sprint-row .jira-sprint-left {
+  container-type: inline-size;
+}
+
+@container (max-width: 420px) {
+  .jira-sprint-title {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .jira-sprint-title strong,
+  .jira-sprint-title .jira-sprint-goal {
+    max-width: 100%;
+  }
+
+  /* Dates + count may break at a space ("7 Dec - 21 Dec" / "(3 work items)")
+     rather than lose the end of the count when even one line is too narrow. */
+  .jira-sprint-title .jira-sprint-meta {
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
 .jira-sprint-title span {
   color: var(--jira-text-muted);
   font-size: var(--font-size-base);

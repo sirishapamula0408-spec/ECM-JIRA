@@ -76,6 +76,19 @@ describe('2. long sprint names', () => {
     expect(css).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/)
     expect(css).toMatch(/\.jira-sprint-title strong\s*\{[^}]*text-overflow:\s*ellipsis/)
   })
+
+  it('on a narrow column the title wraps instead of clipping "(N work items)"', () => {
+    // Verification found "(3 w" at 768px: the count was flex: none inside overflow: hidden.
+    const css = readFileSync(resolve(__dirname, '../pages/BacklogPage/BacklogPage.css'), 'utf8')
+    expect(css).toMatch(/\.jira-sprint-row \.jira-sprint-left\s*\{[^}]*container-type:\s*inline-size/)
+    expect(css).toMatch(/@container \(max-width: 420px\)\s*\{[\s\S]*?\.jira-sprint-title\s*\{[^}]*flex-wrap:\s*wrap/)
+  })
+
+  it('"Delete sprint" carries a class the dark theme can recolour', () => {
+    renderBacklog()
+    fireEvent.click(screen.getAllByLabelText('Sprint actions')[0])
+    expect(screen.getByRole('menuitem', { name: 'Delete sprint' })).toHaveClass('sprint-menu-danger')
+  })
 })
 
 describe('3. dark mode', () => {
@@ -85,6 +98,9 @@ describe('3. dark mode', () => {
     '.sprint-menu-trigger', '.backlog-row-more', '.sidebar-box',
     // Found in the browser check: these were dark-on-dark once the card went dark.
     '.sidebar .nav', '.sidebar .nav.active', '.sidebar-project-item--active', '.btn.sprint-action-btn', '.backlog-issue-link strong',
+    // Found by independent verification: below 4.5:1, or no drag-over feedback.
+    '.jira-sprint-row.drop-target-active', '.sprint-inline-create', '.bulk-count', '.sidebar-project-list-more',
+    '.sprint-menu-danger', '.inline-action-btn',
   ]) {
     it(`has a dark rule for ${selector}`, () => {
       expect(theme).toContain(`.app-theme-dark ${selector}`)
