@@ -13,6 +13,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { PRIORITIES } from '../../constants'
 import { resolveStatusCategory, priorityTokenName } from '../../utils/statusCategory'
 import { issueHref } from '../../utils/issueRef'
+import { ProjectAvatar } from '../../components/common/ProjectAvatar'
 
 /*
  * JL-457 — status and priority colour comes from the shared tokens.
@@ -175,9 +176,7 @@ export function ProjectSummaryPage() {
     <section className="page ps-page">
       {/* Header */}
       <div className="ps-header">
-        <span className="ps-avatar" style={{ background: project.avatar_color || '#0052cc' }}>
-          {project.key.charAt(0)}
-        </span>
+        <ProjectAvatar project={project} className="ps-avatar" />
         <div className="ps-header-info">
           <h1 className="ps-title">{project.name}</h1>
           <div className="ps-meta">

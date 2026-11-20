@@ -7,6 +7,7 @@ import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useConfirm } from '../../components/common/useConfirm'
 import { usePermissions } from '../../hooks/usePermissions'
+import { ProjectAvatar } from '../../components/common/ProjectAvatar'
 
 export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDeleted }) {
   usePageTitle('Projects')
@@ -220,12 +221,7 @@ export function ProjectsPage({ onCreateProject, projectRefreshKey, onProjectDele
                   </td>
                   <td>
                     <div className="projects-name-cell">
-                      <span
-                        className="projects-avatar"
-                        style={{ background: project.avatar_color || '#0052cc' }}
-                      >
-                        {project.key.charAt(0)}
-                      </span>
+                      <ProjectAvatar project={project} className="projects-avatar" />
                       <div className="projects-name-text">
                         <strong className="projects-name-link">{project.name}</strong>
                         {project.archived && (

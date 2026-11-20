@@ -2,10 +2,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation, matchPath } from 'react-router-dom'
 import { SidebarNavIcon } from '../icons/SidebarNavIcon'
 import { fetchProjects } from '../../api/projectApi'
+import { PROJECT_CHANGED_EVENT } from '../../utils/projectLogo'
 import { usePermissions } from '../../hooks/usePermissions'
 import { usePluginContributions } from '../../hooks/usePluginContributions'
 import { RESTRICTED_NAV_LABELS } from '../../utils/restrictedNav'
 import './Sidebar.css'
+import { ProjectAvatar } from '../common/ProjectAvatar'
 
 // JL-277: launch sidebar shows only these sections; flip LAUNCH_SIDEBAR to false to restore the full nav.
 // JL-282: Projects kept so the launch sidebar retains an entry point to boards/backlogs.
@@ -73,6 +75,14 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
       setProjectsExpanded(true)
     }
   }, [projectRefreshKey, loadProjects])
+
+  // A project's details (its logo) changed elsewhere — re-fetch so the list
+  // shows it without a page reload. Only when the list has been loaded at all.
+  useEffect(() => {
+    const onChanged = () => { if (projects.length > 0) loadProjects() }
+    window.addEventListener(PROJECT_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(PROJECT_CHANGED_EVENT, onChanged)
+  }, [projects.length, loadProjects])
 
   const [spacesHidden, setSpacesHidden] = useState(() => {
     try {
@@ -256,12 +266,7 @@ export function Sidebar({ collapsed, onCreateProject, projectRefreshKey, hasProj
                         className={`sidebar-project-item${String(project.id) === activeProjectId ? ' sidebar-project-item--active' : ''}`}
                         to={`/projects/${project.id}/board`}
                       >
-                        <span
-                          className="sidebar-project-avatar"
-                          style={{ background: project.avatar_color || '#0052cc' }}
-                        >
-                          {project.key.charAt(0)}
-                        </span>
+                        <ProjectAvatar project={project} className="sidebar-project-avatar" />
                         <span className="sidebar-project-name">{project.name}</span>
                         <span className="sidebar-project-key">{project.key}</span>
                       </NavLink>

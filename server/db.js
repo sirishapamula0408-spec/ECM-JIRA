@@ -1932,6 +1932,14 @@ export async function initializeDatabase() {
     await pool.query('ALTER TABLE projects ADD COLUMN allow_parallel_sprints BOOLEAN NOT NULL DEFAULT FALSE')
   }
 
+  // --- Project logos: an uploaded image stored through the storage service ---
+  // logo_key is the storage key (never sent to clients); logo_mime is the type
+  // sniffed from the bytes at upload; logo_updated_at versions the URL so a new
+  // logo is not hidden by the browser cache.
+  await pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS logo_key TEXT')
+  await pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS logo_mime TEXT')
+  await pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS logo_updated_at TIMESTAMPTZ')
+
   // --- JL-219: Project archive / unarchive ---
   // Non-destructive alternative to DELETE. NULL = active; a timestamp = archived.
   // Archived projects are excluded from the default project listing (opt back in

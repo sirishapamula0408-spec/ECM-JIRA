@@ -1,4 +1,5 @@
 import { api } from './client.js'
+import { fileToBase64 } from './wikiAttachmentApi.js'
 
 export const fetchProjects = ({ includeArchived = false } = {}) =>
   api(`/api/projects${includeArchived ? '?includeArchived=true' : ''}`)
@@ -30,6 +31,23 @@ export function updateProject(id, payload) {
 
 export function deleteProject(id) {
   return api(`/api/projects/${id}`, { method: 'DELETE' })
+}
+
+// --- Project logo (project Admin/Lead or workspace Admin) ---
+// File checks, limits and the change event live in utils/projectLogo.js.
+
+/** Upload (or replace) a project's logo. Resolves to the updated project. */
+export async function uploadProjectLogo(id, file) {
+  const dataBase64 = await fileToBase64(file)
+  return api(`/api/projects/${id}/logo`, {
+    method: 'POST',
+    body: JSON.stringify({ filename: file.name, dataBase64 }),
+  })
+}
+
+/** Remove a project's logo (back to the coloured initial). Resolves to the project. */
+export function removeProjectLogo(id) {
+  return api(`/api/projects/${id}/logo`, { method: 'DELETE' })
 }
 
 export const fetchProjectMembers = (projectId) =>

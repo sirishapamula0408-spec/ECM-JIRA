@@ -1,0 +1,28 @@
+.project-logo-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* The avatar keeps its 80px box from ProjectSettingsPage.css; the row owns the spacing. */
+.project-logo-field .ps-avatar-display {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.project-logo-field__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.project-logo-field__buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.project-logo-field__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}

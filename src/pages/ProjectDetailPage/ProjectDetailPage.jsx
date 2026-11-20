@@ -7,6 +7,7 @@ import './ProjectDetailPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { issueHref } from '../../utils/issueRef'
+import { ProjectAvatar } from '../../components/common/ProjectAvatar'
 
 export function ProjectDetailPage() {
   usePageTitle('Project Details')
@@ -54,12 +55,7 @@ export function ProjectDetailPage() {
     <section className="page project-detail-page">
       <div className="pd-main">
         <div className="pd-header-row">
-          <span
-            className="pd-avatar"
-            style={{ background: project.avatar_color || '#0052cc' }}
-          >
-            {project.key.charAt(0)}
-          </span>
+          <ProjectAvatar project={project} className="pd-avatar" />
           <div>
             <h1 className="pd-title">{project.name}</h1>
             <span className="pd-key">{project.key}</span>

@@ -1,0 +1,15 @@
+/* A project logo sits on a plain surface inside the call site's own box, and is
+   shown whole (contain, not cover) so a wide wordmark is not cropped. The class
+   is doubled so it beats the call site's size class whatever the CSS order. */
+.project-avatar--logo.project-avatar--logo {
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+  overflow: hidden;
+}
+
+.project-avatar__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

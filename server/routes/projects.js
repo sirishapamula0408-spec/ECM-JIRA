@@ -6,6 +6,9 @@ import { maxLengthError, PROJECT_NAME_MAX, PROJECT_KEY_MAX } from '../utils/vali
 import { getProjectCreationPolicy } from './workspaceSettings.js'
 import { seedDefaultWorkflow } from '../services/workflowSeed.js'
 import { ensureHoldingProject, isHoldingProject } from '../services/holdingProject.js'
+import crypto from 'node:crypto'
+import { getStorage } from '../services/storage.js'
+import { validateLogoUpload, withLogoUrl } from '../services/projectLogo.js'
 
 const router = Router()
 
@@ -78,8 +81,9 @@ async function enforceProjectCreationPolicy(req, res, next) {
 
 // The lead name both pages show: the member's current name when one is
 // linked, else the stored name. One query for the whole list.
+// Also returns each row in its public shape: logo_url added, storage key removed.
 async function withLeadNames(rows) {
-  const list = Array.isArray(rows) ? rows : []
+  const list = (Array.isArray(rows) ? rows : []).map(withLogoUrl)
   const ids = [...new Set(list.map((r) => r.lead_member_id).filter((id) => id != null))]
   if (ids.length === 0) return list
   const members = await all(`SELECT id, name FROM members WHERE id IN (${ids.map(() => '?').join(', ')})`, ids)
@@ -248,6 +252,7 @@ router.post('/', enforceProjectCreationPolicy, asyncHandler(async (req, res) => 
     lead: leadName,
     lead_member_id: leadMemberId,
     avatar_color: '#0052cc',
+    logo_url: null,
   })
 }))
 
@@ -334,6 +339,8 @@ router.delete('/:id', loadProjectRole, requireProjectRole('Admin'), asyncHandler
   }
   await run('DELETE FROM project_members WHERE project_id = ?', [id])
   await run('DELETE FROM projects WHERE id = ?', [id])
+  // The logo file outlives the row otherwise. Best-effort: the project is gone either way.
+  if (project.logo_key) await getStorage().remove(project.logo_key).catch(() => {})
   res.json({ ok: true })
 }))
 
@@ -365,7 +372,7 @@ router.post('/:id/archive', loadProjectRole, requireProjectRole('Admin'), asyncH
   })
 
   const updated = await get('SELECT *, (archived_at IS NOT NULL) AS archived FROM projects WHERE id = ?', [id])
-  res.json(updated)
+  res.json(withLogoUrl(updated))
 }))
 
 router.post('/:id/unarchive', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
@@ -391,7 +398,7 @@ router.post('/:id/unarchive', loadProjectRole, requireProjectRole('Admin'), asyn
   })
 
   const updated = await get('SELECT *, (archived_at IS NOT NULL) AS archived FROM projects WHERE id = ?', [id])
-  res.json(updated)
+  res.json(withLogoUrl(updated))
 }))
 
 // ── Project Members ──
@@ -412,6 +419,79 @@ async function countProjectAdmins(projectId) {
   )
   return Number(row?.count || 0)
 }
+
+// ---------------------------------------------------------------------------
+// Project logo
+// ---------------------------------------------------------------------------
+// Changing it is a project-settings change, so it has the same gate as editing
+// the project (PUT /:id): project Admin or Lead, or workspace Admin/Owner.
+
+// POST /api/projects/:id/logo — { filename?, dataBase64 } (base64-over-JSON,
+// like attachments and team photos). Replaces any previous logo.
+router.post('/:id/logo', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const project = Number.isInteger(id) ? await get('SELECT id, logo_key FROM projects WHERE id = ?', [id]) : null
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' })
+    return
+  }
+  const upload = validateLogoUpload(req.body)
+  if (upload.error) {
+    res.status(upload.status).json({ error: upload.error })
+    return
+  }
+
+  const ext = upload.mime.split('/')[1]
+  const key = `project-logo-${id}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`
+  const storage = getStorage()
+  await storage.put(key, upload.buffer, upload.mime)
+  await run('UPDATE projects SET logo_key = ?, logo_mime = ?, logo_updated_at = NOW() WHERE id = ?', [key, upload.mime, id])
+  if (project.logo_key) await storage.remove(project.logo_key).catch(() => {})
+
+  await recordProjectAudit({ actor: req.user?.email, action: 'project_logo_changed', before: `project:${id}`, after: `project:${id} / logo ${upload.mime}` })
+  const [updated] = await withLeadNames([await get('SELECT * FROM projects WHERE id = ?', [id])])
+  res.status(201).json(updated)
+}))
+
+// DELETE /api/projects/:id/logo — back to the coloured initial.
+router.delete('/:id/logo', loadProjectRole, requireProjectRole('Admin'), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const project = Number.isInteger(id) ? await get('SELECT id, logo_key FROM projects WHERE id = ?', [id]) : null
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' })
+    return
+  }
+  if (project.logo_key) {
+    await run('UPDATE projects SET logo_key = NULL, logo_mime = NULL, logo_updated_at = NOW() WHERE id = ?', [id])
+    await getStorage().remove(project.logo_key).catch(() => {})
+    await recordProjectAudit({ actor: req.user?.email, action: 'project_logo_removed', before: `project:${id} / logo`, after: `project:${id}` })
+  }
+  const [updated] = await withLeadNames([await get('SELECT * FROM projects WHERE id = ?', [id])])
+  res.json(updated)
+}))
+
+// GET /api/projects/:id/logo — the image itself, for anyone who can read the
+// project. Served with the type sniffed at upload and nosniff, so the browser
+// can only ever treat it as an image. The URL is versioned (?v=), so it may be
+// cached; a new logo gets a new URL.
+router.get('/:id/logo', requireProjectRead((req) => Number(req.params.id)), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const project = Number.isInteger(id) ? await get('SELECT logo_key, logo_mime FROM projects WHERE id = ?', [id]) : null
+  if (!project || !project.logo_key) {
+    res.status(404).json({ error: 'Project has no logo' })
+    return
+  }
+  try {
+    const buffer = await getStorage().get(project.logo_key)
+    res.setHeader('Content-Type', project.logo_mime || 'application/octet-stream')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Content-Disposition', 'inline')
+    res.setHeader('Cache-Control', 'private, max-age=86400')
+    res.send(buffer)
+  } catch {
+    res.status(404).json({ error: 'Logo data missing' })
+  }
+}))
 
 // JL-225: gate project member listing behind project access (workspace
 // Owner/Admin bypass; Member/Viewer must belong to the project).

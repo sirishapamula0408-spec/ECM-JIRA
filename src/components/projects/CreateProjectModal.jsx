@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useMembers } from '../../context/MemberContext'
 import { useAuth } from '../../context/AuthContext'
-import { createProject } from '../../api/projectApi'
+import { createProject, uploadProjectLogo } from '../../api/projectApi'
+import { projectLogoProblem, PROJECT_LOGO_TYPES } from '../../utils/projectLogo'
 import { displayNameFromEmail } from '../../utils/helpers'
 import './CreateProjectModal.css'
 
@@ -39,6 +40,36 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
   const [keyTouched, setKeyTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  // Optional logo, uploaded right after the project is created (the creator is
+  // its Lead, so may set it). Previewed locally from an object URL.
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoError, setLogoError] = useState('')
+  // Set when the project was created but its logo upload failed: the modal stays
+  // open to say so, and must not offer to create the project a second time.
+  const [createdNotice, setCreatedNotice] = useState('')
+
+  const logoPreview = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : ''), [logoFile])
+  useEffect(() => () => { if (logoPreview) URL.revokeObjectURL(logoPreview) }, [logoPreview])
+
+  const logoInputRef = useRef(null)
+
+  async function chooseLogo(event) {
+    const file = event.target.files?.[0] || null
+    event.target.value = '' // so picking the same file again still fires
+    if (!file) return
+    // Checks the bytes too, so a non-image renamed .png is refused here rather
+    // than after the project has been created.
+    const problem = await projectLogoProblem(file)
+    setLogoError(problem)
+    // A refused pick also drops any earlier choice: what is shown (the error)
+    // must match what Create would upload (nothing).
+    setLogoFile(problem ? null : file)
+  }
+
+  function clearLogo() {
+    setLogoFile(null)
+    setLogoError('')
+  }
 
   function generateKey(name) {
     const words = name.trim().split(/\s+/).filter(Boolean)
@@ -71,7 +102,7 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
     setSaving(true)
 
     try {
-      await createProject({
+      const created = await createProject({
         name: form.name,
         key: form.key,
         type: form.type,
@@ -82,6 +113,15 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
           ? leadOptions.find((m) => m.name === form.lead).id
           : undefined,
       })
+      if (logoFile && created?.id) {
+        try {
+          await uploadProjectLogo(created.id, logoFile)
+        } catch (err) {
+          if (onProjectCreated) onProjectCreated()
+          setCreatedNotice(`Project created, but the logo could not be uploaded: ${err.message || 'unknown error'}. You can add it later in Project settings → Details.`)
+          return
+        }
+      }
       if (onProjectCreated) onProjectCreated()
       onClose()
     } catch (err) {
@@ -114,6 +154,7 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
         {/* Body */}
         <div className="create-project-body">
           {submitError && <p className="create-project-error">{submitError}</p>}
+          {createdNotice && <p className="create-project-error" role="alert">{createdNotice}</p>}
 
           {/* Project Name */}
           <div className="create-project-field">
@@ -142,6 +183,42 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
             <span className="create-project-hint">
               Auto-generated from project name. Used as prefix for issue keys.
             </span>
+          </div>
+
+          {/* Logo (optional) */}
+          <div className="create-project-field">
+            <label htmlFor="create-project-logo">Project logo <span className="create-project-hint">(optional)</span></label>
+            <div className="create-project-logo">
+              <span
+                className={`create-project-logo-preview${logoPreview ? ' create-project-logo-preview--image' : ''}`}
+                aria-hidden="true"
+              >
+                {logoPreview ? <img src={logoPreview} alt="" /> : (form.key || form.name || '?').charAt(0).toUpperCase()}
+              </span>
+              {/* The native input is hidden: it read "No file chosen" while a
+                  logo WAS chosen (the value is reset after each pick). The
+                  button and file name below say what is actually selected. */}
+              <input
+                id="create-project-logo"
+                ref={logoInputRef}
+                type="file"
+                accept={PROJECT_LOGO_TYPES.join(',')}
+                onChange={chooseLogo}
+                hidden
+              />
+              <button type="button" className="btn btn-ghost" onClick={() => logoInputRef.current?.click()}>
+                {logoFile ? 'Change' : 'Choose image'}
+              </button>
+              {logoFile && (
+                <>
+                  <span className="create-project-logo-name" title={logoFile.name}>{logoFile.name}</span>
+                  <button type="button" className="btn btn-ghost" onClick={clearLogo}>Remove</button>
+                </>
+              )}
+            </div>
+            {logoError
+              ? <span className="create-project-error" role="alert">{logoError}</span>
+              : <span className="create-project-hint">PNG, JPEG, GIF or WebP, up to 1 MB. You can change it later in Project settings.</span>}
           </div>
 
           <hr className="create-project-separator" />
@@ -182,13 +259,17 @@ export function CreateProjectModal({ onClose, onProjectCreated }) {
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving || !form.name.trim() || !form.key.trim() || !form.lead}
-            >
-              {saving ? 'Creating...' : 'Create'}
-            </button>
+            {createdNotice ? (
+              <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
+            ) : (
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={saving || !form.name.trim() || !form.key.trim() || !form.lead}
+              >
+                {saving ? 'Creating...' : 'Create'}
+              </button>
+            )}
           </div>
         </div>
       </form>

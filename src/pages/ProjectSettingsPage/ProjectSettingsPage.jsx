@@ -23,6 +23,8 @@ import { useConfirm } from '../../components/common/useConfirm'
 import './ProjectSettingsPage.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { ProjectAvatar } from '../../components/common/ProjectAvatar'
+import { ProjectLogoField } from '../../components/projects/ProjectLogoField'
 
 const SECTIONS = { DETAILS: 'details', ACCESS: 'access', FIELDS: 'fields', PERMISSIONS: 'permissions', SCREENS: 'screens', FIELD_CONFIG: 'fieldconfig' }
 const STATUS_CATEGORIES = ['todo', 'inprogress', 'done']
@@ -609,9 +611,7 @@ export function ProjectSettingsPage() {
         </button>
 
         <div className="ps-project-header">
-          <span className="ps-project-avatar-sm" style={{ background: project.avatar_color || '#0052cc' }}>
-            {project.key.charAt(0)}
-          </span>
+          <ProjectAvatar project={project} className="ps-project-avatar-sm" />
           <div className="ps-project-meta">
             <strong>{project.name}</strong>
             <span>Software project</span>
@@ -734,12 +734,12 @@ export function ProjectSettingsPage() {
           <>
             <h1>Details</h1>
 
-            <div
-              className="ps-avatar-display"
-              style={{ background: project.avatar_color || '#0052cc' }}
-            >
-              {project.key.charAt(0)}
-            </div>
+            <ProjectLogoField
+              project={project}
+              canEdit={canManageProjectSettings}
+              onChange={setProject}
+              onMessage={setBanner}
+            />
 
             {banner.message && (
               <p className={`banner${banner.type === 'error' ? ' error' : ''}`}>{banner.message}</p>
