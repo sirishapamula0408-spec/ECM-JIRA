@@ -4,6 +4,7 @@ import { fetchProjects } from '../../api/projectApi'
 import {
   fetchProjectReleases, createRelease, deleteRelease,
   fetchReleaseProgress, fetchReleaseNotes, updateRelease,
+  fetchReleaseCheck, runReleaseCheck,
 } from '../../api/releaseApi'
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/useConfirm'
@@ -24,7 +25,12 @@ export function ReleasesPage() {
   const [selected, setSelected] = useState(null)
   const [progress, setProgress] = useState(null)
   const [notes, setNotes] = useState(null)
-  const { canCreateIssue, isAdmin } = usePermissions(projectId)
+  // undefined = loading, null = never checked
+  const [check, setCheck] = useState(undefined)
+  const [checking, setChecking] = useState(false)
+  const { canCreateIssue, isAdmin, projectRole } = usePermissions(projectId)
+  // JL-488: project Member+ or the read-only Release Monitor role may re-run a check.
+  const canRunCheck = canCreateIssue || projectRole === 'Release Monitor'
   const { confirm, confirmDialog } = useConfirm()
 
   useEffect(() => {
@@ -67,17 +73,29 @@ export function ReleasesPage() {
     setSelected(rel)
     setProgress(null)
     setNotes(null)
-    const [p, n] = await Promise.all([
+    setCheck(undefined)
+    const [p, n, c] = await Promise.all([
       fetchReleaseProgress(rel.id).catch(() => null),
       fetchReleaseNotes(rel.id).catch(() => null),
+      fetchReleaseCheck(rel.id).catch(() => null),
     ])
     setProgress(p)
     setNotes(n)
+    setCheck(c)
   }
 
   async function markReleased(rel) {
-    await updateRelease(rel.id, { status: rel.status === 'released' ? 'unreleased' : 'released' }).catch(() => {})
+    const updated = await updateRelease(rel.id, { status: rel.status === 'released' ? 'unreleased' : 'released' }).catch(() => null)
     reload()
+    // JL-488: releasing runs the check on the server; show its result straight away.
+    if (updated?.check) openRelease(updated)
+    else if (selected?.id === rel.id && updated) setSelected(updated)
+  }
+
+  async function recheck() {
+    if (!selected) return
+    setChecking(true)
+    try { setCheck(await runReleaseCheck(selected.id)) } catch { /* the client shows the error */ } finally { setChecking(false) }
   }
 
   async function remove(rel) {
@@ -172,6 +190,36 @@ export function ReleasesPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {selected.status === 'released' && (
+                <section className={`rel-check${check ? (check.ok ? ' rel-check--ok' : ' rel-check--fail') : ''}`} aria-label="Release check">
+                  <div className="rel-check-head">
+                    <h3 className="rel-section-title">Release check</h3>
+                    {canRunCheck && (
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={recheck} disabled={checking}>
+                        {checking ? 'Checking…' : 'Run check again'}
+                      </button>
+                    )}
+                  </div>
+                  {check === undefined && <p className="rel-empty">Loading…</p>}
+                  {check === null && <p className="rel-empty">Not checked yet.</p>}
+                  {check && (
+                    <>
+                      <p className="rel-check-verdict">
+                        {check.ok ? 'Passed' : 'Failed'}: {check.passed} of {check.total} work items Done
+                        <span className="rel-meta"> · {new Date(check.checkedAt).toLocaleString()}</span>
+                      </p>
+                      {check.failed.length > 0 && (
+                        <ul>
+                          {check.failed.map((i) => (
+                            <li key={i.id}><strong>{i.key}</strong> {i.title} <em>({i.status})</em></li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </section>
               )}
 
               <h3 className="rel-section-title">Release notes</h3>

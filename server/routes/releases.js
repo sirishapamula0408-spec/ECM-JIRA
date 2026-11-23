@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
-import { requireRole, requireProjectRead, requireProjectWrite } from '../middleware/authorize.js'
+import { requireRole, requireProjectRead, requireProjectWrite, resolveProjectAccess, ROLE_RANK } from '../middleware/authorize.js'
+import { runReleaseCheck, latestReleaseCheck, RELEASE_MONITOR_ROLE } from '../services/releaseCheck.js'
 
 const router = Router()
 
@@ -35,6 +36,17 @@ const releaseIssueProject = async (req) => {
   if (!Number.isInteger(issueId)) return null
   const row = await get('SELECT project_id FROM issues WHERE id = ?', [issueId])
   return row?.project_id ?? null
+}
+
+// JL-488: run the release check when a release becomes Released. A failed check
+// must never undo or fail the release itself, so errors are logged, not thrown.
+async function checkOnRelease(releaseId, req) {
+  try {
+    return await runReleaseCheck(releaseId, { actorEmail: req.user?.email || null })
+  } catch (err) {
+    console.error(`[releases] release check failed for release ${releaseId}: ${err.message}`)
+    return null
+  }
 }
 
 function mapRelease(row) {
@@ -88,7 +100,8 @@ router.post('/projects/:projectId/releases', requireProjectWrite(releaseParamPro
     [projectId, name, description, releaseDate, status],
   )
   const row = await get('SELECT * FROM releases WHERE id = ?', [created.lastID])
-  res.status(201).json(mapRelease(row))
+  const check = status === 'released' ? await checkOnRelease(row.id, req) : null
+  res.status(201).json({ ...mapRelease(row), check })
 }))
 
 // PATCH /api/releases/:id (Member+) — update name/description/date/status
@@ -112,7 +125,29 @@ router.patch('/releases/:id', requireProjectWrite(releaseIdProject), asyncHandle
     [name, description, releaseDate, status, id],
   )
   const row = await get('SELECT * FROM releases WHERE id = ?', [id])
-  res.json(mapRelease(row))
+  const check = existing.status !== 'released' && status === 'released' ? await checkOnRelease(id, req) : null
+  res.json({ ...mapRelease(row), check })
+}))
+
+// JL-488: the latest release check (null before the first one).
+router.get('/releases/:id/check', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
+  res.json(await latestReleaseCheck(Number(req.params.id)))
+}))
+
+// JL-488: re-run the check on demand, e.g. after closing the work items a check
+// flagged. Allowed to project Member+ and to the read-only Release Monitor role,
+// whose whole job this is. Only a released release is checked.
+router.post('/releases/:id/check', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
+  const release = await get('SELECT id, project_id, status FROM releases WHERE id = ?', [id])
+  if (!release) { res.status(404).json({ error: 'Release not found' }); return }
+  const access = await resolveProjectAccess(req.user, release.project_id)
+  if (!access.admin && access.effectiveRank < ROLE_RANK.Member && access.projectRole !== RELEASE_MONITOR_ROLE) {
+    res.status(403).json({ error: 'Only a project Member or Release Monitor can run a release check' })
+    return
+  }
+  if (release.status !== 'released') { res.status(409).json({ error: 'Only a released release can be checked' }); return }
+  res.json(await runReleaseCheck(id, { actorEmail: req.user?.email || null }))
 }))
 
 // DELETE /api/releases/:id (Admin) — delete a release (issues.release_id set NULL via FK)

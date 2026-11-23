@@ -405,7 +405,8 @@ router.post('/:id/unarchive', loadProjectRole, requireProjectRole('Admin'), asyn
 
 // Project roles allowed on a project membership. Lead/Admin form the "admin tier"
 // that holds administrative control over the project.
-const PROJECT_ROLES = ['Lead', 'Admin', 'Member', 'Viewer']
+// JL-488: 'Release Monitor' is read-only (Viewer rank) and receives release-check reports.
+export const PROJECT_ROLES = ['Lead', 'Admin', 'Member', 'Viewer', 'Release Monitor']
 const ADMIN_TIER_ROLES = ['Lead', 'Admin']
 const isAdminTier = (role) => ADMIN_TIER_ROLES.includes(role)
 
@@ -519,7 +520,7 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
     return
   }
 
-  const validRole = ['Lead', 'Admin', 'Member', 'Viewer'].includes(role) ? role : 'Member'
+  const validRole = PROJECT_ROLES.includes(role) ? role : 'Member'
 
   await run(
     'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',

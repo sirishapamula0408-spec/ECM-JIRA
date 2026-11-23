@@ -5,6 +5,8 @@ import { useMembers } from '../context/MemberContext'
 // gets full project-admin capabilities. Workspace roles top out at Admin.
 const ROLE_RANK = {
   Viewer: 1,
+  // JL-488: project role, read-only like Viewer (mirrors server/middleware/authorize.js).
+  'Release Monitor': 1,
   Member: 2,
   Admin: 3,
   Lead: 4,

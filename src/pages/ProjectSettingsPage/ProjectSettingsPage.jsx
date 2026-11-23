@@ -872,6 +872,7 @@ export function ProjectSettingsPage() {
                   <option>Admin</option>
                   <option>Member</option>
                   <option>Viewer</option>
+                  <option>Release Monitor</option>
                 </select>
                 <button
                   className="btn btn-primary"
@@ -923,6 +924,7 @@ export function ProjectSettingsPage() {
                             <option>Admin</option>
                             <option>Member</option>
                             <option>Viewer</option>
+                            <option>Release Monitor</option>
                           </select>
                         )}
                       </td>

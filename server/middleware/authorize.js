@@ -8,6 +8,9 @@ import { all, get } from '../db.js'
  */
 export const ROLE_RANK = {
   Viewer: 1,
+  // JL-488: a project role. Read-only like Viewer; it additionally receives
+  // release-check reports and may re-run a check (see routes/releases.js).
+  'Release Monitor': 1,
   Member: 2,
   Admin: 3,
   Lead: 4,

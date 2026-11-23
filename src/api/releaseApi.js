@@ -42,3 +42,10 @@ export const fetchReleaseProgress = (releaseId) =>
 
 export const fetchReleaseNotes = (releaseId) =>
   api(`/api/releases/${releaseId}/notes`)
+
+// JL-488: release check (run automatically when a release is marked Released)
+export const fetchReleaseCheck = (releaseId) =>
+  api(`/api/releases/${releaseId}/check`)
+
+export const runReleaseCheck = (releaseId) =>
+  api(`/api/releases/${releaseId}/check`, { method: 'POST' })

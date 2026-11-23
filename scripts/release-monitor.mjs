@@ -1,40 +1,39 @@
 #!/usr/bin/env node
 /*
- * release-monitor — a dedicated account that checks a release's work items
- * once the release is marked Released (JL-487).
+ * release-monitor — set up the Release Monitor account (JL-487, JL-488).
  *
- *   provision   As a workspace Admin, create the "Release Monitor" account and
- *               add it to the project as a project Member. Prints its password
- *               once; store it in the scheduler's environment, not in git.
+ * The check itself runs IN THE SERVER (server/services/releaseCheck.js): the
+ * moment a release is marked Released, every work item in it is checked (Done
+ * passes, anything else fails), each gets a "Release Monitor" comment, and
+ * everyone holding the project role "Release Monitor" is notified (in-app and
+ * email). This script only does what the server cannot do for itself:
  *
- *   check       As the monitor account, find every release in the project whose
- *               status is "released", collect its work items (Fix Version, or
- *               the older single release field), and check each one:
- *                 Done        -> pass
- *                 anything    -> fail (shipped while still open)
- *               Each work item gets ONE comment per release, tagged
- *               [release-check:R<id>], so re-running never comments twice and a
- *               release is "checked" exactly when all its items carry the tag.
- *               Exit code 1 when any item failed, so a scheduler can alert.
+ *   provision   As a workspace Admin, create the monitor account (workspace
+ *               Viewer) and give it the project role "Release Monitor".
+ *               Prints its password once.
+ *
+ *   backfill    As any account allowed to check (project Member+ or Release
+ *               Monitor), check every Released release that has never been
+ *               checked, e.g. releases shipped before JL-488 was deployed.
+ *               Exit code 1 when any check failed.
  *
  * Usage:
  *   ECM_BASE_URL=https://projects.fosasoft.com \
  *   ECM_ADMIN_EMAIL=... ECM_ADMIN_PASSWORD=... \
  *     node scripts/release-monitor.mjs provision --project 16
  *
- *   ECM_BASE_URL=https://projects.fosasoft.com \
- *   ECM_EMAIL=<monitor email> ECM_PASSWORD=<monitor password> \
- *     node scripts/release-monitor.mjs check --project 16 [--release <id|name>] [--dry-run]
+ *   ECM_BASE_URL=https://projects.fosasoft.com ECM_EMAIL=... ECM_PASSWORD=... \
+ *     node scripts/release-monitor.mjs backfill --project 16
  *
- * Secrets come from the environment only, never argv (visible in the process
- * list). Bearer auth: no cookie, so no CSRF header is needed. No dependencies.
+ * Secrets come from the environment only, never argv. Bearer auth, so no CSRF
+ * header is needed. No dependencies.
  */
 import { randomBytes } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 
 export const DEFAULT_MONITOR_EMAIL = 'jiralitenotifications+release-monitor@gmail.com'
 export const DEFAULT_MONITOR_NAME = 'Release Monitor'
-export const marker = (releaseId) => `[release-check:R${releaseId}]`
+export const RELEASE_MONITOR_ROLE = 'Release Monitor'
 
 export class ApiError extends Error {
   constructor(message, status) { super(message); this.status = status }
@@ -66,92 +65,39 @@ export function makeClient(baseUrl, fetchImpl = fetch) {
       const data = await call('/api/auth/login', { method: 'POST', body })
       if (!data?.token) throw new ApiError('Login returned no token', 401)
       token = data.token
-      return data
     },
   }
 }
-
-// ── provision ───────────────────────────────────────────────────────────────
 
 export async function provision(client, { projectId, email, name, password }) {
   const project = await client.call(`/api/projects/${projectId}`)
   let member
   try {
+    // Workspace Viewer: the project role below is what gives it project access,
+    // and it needs no write access anywhere.
     member = await client.call('/api/members', {
       method: 'POST',
-      // Workspace Member: a Viewer cannot write, and the check posts comments.
-      body: { name, email, role: 'Member', password, invited_by: 'release-monitor provisioning' },
+      body: { name, email, role: 'Viewer', password, invited_by: 'release-monitor provisioning' },
     })
   } catch (err) {
     if (err.status !== 409) throw err
-    throw new ApiError(`${email} already exists. Reset its password from /users instead of provisioning again.`, 409)
+    throw new ApiError(`${email} already exists. Give it the "${RELEASE_MONITOR_ROLE}" role in Project Settings > Access instead.`, 409)
   }
-  // Project Member (not Admin): it comments on work items and changes nothing else.
-  await client.call(`/api/projects/${projectId}/members`, { method: 'POST', body: { memberId: member.id, role: 'Member' } })
+  await client.call(`/api/projects/${projectId}/members`, { method: 'POST', body: { memberId: member.id, role: RELEASE_MONITOR_ROLE } })
   return { project, member }
 }
 
-// ── check ───────────────────────────────────────────────────────────────────
-
-const issueKey = (i) => i.key || i.issue_key
-const projectOf = (i) => Number(i.projectId ?? i.project_id)
-
-/** Work items in a release: the legacy single release field plus Fix Version. */
-export async function releaseIssues(client, release, projectIssues) {
-  const byId = new Map()
-  for (const i of await client.call(`/api/releases/${release.id}/issues`)) byId.set(i.id, i)
-  for (const i of projectIssues) {
-    if (byId.has(i.id)) continue
-    const detail = await client.call(`/api/issues/${i.id}`)
-    if ((detail.fixVersions || []).some((v) => v.id === release.id)) byId.set(i.id, detail)
-  }
-  return [...byId.values()]
-}
-
-export function verdict(issue) {
-  return issue.status === 'Done'
-    ? { pass: true, note: 'Done' }
-    : { pass: false, note: `still "${issue.status}" although the release has shipped` }
-}
-
-export function commentText(release, issue, v) {
-  const when = release.releaseDate ? ` (${String(release.releaseDate).slice(0, 10)})` : ''
-  return v.pass
-    ? `${marker(release.id)} Release check: shipped in ${release.name}${when}. Status is Done. PASS.`
-    : `${marker(release.id)} Release check: FAILED. ${release.name}${when} is released, but this work item is ${v.note}. Please close it or move it to a later release.`
-}
-
-export async function check(client, { projectId, release: only, dryRun = false, log = console.log }) {
-  const releases = (await client.call(`/api/projects/${projectId}/releases`))
-    .filter((r) => (only ? String(r.id) === String(only) || r.name === only : r.status === 'released'))
-  if (only && releases.length === 0) throw new ApiError(`No release "${only}" in project ${projectId}`)
-
-  const summary = []
-  let projectIssues = null
+export async function backfill(client, { projectId, log = console.log }) {
+  const releases = (await client.call(`/api/projects/${projectId}/releases`)).filter((r) => r.status === 'released')
+  const results = []
   for (const release of releases) {
-    if (release.status !== 'released') { log(`skip  ${release.name}: not released yet`); continue }
-    projectIssues ??= (await client.call('/api/issues')).filter((i) => projectOf(i) === Number(projectId))
-    const items = await releaseIssues(client, release, projectIssues)
-    const result = { release: release.name, checked: 0, alreadyChecked: 0, passed: 0, failed: [] }
-    for (const issue of items) {
-      const comments = await client.call(`/api/issues/${issue.id}/comments`)
-      if (comments.some((c) => String(c.text || '').includes(marker(release.id)))) { result.alreadyChecked += 1; continue }
-      const v = verdict(issue)
-      result.checked += 1
-      if (v.pass) result.passed += 1
-      else result.failed.push(`${issueKey(issue)} ${v.note}`)
-      log(`${v.pass ? 'PASS' : 'FAIL'}  ${release.name}  ${issueKey(issue)}  ${v.note}`)
-      if (!dryRun) {
-        await client.call(`/api/issues/${issue.id}/comments`, { method: 'POST', body: { text: commentText(release, issue, v) } })
-      }
-    }
-    if (items.length === 0) log(`warn  ${release.name}: released with no work items`)
-    summary.push(result)
+    if (await client.call(`/api/releases/${release.id}/check`)) { log(`skip  ${release.name}: already checked`); continue }
+    const check = await client.call(`/api/releases/${release.id}/check`, { method: 'POST' })
+    log(`${check.ok ? 'PASS' : 'FAIL'}  ${release.name}: ${check.passed}/${check.total} Done${check.failed.length ? ` (open: ${check.failed.map((f) => `${f.key} ${f.status}`).join(', ')})` : ''}`)
+    results.push(check)
   }
-  return summary
+  return results
 }
-
-// ── CLI ─────────────────────────────────────────────────────────────────────
 
 function parseArgs(argv) {
   const flags = {}
@@ -171,8 +117,8 @@ export async function main(argv, env, { fetchImpl, log = console.log, err = cons
   const { command, flags } = parseArgs(argv)
   const baseUrl = String(env.ECM_BASE_URL || '').replace(/\/+$/, '')
   const projectId = Number(flags.project)
-  if (!['provision', 'check'].includes(command) || !/^https?:\/\//.test(baseUrl) || !Number.isInteger(projectId)) {
-    err('usage: ECM_BASE_URL=https://... node scripts/release-monitor.mjs <provision|check> --project <id> [--release <id|name>] [--dry-run]')
+  if (!['provision', 'backfill'].includes(command) || !/^https?:\/\//.test(baseUrl) || !Number.isInteger(projectId)) {
+    err('usage: ECM_BASE_URL=https://... node scripts/release-monitor.mjs <provision|backfill> --project <id>')
     return 1
   }
   const client = makeClient(baseUrl, fetchImpl)
@@ -183,19 +129,16 @@ export async function main(argv, env, { fetchImpl, log = console.log, err = cons
       const email = env.MONITOR_EMAIL || DEFAULT_MONITOR_EMAIL
       const password = randomBytes(18).toString('base64url')
       const { project, member } = await provision(client, { projectId, email, name: env.MONITOR_NAME || DEFAULT_MONITOR_NAME, password })
-      log(`Created "${member.name}" <${member.email}> (workspace Member, project Member of ${project.name || projectId}).`)
-      log('Password (shown once; store it as ECM_PASSWORD wherever the check runs):')
+      log(`Created "${member.name}" <${member.email}> with the "${RELEASE_MONITOR_ROLE}" role on ${project.name || `project ${projectId}`}.`)
+      log('Password (shown once; it is only needed to sign in as this account):')
       log(password)
       return 0
     }
-    if (!env.ECM_EMAIL || !env.ECM_PASSWORD) { err('check needs ECM_EMAIL and ECM_PASSWORD (the monitor account)'); return 2 }
+    if (!env.ECM_EMAIL || !env.ECM_PASSWORD) { err('backfill needs ECM_EMAIL and ECM_PASSWORD'); return 2 }
     await client.login(env.ECM_EMAIL, env.ECM_PASSWORD, env.ECM_MFA_CODE)
-    const summary = await check(client, { projectId, release: flags.release, dryRun: Boolean(flags['dry-run']), log })
-    if (summary.length === 0) log('No released releases to check.')
-    for (const s of summary) {
-      log(`${s.release}: ${s.checked} checked now (${s.passed} pass, ${s.failed.length} fail), ${s.alreadyChecked} checked earlier`)
-    }
-    return summary.some((s) => s.failed.length) ? 1 : 0
+    const results = await backfill(client, { projectId, log })
+    if (results.length === 0) log('Nothing to check: every released release has been checked.')
+    return results.some((c) => !c.ok) ? 1 : 0
   } catch (e) {
     err(`error: ${e.message}`)
     return e.status === 401 || e.status === 403 ? 2 : 1

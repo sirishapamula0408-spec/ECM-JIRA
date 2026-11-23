@@ -1647,6 +1647,20 @@ export async function initializeDatabase() {
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_versions_issue ON issue_versions(issue_id)')
   await pool.query('CREATE INDEX IF NOT EXISTS idx_issue_versions_version ON issue_versions(version_id)')
+  // JL-488: one row per release check (run when a release is marked Released,
+  // or on demand). `failed` lists the work items that were not Done.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS release_checks (
+      id SERIAL PRIMARY KEY,
+      release_id INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+      checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      checked_by TEXT,
+      total INTEGER NOT NULL DEFAULT 0,
+      passed INTEGER NOT NULL DEFAULT 0,
+      failed JSONB NOT NULL DEFAULT '[]'::jsonb
+    )
+  `)
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_release_checks_release ON release_checks(release_id, checked_at DESC)')
 
   // --- JL-54: OKR / Goal Tracking ---
   // Objectives per project, each with measurable key results tracked to progress.
