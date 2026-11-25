@@ -7,3 +7,7 @@
 *.conf      text eol=lf
 *.yml       text eol=lf
 *.yaml      text eol=lf
+
+# Node scripts with a #! line: CRLF makes the shebang a syntax error when
+# Vitest imports them on a Windows checkout (JL-488).
+*.mjs       text eol=lf

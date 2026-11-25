@@ -13,6 +13,22 @@ const ROLE_RANK = {
 }
 
 /**
+ * JL-488: may this member create work items in this project? Same rule as
+ * canCreateIssue below (and requireProjectWrite on the server), for lists that
+ * span projects, e.g. the Create dialog's Project picker. A Release Monitor or
+ * project Viewer is left out even if they can create elsewhere.
+ */
+export function canCreateInProject(currentMember, projectId) {
+  if (!currentMember) return false
+  const { workspaceRole, isOwner, projectRoles } = currentMember
+  const wsRank = ROLE_RANK[workspaceRole] || 0
+  if (isOwner || wsRank >= ROLE_RANK.Admin) return true
+  const match = (projectRoles || []).find((pr) => String(pr.projectId) === String(projectId))
+  const rank = match?.role ? (ROLE_RANK[match.role] || 0) : wsRank
+  return rank >= ROLE_RANK.Member
+}
+
+/**
  * Hook that returns permission capabilities based on the current user's
  * workspace role and optional project-level role.
  *

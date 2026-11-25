@@ -17,7 +17,8 @@ function freshState() {
   }
 }
 
-vi.mock('../db.js', () => ({
+vi.mock('../db.js', async () => {
+  const m = {
   get: vi.fn(async (sql, params) => {
     const s = db.state
     if (sql.includes('FROM releases r JOIN projects')) return params[0] === s.release.id ? s.release : undefined
@@ -37,6 +38,7 @@ vi.mock('../db.js', () => ({
   run: vi.fn(async (sql, params) => {
     const s = db.state
     if (sql.startsWith('INSERT INTO comments')) { s.comments.push({ issue_id: params[0], author: params[1], text: params[2] }); return { lastID: s.comments.length } }
+    if (sql.startsWith('INSERT INTO release_checks') && s.failInsert) throw new Error('boom')
     if (sql.startsWith('INSERT INTO release_checks')) {
       const row = { id: s.checks.length + 1, release_id: params[0], checked_by: params[1], total: params[2], passed: params[3], failed: params[4], checked_at: '2026-11-23T10:00:00Z' }
       s.checks.push(row)
@@ -44,7 +46,14 @@ vi.mock('../db.js', () => ({
     }
     throw new Error(`unexpected run: ${sql}`)
   }),
-}))
+  }
+  // A real transaction: on error, roll back every comment written inside it.
+  m.withTransaction = vi.fn(async (fn) => {
+    const snapshot = db.state.comments.length
+    try { return await fn({ get: m.get, all: m.all, run: m.run }) } catch (e) { db.state.comments.length = snapshot; throw e }
+  })
+  return m
+})
 vi.mock('../routes/notifications.js', () => ({ createNotification: notify }))
 
 const { runReleaseCheck, checkMarker, RELEASE_MONITOR_ROLE } = await import('../services/releaseCheck.js')
@@ -85,7 +94,7 @@ describe('runReleaseCheck', () => {
     expect(notify).toHaveBeenCalledTimes(1)
     const n = notify.mock.calls[0][0]
     expect(n).toMatchObject({ recipientEmail: 'monitor@x.com', type: 'release_check', projectId: 16, actorEmail: 'lead@x.com', link: '/projects/16/releases' })
-    expect(n.title).toMatch(/FAILED: v2\.0 \(Sixteen\) - 1 of 2 work items not Done/)
+    expect(n.title).toMatch(/FAILED: v2\.0 \(Sixteen\) - 1 of 2 work items still open/)
     expect(n.message).toContain('SIX-2 Still open (In Testing)')
   })
 
@@ -93,7 +102,21 @@ describe('runReleaseCheck', () => {
     db.state.items = db.state.items.slice(0, 1)
     const check = await runReleaseCheck(5)
     expect(check.ok).toBe(true)
-    expect(notify.mock.calls[0][0].title).toMatch(/passed: v2\.0 .* all 1 work items Done/)
+    expect(notify.mock.calls[0][0].title).toMatch(/passed: v2\.0 .* all 1 work items closed/)
+  })
+
+  it('counts a Cancelled work item as a pass', async () => {
+    db.state.items[1] = { ...db.state.items[1], status: 'Cancelled' }
+    const check = await runReleaseCheck(5)
+    expect(check).toMatchObject({ total: 2, passed: 2, ok: true })
+    expect(db.state.comments.find((c) => c.issue_id === 2).text).toContain('Status is Cancelled. PASS.')
+  })
+
+  it('leaves no comments behind when the check cannot be stored', async () => {
+    db.state.failInsert = true
+    await expect(runReleaseCheck(5)).rejects.toThrow('boom')
+    expect(db.state.comments).toHaveLength(0)
+    expect(notify).not.toHaveBeenCalled()
   })
 
   it('returns null for an unknown release', async () => {

@@ -12,6 +12,7 @@ import { RichTextEditor } from './RichTextEditor'
 import './CreateIssueModal.css'
 import { avatarStyle } from '../../utils/avatarColour'
 import { sprintsForProject } from '../../utils/sprints'
+import { canCreateInProject } from '../../hooks/usePermissions'
 
 const TYPE_META = {
   Epic:       { icon: '\u{1F3F0}', label: 'Epic' },
@@ -29,7 +30,7 @@ const PRIORITY_COLORS = {
 
 export function CreateIssueModal({ onClose }) {
   const { handleCreate } = useIssues()
-  const { profile, members } = useMembers()
+  const { profile, members, currentMember } = useMembers()
   const { sprints } = useSprints()
   const { setAppError } = useAppData()
   const { authUser } = useAuth()
@@ -68,7 +69,12 @@ export function CreateIssueModal({ onClose }) {
   // Fetch projects on mount and default to the active project (the one being
   // viewed) when opened from a project page, else the first project (JL-320).
   useEffect(() => {
-    fetchProjects().then((data) => {
+    fetchProjects().then((all) => {
+      // JL-488: offer only projects the user may create in. Without this a
+      // Release Monitor who is a Member elsewhere could pick the monitored
+      // project and be refused only on save. Before the member loads, the
+      // server's check stands alone.
+      const data = currentMember ? (all || []).filter((p) => canCreateInProject(currentMember, p.id)) : (all || [])
       setProjects(data)
       if (data.length > 0) {
         const match = activeProjectId
@@ -77,7 +83,7 @@ export function CreateIssueModal({ onClose }) {
         setForm((c) => ({ ...c, projectId: (match ? match.id : data[0].id) }))
       }
     }).catch(() => {})
-  }, [activeProjectId])
+  }, [activeProjectId, currentMember])
 
   // JL-116: when the selected project changes, load its effective issue-type
   // scheme and constrain the type picker (defaulting to the scheme's default).

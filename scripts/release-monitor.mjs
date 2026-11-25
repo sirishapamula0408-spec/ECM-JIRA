@@ -146,5 +146,11 @@ export async function main(argv, env, { fetchImpl, log = console.log, err = cons
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2), process.env).then((code) => process.exit(code))
+  // Set the exit code and let Node exit on its own: process.exit() while a
+  // fetch socket is still closing aborts Node on Windows ("Assertion failed:
+  // !(handle->flags & UV_HANDLE_CLOSING)"), turning exit 2 into a crash code.
+  main(process.argv.slice(2), process.env).then(
+    (code) => { process.exitCode = code },
+    (e) => { console.error(e?.message || e); process.exitCode = 1 },
+  )
 }

@@ -113,8 +113,11 @@ export function ProjectTopPanel({ hasProjects }) {
     { id: 'reports', label: 'Reports', path: `${prefix}/reports`, icon: 'reports' },
     { id: 'list', label: 'List', path: projectId ? `${prefix}/list` : '/list', icon: 'list' },
     // JL-222: project-scoped tabs (only shown when inside a project)
+    // JL-488: Releases had no link anywhere (the launch sidebar hides it), so
+    // nobody, Release Monitors included, could find the page or its release check.
     ...(projectId
-      ? [{ id: 'settings', label: 'Settings', path: `${prefix}/settings`, icon: 'settings' }]
+      ? [{ id: 'releases', label: 'Releases', path: `${prefix}/releases`, icon: 'releases' },
+        { id: 'settings', label: 'Settings', path: `${prefix}/settings`, icon: 'settings' }]
       : []),
   ]
 

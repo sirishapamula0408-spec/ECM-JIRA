@@ -221,3 +221,36 @@ describe('Releases API — release notes', () => {
     expect(res.status).toBe(404)
   })
 })
+
+/* JL-488: progress, notes and counts use the same work items as the release check */
+describe('Releases API — same work items as the release check (JL-488)', () => {
+  it('counts Fix Version work items and treats Cancelled as resolved', async () => {
+    get.mockResolvedValue({ id: 1, project_id: 1, name: 'v1', status: 'released' })
+    const seen = []
+    all.mockImplementation(async (sql, params) => {
+      seen.push({ sql, params })
+      if (sql.includes('GROUP BY status')) return [{ status: 'Done', count: 2 }, { status: 'Cancelled', count: 1 }]
+      return []
+    })
+    const res = await request(app).get('/api/releases/1/progress')
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ total: 3, done: 3, percentComplete: 100, ready: true })
+    expect(seen.every((q) => q.sql.includes('issue_versions'))).toBe(true)
+    const unresolved = seen.find((q) => q.sql.includes('NOT IN'))
+    expect(unresolved.params).toEqual([1, 1, 'Done', 'Cancelled'])
+  })
+
+  it('notes and the release list include Fix Version work items', async () => {
+    get.mockResolvedValue({ id: 1, project_id: 1, name: 'v1', description: '', release_date: null, status: 'released', created_at: 'now' })
+    all.mockResolvedValue([])
+    await request(app).get('/api/releases/1/notes')
+    await request(app).get('/api/projects/1/releases')
+    expect(all.mock.calls.every(([sql]) => sql.includes('issue_versions'))).toBe(true)
+  })
+
+  it('404s the check of an unknown or non-numeric release', async () => {
+    get.mockResolvedValue(null)
+    expect((await request(app).get('/api/releases/999/check')).status).toBe(404)
+    expect((await request(app).get('/api/releases/abc/check')).status).toBe(404)
+  })
+})

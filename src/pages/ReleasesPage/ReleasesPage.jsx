@@ -175,7 +175,7 @@ export function ReleasesPage() {
                     <div className="rel-bar-fill" style={{ width: `${progress.percentComplete}%` }} />
                   </div>
                   <p className="rel-progress-text">
-                    {progress.percentComplete}% complete · {progress.done}/{progress.total} done ·
+                    {progress.percentComplete}% complete · {progress.done}/{progress.total} done or cancelled ·
                     {' '}{progress.unresolvedCount} unresolved
                     {progress.ready && <span className="rel-ready"> · Ready to release</span>}
                   </p>
@@ -207,7 +207,7 @@ export function ReleasesPage() {
                   {check && (
                     <>
                       <p className="rel-check-verdict">
-                        {check.ok ? 'Passed' : 'Failed'}: {check.passed} of {check.total} work items Done
+                        {check.ok ? 'Passed' : 'Failed'}: {check.passed} of {check.total} work items Done or Cancelled
                         <span className="rel-meta"> · {new Date(check.checkedAt).toLocaleString()}</span>
                       </p>
                       {check.failed.length > 0 && (

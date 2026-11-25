@@ -2,13 +2,16 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole, requireProjectRead, requireProjectWrite, resolveProjectAccess, ROLE_RANK } from '../middleware/authorize.js'
-import { runReleaseCheck, latestReleaseCheck, RELEASE_MONITOR_ROLE } from '../services/releaseCheck.js'
+import { runReleaseCheck, latestReleaseCheck, RELEASE_MONITOR_ROLE, RELEASE_ITEMS_FROM, CLOSED_STATUSES } from '../services/releaseCheck.js'
 
 const router = Router()
 
 const STATUSES = ['unreleased', 'released']
-// Issues in this status are considered "resolved" for readiness / progress purposes.
-const DONE_STATUS = 'Done'
+// JL-488: a work item is in a release through the release field OR a Fix
+// Version, and Done/Cancelled both count as resolved — the same rules as the
+// release check, so the page can never say "Ready" above a failed check.
+const releaseItems = (cols) => `SELECT DISTINCT ${cols} FROM ${RELEASE_ITEMS_FROM}`
+const CLOSED_SQL = CLOSED_STATUSES.map(() => '?').join(', ')
 
 // JL-314: project-access resolvers for the read/write guards.
 //
@@ -66,11 +69,13 @@ function mapRelease(row) {
 router.get('/projects/:projectId/releases', requireProjectRead(releaseParamProject), asyncHandler(async (req, res) => {
   const projectId = Number(req.params.projectId)
   const rows = await all(
-    `SELECT r.*, COUNT(i.id)::int AS "issueCount"
+    `SELECT r.*,
+            (SELECT COUNT(DISTINCT i.id)::int
+               FROM issues i
+               LEFT JOIN issue_versions iv ON iv.issue_id = i.id AND iv.type = 'fix' AND iv.version_id = r.id
+              WHERE i.release_id = r.id OR iv.version_id IS NOT NULL) AS "issueCount"
      FROM releases r
-     LEFT JOIN issues i ON i.release_id = r.id
      WHERE r.project_id = ?
-     GROUP BY r.id
      ORDER BY r.release_date DESC NULLS LAST, r.created_at DESC`,
     [projectId],
   )
@@ -131,7 +136,10 @@ router.patch('/releases/:id', requireProjectWrite(releaseIdProject), asyncHandle
 
 // JL-488: the latest release check (null before the first one).
 router.get('/releases/:id/check', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
-  res.json(await latestReleaseCheck(Number(req.params.id)))
+  const id = Number(req.params.id)
+  const release = Number.isInteger(id) ? await get('SELECT id FROM releases WHERE id = ?', [id]) : null
+  if (!release) { res.status(404).json({ error: 'Release not found' }); return }
+  res.json(await latestReleaseCheck(id))
 }))
 
 // JL-488: re-run the check on demand, e.g. after closing the work items a check
@@ -139,7 +147,7 @@ router.get('/releases/:id/check', requireProjectRead(releaseIdProject), asyncHan
 // whose whole job this is. Only a released release is checked.
 router.post('/releases/:id/check', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
   const id = Number(req.params.id)
-  const release = await get('SELECT id, project_id, status FROM releases WHERE id = ?', [id])
+  const release = !Number.isInteger(id) ? null : await get('SELECT id, project_id, status FROM releases WHERE id = ?', [id])
   if (!release) { res.status(404).json({ error: 'Release not found' }); return }
   const access = await resolveProjectAccess(req.user, release.project_id)
   if (!access.admin && access.effectiveRank < ROLE_RANK.Member && access.projectRole !== RELEASE_MONITOR_ROLE) {
@@ -183,10 +191,11 @@ router.put('/issues/:issueId/release', requireProjectWrite(releaseIssueProject),
 
 // GET /api/releases/:id/issues — issues assigned to this release
 router.get('/releases/:id/issues', requireProjectRead(releaseIdProject), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id)
   const rows = await all(
-    `SELECT id, issue_key, title, issue_type, status, priority, assignee
-     FROM issues WHERE release_id = ? ORDER BY issue_type ASC, id ASC`,
-    [Number(req.params.id)],
+    `SELECT * FROM (${releaseItems('i.id, i.issue_key, i.title, i.issue_type, i.status, i.priority, i.assignee')}) x
+     ORDER BY issue_type ASC, id ASC`,
+    [id, id],
   )
   res.json(rows)
 }))
@@ -198,8 +207,8 @@ router.get('/releases/:id/progress', requireProjectRead(releaseIdProject), async
   if (!release) { res.status(404).json({ error: 'Release not found' }); return }
 
   const statusRows = await all(
-    `SELECT status, COUNT(*)::int AS count FROM issues WHERE release_id = ? GROUP BY status`,
-    [id],
+    `SELECT status, COUNT(*)::int AS count FROM (${releaseItems('i.id, i.status')}) x GROUP BY status`,
+    [id, id],
   )
   const byStatus = {}
   let total = 0
@@ -207,12 +216,12 @@ router.get('/releases/:id/progress', requireProjectRead(releaseIdProject), async
   for (const r of statusRows) {
     byStatus[r.status] = Number(r.count)
     total += Number(r.count)
-    if (r.status === DONE_STATUS) done += Number(r.count)
+    if (CLOSED_STATUSES.includes(r.status)) done += Number(r.count)
   }
   const unresolved = await all(
-    `SELECT id, issue_key, title, issue_type, status, assignee
-     FROM issues WHERE release_id = ? AND status <> ? ORDER BY id ASC`,
-    [id, DONE_STATUS],
+    `SELECT * FROM (${releaseItems('i.id, i.issue_key, i.title, i.issue_type, i.status, i.assignee')}) x
+     WHERE status NOT IN (${CLOSED_SQL}) ORDER BY id ASC`,
+    [id, id, ...CLOSED_STATUSES],
   )
   const percentComplete = total === 0 ? 0 : Math.round((done / total) * 100)
   res.json({
@@ -234,9 +243,9 @@ router.get('/releases/:id/notes', requireProjectRead(releaseIdProject), asyncHan
   if (!release) { res.status(404).json({ error: 'Release not found' }); return }
 
   const rows = await all(
-    `SELECT id, issue_key, title, issue_type, status
-     FROM issues WHERE release_id = ? ORDER BY issue_type ASC, id ASC`,
-    [id],
+    `SELECT * FROM (${releaseItems('i.id, i.issue_key, i.title, i.issue_type, i.status')}) x
+     ORDER BY issue_type ASC, id ASC`,
+    [id, id],
   )
   const groups = {}
   for (const r of rows) {
