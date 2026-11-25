@@ -1,0 +1,33 @@
+/* JL-489: Release Monitor Pass / Fail */
+.rv-panel {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #dfe1e6);
+  border-left: 3px solid var(--color-primary, #0c66e4);
+  border-radius: 4px;
+  background: var(--color-surface, #fff);
+}
+
+.rv-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.rv-text {
+  margin: 0 0 8px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle, #44546f);
+}
+
+.rv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rv-error {
+  margin: 6px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger, #ae2a19);
+}

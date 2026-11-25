@@ -66,6 +66,7 @@ export function usePermissions(projectId) {
         canAddAttachment: false,
         canLinkIssues: false,
         canManageCrossProjectBoards: false,
+        canVerifyRelease: false,
         hasRestrictedNav: false,
       }
     }
@@ -175,6 +176,10 @@ export function usePermissions(projectId) {
       // JL-296: mutating shared cross-project boards requires workspace Member+.
       // Workspace-level capability (not project-scoped) — Viewers are read-only.
       canManageCrossProjectBoards: wsRank >= ROLE_RANK.Member,
+
+      // JL-489: Pass/Fail a work item in Release. The Release Monitor, project
+      // Lead/Admin and workspace Admin/Owner (server: canVerifyRelease).
+      canVerifyRelease: isProjectAdmin || projectRole === 'Release Monitor',
 
       // Navigation (JL-196)
       hasRestrictedNav: !isAdmin && !hasAnyProjectAdminRole,

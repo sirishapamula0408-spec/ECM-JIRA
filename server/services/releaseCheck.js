@@ -3,6 +3,7 @@
  *
  * When a release is marked Released, every work item in it is checked:
  *   Done or Cancelled -> pass (closed: shipped, or deliberately dropped)
+ *   Release           -> awaiting verification by the Release Monitor (JL-489)
  *   any other state   -> fail (it shipped while still open)
  *
  * A work item is "in" a release through the single release field
@@ -21,14 +22,17 @@
  */
 import { all, get, withTransaction } from '../db.js'
 import { createNotification } from '../routes/notifications.js'
+import { closedStatuses } from '../middleware/validate.js'
 
 export const RELEASE_MONITOR_ROLE = 'Release Monitor'
 export const RELEASE_MONITOR_AUTHOR = 'Release Monitor'
 export const DONE_STATUS = 'Done'
 // Statuses that count as closed for the check. Cancelled passes: the work item
 // was deliberately dropped, so it did not ship open.
-export const CLOSED_STATUSES = ['Done', 'Cancelled']
+export const CLOSED_STATUSES = closedStatuses
 export const isClosed = (status) => CLOSED_STATUSES.includes(status)
+// JL-489: tested and shipped, waiting for the Release Monitor's Pass/Fail.
+export const AWAITING_STATUS = 'Release'
 export const checkMarker = (releaseId) => `[release-check:R${releaseId}]`
 
 // Exported for the Releases page: progress, notes and the issue count use the
@@ -46,7 +50,9 @@ export async function releaseWorkItems(releaseId, db = { all }) {
 
 export function mapCheck(row) {
   if (!row) return null
-  const failed = typeof row.failed === 'string' ? JSON.parse(row.failed) : (row.failed || [])
+  const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : (v || []))
+  const failed = parse(row.failed)
+  const awaiting = parse(row.awaiting)
   return {
     id: row.id,
     releaseId: row.release_id,
@@ -55,6 +61,7 @@ export function mapCheck(row) {
     total: Number(row.total),
     passed: Number(row.passed),
     failed,
+    awaiting,
     ok: failed.length === 0,
   }
 }
@@ -71,7 +78,9 @@ export async function latestReleaseCheck(releaseId) {
  * `actorEmail` is who released it (or asked for the re-check); it is recorded
  * and, like every notification, they are not notified about their own action.
  */
-export async function runReleaseCheck(releaseId, { actorEmail = null } = {}) {
+// `quiet` (JL-489): refresh the stored result only — no comments, no
+// notifications. Used after a Pass/Fail verdict so the Releases page is current.
+export async function runReleaseCheck(releaseId, { actorEmail = null, quiet = false } = {}) {
   const release = await get(
     `SELECT r.id, r.name, r.project_id, r.release_date, p.name AS project_name
        FROM releases r JOIN projects p ON p.id = r.project_id
@@ -80,16 +89,22 @@ export async function runReleaseCheck(releaseId, { actorEmail = null } = {}) {
   )
   if (!release) return null
 
-  const { items, failed, check } = await withTransaction(async (tx) => {
+  const { items, failed, awaiting, check } = await withTransaction(async (tx) => {
     const items = await releaseWorkItems(releaseId, tx)
     const failed = []
+    const awaiting = []
     const tag = checkMarker(releaseId)
     for (const item of items) {
       const pass = isClosed(item.status)
-      if (!pass) failed.push({ id: item.id, key: item.issue_key, title: item.title, status: item.status })
+      const waiting = item.status === AWAITING_STATUS
+      const entry = { id: item.id, key: item.issue_key, title: item.title, status: item.status }
+      if (waiting) awaiting.push(entry)
+      else if (!pass) failed.push(entry)
+      if (quiet) continue
       // One comment per release AND outcome: re-checking never repeats itself, but
       // a work item that failed and was then closed gets its PASS on the record.
-      const prefix = `${tag} Release check: ${pass ? 'shipped' : 'FAILED'}`
+      const outcome = pass ? 'shipped' : waiting ? 'awaiting verification' : 'FAILED'
+      const prefix = `${tag} Release check: ${outcome}`
       const already = await tx.get(
         'SELECT id FROM comments WHERE issue_id = ? AND author = ? AND text LIKE ? LIMIT 1',
         [item.id, RELEASE_MONITOR_AUTHOR, `${prefix}%`],
@@ -97,29 +112,39 @@ export async function runReleaseCheck(releaseId, { actorEmail = null } = {}) {
       if (already) continue
       const text = pass
         ? `${tag} Release check: shipped in ${release.name}. Status is ${item.status}. PASS.`
+        : waiting
+        ? `${tag} Release check: awaiting verification. ${release.name} is released; the Release Monitor will verify this work item and move it to Done, or back if it fails.`
         : `${tag} Release check: FAILED. ${release.name} is released, but this work item is still "${item.status}". Close it or move it to a later release.`
       await tx.run('INSERT INTO comments (issue_id, author, text) VALUES (?, ?, ?)', [item.id, RELEASE_MONITOR_AUTHOR, text])
     }
     const created = await tx.run(
-      'INSERT INTO release_checks (release_id, checked_by, total, passed, failed) VALUES (?, ?, ?, ?, ?::jsonb)',
-      [releaseId, actorEmail, items.length, items.length - failed.length, JSON.stringify(failed)],
+      'INSERT INTO release_checks (release_id, checked_by, total, passed, failed, awaiting) VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb)',
+      [releaseId, actorEmail, items.length, items.length - failed.length - awaiting.length, JSON.stringify(failed), JSON.stringify(awaiting)],
     )
     const check = mapCheck(await tx.get('SELECT * FROM release_checks WHERE id = ?', [created.lastID]))
-    return { items, failed, check }
+    return { items, failed, awaiting, check }
   })
+  if (quiet) return check
 
   const monitors = await all(
     `SELECT m.email FROM project_members pm JOIN members m ON m.id = pm.member_id
       WHERE pm.project_id = ? AND pm.role = ? AND m.status = 'Active'`,
     [release.project_id, RELEASE_MONITOR_ROLE],
   )
+  const parts = []
+  if (failed.length) parts.push(`${failed.length} of ${items.length} work items still open`)
+  if (awaiting.length) parts.push(`${awaiting.length} to verify`)
   const verdict = items.length === 0
     ? 'no work items'
-    : failed.length === 0 ? `all ${items.length} work items closed` : `${failed.length} of ${items.length} work items still open`
-  const title = `Release check ${failed.length ? 'FAILED' : 'passed'}: ${release.name} (${release.project_name}) - ${verdict}`
-  const lines = failed.map((f) => `- ${f.key} ${f.title} (${f.status})`)
-  const message = failed.length
-    ? `${release.name} was released with work items that are still open:\n${lines.join('\n')}`
+    : parts.length ? parts.join(', ') : `all ${items.length} work items closed`
+  const outcome = failed.length ? 'FAILED' : awaiting.length ? 'needs verification' : 'passed'
+  const title = `Release check ${outcome}: ${release.name} (${release.project_name}) - ${verdict}`
+  const line = (f) => `- ${f.key} ${f.title} (${f.status})`
+  const sections = []
+  if (failed.length) sections.push(`${release.name} was released with work items that are still open:\n${failed.map(line).join('\n')}`)
+  if (awaiting.length) sections.push(`Verify these in the released build (Pass moves to Done, Fail moves back):\n${awaiting.map(line).join('\n')}`)
+  const message = sections.length
+    ? sections.join('\n\n')
     : items.length ? `Every work item in ${release.name} is Done or Cancelled.` : `${release.name} was released with no work items in it.`
   for (const { email } of monitors) {
     await createNotification({

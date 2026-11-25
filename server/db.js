@@ -1661,6 +1661,8 @@ export async function initializeDatabase() {
     )
   `)
   await pool.query('CREATE INDEX IF NOT EXISTS idx_release_checks_release ON release_checks(release_id, checked_at DESC)')
+  // JL-489: work items in the Release status, waiting for the monitor's verdict.
+  await pool.query("ALTER TABLE release_checks ADD COLUMN IF NOT EXISTS awaiting JSONB NOT NULL DEFAULT '[]'::jsonb")
 
   // --- JL-54: OKR / Goal Tracking ---
   // Objectives per project, each with measurable key results tracked to progress.

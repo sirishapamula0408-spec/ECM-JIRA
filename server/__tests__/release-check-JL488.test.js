@@ -40,7 +40,7 @@ vi.mock('../db.js', async () => {
     if (sql.startsWith('INSERT INTO comments')) { s.comments.push({ issue_id: params[0], author: params[1], text: params[2] }); return { lastID: s.comments.length } }
     if (sql.startsWith('INSERT INTO release_checks') && s.failInsert) throw new Error('boom')
     if (sql.startsWith('INSERT INTO release_checks')) {
-      const row = { id: s.checks.length + 1, release_id: params[0], checked_by: params[1], total: params[2], passed: params[3], failed: params[4], checked_at: '2026-11-23T10:00:00Z' }
+      const row = { id: s.checks.length + 1, release_id: params[0], checked_by: params[1], total: params[2], passed: params[3], failed: params[4], awaiting: params[5], checked_at: '2026-11-23T10:00:00Z' }
       s.checks.push(row)
       return { lastID: row.id }
     }
@@ -115,6 +115,24 @@ describe('runReleaseCheck', () => {
   it('leaves no comments behind when the check cannot be stored', async () => {
     db.state.failInsert = true
     await expect(runReleaseCheck(5)).rejects.toThrow('boom')
+    expect(db.state.comments).toHaveLength(0)
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('JL-489: a work item in Release is awaiting verification, not failed', async () => {
+    db.state.items[1] = { ...db.state.items[1], status: 'Release' }
+    const check = await runReleaseCheck(5)
+    expect(check).toMatchObject({ total: 2, passed: 1, ok: true })
+    expect(check.awaiting).toEqual([{ id: 2, key: 'SIX-2', title: 'Still open', status: 'Release' }])
+    expect(db.state.comments.find((c) => c.issue_id === 2).text).toMatch(/awaiting verification/)
+    const n = notify.mock.calls[0][0]
+    expect(n.title).toMatch(/needs verification: v2\.0 .* 1 to verify/)
+    expect(n.message).toContain('SIX-2 Still open (Release)')
+  })
+
+  it('JL-489: a quiet re-check stores the result without comments or notifications', async () => {
+    const check = await runReleaseCheck(5, { quiet: true })
+    expect(check.total).toBe(2)
     expect(db.state.comments).toHaveLength(0)
     expect(notify).not.toHaveBeenCalled()
   })

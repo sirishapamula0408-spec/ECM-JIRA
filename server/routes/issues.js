@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { all, get, run, withTransaction } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { validStatuses, validPriorities, validIssueTypes } from '../middleware/validate.js'
-import { requireProjectRead, requireProjectWrite, ROLE_RANK } from '../middleware/authorize.js'
+import { requireProjectRead, requireProjectWrite, ROLE_RANK, resolveProjectAccess } from '../middleware/authorize.js'
 import { runStatusChangeAutomations } from '../services/automation.js'
 import { loadTransitions, loadWorkflowMeta, cancelOptionsFromMeta, isTransitionAllowed, findTransition, runValidators, applyPostFunctions } from '../services/workflow.js'
 import { buildIssueSearchAsync } from '../services/jqlSearch.js'
@@ -16,6 +16,7 @@ import { canViewIssue } from '../services/issueSecurity.js'
 import { evaluateApproval, approvalRefusalMessage } from '../services/approvals.js'
 import { sprintFitsProject } from './sprints.js'
 import { notifyIssueCreated, notifyIssueAssigned, notifyStatusChanged, notifyBulkChanges } from '../services/issueNotifications.js'
+import { releaseGate } from '../services/releaseVerification.js'
 
 const router = Router()
 
@@ -906,8 +907,16 @@ const ISSUE_ROW_COLUMNS = 'id, issue_key, title, description, priority, assignee
 
 // Read-only half: may `existing` move to `status`? The bulk dry-run calls it
 // directly so its preview reports refusals without writing anything.
-export async function checkStatusTransition(existing, status, body = {}) {
+export async function checkStatusTransition(existing, status, body = {}, ctx = {}) {
   if (!validStatuses.includes(status)) return { httpStatus: 400, error: 'Invalid status value' }
+
+  // JL-489: the Release rules come first — who may leave Release, Done only
+  // through Release in a monitored project, Release needs a Fix Version. A
+  // verdict (ctx.releaseVerdict, set only by the verdict endpoint) skips the
+  // workflow: "back to the previous status" has no edge and must not need one.
+  const gate = await releaseGate(existing, status, ctx, resolveProjectAccess)
+  if (gate?.error) return gate
+  if (gate?.skipWorkflow) return checkSubtasksBeforeDone(existing, status, { workflowTransition: null })
 
   // JL-79 / JL-306: enforce the project's configurable workflow. Backward compatible —
   // a project with no transitions configured allows every status change. When a
@@ -970,7 +979,11 @@ export async function checkStatusTransition(existing, status, body = {}) {
     }
   }
 
-  // Theme-1 #1: block closing a parent that still has open sub-tasks
+  return checkSubtasksBeforeDone(existing, status, { workflowTransition })
+}
+
+// Theme-1 #1: block closing a parent that still has open sub-tasks
+async function checkSubtasksBeforeDone(existing, status, ok) {
   if (status === 'Done') {
     const openSubtasks = await all(
       "SELECT id, issue_key, title, status FROM issues WHERE parent_id = ? AND status <> 'Done'",
@@ -980,20 +993,19 @@ export async function checkStatusTransition(existing, status, body = {}) {
       return { httpStatus: 409, error: 'Cannot close issue with open sub-tasks', extra: { openSubtasks } }
     }
   }
-
-  return { workflowTransition }
+  return ok
 }
 
 // Validate and apply. Returns { row } (the re-read issue) or a refusal.
 // `notify: false` lets POST /bulk send one summary per recipient instead of one
 // message per issue.
-export async function transitionIssueStatus({ id, status, sprintId, body = {}, actor, workspaceId, notify = true }) {
+export async function transitionIssueStatus({ id, status, sprintId, body = {}, actor, workspaceId, notify = true, user, releaseVerdict = false }) {
   if (!validStatuses.includes(status)) return { httpStatus: 400, error: 'Invalid status value' }
 
   const existing = await get(`SELECT ${STATUS_ISSUE_COLUMNS} FROM issues WHERE id = ?`, [id])
   if (!existing) return { httpStatus: 404, error: 'Issue not found' }
 
-  const check = await checkStatusTransition(existing, status, body)
+  const check = await checkStatusTransition(existing, status, body, { user, releaseVerdict })
   if (check.error) return check
   const { workflowTransition } = check
 
@@ -1067,7 +1079,7 @@ router.patch('/:id/status', requireProjectWrite(issueParamProject('id')), asyncH
   }
 
   const result = await transitionIssueStatus({
-    id, status, sprintId, body: req.body, actor: req.user?.email, workspaceId: req.workspaceId,
+    id, status, sprintId, body: req.body, actor: req.user?.email, workspaceId: req.workspaceId, user: req.user,
   })
   if (result.error) {
     res.status(result.httpStatus).json({ error: result.error, ...result.extra })
@@ -1340,7 +1352,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
     if (item.error || !item.willChange) continue
     const statusChange = item.changes.find((c) => c.field === 'status')
     if (!statusChange) continue
-    const check = await checkStatusTransition(rowById.get(item.issueId), statusChange.to)
+    const check = await checkStatusTransition(rowById.get(item.issueId), statusChange.to, {}, { user: req.user })
     if (check.error) item.error = check.error
   }
 
@@ -1425,6 +1437,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
           actor: req.user?.email,
           workspaceId: req.workspaceId,
           notify: false,
+          user: req.user,
         })
         if (result.error) {
           skipped += 1

@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import { initializeDatabase } from './db.js'
+import { ensureReleaseStatusForMonitoredProjects } from './services/releaseVerification.js'
 import { PORT, assertRequiredEnv, assertValidConfig, CORS_ALLOWED_ORIGINS, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX, AUTH_RATE_LIMIT_MAX, IP_ALLOWLIST } from './config.js'
 import { corsAllowList } from './middleware/corsAllowList.js'
 import { ipAllowlist } from './middleware/ipAllowlist.js'
@@ -299,6 +300,10 @@ if (shouldServeStatic()) {
 app.use(errorHandler)
 
 initializeDatabase()
+  // JL-489: projects that already have a Release Monitor get the Release status.
+  .then(() => ensureReleaseStatusForMonitoredProjects().catch((err) => {
+    logger.error?.('release status migration failed', { error: err.message })
+  }))
   .then(() => {
     const server = app.listen(PORT, () => {
       logger.info('server started', { port: PORT, url: `http://localhost:${PORT}` })

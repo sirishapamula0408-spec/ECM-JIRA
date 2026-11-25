@@ -9,6 +9,8 @@ import { ensureHoldingProject, isHoldingProject } from '../services/holdingProje
 import crypto from 'node:crypto'
 import { getStorage } from '../services/storage.js'
 import { validateLogoUpload, withLogoUrl } from '../services/projectLogo.js'
+import { ensureReleaseStatus } from '../services/releaseVerification.js'
+import { RELEASE_MONITOR_ROLE } from '../services/releaseCheck.js'
 
 const router = Router()
 
@@ -526,6 +528,8 @@ router.post('/:id/members', loadProjectRole, requireProjectRole('Admin'), asyncH
     'INSERT INTO project_members (project_id, member_id, role) VALUES (?, ?, ?)',
     [projectId, mid, validRole],
   )
+  // JL-489: a project with a Release Monitor gets the Release status.
+  if (validRole === RELEASE_MONITOR_ROLE) await ensureReleaseStatus(projectId)
 
   const row = await get(
     `SELECT pm.id AS pm_id, pm.role AS project_role, pm.assigned_at,
@@ -579,6 +583,7 @@ router.patch('/:id/members/:memberId', loadProjectRole, requireProjectRole('Admi
     'UPDATE project_members SET role = ? WHERE project_id = ? AND member_id = ?',
     [role, projectId, memberId],
   )
+  if (role === RELEASE_MONITOR_ROLE) await ensureReleaseStatus(projectId)
 
   const row = await get(
     `SELECT pm.id AS pm_id, pm.role AS project_role, pm.assigned_at,

@@ -14,6 +14,7 @@ import { fetchIssueApprovals, submitApproval, checkApproval } from '../../api/ap
 import { fetchProjectLabels, createLabel, fetchIssueLabels, setIssueLabels } from '../../api/labelApi'
 import LabelPicker from '../../components/issues/LabelPicker'
 import { ImpedimentFlagToggle } from '../../components/issues/ImpedimentFlag'
+import { ReleaseVerdict } from '../../components/releases/ReleaseVerdict'
 import { fetchProjectComponents, fetchIssueComponents } from '../../api/componentApi'
 import { fetchProjectReleases, fetchIssueVersions, setIssueVersions } from '../../api/releaseApi'
 import { fetchAttachments, deleteAttachment, downloadAttachment } from '../../api/attachmentApi'
@@ -156,7 +157,7 @@ function InlineField({ editing, onOpen, onClose, onCancel, display, children, ca
 
 export function IssueDetailPage() {
   const { confirm, confirmDialog } = useConfirm()
-  const { issues, handleMove, handleUpdate, handleDelete, handleCreate } = useIssues()
+  const { issues, handleMove, handleUpdate, handleDelete, handleCreate, reloadIssues } = useIssues()
   const { members, profile } = useMembers()
   const { sprints } = useSprints()
   const { authUser } = useAuth()
@@ -358,6 +359,7 @@ export function IssueDetailPage() {
     canLogWork,
     canAddAttachment,
     canLinkIssues,
+    canVerifyRelease,
   } = usePermissions(issue?.projectId)
 
   // JL-216 — drag-and-drop + paste-to-attach; reuses the base64 upload path.
@@ -1031,6 +1033,10 @@ export function IssueDetailPage() {
       await handleMove(issue.id, nextStatus)
       setApprovalGate(null)
     } catch (err) {
+      // JL-489: e.g. "Set a Fix Version before moving this work item to Release"
+      if (err?.status === 400) {
+        setSuccessToast({ open: true, message: err.message, severity: 'error' })
+      }
       if (err?.status === 409) {
         setApprovalTarget(nextStatus)
         setSuccessToast({ open: true, message: err.message, severity: 'error' })
@@ -1039,6 +1045,19 @@ export function IssueDetailPage() {
         }
       }
     }
+  }
+
+  // JL-489: after a Pass/Fail, re-read the issue (status, Fix Version), the list
+  // copy that overlays it, and the comments (the verdict is recorded there).
+  async function handleReleaseVerdict(result) {
+    const fresh = await fetchIssueById(issue.id).catch(() => null)
+    if (fresh) setFetchedIssue(fresh)
+    try { await reloadIssues?.() } catch { /* the list refresh is best effort */ }
+    fetchComments(issue.id).then((data) => setComments(Array.isArray(data) ? data : [])).catch(() => {})
+    setSuccessToast({
+      open: true,
+      message: result?.verdict === 'pass' ? 'Verified: moved to Done' : `Failed: moved back to ${result?.status}`,
+    })
   }
 
   if (!issue) return <section className="page">Issue not found.</section>
@@ -2027,6 +2046,9 @@ export function IssueDetailPage() {
               >
                 {issue.status}
               </span>
+            )}
+            {issue.status === 'Release' && canVerifyRelease && (
+              <ReleaseVerdict issue={issue} releases={projectReleases} onDone={handleReleaseVerdict} />
             )}
           </div>
 

@@ -11,9 +11,14 @@ export const validStatuses = [
   'In Testing',
   'In Rework',
   'In UAT',
+  // JL-489: verified by the Release Monitor before Done (monitored projects only)
+  'Release',
   'Done',
   'Cancelled',
 ]
+// Statuses that count as closed: Done, or deliberately dropped (Cancelled).
+// The release check passes them (JL-488); everything else is still open.
+export const closedStatuses = ['Done', 'Cancelled']
 export const validPriorities = ['Low', 'Medium', 'High']
 export const validIssueTypes = ['Epic', 'Story', 'Bug', 'Task', 'Sub-task']
 

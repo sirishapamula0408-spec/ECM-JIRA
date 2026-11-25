@@ -9,6 +9,7 @@ export const ISSUE_STATUSES = [
   'In Testing',
   'In Rework',
   'In UAT',
+  'Release',
   'Done',
   'Cancelled',
 ]

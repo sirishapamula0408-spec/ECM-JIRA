@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { all, get, run } from '../db.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { requireRole, requireProjectRead, requireProjectWrite, resolveProjectAccess, ROLE_RANK } from '../middleware/authorize.js'
+import { transitionIssueStatus } from './issues.js'
+import { RELEASE_STATUS, canVerifyRelease, issueReleases, previousStatusBeforeRelease } from '../services/releaseVerification.js'
 import { runReleaseCheck, latestReleaseCheck, RELEASE_MONITOR_ROLE, RELEASE_ITEMS_FROM, CLOSED_STATUSES } from '../services/releaseCheck.js'
 
 const router = Router()
@@ -232,7 +234,11 @@ router.get('/releases/:id/progress', requireProjectRead(releaseIdProject), async
     percentComplete,
     byStatus,
     unresolvedIssues: unresolved,
-    ready: total > 0 && unresolved.length === 0,
+    // JL-489: work items in Release are tested and ready to ship; after the
+    // release they wait for the Release Monitor's Pass/Fail.
+    awaitingCount: unresolved.filter((i) => i.status === RELEASE_STATUS).length,
+    awaitingIssues: unresolved.filter((i) => i.status === RELEASE_STATUS),
+    ready: total > 0 && unresolved.every((i) => i.status === RELEASE_STATUS),
   })
 }))
 
@@ -337,5 +343,90 @@ router.put('/issues/:issueId/versions', requireProjectWrite(releaseIssueProject)
 
   res.json({ issueId, fix: groups.fix, affects: groups.affects })
 }))
+
+// --- JL-489: release verification ---------------------------------------
+// POST /api/issues/:issueId/release-verdict { verdict: 'pass'|'fail', reason?, moveToReleaseId? }
+// The Release Monitor's (or a project Lead/Admin's) Pass/Fail on one work item
+// in the Release status. Pass -> Done (only once its release is Released).
+// Fail -> the status it had before Release, with a required reason; optionally
+// re-targets its Fix Version at a later, unreleased release. Both leave a
+// comment, the normal status-change trail and notifications.
+const REASON_MAX = 2000
+
+async function commentAuthorFor(user) {
+  const m = user?.email ? await get('SELECT name FROM members WHERE LOWER(email) = LOWER(?) LIMIT 1', [user.email]) : null
+  return m?.name || user?.email || 'Release Monitor'
+}
+
+router.post('/issues/:issueId/release-verdict', requireProjectRead(releaseIssueProject), asyncHandler(async (req, res) => {
+  const issueId = Number(req.params.issueId)
+  const issue = Number.isInteger(issueId)
+    ? await get('SELECT id, issue_key, status, project_id, release_id FROM issues WHERE id = ?', [issueId])
+    : null
+  if (!issue) { res.status(404).json({ error: 'Issue not found' }); return }
+
+  const access = await resolveProjectAccess(req.user, issue.project_id)
+  if (!canVerifyRelease(access)) {
+    res.status(403).json({ error: 'Only the Release Monitor or a project Lead/Admin can verify a release' })
+    return
+  }
+  if (issue.status !== RELEASE_STATUS) {
+    res.status(409).json({ error: `Only a work item in ${RELEASE_STATUS} can be verified (this one is "${issue.status}")` })
+    return
+  }
+
+  const verdict = String(req.body?.verdict || '').toLowerCase()
+  if (!['pass', 'fail'].includes(verdict)) { res.status(400).json({ error: "verdict must be 'pass' or 'fail'" }); return }
+  const reason = String(req.body?.reason || '').trim()
+  if (verdict === 'fail' && !reason) { res.status(400).json({ error: 'Say why it failed' }); return }
+  if (reason.length > REASON_MAX) { res.status(400).json({ error: `The reason is too long (max ${REASON_MAX} characters)` }); return }
+
+  // Optional for a fail: move the Fix Version to a later, unreleased release.
+  let moveTo = null
+  if (verdict === 'fail' && req.body?.moveToReleaseId != null && req.body.moveToReleaseId !== '') {
+    const rid = Number(req.body.moveToReleaseId)
+    moveTo = Number.isInteger(rid) ? await get('SELECT id, name, project_id, status FROM releases WHERE id = ?', [rid]) : null
+    if (!moveTo || moveTo.project_id !== issue.project_id) { res.status(400).json({ error: 'Pick a release from this project' }); return }
+    if (moveTo.status === 'released') { res.status(400).json({ error: 'Pick a release that is not released yet' }); return }
+  }
+
+  const releasesBefore = await issueReleases(issue.id)
+  const target = verdict === 'pass' ? 'Done' : await previousStatusBeforeRelease(issue.id)
+  const result = await transitionIssueStatus({
+    id: issue.id, status: target, actor: req.user?.email, workspaceId: req.workspaceId,
+    user: req.user, releaseVerdict: true,
+  })
+  if (result.error) { res.status(result.httpStatus).json({ error: result.error, ...result.extra }); return }
+
+  if (moveTo) {
+    const shipped = releasesBefore.filter((r) => r.status === 'released').map((r) => r.id)
+    if (shipped.includes(issue.release_id)) {
+      await run('UPDATE issues SET release_id = ? WHERE id = ?', [moveTo.id, issue.id])
+    }
+    for (const rid of shipped) {
+      await run("DELETE FROM issue_versions WHERE issue_id = ? AND version_id = ? AND type = 'fix'", [issue.id, rid])
+    }
+    await run(
+      "INSERT INTO issue_versions (issue_id, version_id, type) VALUES (?, ?, 'fix') ON CONFLICT DO NOTHING RETURNING issue_id",
+      [issue.id, moveTo.id],
+    )
+  }
+
+  const names = releasesBefore.filter((r) => r.status === 'released').map((r) => r.name).join(', ') || 'the release'
+  const text = verdict === 'pass'
+    ? `Release verification: PASS. Verified in ${names}${reason ? `: ${reason}` : '.'}`
+    : `Release verification: FAILED in ${names}. ${reason}\nMoved back to ${target}${moveTo ? ` and re-planned for ${moveTo.name}` : ''}.`
+  await run('INSERT INTO comments (issue_id, author, text) VALUES (?, ?, ?)', [issue.id, await commentAuthorFor(req.user), text])
+
+  // Keep each released release's stored check current, without re-notifying.
+  for (const r of releasesBefore.filter((x) => x.status === 'released')) {
+    await runReleaseCheck(r.id, { actorEmail: req.user?.email || null, quiet: true }).catch((err) => {
+      console.error(`[releases] refreshing check for release ${r.id} failed: ${err.message}`)
+    })
+  }
+
+  res.json({ verdict, status: target, issueId: issue.id, movedToReleaseId: moveTo?.id ?? null })
+}))
+
 
 export default router

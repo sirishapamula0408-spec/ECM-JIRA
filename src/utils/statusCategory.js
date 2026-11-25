@@ -18,7 +18,8 @@
  */
 export function defaultCategoryForStatus(name) {
   if (name === 'Done') return 'done'
-  if (name === 'In Progress' || name === 'Code Review') return 'inprogress'
+  // JL-489: Release = shipped, waiting for the Release Monitor's verdict.
+  if (name === 'In Progress' || name === 'Code Review' || name === 'Release') return 'inprogress'
   return 'todo'
 }
 

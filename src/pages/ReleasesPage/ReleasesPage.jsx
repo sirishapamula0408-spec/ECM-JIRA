@@ -9,6 +9,7 @@ import {
 import { usePermissions } from '../../hooks/usePermissions'
 import { useConfirm } from '../../components/common/useConfirm'
 import { EmptyState } from '../../components/common/EmptyState'
+import { ReleaseVerdict } from '../../components/releases/ReleaseVerdict'
 import './ReleasesPage.css'
 import { usePageTitle } from '../../hooks/usePageTitle'
 
@@ -28,7 +29,7 @@ export function ReleasesPage() {
   // undefined = loading, null = never checked
   const [check, setCheck] = useState(undefined)
   const [checking, setChecking] = useState(false)
-  const { canCreateIssue, isAdmin, projectRole } = usePermissions(projectId)
+  const { canCreateIssue, isAdmin, projectRole, canVerifyRelease } = usePermissions(projectId)
   // JL-488: project Member+ or the read-only Release Monitor role may re-run a check.
   const canRunCheck = canCreateIssue || projectRole === 'Release Monitor'
   const { confirm, confirmDialog } = useConfirm()
@@ -177,7 +178,8 @@ export function ReleasesPage() {
                   <p className="rel-progress-text">
                     {progress.percentComplete}% complete · {progress.done}/{progress.total} done or cancelled ·
                     {' '}{progress.unresolvedCount} unresolved
-                    {progress.ready && <span className="rel-ready"> · Ready to release</span>}
+                    {progress.awaitingCount > 0 && <> · {progress.awaitingCount} in Release</>}
+                    {progress.ready && selected.status !== 'released' && <span className="rel-ready"> · Ready to release</span>}
                   </p>
                   {progress.unresolvedIssues?.length > 0 && (
                     <div className="rel-readiness">
@@ -207,7 +209,8 @@ export function ReleasesPage() {
                   {check && (
                     <>
                       <p className="rel-check-verdict">
-                        {check.ok ? 'Passed' : 'Failed'}: {check.passed} of {check.total} work items Done or Cancelled
+                        {check.ok ? (check.awaiting?.length ? 'Awaiting verification' : 'Passed') : 'Failed'}: {check.passed} of {check.total} work items Done or Cancelled
+                        {check.awaiting?.length > 0 && <>, {check.awaiting.length} to verify</>}
                         <span className="rel-meta"> · {new Date(check.checkedAt).toLocaleString()}</span>
                       </p>
                       {check.failed.length > 0 && (
@@ -219,6 +222,24 @@ export function ReleasesPage() {
                       )}
                     </>
                   )}
+                </section>
+              )}
+
+              {/* JL-489: the work items waiting for the Release Monitor's Pass/Fail */}
+              {selected.status === 'released' && progress?.awaitingIssues?.length > 0 && (
+                <section className="rel-verify" aria-label="To verify">
+                  <h3 className="rel-section-title">To verify ({progress.awaitingIssues.length})</h3>
+                  <ul>
+                    {progress.awaitingIssues.map((i) => (
+                      <li key={i.id} className="rel-verify-row">
+                        <span><strong>{i.issue_key}</strong> {i.title}</span>
+                        {canVerifyRelease && (
+                          <ReleaseVerdict compact issue={{ id: i.id, key: i.issue_key }} releases={releases}
+                            onDone={() => { openRelease(selected); reload() }} />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </section>
               )}
 

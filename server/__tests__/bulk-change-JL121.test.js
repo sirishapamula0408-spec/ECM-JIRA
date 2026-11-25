@@ -122,7 +122,8 @@ describe('JL-121 — POST /api/issues/bulk', () => {
     // ids 1 & 2 exist; 99 is requested but not returned by the SELECT
     all.mockResolvedValueOnce([row({ id: 1, status: 'To Do' }), row({ id: 2, issue_key: 'PROJ-2', status: 'To Do' })])
     all.mockResolvedValue([]) // no open sub-tasks
-    get.mockImplementation(async (_sql, params) => row({ id: params?.[0], sprint_id: 3 }))
+    // JL-489: no Release Monitor on the project, so Done needs no Release step.
+    get.mockImplementation(async (sql, params) => (sql.includes('FROM project_members pm') ? undefined : row({ id: params?.[0], sprint_id: 3 })))
     run.mockResolvedValue({ lastID: 1, changes: 1 })
 
     const res = await request(app)

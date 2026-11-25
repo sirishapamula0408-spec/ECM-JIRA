@@ -39,3 +39,6 @@
 .rel-check-verdict { margin: 4px 0; font-weight: var(--font-weight-semibold); }
 .rel-check ul { margin: 4px 0 4px; padding-left: 18px; }
 .rel-check li { margin: 2px 0; font-size: var(--font-size-base); }
+/* JL-489: work items in Release, waiting for Pass/Fail */
+.rel-verify ul { margin: 4px 0 12px; padding: 0; list-style: none; }
+.rel-verify-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--color-border-subtle, #ebecf0); font-size: var(--font-size-base); }

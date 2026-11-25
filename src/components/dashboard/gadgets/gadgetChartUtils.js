@@ -60,6 +60,7 @@ export const STATUS_COLORS = {
   'In Testing': '#00B8D9',   // T300 — teal
   'In Rework': '#FFC400',    // Y300 — yellow, went backwards
   'In UAT': '#E774BB',       // M300 — magenta
+  'Release': '#006644',      // G500 — dark green, shipped and awaiting verification (JL-489)
   'Done': '#36B37E',         // G300 — green
   'Cancelled': '#DE350B',    // R400 — red, terminal but not a success
 }

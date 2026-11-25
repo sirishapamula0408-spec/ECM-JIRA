@@ -36,6 +36,11 @@ export const setIssueVersions = (issueId, { fix, affects }) =>
     body: JSON.stringify({ fix, affects }),
   })
 
+// JL-489: the Release Monitor's Pass / Fail on a work item in Release.
+// body: { verdict: 'pass' | 'fail', reason?, moveToReleaseId? }
+export const submitReleaseVerdict = (issueId, body) =>
+  api(`/api/issues/${issueId}/release-verdict`, { method: 'POST', body: JSON.stringify(body) })
+
 // Progress / readiness / release notes
 export const fetchReleaseProgress = (releaseId) =>
   api(`/api/releases/${releaseId}/progress`)
